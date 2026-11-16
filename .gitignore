@@ -1,0 +1,57 @@
+# Build directories
+build/
+build-host/
+dist/
+*.o
+*.a
+*.so
+*.elf
+*.bin
+*.map
+
+# ESP-IDF
+sdkconfig
+sdkconfig.old
+dependencies.lock
+managed_components/
+
+# IDE
+.vscode/
+.clangd
+# the index of clangd, made by the IDE while it runs
+.cache/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Backup files
+*.old
+*.bak
+*.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.directory
+
+# assistants: instructions, plans and settings stay out of the repository
+/PLAN*
+/CLAUDE.md
+/CLAUDE.local.md
+/AGENTS.md
+/GEMINI.md
+.claude/
+.cursor/
+.github/copilot-instructions.md
