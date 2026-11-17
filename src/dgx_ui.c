@@ -661,10 +661,11 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         } else if (w->kind == DGX_UI_SLIDER) {
             point_to_value(ui, i, p->x - n->x, p->y - n->y); /* the knob follows */
         } else if (w->kind == DGX_UI_LIST) {
-            /* swiped up or down: a row along for each row's height the pointer went (up: on down the list) */
-            const int rh = row_height(n);
-            if (rh > 0 && 2 * ay >= rh) ui->dragged = true;
-            if (rh > 0 && ui->dragged) user_value(ui, i, ui->press_value + (dy <= 0 ? (-dy + rh / 2) / rh : -((dy + rh / 2) / rh)));
+            /* the row under the finger picked, as a slider's knob follows it (the rows stand, the bar moves); between
+               two rows the pick stays; once it left the row it went down on, it is dragged: let go, no click */
+            const int ly = p->y - n->y;
+            if (!between_rows(n, ly)) point_to_value(ui, i, p->x - n->x, ly);
+            if (live(ui, i) && n->state_value.value != ui->press_value) ui->dragged = true;
         }
         if (!live(ui, i)) ui->pressed = -1; /* on(CHANGED) removed it */
         return true;                        /* pressed till it goes up, wherever it goes */

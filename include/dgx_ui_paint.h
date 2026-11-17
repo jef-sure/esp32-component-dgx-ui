@@ -143,17 +143,41 @@ typedef struct dgx_ui_input_look_t {
 } dgx_ui_input_look_t;
 
 /**
+ * Parameters of a list: its rows the lines of its text box, one picked (its value) on a bar.
+ */
+typedef struct dgx_ui_list_look_t {
+    uint8_t ink, paper;     ///< a row's text and paper; paper DGX_UI_PAPER: what lies under the widget
+    uint8_t pick, pick_ink; ///< the bar of the row picked and its text
+    uint8_t focused;        ///< the bar while the list has the focus
+    uint8_t disabled;       ///< the text of every row while the list is disabled
+} dgx_ui_list_look_t;
+
+/** Parameters of a dropdown: a flat face with the option chosen and an arrow pointing down. */
+typedef struct dgx_ui_dropdown_look_t {
+    uint8_t face, pressed, focused, disabled; ///< the face in each state
+    uint8_t text, text_disabled;              ///< the option chosen
+    uint8_t arrow;                            ///< the arrow; when disabled, text_disabled
+} dgx_ui_dropdown_look_t;
+
+/**
  * The looks of the controls and pictures, of the colours 0 the paper, 1 the ink, 2 a fill, 3 a border:
  * - dgx_ui_look_button: BUTTON and DROPDOWN; its text from the widget's text box;
  * - dgx_ui_look_input: INPUT, its text in one line and, focused, a caret after it;
  * - dgx_ui_look_switch, dgx_ui_look_slider;
+ * - dgx_ui_look_list: LIST, its rows the lines of its text box ("Apple\nBanana\nCherry"): row r the line r, its
+ *   value min + r; the rows share the height of the box, each line in the middle of its row, the row picked on a bar
+ *   of colour 3, its text of colour 0; while the list has the focus the bar is of colour 1, so a list in a frame (its
+ *   fill colour 2) shows its pick either way;
+ * - dgx_ui_look_dropdown: DROPDOWN, its options the lines of its text box as a list's, the one chosen (value - min)
+ *   on a flat face with an arrow pointing down;
  * - dgx_ui_look_picture: PICTURE and ICON of a dgx_image_t of 1 bit (4 and 8 bits: through the buffer, not yet),
  *   in the middle of the box, the rest of it paper; an ICON of a value outside min..max shows none;
  * - dgx_ui_look_rgb565: PICTURE and ICON of RGB565, by a virtual screen over its pixels kept by the paint
  *   (dgx_ui_paint_free() gives it back): it needs CONFIG_DGX_ENABLE_VSCREEN and a 16-bit screen; on another the box
  *   is paper.
  */
-extern const dgx_ui_look_t dgx_ui_look_button, dgx_ui_look_input, dgx_ui_look_switch, dgx_ui_look_slider, dgx_ui_look_picture, dgx_ui_look_rgb565;
+extern const dgx_ui_look_t dgx_ui_look_button, dgx_ui_look_input, dgx_ui_look_switch, dgx_ui_look_slider, dgx_ui_look_list,
+    dgx_ui_look_dropdown, dgx_ui_look_picture, dgx_ui_look_rgb565;
 
 /**
  * A look of a text of several lines, named by a widget that wants it (.look = &dgx_ui_look_lines): the text laid
@@ -176,6 +200,8 @@ bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 bool dgx_ui_draw_input(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_switch(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_slider(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 

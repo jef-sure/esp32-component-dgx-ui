@@ -1,5 +1,22 @@
 # Changes
 
+## 0.0.4 - 2026-11-18
+
+- The look of a list, `dgx_ui_look_list`: its rows the lines of its text box, row r the line r and its value min + r,
+  the rows sharing the height of the box, the row picked on a bar (colour 3), of colour 1 while the list has the focus,
+  its rows of colour 2 while it is disabled. Another pick redraws the row picked before and the row picked now, and
+  nothing else.
+- A finger moved along a list picks the row under it, as a slider's knob follows the finger: the rows stand and the
+  bar goes with the finger. Gone from the row it went down on, it is dragged: let go, no click. Before, a list moved
+  as a page under the finger, the pick going the other way.
+- The look of a dropdown, `dgx_ui_look_dropdown`: the option chosen (the line value - min of its text box) on a flat
+  face of the colour of its state, and an arrow pointing down.
+- A dropdown's list, `dgx_ui_dropdown_open()` (`dgx_ui_dropdown.h`), called on its DGX_UI_ACTIVATED: a popup under
+  the dropdown, above it, or moved up to fit the screen, its rows as high as the dropdown; modal and closed by a finger
+  outside. The row chosen sets the dropdown's value and tells it DGX_UI_CHANGED; the option it had, chosen again, tells
+  nothing. One `dgx_ui_dropdown_t` serves every dropdown of a program.
+- The example controls has a dropdown of modes beside its switch, and its script chooses one.
+
 ## 0.0.3 - 2026-11-17
 
 - The look of a field (`dgx_ui_look_input`) sets its text in the middle of the field when the style says

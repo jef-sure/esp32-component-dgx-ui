@@ -232,9 +232,9 @@ No table of lines is kept: the text is laid again when it is drawn.
 ## Input
 
 **The pointer.** The program gives `dgx_ui_pointer()` where the finger is and whether it went down or up. The deepest
-widget under the finger that answers a pointer is pressed at once and takes the focus. A slider follows the finger; a
-list moves by rows; a button, a switch, a row of a list and a dropdown are clicked when the finger is let go within
-`DGX_UI_CLICK_MS` and was not swiped. A disabled or hidden widget is not hit.
+widget under the finger that answers a pointer is pressed at once and takes the focus. A slider follows the finger,
+and so does the pick of a list; a button, a switch, a row of a list and a dropdown are clicked when the finger is let
+go within `DGX_UI_CLICK_MS` and was not swiped. A disabled or hidden widget is not hit.
 
 **Keys.** `dgx_ui_key()` takes the keys of a dialog: next and previous move the focus (in a list, the rows first),
 activate presses the focused one, more and less move a slider or a switch. Back is never taken: it is the program's.
@@ -258,7 +258,7 @@ outside it. Messages go to every tree.
 A popup is a tree, so it may have a popup of its own: a list of choices opened from a dialog, a question asked over
 it. Up to `DGX_UI_POPUP_DEPTH`, 8, popups stand one over another. An upper one may hang out of the one under it; each
 tree is drawn around every popup over it. The finger and the keys go to the top one first. Closing a popup closes
-every popup over it.
+every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_dropdown_open()`.
 
 ## Memory and weight
 

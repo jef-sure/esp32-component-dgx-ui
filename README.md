@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.3: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.4: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.3"
+    version: "0.0.4"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -83,15 +83,14 @@ It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from
 | ---- | ------------- |
 | [Getting started](docs/en/getting-started.md) | adding the component, the first program piece by piece, building for a chip and for the computer |
 | [How it works](docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
-| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, an icon, texts of several lines, a popup, keys, touch, a look of your own |
+| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a popup, keys, touch, a field and a keyboard, a look of your own |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
 
-Examples, each for a CYD board and for a window on the computer:
-[thin_paint](examples/thin_paint/main/thin_paint.c), a value sent by a task and a clock;
-[controls](examples/controls/main/controls.c), a button with a popup, a switch, a slider and two fields, a code
-and a PIN shown as stars, each edited in a strip over a keypad of DGX-DI; worked by a finger and by the keys, on a
-board taken from [boards](https://github.com/jef-sure/esp32-component-boards). The list of changes is in
-[CHANGES.md](CHANGES.md).
+Examples, each for a CYD board and for a window on the computer: [thin_paint](examples/thin_paint/main/thin_paint.c),
+a value sent by a task and a clock; [controls](examples/controls/main/controls.c), a button with a popup, a switch, a
+dropdown, a slider and two fields, a code and a PIN shown as stars, each edited in a strip over a keypad of DGX-DI;
+worked by a finger and by the keys, on a board taken from
+[boards](https://github.com/jef-sure/esp32-component-boards). The list of changes is in [CHANGES.md](CHANGES.md).
 
 ## What is in it
 
@@ -107,8 +106,9 @@ board taken from [boards](https://github.com/jef-sure/esp32-component-boards). T
   drawn again writes every pixel of its field once, so it does not blink on a display behind a bus.
 - **Texts**: one line, or several laid word by word; the font picked from a list so that the text goes in; a text
   too long cut with an ellipsis or scrolled; letters that appear one by one.
-- **Controls**: a button with a shadow and a pressed face, a switch, a slider, a field typed into, pictures and icons
-  of 1 bit and of RGB565. A control names its look, so a program carries only the looks it uses.
+- **Controls**: a button with a shadow and a pressed face, a switch, a slider, a list, a dropdown with its list, a
+  field typed into, pictures and icons of 1 bit and of RGB565. A control names its look, so a program carries only
+  the looks it uses.
 - **Popups** over the tree, one over another: modal, or closed by a finger outside.
 - **Input**: a pointer, the keys of a dialog, the buttons of a game pad with a repeat of a held one, code points
   typed; the touch of [DGX-DI](https://github.com/jef-sure/esp32-component-dgx-di) through a header, if the program
@@ -118,7 +118,7 @@ board taken from [boards](https://github.com/jef-sure/esp32-component-boards). T
 
 ## Not there yet
 
-- the look of a list, and the list of a dropdown;
+- a list that scrolls;
 - pictures of 4 and 8 bits, text over a picture as the background, and displays of 18 and 24 bits behind a bus without
   a blink: all three wait for the painter's buffer;
 - a canvas of a widget, and handwritten text;

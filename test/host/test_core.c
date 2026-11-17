@@ -280,6 +280,24 @@ static void test_pointer(void)
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 75, .down = true, .pressed = true, .ms = 100});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 75, .released = true, .ms = 600});
     CHECK(dgx_ui_node(&pui, li)->state_value.value == 1 && told_of(li, DGX_UI_ACTIVATED) == 1);
+    /* the finger moved along the list: the row under it picked, as the bar follows it, a change told for each row;
+       past the last row, the last; let go, no click */
+    const int changed_before = told_of(li, DGX_UI_CHANGED);
+    dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 65, .down = true, .pressed = true, .ms = 1000});
+    CHECK(dgx_ui_node(&pui, li)->state_value.value == 0);
+    dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 75, .down = true, .ms = 1010});
+    dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 85, .down = true, .ms = 1020});
+    CHECK(dgx_ui_node(&pui, li)->state_value.value == 2 && told_of(li, DGX_UI_CHANGED) == changed_before + 3);
+    dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 140, .down = true, .ms = 1030});
+    CHECK(dgx_ui_node(&pui, li)->state_value.value == 3);
+    dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 140, .released = true, .ms = 1040});
+    CHECK(told_of(li, DGX_UI_ACTIVATED) == 1);
+    /* back to the row it went down on: still dragged, no click */
+    dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 65, .down = true, .pressed = true, .ms = 2000});
+    dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 75, .down = true, .ms = 2010});
+    dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 65, .down = true, .ms = 2020});
+    dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 65, .released = true, .ms = 2030});
+    CHECK(dgx_ui_node(&pui, li)->state_value.value == 0 && told_of(li, DGX_UI_ACTIVATED) == 1);
     /* the disabled and the hidden from the start are not hit; the program's own changes tell nothing */
     CHECK(dgx_ui_hit(&pui, 5, 105) == -1 && dgx_ui_hit(&pui, 5, 125) == -1);
     CHECK(!dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 105, .down = true, .pressed = true}));

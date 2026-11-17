@@ -13,4 +13,10 @@ run-cookbook:
 		-I$(DGX_DI)/include -I$(BUILD)/docs -o $(BUILD)/run_cookbook ../docs/run_cookbook.c $(PAINT) $(DGX_SRCS) -lm
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/run_cookbook $(OUT)
 
-.PHONY: run-cookbook
+# The pictures of docs/images but the ring's and the strip's, as PPM in $(OUT): make ... pictures OUT=<directory>
+pictures:
+	mkdir -p $(BUILD) $(OUT)
+	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $(BUILD)/pictures ../docs/pictures.c $(PAINT) $(DGX_SRCS) -lm
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/pictures $(OUT)
+
+.PHONY: run-cookbook pictures

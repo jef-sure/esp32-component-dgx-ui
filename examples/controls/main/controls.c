@@ -1,6 +1,6 @@
 /*
  * controls: the controls of dgx-ui worked by a finger and by the keys. A button opens a popup that asks "Really?", a
- * switch turns, a slider moves, two fields take digits, a code and a PIN shown as stars; a line at the bottom tells
+ * switch turns, a dropdown opens its list of modes, a slider moves, two fields take digits, a code and a PIN shown as stars; a line at the bottom tells
  * what the user did last. A field clicked (DGX_UI_EDIT; Enter on it too) is edited in a strip at the top of the
  * display, a keypad of DGX-DI under it: the strip holds a copy of the field's text, given to the field on done and dropped on cancel, so a field left
  * by cancel (the keypad's, or BACK) keeps what it had. The task that owns the display sleeps on
@@ -19,12 +19,14 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "dgx_di.h"
 #include "dgx_di_keyboard.h"
 #include "dgx_ui_di.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_post.h"
+#include "dgx_ui_dropdown.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_ticker.h"
 #include "esp_timer.h"
@@ -72,12 +74,13 @@ static dgx_ui_font_variant_t variant[1];
 static dgx_ui_text_style_t   left, middle;
 
 /* the texts, each in a box of its own */
-enum { T_TITLE, T_POPUP, T_STATE, T_SLIDER, T_CODE_LABEL, T_CODE, T_PIN_LABEL, T_PIN, T_STATUS, T_ASK, T_YES, T_NO, T_EDIT, TEXTS };
+enum { T_TITLE, T_POPUP, T_MODE, T_SLIDER, T_CODE_LABEL, T_CODE, T_PIN_LABEL, T_PIN, T_STATUS, T_ASK, T_YES, T_NO, T_EDIT, TEXTS };
 static char             text_buf[TEXTS][40];
 static dgx_ui_textbox_t text_box[TEXTS];
 
 static void on_popup_button(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 static void on_switch(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
+static void on_mode(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 static void on_slider(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 static void on_field(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 static void on_strip(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
@@ -89,7 +92,9 @@ static const dgx_ui_widget_t title_w  = {.kind = DGX_UI_LABEL, .text = &text_box
 static const dgx_ui_widget_t row_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 10, .want_h = 28};
 static const dgx_ui_widget_t popup_w  = {.kind = DGX_UI_BUTTON, .text = &text_box[T_POPUP], .want_w = 90, .flags = DGX_UI_STRETCH, .look = &dgx_ui_look_button, .on = on_popup_button};
 static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 44, .want_h = 20, .at_y = 4, .look = &dgx_ui_look_switch, .on = on_switch};
-static const dgx_ui_widget_t state_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_STATE], .flags = DGX_UI_REST | DGX_UI_STRETCH};
+/* a dropdown of four modes: its options the lines of its text box, its list opened by dgx_ui_dropdown_open() */
+static const dgx_ui_widget_t mode_w = {.kind = DGX_UI_DROPDOWN, .text = &text_box[T_MODE], .min = 0, .max = 3, .flags = DGX_UI_REST | DGX_UI_STRETCH,
+                                       .look = &dgx_ui_look_dropdown, .on = on_mode};
 static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .step = 1, .want_h = 22, .look = &dgx_ui_look_slider, .on = on_slider};
 static const dgx_ui_widget_t value_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_SLIDER]};
 /* the fields, each on a paper of its own so that it shows empty: looks of the program's colours, constants in flash;
@@ -120,7 +125,8 @@ static const dgx_ui_widget_t no_w  = {.kind = DGX_UI_BUTTON, .text = &text_box[T
 
 static dgx_ui_node_t      nodes[20], pop_nodes[6], strip_nodes[2];
 static dgx_ui_t           ui, pop, strip;
-static int                status, value, state, editing = -1; /* editing: the field the strip edits, -1 none */
+static int                status, value, editing = -1; /* editing: the field the strip edits, -1 none */
+static dgx_ui_dropdown_t  dropdown; /* the popup of a dropdown's list: one for all the dropdowns */
 static dgx_screen_t      *scr;
 static int                mm_w, mm_h; /* the glass in millimetres: the keyboard's keys and the gestures are sized by it */
 static dgx_ui_paint_t     paint;
@@ -145,8 +151,17 @@ static void on_answer(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, v
 static void on_switch(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what != DGX_UI_CHANGED) return;
-    dgx_ui_text_set(t, state, node->state_value.value ? "on" : "off"); /* the label beside it */
     dgx_ui_text_printf(t, status, "the switch turned %s", node->state_value.value ? "on" : "off");
+}
+
+/* the dropdown: clicked, its list opened; an option chosen, told by CHANGED */
+static void on_mode(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) dgx_ui_dropdown_open(t, i, &dropdown, NULL, NULL);
+    if (what == DGX_UI_CHANGED) {
+        static const char *const modes[] = {"Auto", "Heat", "Cool", "Off"};
+        dgx_ui_text_printf(t, status, "the mode: %s", modes[node->state_value.value & 3]);
+    }
 }
 
 static void on_slider(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
@@ -279,7 +294,7 @@ void app_main(void)
     const int row   = dgx_ui_add(&ui, 0, &row_w);
     const int pb    = dgx_ui_add(&ui, row, &popup_w);
     dgx_ui_add(&ui, row, &switch_w);
-    state           = dgx_ui_add(&ui, row, &state_w);
+    dgx_ui_add(&ui, row, &mode_w);
     dgx_ui_add(&ui, 0, &slider_w);
     value              = dgx_ui_add(&ui, 0, &value_w);
     const int code_row = dgx_ui_add(&ui, 0, &field_row);
@@ -291,7 +306,7 @@ void app_main(void)
     status = dgx_ui_add(&ui, 0, &status_w);
     dgx_ui_text_set(&ui, title, "dgx-ui: controls");
     dgx_ui_text_set(&ui, pb, "Popup...");
-    dgx_ui_text_set(&ui, state, "off");
+    strcpy(text_buf[T_MODE], "Auto\nHeat\nCool\nOff"); /* the options, set once: not through text_set, nothing to mark */
     dgx_ui_text_set(&ui, value, "0 %");
     dgx_ui_text_set(&ui, code_l, "Code");
     dgx_ui_text_set(&ui, pin_l, "PIN");

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "dgx_draw.h"
+#include "dgx_ui_dropdown.h"
 #include "dgx_ui_msg.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_text.h"
@@ -256,6 +257,52 @@ static void scene_lines(dgx_screen_t *scr, const char *out)
     shot(scr, out);
 }
 
+/* ---------------------------------------------------------------- scene 4: a list, and a dropdown with its list open */
+static char              mode_buf[32], fan_buf[32], mode_l_buf[8], fan_l_buf[8];
+static dgx_ui_textbox_t  mode_box, fan_box, mode_l_box, fan_l_box;
+static dgx_ui_dropdown_t fan_list;
+static const dgx_ui_widget_t pick_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 8, .gap = 12};
+static const dgx_ui_widget_t pick_col_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .gap = 3, .want_w = 66};
+static const dgx_ui_widget_t mode_l_w    = {.kind = DGX_UI_LABEL, .text = &mode_l_box};
+static const dgx_ui_widget_t fan_l_w     = {.kind = DGX_UI_LABEL, .text = &fan_l_box};
+static const dgx_ui_widget_t mode_w = {.kind = DGX_UI_LIST, .text = &mode_box, .min = 0, .max = 3, .want_h = 56, .look = &dgx_ui_look_list};
+static const dgx_ui_widget_t fan_w  = {.kind = DGX_UI_DROPDOWN, .text = &fan_box, .min = 0, .max = 2, .want_h = 16, .look = &dgx_ui_look_dropdown};
+
+static void scene_pick(dgx_screen_t *scr, const char *out_list, const char *out_dropdown)
+{
+    static dgx_ui_node_t nodes[8];
+    static dgx_ui_t      ui;
+    /* the colours of the looks' defaults: 0 the paper, 1 the ink, 2 a fill, 3 a border */
+    const uint32_t four[4] = {colors[PAPER], colors[INK], colors[FILL], colors[BORDER]};
+    dgx_ui_textbox_init(&mode_box, mode_buf, sizeof mode_buf, 1, &st_left);
+    dgx_ui_textbox_init(&fan_box, fan_buf, sizeof fan_buf, 1, &st_left);
+    dgx_ui_textbox_init(&mode_l_box, mode_l_buf, sizeof mode_l_buf, 1, &st_left);
+    dgx_ui_textbox_init(&fan_l_box, fan_l_buf, sizeof fan_l_buf, 1, &st_left);
+    dgx_ui_init(&ui, nodes, 8, 2);
+    const int root = dgx_ui_add(&ui, -1, &pick_root_w);
+    const int left = dgx_ui_add(&ui, root, &pick_col_w), right = dgx_ui_add(&ui, root, &pick_col_w);
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, left, &mode_l_w), "Mode");
+    const int mode = dgx_ui_add(&ui, left, &mode_w);
+    dgx_ui_text_set(&ui, mode, "Auto\nHeat\nCool\nOff");
+    dgx_ui_set_value(&ui, mode, 1);
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, right, &fan_l_w), "Fan");
+    const int fan = dgx_ui_add(&ui, right, &fan_w);
+    dgx_ui_text_set(&ui, fan, "Low\nMedium\nHigh");
+    dgx_ui_paint_t paint = {.scr = scr, .colors = four, .color_count = 4, .background = 0};
+    dgx_ui_paint(&ui, &paint, 0);
+    shot(scr, out_list);
+    /* the dropdown clicked: its list under it, the pick moved by a key to the second option */
+    const bool opened = dgx_ui_dropdown_open(&ui, fan, &fan_list, NULL, NULL);
+    dgx_ui_key(&ui, DGX_UI_KEY_NEXT);
+    dgx_ui_paint(&ui, &paint, 0);
+    shot(scr, out_dropdown);
+    const dgx_ui_node_t *fn = dgx_ui_node(&ui, fan);
+    printf("pick: the dropdown at %d,%d %dx%d; its list opened %d at %d,%d %dx%d\n", fn->x, fn->y, fn->w, fn->h, opened, fan_list.tree.root_rect.x,
+           fan_list.tree.root_rect.y, fan_list.tree.root_rect.w, fan_list.tree.root_rect.h);
+    dgx_ui_popup_close(&ui);
+    dgx_ui_paint_free(&paint);
+}
+
 int main(int argc, char **argv)
 {
     const char   *dir = argc > 1 ? argv[1] : ".";
@@ -267,6 +314,8 @@ int main(int argc, char **argv)
     snprintf(a, sizeof a, "%s/settings.ppm", dir), snprintf(b, sizeof b, "%s/popup.ppm", dir), scene_settings(scr, a, b);
     dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
     snprintf(a, sizeof a, "%s/lines.ppm", dir), scene_lines(scr, a);
+    dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
+    snprintf(a, sizeof a, "%s/list.ppm", dir), snprintf(b, sizeof b, "%s/dropdown.ppm", dir), scene_pick(scr, a, b);
     printf("sizes on this machine: widget %zu, node %zu, msg %zu, saved %d\n", sizeof(dgx_ui_widget_t), sizeof(dgx_ui_node_t), sizeof(dgx_ui_msg_t), saved);
     return 0;
 }

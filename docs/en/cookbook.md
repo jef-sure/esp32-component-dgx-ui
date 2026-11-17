@@ -12,6 +12,8 @@ in: the display, the queue and the loop of the task that owns the tree.
 - [A clock, or anything once in a while](#a-clock-or-anything-once-in-a-while)
 - [A button](#a-button)
 - [A slider and a switch](#a-slider-and-a-switch)
+- [A list](#a-list)
+- [A dropdown](#a-dropdown)
 - [An icon that shows a state](#an-icon-that-shows-a-state)
 - [A picture from flash](#a-picture-from-flash)
 - [A text of several lines](#a-text-of-several-lines)
@@ -237,6 +239,118 @@ static void backlight_show(dgx_ui_t *ui, int slider, int percent)
 - With the flag `DGX_UI_SWIPE` a slider moves by the way the finger goes from where it went down, not to where the
   finger is: a wide strip that is easy to hit.
 - With the keys, more and less move a slider by its step and set a switch.
+
+## A list
+
+![A list of four rows, the second picked, and a dropdown beside it](../images/list.png)
+
+A list is a `DGX_UI_LIST` with the look `dgx_ui_look_list`. Its rows are the lines of its text, and one of them is
+picked: the value of the list.
+
+```c
+void mode_set(int mode);
+
+static char             mode_buf[32];
+static dgx_ui_textbox_t mode_box;
+
+static void mode_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) mode_set(node->state_value.value); /* a row clicked, or activated by a key */
+}
+
+/* four rows of 14 points each: the rows share the height of the list */
+static const dgx_ui_widget_t mode_w = {
+    .kind = DGX_UI_LIST, .text = &mode_box, .min = 0, .max = 3, .want_h = 56, .look = &dgx_ui_look_list, .on = mode_on};
+
+static int mode_add(dgx_ui_t *ui, int parent)
+{
+    dgx_ui_textbox_init(&mode_box, mode_buf, sizeof mode_buf, 1, &st_left);
+    const int list = dgx_ui_add(ui, parent, &mode_w);
+    dgx_ui_text_set(ui, list, "Auto\nHeat\nCool\nOff"); /* a row for each line */
+    return list;
+}
+```
+
+- **The rows** are the lines of the text, parted by `\n`. The first line is the value `min`, the next `min + 1`, up
+  to `max`; a row past the last line is empty.
+- **The height** of the list is shared by its rows: here 56 points for four rows of 14. The list does not scroll,
+  all its rows are in its box.
+- **The finger.** Going down on a row picks it, and `on()` is told `DGX_UI_CHANGED`. Moved along the list, it takes
+  the pick with it: the row under the finger is the one picked. Let go soon, on the row it went down on, it is a
+  click: `DGX_UI_ACTIVATED`. Once it has left that row, letting go is no click. The top and the bottom twelfth of
+  a row belong to no row, and a finger there picks nothing.
+- **The keys.** Next and previous move the pick through the rows first, `DGX_UI_CHANGED` at each, and from the last
+  row the focus goes on to the next widget. The key that activates tells `DGX_UI_ACTIVATED`.
+- **The picked row** lies on a bar, of another colour while the list has the focus. When the pick moves, two rows
+  of the display are written: the one it left and the one it came to.
+- **Colours of your own** are a `dgx_ui_list_look_t` in a look drawn by `dgx_ui_draw_list`, as in
+  [Colours of your own](#colours-of-your-own-and-a-night-mode).
+
+## A dropdown
+
+![The dropdown clicked: its list under it, the second option picked by a key](../images/dropdown.png)
+
+A dropdown is a `DGX_UI_DROPDOWN` with the look `dgx_ui_look_dropdown`: a button that shows the option chosen. Its
+options are the lines of its text, as the rows of a list, and its value is the option chosen. The list itself is a
+popup, which the program opens with one call when the dropdown is clicked.
+
+Take a fan with the speeds Low, Medium and High, at Low now:
+
+1. The dropdown shows "Low"; its value is 0. The user clicks it. Its `on()` is told `DGX_UI_ACTIVATED` and calls
+   `dgx_ui_dropdown_open()`: the list opens under the dropdown, three rows as high as the dropdown, "Low" on the
+   bar.
+2. The user taps "High". The value of the dropdown becomes 2, its `on()` is told `DGX_UI_CHANGED`, the list closes
+   and the dropdown shows "High".
+3. Had the user tapped outside the list, it would have closed with the value still 0 and `on()` told nothing. The
+   same for a tap on "Low", the option it had.
+
+```c
+#include "dgx_ui_dropdown.h"
+
+void fan_set(int speed);
+
+static char              fan_buf[32];
+static dgx_ui_textbox_t  fan_box;
+static dgx_ui_dropdown_t fan_list; /* the popup of the list: one serves every dropdown of the program */
+
+static void fan_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) dgx_ui_dropdown_open(ui, i, &fan_list, NULL, NULL); /* clicked: its list opens */
+    if (what == DGX_UI_CHANGED) fan_set(node->state_value.value);                     /* the user chose an option */
+}
+
+static const dgx_ui_widget_t fan_w = {
+    .kind = DGX_UI_DROPDOWN, .text = &fan_box, .min = 0, .max = 2, .want_h = 16, .look = &dgx_ui_look_dropdown, .on = fan_on};
+
+static int fan_add(dgx_ui_t *ui, int parent)
+{
+    dgx_ui_textbox_init(&fan_box, fan_buf, sizeof fan_buf, 1, &st_left);
+    const int fan = dgx_ui_add(ui, parent, &fan_w);
+    dgx_ui_text_set(ui, fan, "Low\nMedium\nHigh"); /* an option for each line */
+    return fan;
+}
+```
+
+- **Where the list stands.** Under the dropdown and as wide as it; above it when the screen has no room below;
+  else moved up so that it fits the screen, lying over the dropdown.
+- **The rows** are as high as the dropdown, and never lower than a line of the text: a dropdown sized for a finger
+  has rows a finger hits. The list does not scroll: as many options fit as rows of that height go into the height
+  of the screen, and more options than that share the height of the screen.
+- **The keys.** The key that activates, on the dropdown, tells `DGX_UI_ACTIVATED` as a click does. In the list,
+  next and previous move the pick and the key that activates chooses. The list is modal, so the keys stay in it;
+  "back" is the program's, which closes the list by `dgx_ui_popup_close(ui)`, the value kept.
+- **A finger moved along the list** takes the bar with it and, let go, chooses nothing: the list stays open, and a
+  tap chooses.
+- **`dgx_ui_dropdown_t`** is the popup of the list, 264 bytes of the program's RAM on a 32-bit chip, zeroed before
+  its first use as a `static` is. One list is open at a time, so one serves every dropdown.
+- **The looks** of the popup are the last two arguments, its frame and its list; `NULL` is the library's.
+- **The tree knows its screen before the first list opens**: the list is placed on the screen the tree was laid
+  for. The painter tells it at the first pass, or the program by `dgx_ui_screen()`; before that
+  `dgx_ui_dropdown_open()` returns `false` and opens nothing.
+- **While the list is open** the program does not change the options and does not remove the dropdown: it closes
+  the list first.
+- A program that wants another list, a whole screen of choices, opens a popup of its own on `DGX_UI_ACTIVATED`
+  instead.
 
 ## An icon that shows a state
 

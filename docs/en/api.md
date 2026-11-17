@@ -15,7 +15,7 @@ Every public type, function and constant, by header. How they work together is t
 | [`dgx_ui_paint.h`](#dgx_ui_painth) | the painter, the looks and their parameters |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.3: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.4: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -111,12 +111,12 @@ of every member.
 | `DGX_UI_LABEL` | a text |
 | `DGX_UI_PICTURE` | one picture |
 | `DGX_UI_ICON` | a picture picked by the value from an array; outside `min..max`, none |
-| `DGX_UI_LIST` | rows, one picked: the value, `min` the first row. It has no look yet |
+| `DGX_UI_LIST` | rows, one picked: the value, `min` the first row. Its look is `dgx_ui_look_list` |
 | `DGX_UI_SWITCH` | value 0 or 1 |
 | `DGX_UI_SLIDER` | value `min..max` by `step` |
 | `DGX_UI_BUTTON` | clicked: activated |
 | `DGX_UI_INPUT` | a field typed into |
-| `DGX_UI_DROPDOWN` | a button that shows the value picked. Its list is not made yet: the program opens a popup of its own when it is activated |
+| `DGX_UI_DROPDOWN` | a button that shows the option chosen: its options the lines of its text, its value the one chosen. Activated, the program opens its list by `dgx_ui_dropdown_open()` |
 | `DGX_UI_OWN` | drawn by a look of the program's, its data in `own` |
 
 **Flags**
@@ -570,6 +570,8 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_button` | a button or a dropdown: a face over a shadow, its text in the middle | `dgx_ui_button_look_t` |
 | `dgx_ui_look_switch` | a switch: a track with a knob at one end | `dgx_ui_switch_look_t` |
 | `dgx_ui_look_slider` | a slider: a track filled up to a knob | `dgx_ui_slider_look_t` |
+| `dgx_ui_look_list` | a list: its rows the lines of its text, the row picked on a bar | `dgx_ui_list_look_t` |
+| `dgx_ui_look_dropdown` | a dropdown: a flat face with the option chosen and an arrow pointing down | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_look_input` | a field: its text in one line, at the top or with `DGX_UI_TEXT_MIDDLE` in the middle of its height, and, focused, a caret after it | `dgx_ui_input_look_t` |
 | `dgx_ui_look_picture` | a picture or an icon of 1 bit, in the middle of the box | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen | `dgx_ui_picture_look_t` |
@@ -592,6 +594,8 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_input` | `dgx_ui_look_input` | `dgx_ui_input_look_t` |
 | `dgx_ui_draw_switch` | `dgx_ui_look_switch` | `dgx_ui_switch_look_t` |
 | `dgx_ui_draw_slider` | `dgx_ui_look_slider` | `dgx_ui_slider_look_t` |
+| `dgx_ui_draw_list` | `dgx_ui_look_list` | `dgx_ui_list_look_t` |
+| `dgx_ui_draw_dropdown` | `dgx_ui_look_dropdown` | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
 
@@ -637,11 +641,67 @@ typedef struct dgx_ui_input_look_t {
     uint8_t paper;      /* under them; DGX_UI_PAPER: what lies under the widget */
     bool    secret;     /* a star for each letter */
 } dgx_ui_input_look_t;
+
+typedef struct dgx_ui_list_look_t {
+    uint8_t ink, paper;     /* a row's text and what is under it; DGX_UI_PAPER: what lies under the widget */
+    uint8_t pick, pick_ink; /* the bar of the row picked, and its text */
+    uint8_t focused;        /* the bar while the list has the focus */
+    uint8_t disabled;       /* the text of every row while the list is disabled */
+} dgx_ui_list_look_t;
+
+typedef struct dgx_ui_dropdown_look_t {
+    uint8_t face, pressed, focused, disabled; /* the face in each state */
+    uint8_t text, text_disabled;              /* the option chosen */
+    uint8_t arrow;                            /* the arrow; disabled, it is text_disabled */
+} dgx_ui_dropdown_look_t;
 ```
+
+The rows of a list and the options of a dropdown are the lines of the widget's text, parted by `\n`:
+`"Auto\nHeat\nCool"`. The first line is the value `min`, the next `min + 1`. A list's rows share the height of its
+box, each line in the middle of its row, in the first font of the style; a list does not scroll. A dropdown shows
+the line of its value; a value with no line shows an empty face.
+
+By default the bar of a list is colour 3 and the text on it colour 0; while the list has the focus the bar is colour
+1, so the pick shows in a frame too, whose fill is colour 2. The rows of a disabled list are colour 2.
 
 A field whose parameters say `secret` shows a star for each letter, a password or a PIN; the text box keeps the
 letters. The font of the field must have the star, `*`: without it the field shows nothing. A font made at build time
 gets it when `*` is listed among the characters of the need.
+
+## dgx_ui_dropdown.h
+
+The list of a dropdown, opened as a popup. It is a source file of its own: a program that calls nothing of it
+carries none of it.
+
+```c
+typedef struct dgx_ui_dropdown_t {
+    dgx_ui_t        tree;     /* the popup: a frame holding the list */
+    dgx_ui_node_t   nodes[2];
+    dgx_ui_widget_t frame, list;
+    dgx_ui_t       *ui;       /* the tree of the dropdown whose list it shows */
+    int16_t         i;        /* that dropdown */
+} dgx_ui_dropdown_t;
+```
+
+The popup of a list, in the program's RAM: 264 bytes on a 32-bit chip, zeroed before its first use, as a `static`
+is. One list is open at a time, so one serves every dropdown of the program.
+
+| Call | What it does |
+| ---- | ------------ |
+| `bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_ui_look_t *frame_look, const dgx_ui_look_t *list_look)` | Opens the list of dropdown `i` as a popup over its tree, which may be a popup itself. The looks are those of the popup's frame, its border one point, and of its list; `NULL` is the library's. `false`, nothing opened: `i` is no dropdown, `dd` shows a list already, the tree does not know its screen yet (the painter tells it, or `dgx_ui_screen()`), or the popup is refused. |
+
+The program calls it when the dropdown's `on()` is told `DGX_UI_ACTIVATED`.
+
+- The list stands under the dropdown, as wide as it; above it when the screen has no room below; else moved up so
+  that it fits the screen, lying over the dropdown.
+- Its rows are as high as the dropdown, never lower than a line of the text. It does not scroll: more options than
+  the screen takes share its height, with a warning in the log.
+- The popup is modal and closed by a finger outside it. The keys stay in the list: next and previous move the pick,
+  the key that activates chooses. "Back" is the program's, which closes the list by `dgx_ui_popup_close()`.
+- A row chosen sets the dropdown's value, tells its `on()` `DGX_UI_CHANGED` and closes the list. The option it had,
+  chosen again, closes the list and tells nothing. Closed any other way, the value stays and nothing is told.
+- The list shows the dropdown's own text. While it is open the program does not change the options and does not
+  remove the dropdown.
 
 ## dgx_ui_di.h
 

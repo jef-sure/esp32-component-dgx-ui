@@ -1,5 +1,5 @@
 # A run of every control, with nobody at the computer: from examples/controls, built for the computer showing the CYD,
-#   DGX_HOST_SCRIPT=script.txt DGX_HOST_QUIT_MS=11000 DGX_HOST_SHOT=controls.ppm ./build/host_cyd_s028r/controls.elf
+#   DGX_HOST_SCRIPT=script.txt DGX_HOST_QUIT_MS=12000 DGX_HOST_SHOT=controls.ppm ./build/host_cyd_s028r/controls.elf
 # (SDL_VIDEODRIVER=offscreen: no window). The times are ms after the window was made; the points pixels of the
 # CYD's glass upright, 240x320, as DGX_HOST_SCRIPT takes them: a point x, y of the screen lying down is 239 - y, x.
 # the popup's button, then Yes in the popup
@@ -51,16 +51,18 @@
 7500 mouse up
 7800 key down Return
 8000 key up Return
-# the keys: Up three times to the popup's button (the slider, the switch, the button), Enter opens it; Down, Down to
-# No, Enter
-8300 key down Up
-8350 key up Up
-8450 key down Up
-8500 key up Up
-8600 key down Up
-8650 key up Up
-8750 key down Return
-8800 key up Return
+# the keys: Up four times to the popup's button (the slider, the dropdown, the switch, the button), Enter opens it;
+# Down, Down to No, Enter
+8200 key down Up
+8250 key up Up
+8350 key down Up
+8400 key up Up
+8500 key down Up
+8550 key up Up
+8650 key down Up
+8700 key up Up
+8800 key down Return
+8850 key up Return
 9100 key down Down
 9200 key up Down
 9400 key down Down
@@ -72,3 +74,8 @@
 10200 key up Return
 10500 key down Escape
 10600 key up Escape
+# the dropdown: its list of modes under it; Cool chosen
+11000 mouse down 198 230
+11100 mouse up
+11400 mouse down 113 230
+11500 mouse up

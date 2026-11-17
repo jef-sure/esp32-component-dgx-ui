@@ -9,6 +9,10 @@ void backlight_set(int percent) { backlight = percent; }
 void wifi_enable(bool on) { wifi = on; }
 void menu_back(void) { ++backs; }
 void menu_open(void) { ++menus; }
+static int mode = -1, modes;
+void mode_set(int m) { mode = m, ++modes; }
+static int fan_speed = -1, fans;
+void fan_set(int s) { fan_speed = s, ++fans; }
 void wifi_connect(const char *password) { (void)password; }
 const uint16_t logo_pixels[64 * 32];
 int64_t    esp_timer_get_time(void) { return 0; }
@@ -188,6 +192,87 @@ int main(int argc, char **argv)
         const bool took_row = dgx_ui_buttons(&r, DGX_UI_PAD_RIGHT, 20);
         printf("row of buttons: by default right is taken %d and the focus stays on Back %d; with row_keys taken %d and the focus is on OK %d\n", took_default,
                f_default == back, took_row, r.focus == ok);
+    }
+    /* the list: a finger picks a row and its click activates; between two rows nothing; a swipe takes the pick along;
+       the keys go through the rows, then on */
+    {
+        static dgx_ui_node_t ln[4];
+        static dgx_ui_t      l;
+        static const dgx_ui_widget_t after_w = {.kind = DGX_UI_BUTTON, .want_h = 14};
+        dgx_ui_init(&l, ln, 4, 1);
+        const int top = dgx_ui_add(&l, -1, &col_w), list = mode_add(&l, top), after = dgx_ui_add(&l, top, &after_w);
+        dgx_ui_screen(&l, 200, 100, 0), dgx_ui_layout(&l);
+        const dgx_ui_node_t *n = dgx_ui_node(&l, list);
+        const int16_t        x = (int16_t)(n->x + 5), y0 = n->y;
+        dgx_ui_pointer(&l, &(dgx_ui_pointer_t){.x = x, .y = (int16_t)(y0 + 14 * 2 + 7), .down = true, .pressed = true, .ms = 10});
+        const int picked_down = n->state_value.value, modes_down = modes;
+        dgx_ui_pointer(&l, &(dgx_ui_pointer_t){.x = x, .y = (int16_t)(y0 + 14 * 2 + 7), .released = true, .ms = 60});
+        printf("list: %d high for 4 rows; a finger down on row 2 picks %d, mode_set() called %d time(s) yet; let go: mode %d\n", n->h, picked_down, modes_down, mode);
+        dgx_ui_pointer(&l, &(dgx_ui_pointer_t){.x = x, .y = (int16_t)(y0 + 14), .down = true, .pressed = true, .ms = 100});
+        const int at_edge = n->state_value.value;
+        dgx_ui_pointer(&l, &(dgx_ui_pointer_t){.x = x, .y = (int16_t)(y0 + 14), .released = true, .ms = 150});
+        dgx_ui_pointer(&l, &(dgx_ui_pointer_t){.x = x, .y = (int16_t)(y0 + 7), .down = true, .pressed = true, .ms = 200});
+        dgx_ui_pointer(&l, &(dgx_ui_pointer_t){.x = x, .y = (int16_t)(y0 + 7 + 28), .down = true, .ms = 250});
+        const int swiped = n->state_value.value, modes_before = modes;
+        dgx_ui_pointer(&l, &(dgx_ui_pointer_t){.x = x, .y = (int16_t)(y0 + 7 + 28), .released = true, .ms = 300});
+        printf("list: a finger on the line between rows 0 and 1 leaves the pick %d; down on row 0 and moved two rows: %d, no click %d\n", at_edge, swiped,
+               modes == modes_before);
+        dgx_ui_set_value(&l, list, 2);
+        dgx_ui_key(&l, DGX_UI_KEY_NEXT);
+        const int next1 = n->state_value.value, f1 = l.focus;
+        dgx_ui_key(&l, DGX_UI_KEY_NEXT);
+        printf("list: NEXT on row 2: the pick %d, the focus still on the list %d; NEXT on the last row: the focus on the next widget %d\n", next1, f1 == list,
+               l.focus == after);
+        dgx_ui_free(&l);
+    }
+    /* the dropdown: clicked, its list under it; a tap chooses and tells once; outside, the option it had, a slide and
+       BACK tell nothing; the keys open it and choose */
+    {
+        static dgx_ui_node_t dn[4];
+        static dgx_ui_t      d;
+        dgx_ui_init(&d, dn, 4, 1);
+        const int  top = dgx_ui_add(&d, -1, &col_w), fan = fan_add(&d, top);
+        const bool early = dgx_ui_dropdown_open(&d, fan, &fan_list, NULL, NULL); /* the screen not known yet */
+        dgx_ui_screen(&d, 200, 100, 0), dgx_ui_layout(&d);
+        const dgx_ui_node_t *n = dgx_ui_node(&d, fan);
+#define TAP(X, Y, MS)                                                                                                    \
+    dgx_ui_pointer(&d, &(dgx_ui_pointer_t){.x = (int16_t)(X), .y = (int16_t)(Y), .down = true, .pressed = true, .ms = (MS)}), \
+        dgx_ui_pointer(&d, &(dgx_ui_pointer_t){.x = (int16_t)(X), .y = (int16_t)(Y), .released = true, .ms = (MS) + 40})
+        TAP(n->x + 5, n->y + 5, 100);
+        const dgx_ui_rect_t r  = fan_list.tree.root_rect;
+        const int           rh = (r.h - 2) / 3;
+        printf("dropdown: before the screen is known opened %d; at %d,%d %dx%d, clicked: its list at %d,%d %dx%d, rows of %d, the pick %d\n", early, n->x, n->y,
+               n->w, n->h, r.x, r.y, r.w, r.h, rh, dgx_ui_node(&fan_list.tree, 1)->state_value.value);
+        TAP(r.x + 5, r.y + 1 + 2 * rh + rh / 2, 200);
+        printf("dropdown: a tap on High: the value %d, fan_set(%d) called %d time(s), the list open %d\n", n->state_value.value, fan_speed, fans, d.popup != NULL);
+        TAP(n->x + 5, n->y + 5, 300);
+        TAP(n->x + 5, 95, 400); /* outside the list */
+        const int after_outside = fans, open_outside = d.popup != NULL;
+        TAP(n->x + 5, n->y + 5, 500);
+        TAP(r.x + 5, r.y + 1 + 2 * rh + rh / 2, 600); /* High, the option it has */
+        printf("dropdown: a tap outside: open %d, fan_set() called %d time(s) in all; a tap on the option it had: open %d, called %d\n", open_outside,
+               after_outside, d.popup != NULL, fans);
+        /* a finger moved along the list, let go */
+        TAP(n->x + 5, n->y + 5, 700);
+        dgx_ui_pointer(&d, &(dgx_ui_pointer_t){.x = (int16_t)(r.x + 5), .y = (int16_t)(r.y + 1 + rh / 2), .down = true, .pressed = true, .ms = 800});
+        dgx_ui_pointer(&d, &(dgx_ui_pointer_t){.x = (int16_t)(r.x + 5), .y = (int16_t)(r.y + 1 + rh + rh / 2), .down = true, .ms = 840});
+        const int slid = dgx_ui_node(&fan_list.tree, 1)->state_value.value;
+        dgx_ui_pointer(&d, &(dgx_ui_pointer_t){.x = (int16_t)(r.x + 5), .y = (int16_t)(r.y + 1 + rh + rh / 2), .released = true, .ms = 880});
+        printf("dropdown: down on Low and moved to Medium: the list's pick %d; let go: the list open %d, the value %d, called %d\n", slid, d.popup != NULL,
+               n->state_value.value, fans);
+        /* BACK is the program's: it closes the list, the value kept */
+        const bool back_taken = dgx_ui_key(&d, DGX_UI_KEY_BACK);
+        dgx_ui_popup_close(&d);
+        printf("dropdown: BACK taken by a widget %d; closed by the program: the value %d, called %d\n", back_taken, n->state_value.value, fans);
+        /* the keys: the key that activates opens the list, previous moves the pick, the key that activates chooses */
+        dgx_ui_focus(&d, fan);
+        dgx_ui_key(&d, DGX_UI_KEY_ACTIVATE);
+        const bool by_key = d.popup == &fan_list.tree;
+        dgx_ui_key(&d, DGX_UI_KEY_PREV), dgx_ui_key(&d, DGX_UI_KEY_ACTIVATE);
+        printf("dropdown: opened by the key %d; PREV and the key that activates: the value %d, fan_set(%d), called %d, open %d\n", by_key,
+               n->state_value.value, fan_speed, fans, d.popup != NULL);
+#undef TAP
+        dgx_ui_free(&d);
     }
     /* the strip over the keypad: a code of 123 touched, 9 typed and cancelled, then typed and done; a PIN in stars */
     {
