@@ -1,0 +1,74 @@
+# A run of every control, with nobody at the computer: from examples/controls, built for the computer showing the CYD,
+#   DGX_HOST_SCRIPT=script.txt DGX_HOST_QUIT_MS=11000 DGX_HOST_SHOT=controls.ppm ./build/host_cyd_s028r/controls.elf
+# (SDL_VIDEODRIVER=offscreen: no window). The times are ms after the window was made; the points pixels of the
+# CYD's glass upright, 240x320, as DGX_HOST_SCRIPT takes them: a point x, y of the screen lying down is 239 - y, x.
+# the popup's button, then Yes in the popup
+ 300 mouse down 199 50
+ 400 mouse up
+ 800 mouse down 111 110
+ 900 mouse up
+# the switch
+1200 mouse down 198 128
+1300 mouse up
+# the slider dragged from its left end to the middle
+1600 mouse down 165 10
+1700 mouse move 165 100
+1800 mouse move 165 160
+1900 mouse up
+# the code clicked: the strip and the keypad open; 1, 2, 3, done
+2200 mouse down 114 150
+2300 mouse up
+2600 mouse down 174 56
+2700 mouse up
+2900 mouse down 174 158
+3000 mouse up
+3200 mouse down 174 260
+3300 mouse up
+3600 mouse down 27 277
+3700 mouse up
+# the PIN clicked: 4, 2, 7, done; the field shows three stars
+4000 mouse down 84 150
+4100 mouse up
+4400 mouse down 125 56
+4500 mouse up
+4700 mouse down 174 158
+4800 mouse up
+5000 mouse down 76 56
+5100 mouse up
+5400 mouse down 27 277
+5500 mouse up
+# the code clicked again: 9, then cancel; it keeps 123, the focus on it
+5800 mouse down 114 150
+5900 mouse up
+6200 mouse down 76 260
+6300 mouse up
+6600 mouse down 27 42
+6700 mouse up
+# Enter on the code opens its strip; 4; Enter is done: the code 1234, the strip closed and staying so
+7000 key down Return
+7100 key up Return
+7400 mouse down 125 56
+7500 mouse up
+7800 key down Return
+8000 key up Return
+# the keys: Up three times to the popup's button (the slider, the switch, the button), Enter opens it; Down, Down to
+# No, Enter
+8300 key down Up
+8350 key up Up
+8450 key down Up
+8500 key up Up
+8600 key down Up
+8650 key up Up
+8750 key down Return
+8800 key up Return
+9100 key down Down
+9200 key up Down
+9400 key down Down
+9500 key up Down
+9700 key down Return
+9800 key up Return
+# Enter opens the popup again (the focus stayed on its button), Escape, BACK, closes it
+10100 key down Return
+10200 key up Return
+10500 key down Escape
+10600 key up Escape

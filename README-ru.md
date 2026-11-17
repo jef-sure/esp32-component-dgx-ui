@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Состояние
 
-Версия 0.0.2: тег в репозитории, в реестре компонентов ESP её пока нет. Библиотека ещё строится, и её API может
+Версия 0.0.3: тег в репозитории, в реестре компонентов ESP её пока нет. Библиотека ещё строится, и её API может
 измениться. Что в ней есть, перечислено в разделе [Что в ней есть](#что-в-ней-есть), чего нет — в разделе
 [Чего пока нет](#чего-пока-нет).
 
@@ -71,7 +71,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.2"
+    version: "0.0.3"
 ```
 
 Нужны ESP-IDF 5.2 или новее и DGX 0.11.4 или новее; DGX подтянется сама, из реестра. Начните со страницы
@@ -87,8 +87,12 @@ dependencies:
 | [Рецепты](docs/ru/cookbook.md) | значение из задачи, часы, кнопки, ползунок, значок, текст в несколько строк, всплывающее окно, клавиши, касание, свой облик |
 | [Справочник API](docs/ru/api.md) | все типы, функции и константы, по заголовочным файлам |
 
-Пример: [thin_paint](examples/thin_paint/main/thin_paint.c), для платы CYD и для окна на компьютере. Список
-изменений — в [CHANGES.md](CHANGES.md).
+Примеры, каждый для платы CYD и для окна на компьютере:
+[thin_paint](examples/thin_paint/main/thin_paint.c) — значение, присланное задачей, и часы;
+[controls](examples/controls/main/controls.c) — кнопка с всплывающим окном, переключатель, ползунок и два поля
+ввода, код и PIN звёздочками, которые правят в полосе над клавиатурой DGX-DI; управляют ими пальцем и клавишами,
+на плате из [boards](https://github.com/jef-sure/esp32-component-boards). Список изменений — в
+[CHANGES.md](CHANGES.md).
 
 ## Что в ней есть
 

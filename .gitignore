@@ -14,6 +14,11 @@ dist/
 sdkconfig
 sdkconfig.old
 dependencies.lock
+# a board's of jef-sure/boards in an example: sdkconfig.<board> and its lock, made by the build; its defaults are kept
+sdkconfig.*
+!sdkconfig.defaults
+!sdkconfig.defaults.*
+dependencies.lock.*
 managed_components/
 
 # IDE

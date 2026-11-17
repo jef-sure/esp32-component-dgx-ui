@@ -147,6 +147,7 @@ enum {
     DGX_UI_FOCUS,     ///< the focus came to it
     DGX_UI_BACK,      ///< a field's "cancel"
     DGX_UI_NO_MEMORY, ///< its canvas could not be had; it is tried again at the next layout
+    DGX_UI_EDIT,      ///< a field clicked, or DGX_UI_KEY_ACTIVATE while it has the focus: the program opens its editor
 };
 
 typedef struct dgx_ui_t        dgx_ui_t;
@@ -439,7 +440,7 @@ int dgx_ui_hit(dgx_ui_t *ui, int x, int y);
  *
  * The widget it went down on is pressed (DGX_UI_PRESSED) till it goes up, wherever it goes; let go within
  * DGX_UI_CLICK_MS, not swiped nor dragged, it is a click: a button, a list's row, a dropdown activated, a switch
- * turned.
+ * turned, a field told DGX_UI_EDIT. A swipe that begins on a field opens no editor.
  *
  * @return true when a widget took it: it went down on one, and holds it till it goes up.
  */
@@ -455,7 +456,10 @@ bool dgx_ui_dragging(const dgx_ui_t *ui);
 /** @brief Whether the pointer is held by a widget of the tree or of its popup: it went down on one and is not up. */
 bool dgx_ui_holding(const dgx_ui_t *ui);
 
-/** @brief A key of a dialog, DGX_UI_KEY_*: the focus moves, the focused one is worked; true when a widget took it. */
+/**
+ * @brief A key of a dialog, DGX_UI_KEY_*: the focus moves, the focused one is worked; true when a widget took it.
+ * DGX_UI_KEY_ACTIVATE on a field tells it DGX_UI_EDIT: the walk of the keys passes the fields and opens no editor.
+ */
 bool dgx_ui_key(dgx_ui_t *ui, int key);
 
 /**

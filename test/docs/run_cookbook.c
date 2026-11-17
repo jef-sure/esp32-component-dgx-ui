@@ -22,6 +22,16 @@ int  dgx_di_pointer_read(dgx_di_pointer_t *p, uint32_t now) { return 0; }
 bool dgx_di_pointer_first(const dgx_di_pointer_t *p, int *x, int *y) { *x = *y = 0; return false; }
 void dgx_di_touch_take(dgx_di_touch_t *t, int x, int y, bool down, uint32_t now) {}
 int  dgx_di_keyboard_take(dgx_di_keyboard_t *kb, dgx_di_pointer_t *p, uint32_t now, uint32_t *typed, int max) { return 0; }
+/* the keyboard of the strip's recipe: its band the lower part of the display, from 36 pixels down, as on a CYD */
+const uint8_t keypad[1];
+const size_t  keypad_size = sizeof keypad;
+bool dgx_di_keyboard_open(dgx_di_keyboard_t *kb, dgx_screen_t *d, int mm_w, int mm_h, const uint8_t *layout, size_t size, dgx_font_t *font,
+                          const dgx_di_rect_t *field)
+{
+    kb->open = true, kb->x = 0, kb->y = 36, kb->w = (int16_t)d->width, kb->h = (int16_t)(d->height - 36);
+    return true;
+}
+void dgx_di_keyboard_close(dgx_di_keyboard_t *kb) { kb->open = false; }
 
 static uint32_t table[COLORS];
 static const dgx_ui_widget_t col_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
@@ -178,6 +188,66 @@ int main(int argc, char **argv)
         const bool took_row = dgx_ui_buttons(&r, DGX_UI_PAD_RIGHT, 20);
         printf("row of buttons: by default right is taken %d and the focus stays on Back %d; with row_keys taken %d and the focus is on OK %d\n", took_default,
                f_default == back, took_row, r.focus == ok);
+    }
+    /* the strip over the keypad: a code of 123 touched, 9 typed and cancelled, then typed and done; a PIN in stars */
+    {
+        static dgx_ui_node_t fn[4];
+        static dgx_ui_t      f;
+        dgx_screen_t        *scr = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
+        dgx_ui_paint_t       pp  = {.scr = scr, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_textbox_init(&code_box, code_buf, sizeof code_buf, 1, &st_left);
+        dgx_ui_textbox_init(&pin_box, pin_buf, sizeof pin_buf, 1, &st_left);
+        dgx_ui_init(&f, fn, 4, 1);
+        const int top = dgx_ui_add(&f, -1, &col_w), code = dgx_ui_add(&f, top, &code_w), pin = dgx_ui_add(&f, top, &pin_w);
+        dgx_ui_screen(&f, 320, 240, 0);
+        dgx_ui_text_set(&f, code, "123");
+        edit_ui = &f, edit_scr = scr, edit_mm_w = 58, edit_mm_h = 43;
+        dgx_ui_layout(&f);
+        const dgx_ui_node_t *cn = dgx_ui_node(&f, code), *pn = dgx_ui_node(&f, pin);
+        const dgx_ui_pointer_t down = {.x = (int16_t)(cn->x + 5), .y = (int16_t)(cn->y + 5), .down = true, .pressed = true, .ms = 10};
+        const dgx_ui_pointer_t up   = {.x = down.x, .y = down.y, .released = true, .ms = 60};
+        dgx_ui_pointer(&f, &down), dgx_ui_pointer(&f, &up);
+        keyboard_cover(&pp, &keypad_kb), dgx_ui_paint(&f, &pp, 100);
+        const bool     opened = f.popup == &strip_ui && keypad_kb.open, pressed = cn->state_value.bits & DGX_UI_PRESSED;
+        const uint32_t nine[] = {'9'}, cancel[] = {DGX_UI_CP_CANCEL}, done[] = {DGX_UI_CP_DONE};
+        dgx_ui_typed(&f, nine, 1);
+        printf("strip: clicked, open %d, the field pressed %d; 9 typed: the strip \"%s\", the field \"%s\"\n", opened, pressed, edit_buf, code_buf);
+        dgx_ui_typed(&f, cancel, 1);
+        keyboard_cover(&pp, &keypad_kb), dgx_ui_paint(&f, &pp, 200);
+        printf("strip: cancel: open %d, the field \"%s\", the focus on it %d\n", f.popup != NULL || keypad_kb.open, code_buf, f.focus == code);
+        dgx_ui_pointer(&f, &down), dgx_ui_pointer(&f, &up);
+        dgx_ui_typed(&f, nine, 1), dgx_ui_typed(&f, done, 1);
+        printf("strip: clicked again, 9 and done: open %d, the field \"%s\"\n", f.popup != NULL || keypad_kb.open, code_buf);
+        /* a swipe that begins on the field opens nothing */
+        const dgx_ui_pointer_t swiped = {.x = (int16_t)(cn->x + 60), .y = down.y, .down = true, .swipe = true, .ms = 80};
+        dgx_ui_pointer(&f, &down), dgx_ui_pointer(&f, &swiped), dgx_ui_pointer(&f, &(dgx_ui_pointer_t){.x = swiped.x, .y = swiped.y, .released = true, .ms = 120});
+        printf("strip: a swipe begun on the field: open %d\n", f.popup != NULL || keypad_kb.open);
+        /* the keys: the walk goes on from the code to the PIN and opens nothing; the key that activates opens the strip */
+        dgx_ui_buttons(&f, DGX_UI_PAD_DOWN, 1000), dgx_ui_buttons(&f, 0, 1010);
+        const bool walked = f.focus == pin && !f.popup;
+        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1020), dgx_ui_buttons(&f, 0, 1030);
+        printf("strip: DOWN from the code: the focus on the PIN and nothing open %d; A on it: open %d\n", walked, f.popup == &strip_ui);
+        /* a button of the board that means done: after dgx_ui_buttons() got it, the strip stays closed at the next tick */
+        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1100), edit_close(true);
+        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1115);
+        const bool stays = !f.popup;
+        dgx_ui_buttons(&f, 0, 1130);
+        /* and instead of it: the button is a new press at the next tick, and the strip opens again */
+        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1200), dgx_ui_buttons(&f, 0, 1210); /* open */
+        edit_close(true);                                                    /* the program's own A, dgx_ui_buttons() not called */
+        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1315);
+        printf("strip: done by a button after dgx_ui_buttons(): stays closed %d; instead of it: open again %d\n", stays, f.popup == &strip_ui);
+        dgx_ui_buttons(&f, 0, 1330), edit_close(false);
+        /* the PIN: the strip in the secret look, the letters kept */
+        const dgx_ui_pointer_t pd = {.x = (int16_t)(pn->x + 5), .y = (int16_t)(pn->y + 5), .down = true, .pressed = true, .ms = 2000};
+        dgx_ui_pointer(&f, &pd), dgx_ui_pointer(&f, &(dgx_ui_pointer_t){.x = pd.x, .y = pd.y, .released = true, .ms = 2050});
+        const bool     secret = f.popup == &strip_ui && dgx_ui_widget(&strip_ui, 1)->look == &look_pin;
+        const uint32_t four[] = {'4', '2', DGX_UI_CP_DONE};
+        dgx_ui_typed(&f, four, 3);
+        keyboard_cover(&pp, &keypad_kb), dgx_ui_paint(&f, &pp, 400);
+        printf("strip: the PIN's strip is secret %d; 4, 2 and done: the PIN's text box holds \"%s\"\n", secret, pin_buf);
+        dgx_ui_paint_free(&pp), dgx_ui_free(&f);
+        scr->destroy(&scr);
     }
     ring_pictures(argc > 1 ? argv[1] : NULL);
     puts("cookbook: ran to the end");

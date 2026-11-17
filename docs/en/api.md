@@ -15,7 +15,7 @@ Every public type, function and constant, by header. How they work together is t
 | [`dgx_ui_paint.h`](#dgx_ui_painth) | the painter, the looks and their parameters |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.2: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.3: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -140,6 +140,7 @@ of every member.
 | `DGX_UI_FOCUS` | the focus came to it |
 | `DGX_UI_BACK` | "cancel" was typed into a field |
 | `DGX_UI_NO_MEMORY` | kept for the canvas of a widget; not told yet |
+| `DGX_UI_EDIT` | a field was clicked, or activated by a key while it has the focus: the program opens its editor, a keyboard |
 
 `on()` is told only what the user did, never what the program set. It may change and remove widgets, the one it is
 called for too.
@@ -253,7 +254,7 @@ The pointer as it is now: where, in pixels of the screen; `down` now; `pressed` 
 
 | Call | What it does |
 | ---- | ------------ |
-| `bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *pointer)` | The pointer given to the tree, or to its popup first. The widget it went down on is pressed until it goes up, wherever it goes. Let go within `DGX_UI_CLICK_MS`, not swiped and not dragged, it is a click. It returns `true` when a widget took it. |
+| `bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *pointer)` | The pointer given to the tree, or to its popup first. The widget it went down on is pressed until it goes up, wherever it goes. Let go within `DGX_UI_CLICK_MS`, not swiped and not dragged, it is a click: a button, a row of a list or a dropdown is activated, a switch turned, a field told `DGX_UI_EDIT`. A swipe that begins on a field opens no editor. A widget whose `on(DGX_UI_FOCUS)` opens a popup over it is not pressed: the finger is spent. It returns `true` when a widget took it. |
 | `int dgx_ui_hit(dgx_ui_t *ui, int x, int y)` | The deepest widget under a pixel that answers a pointer; -1 for none. A widget is hit, as it is drawn, only within its parent's box. |
 | `bool dgx_ui_holding(const dgx_ui_t *ui)` | Whether a widget of the tree or of its popup holds the pointer. |
 | `bool dgx_ui_dragging(const dgx_ui_t *ui)` | Whether the widget that holds it is dragged: a slider, a list, a button with `DGX_UI_DRAG`. Such a widget owns the finger. |
@@ -265,8 +266,8 @@ and the bottom twelfth of a list's row belong to no row.
 
 | Key | What it does |
 | --- | ------------ |
-| `DGX_UI_KEY_NEXT`, `DGX_UI_KEY_PREV` | the focus to the next or the previous widget that takes it; in a list the rows first |
-| `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned |
+| `DGX_UI_KEY_NEXT`, `DGX_UI_KEY_PREV` | the focus to the next or the previous widget that takes it; in a list the rows first. The walk passes the fields and opens no editor |
+| `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned, a field told `DGX_UI_EDIT` |
 | `DGX_UI_KEY_MORE`, `DGX_UI_KEY_LESS` | the focused slider a step up or down, a switch on or off |
 | `DGX_UI_KEY_BACK` | never taken: the program's |
 
@@ -275,7 +276,7 @@ and the bottom twelfth of a list's row belong to no row.
 | Call | What it does |
 | ---- | ------------ |
 | `bool dgx_ui_key(dgx_ui_t *ui, int key)` | A key given to the tree, or to its popup first; `true` when a widget took it. |
-| `bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)` | The buttons held now. Each that went down is its key; next, previous, more and less repeat while held. `true` when a widget took a key. |
+| `bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)` | The buttons held now. Each that went down is its key; next, previous, more and less repeat while held. Call it at every tick with all the buttons held, also when the program itself acts on one: a button it did not see go down is a new press at the next call. `true` when a widget took a key. |
 | `bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)` | The time step of the logic: a held key repeats when its time comes. `true` while such a key is held: the loop asks for time. |
 | `void dgx_ui_focus(dgx_ui_t *ui, int i)` | The focus put on a widget, which is told `DGX_UI_FOCUS`; -1: on none. |
 
@@ -292,7 +293,7 @@ into a key by a table.
 | `DGX_UI_PAD_DOWN` | `DGX_UI_KEY_NEXT` | the focus to the widget after |
 | `DGX_UI_PAD_LEFT` | `DGX_UI_KEY_LESS` | the focused slider a step down, a switch off |
 | `DGX_UI_PAD_RIGHT` | `DGX_UI_KEY_MORE` | the focused slider a step up, a switch on |
-| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned |
+| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned, a field told `DGX_UI_EDIT` |
 | `DGX_UI_PAD_BACK`, `DGX_UI_PAD_B` | `DGX_UI_KEY_BACK` | nothing in a widget: the program's |
 | `DGX_UI_PAD_START` | none | the button is the program's |
 
@@ -569,7 +570,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_button` | a button or a dropdown: a face over a shadow, its text in the middle | `dgx_ui_button_look_t` |
 | `dgx_ui_look_switch` | a switch: a track with a knob at one end | `dgx_ui_switch_look_t` |
 | `dgx_ui_look_slider` | a slider: a track filled up to a knob | `dgx_ui_slider_look_t` |
-| `dgx_ui_look_input` | a field: its text in one line and, focused, a caret after it | `dgx_ui_input_look_t` |
+| `dgx_ui_look_input` | a field: its text in one line, at the top or with `DGX_UI_TEXT_MIDDLE` in the middle of its height, and, focused, a caret after it | `dgx_ui_input_look_t` |
 | `dgx_ui_look_picture` | a picture or an icon of 1 bit, in the middle of the box | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen | `dgx_ui_picture_look_t` |
 
@@ -634,8 +635,13 @@ typedef struct dgx_ui_picture_look_t {
 typedef struct dgx_ui_input_look_t {
     uint8_t ink, caret; /* the text, and the mark where the next letter goes */
     uint8_t paper;      /* under them; DGX_UI_PAPER: what lies under the widget */
+    bool    secret;     /* a star for each letter */
 } dgx_ui_input_look_t;
 ```
+
+A field whose parameters say `secret` shows a star for each letter, a password or a PIN; the text box keeps the
+letters. The font of the field must have the star, `*`: without it the field shows nothing. A font made at build time
+gets it when `*` is listed among the characters of the need.
 
 ## dgx_ui_di.h
 

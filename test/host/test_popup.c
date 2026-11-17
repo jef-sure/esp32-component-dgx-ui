@@ -39,6 +39,21 @@ static const dgx_ui_widget_t main_bt = {.kind = DGX_UI_BUTTON, .want_h = 14, .lo
 static const dgx_ui_widget_t pop_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2};
 static const dgx_ui_widget_t pop_bt  = {.kind = DGX_UI_BUTTON, .text = &ok_box, .want_h = 14, .look = &dgx_ui_look_button, .on = on, .ctx = (void *)2, .take = take};
 
+static dgx_ui_t *editor_of_focus;
+static void      on_focus_opens(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_FOCUS) dgx_ui_popup_open(ui, editor_of_focus, 0, 0, PANEL_W, 20, DGX_UI_POPUP_MODAL);
+}
+static void on_focus_closes(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_FOCUS) dgx_ui_popup_close(ui);
+    on(ui, i, node, what, ctx);
+}
+static const dgx_ui_widget_t focus_closes_w = {.kind = DGX_UI_BUTTON, .want_h = 14, .on = on_focus_closes, .ctx = (void *)5};
+static char                  focus_buf[8];
+static dgx_ui_textbox_t      focus_box;
+static const dgx_ui_widget_t focus_opens_w = {.kind = DGX_UI_INPUT, .text = &focus_box, .want_h = 14, .on = on_focus_opens};
+
 static dgx_ui_node_t nodes[4], pop_nodes[4];
 static dgx_ui_t      ui, pop;
 static int           under, mbt, pbt;
@@ -222,6 +237,45 @@ int main(void)
         dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(sn->x + 5), .y = (int16_t)(sn->y + 5), .down = true, .pressed = true});
         CHECK(dgx_ui_holding(&tree) && dgx_ui_dragging(&tree));
         dgx_ui_free(&tree), dgx_ui_free(&p2);
+    }
+    /* 4: a field whose on(FOCUS) opens a popup over it (an editor): the finger that touched it is spent, nothing of
+       the tree under the popup stays pressed */
+    {
+        static dgx_ui_node_t tn[2], en[1];
+        static dgx_ui_t      tree, editor;
+        dgx_ui_textbox_init(&focus_box, focus_buf, sizeof focus_buf, 1, &style);
+        dgx_ui_init(&tree, tn, 2, 1), dgx_ui_add(&tree, -1, &root_w);
+        const int f = dgx_ui_add(&tree, 0, &focus_opens_w);
+        dgx_ui_init(&editor, en, 1, 1), dgx_ui_add(&editor, -1, &pop_w);
+        editor_of_focus = &editor;
+        dgx_ui_set_root(&tree, 0, 0, PANEL_W, PANEL_H);
+        dgx_ui_layout(&tree);
+        const dgx_ui_node_t *fn = dgx_ui_node(&tree, f);
+        CHECK(dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(fn->x + 2), .y = (int16_t)(fn->y + 2), .down = true, .pressed = true}));
+        CHECK(tree.popup == &editor && tree.pressed == -1 && !(fn->state_value.bits & DGX_UI_PRESSED));
+        dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(fn->x + 2), .y = (int16_t)(fn->y + 2), .released = true});
+        CHECK(tree.pressed == -1 && !dgx_ui_holding(&tree));
+        dgx_ui_popup_close(&tree);
+        dgx_ui_free(&tree), dgx_ui_free(&editor);
+    }
+    /* 5: a button whose on(FOCUS) closes a popup not modal open elsewhere (a hint): its first click is a click */
+    {
+        static dgx_ui_node_t tn[2], hn[1];
+        static dgx_ui_t      tree, hint;
+        dgx_ui_init(&tree, tn, 2, 1), dgx_ui_add(&tree, -1, &root_w);
+        const int b = dgx_ui_add(&tree, 0, &focus_closes_w);
+        dgx_ui_init(&hint, hn, 1, 1), dgx_ui_add(&hint, -1, &pop_w);
+        dgx_ui_set_root(&tree, 0, 0, PANEL_W, PANEL_H);
+        dgx_ui_layout(&tree);
+        CHECK(dgx_ui_popup_open(&tree, &hint, 0, 40, 40, 20, 0));
+        activated_count = 0;
+        const dgx_ui_node_t *bn = dgx_ui_node(&tree, b);
+        CHECK(bn->y + 2 < 40); /* the button above the hint */
+        dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(bn->x + 60), .y = (int16_t)(bn->y + 2), .down = true, .pressed = true});
+        CHECK(tree.popup == NULL && tree.pressed == b);
+        dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(bn->x + 60), .y = (int16_t)(bn->y + 2), .released = true});
+        CHECK(activated_count == 1 && activated[0] == 5);
+        dgx_ui_free(&tree), dgx_ui_free(&hint);
     }
     v->destroy(&v);
     free(panel);

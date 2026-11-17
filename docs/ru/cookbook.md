@@ -22,6 +22,7 @@
 - [Кнопки платы](#кнопки-платы)
 - [Касание с DGX-DI](#касание-с-dgx-di)
 - [Поле ввода и клавиатура](#поле-ввода-и-клавиатура)
+- [Ввод в полосе над клавиатурой](#ввод-в-полосе-над-клавиатурой)
 - [Виджеты которые появляются и исчезают](#виджеты-которые-появляются-и-исчезают)
 - [Большие данные: сообщение по ссылке](#большие-данные-сообщение-по-ссылке)
 - [Сообщение из прерывания](#сообщение-из-прерывания)
@@ -515,7 +516,7 @@ static void buttons_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg, uint32_t now_
 | `DGX_UI_PAD_DOWN` | `DGX_UI_KEY_NEXT` | фокус переходит к следующему виджету |
 | `DGX_UI_PAD_LEFT` | `DGX_UI_KEY_LESS` | ползунок в фокусе на шаг вниз, переключатель выключается |
 | `DGX_UI_PAD_RIGHT` | `DGX_UI_KEY_MORE` | ползунок в фокусе на шаг вверх, переключатель включается |
-| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | срабатывает кнопка, строка или выпадающий список в фокусе, переключатель меняет положение |
+| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | срабатывает кнопка, строка или выпадающий список в фокусе, переключатель меняет положение, полю ввода сообщается `DGX_UI_EDIT` |
 | `DGX_UI_PAD_BACK`, `DGX_UI_PAD_B` | `DGX_UI_KEY_BACK` | виджеты её не берут: достаётся программе |
 | `DGX_UI_PAD_START` | никакая | кнопка достаётся программе |
 
@@ -585,6 +586,12 @@ static void touch_message(dgx_ui_t *ui, dgx_di_pointer_t *pointer, dgx_di_touch_
   владеют пальцем.
 - Палец, который опустился мимо виджетов, отдаёт программе все свои жесты. `g.taken` говорит, взял ли нажатие
   виджет.
+- В окне на компьютере палец — это мышь, через `dgx_di_host.h` из DGX-DI. Окно DGX читает мышь и клавиши в
+  `vTaskDelay()` задачи, которая им владеет, а цикл, который спит на очереди, её не вызывает. Для этого и нужен
+  тикер: на тике, который читает касание, сначала вызовите `vTaskDelay(0)`. Так сделано в примере
+  [controls](../../examples/controls/main/controls.c).
+- [boards](https://github.com/jef-sure/esp32-component-boards) даёт программе дисплей её платы и уже откалиброванный
+  указатель DGX-DI, а на компьютере — окно вместо платы. Пример controls берёт оттуда и то и другое.
 
 ## Поле ввода и клавиатура
 
@@ -606,23 +613,151 @@ static void pass_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
 
 static const dgx_ui_widget_t pass_w = {.kind = DGX_UI_INPUT, .text = &pass_box, .want_h = 14, .look = &dgx_ui_look_input, .on = pass_on};
 
-/* in the loop, after the pointer was read: the keyboard of DGX-DI types into the focused field */
-static void keyboard_pass(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_di_keyboard_t *kb, dgx_di_pointer_t *pointer, uint32_t now_ms)
+/* in the loop, after the pointer was read and before the tree gets the finger: the keyboard of DGX-DI takes its
+   fingers first and types into the focused field */
+static void keyboard_pass(dgx_ui_t *ui, dgx_di_keyboard_t *kb, dgx_di_pointer_t *pointer, uint32_t now_ms)
 {
     uint32_t  typed[8];
     const int n = dgx_di_keyboard_take(kb, pointer, now_ms, typed, 8);
     if (n > 0) dgx_ui_typed(ui, typed, n);
-    /* the painter leaves the keyboard's band alone while it is open */
+}
+
+/* in the loop, right before dgx_ui_paint(): the painter leaves the keyboard's band alone while it is open */
+static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
+{
     paint->cover = kb->open ? dgx_ui_rect(kb->x, kb->y, kb->w, kb->h) : dgx_ui_rect(0, 0, 0, 0);
 }
 ```
 
 - Размер буфера — это сколько поле вмещает; буква, которой нет места, не набирается.
 - «Стереть» убирает последнюю букву целиком, в UTF-8.
-- Функции `on()` сообщается `DGX_UI_CHANGED` на каждую букву и `DGX_UI_FOCUS`, когда поле получает фокус: здесь и
-  открывать клавиатуру.
+- Функции `on()` сообщается `DGX_UI_CHANGED` на каждую букву, `DGX_UI_FOCUS`, когда поле получает фокус, и
+  `DGX_UI_EDIT`, когда на поле нажали пальцем или клавишей, пока оно в фокусе: здесь и открывать клавиатуру.
+- Полосу клавиатуры отрисовке называют прямо перед рисованием, а не там, где берут буквы: между ними `on()` мог
+  открыть или закрыть клавиатуру, и виджет, нарисованный в этот проход, лёг бы поверх её клавиш.
 - Когда клавиатура закрывается и полоса снова свободна, отрисовка сама рисует там дерево.
 - Символы из любого другого источника идут тем же путём: `dgx_ui_typed(ui, code_points, count)`.
+- Текст стоит у верхнего края поля; с флагом `DGX_UI_TEXT_MIDDLE` в стиле — посередине его высоты.
+- Клавиши клавиатуры DGX-DI размером с палец, в миллиметрах стекла. На маленьком дисплее, как 2,8 дюйма у CYD,
+  даже цифровая клавиатура занимает весь экран, и поле не видно, пока клавиатура не закроется. Для такого дисплея —
+  следующий рецепт.
+
+## Ввод в полосе над клавиатурой
+
+![PIN набирают в полосе вверху дисплея, под ней клавиатура](../images/strip.png)
+
+На маленьком дисплее клавиатура закрывает поле, и не видно, что набрано. Поэтому поле правят в другом месте: в
+полосе вверху дисплея, а под ней стоит своя клавиатура программы. Полоса — это всплывающее окно, в котором лежит
+копия текста поля. На картинке — `examples/controls` на дисплее CYD, 320 на 240; в PIN пока набраны две цифры.
+
+Пусть в поле «Код» записано `123`:
+
+1. Пользователь нажимает на поле. Его `on()` получает `DGX_UI_EDIT` и вызывает `edit_open()`.
+2. `edit_open()` открывает клавиатуру и называет ей поле высотой в один пиксель у самого верха дисплея. Клавиатура
+   становится в стороне от названного ей поля, поэтому её полоса уходит вниз; `keypad_kb.y` — где эта полоса
+   начинается.
+3. От верха дисплея до полосы клавиатуры открывается всплывающее окно: контейнер с одним полем ввода. Это поле
+   получает фокус окна и копию текста, так что в полосе видно `123` и курсор после него.
+4. Пользователь набирает `9`. `dgx_ui_typed()` сначала отдаёт букву верхнему всплывающему окну, поэтому она
+   попадает в копию: в полосе `1239`, в поле под ней по-прежнему `123`.
+5. «Готово» на клавиатуре: `on()` полосы получает `DGX_UI_ACTIVATED`, и `edit_close(true)` отдаёт копию полю — в
+   нём теперь `1239`. Если вместо этого нажать «отмену», придёт `DGX_UI_BACK`, и `edit_close(false)` только закроет
+   полосу. В само поле ничего не писали, поэтому в нём осталось `123` и отменять нечего.
+
+```c
+/* the program's keypad: a layout of DGX-DI made a C array by its tools/keyboard_blob.py --c */
+extern const uint8_t keypad[];
+extern const size_t  keypad_size;
+
+/* a secret field: a star for each letter; the text box keeps the letters */
+static const dgx_ui_input_look_t pin_colors = {.ink = INK, .caret = ACCENT, .paper = DGX_UI_PAPER, .secret = true};
+static const dgx_ui_look_t       look_pin   = {.draw = dgx_ui_draw_input, .params = &pin_colors, .fill = -1};
+
+static void strip_on(dgx_ui_t *strip, int i, const dgx_ui_node_t *node, int what, void *ctx);
+
+static char             edit_buf[33]; /* the copy that is typed into */
+static dgx_ui_textbox_t edit_box;
+static const dgx_ui_widget_t strip_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 4};
+static const dgx_ui_widget_t strip_in_w = {
+    .kind = DGX_UI_INPUT, .text = &edit_box, .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &dgx_ui_look_input, .on = strip_on};
+static const dgx_ui_widget_t strip_pin_w = {
+    .kind = DGX_UI_INPUT, .text = &edit_box, .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &look_pin, .on = strip_on};
+
+static dgx_ui_node_t     strip_nodes[2];
+static dgx_ui_t          strip_ui;
+static dgx_di_keyboard_t keypad_kb;
+static dgx_ui_t         *edit_ui;              /* the tree of the fields; set at the start, with the next three */
+static dgx_screen_t     *edit_scr;
+static int               edit_mm_w, edit_mm_h; /* the glass in millimetres: the keys are sized by it */
+static int               edit_field = -1;      /* the field being edited; -1: none */
+
+static void edit_open(int field)
+{
+    if (edit_field >= 0) return;
+    /* the keyboard keeps away from the field it is given: one at the very top sends its band to the bottom */
+    const dgx_di_rect_t top = {.x = 0, .y = 0, .w = (int16_t)edit_scr->width, .h = 1};
+    if (!dgx_di_keyboard_open(&keypad_kb, edit_scr, edit_mm_w, edit_mm_h, keypad, keypad_size, TerminusTTFMedium12(), &top)) return;
+    const dgx_ui_widget_t *w = dgx_ui_widget(edit_ui, field);
+    /* the copy: no longer than the field's own buffer, in the field's style and look */
+    const int size = w->text->size < sizeof edit_buf ? w->text->size : (int)sizeof edit_buf;
+    dgx_ui_textbox_init(&edit_box, edit_buf, size, 1, w->text->style);
+    dgx_ui_init(&strip_ui, strip_nodes, 2, 1);
+    dgx_ui_add(&strip_ui, -1, &strip_w);
+    const int in = dgx_ui_add(&strip_ui, 0, w->look == &look_pin ? &strip_pin_w : &strip_in_w);
+    dgx_ui_text_set(&strip_ui, in, w->text->buf);
+    /* the strip: from the top of the display down to the keyboard's band */
+    dgx_ui_popup_open(edit_ui, &strip_ui, 0, 0, edit_scr->width, keypad_kb.y, DGX_UI_POPUP_MODAL);
+    dgx_ui_focus(&strip_ui, in); /* what is typed goes to the copy */
+    edit_field = field;
+}
+
+static void edit_close(bool keep)
+{
+    if (edit_field < 0) return;
+    if (keep) dgx_ui_text_set(edit_ui, edit_field, edit_buf); /* done: the copy given to the field */
+    dgx_di_keyboard_close(&keypad_kb);
+    dgx_ui_popup_close(edit_ui); /* the focus stays on the field: the keys go on from it */
+    edit_field = -1;
+}
+
+/* the on() of every field edited so: clicked, or activated by a key while it has the focus */
+static void field_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_EDIT) edit_open(i);
+}
+
+static void strip_on(dgx_ui_t *strip, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) edit_close(true); /* "done" on the keypad */
+    if (what == DGX_UI_BACK) edit_close(false);     /* "cancel": the field keeps what it had */
+}
+
+static char             code_buf[9], pin_buf[9];
+static dgx_ui_textbox_t code_box, pin_box;
+static const dgx_ui_widget_t code_w = {.kind = DGX_UI_INPUT, .text = &code_box, .want_h = 14, .look = &dgx_ui_look_input, .on = field_on};
+static const dgx_ui_widget_t pin_w  = {.kind = DGX_UI_INPUT, .text = &pin_box, .want_h = 14, .look = &look_pin, .on = field_on};
+```
+
+- **Цикл** тот же, что в рецепте выше: `keyboard_pass(ui, &keypad_kb, pointer, now_ms)` до того, как палец отдан
+  дереву, и `keyboard_cover(paint, &keypad_kb)` перед `dgx_ui_paint()`. Программа вызывает их с деревом полей;
+  набранное само находит полосу.
+- **Клавиатура** — своя раскладка программы: готовая цифровая клавиатура DGX-DI на CYD не оставляет места для
+  полосы. В `examples/controls` это `main/keypad.json`: ряды высотой 7,5 мм, над которыми на CYD остаётся полоса в
+  36 пикселей, и нижний ряд из «отмены», нуля, «стереть» и «готово».
+- **Копия** — причина, по которой отмена ничего не стоит: в текст поля пишут один раз, по «готово». Копия не
+  длиннее буфера поля, поэтому набранное всегда в него помещается.
+- **Секретное поле** называет облик, в параметрах которого стоит `.secret = true`: вместо каждой буквы рисуется
+  звёздочка, и в поле, и в полосе, а сами буквы остаются в текстовом поле. В шрифте должна быть звёздочка. В
+  шрифте, сделанном при сборке под цифры PIN, её нет, и поле тогда ничего не показывает: добавьте `*` к знакам
+  запроса.
+- **`DGX_UI_EDIT` — это нажатие**, как у кнопки: палец отпущен вскоре и без свайпа. Свайп, начатый на поле, ничего
+  не открывает, а повторное нажатие на поле открывает полосу снова.
+- **Фокус остаётся на поле**, когда полоса закрывается. Обход клавишами проходит поля и ничего не открывает,
+  поэтому клавиши идут с поля дальше, к следующему виджету; клавиша «активировать» на поле открывает его полосу.
+- **Кнопку платы, которая значит «готово»**, программа обрабатывает после того, как `dgx_ui_buttons()` получила
+  кнопки этого тика, а не вместо этого вызова. Полоса модальная и забирает клавишу. Кнопка, нажатия которой
+  `dgx_ui_buttons()` не видела, на следующем тике станет новым нажатием: клавишей «активировать» на поле, которое
+  в фокусе, — и полоса откроется снова.
 
 ## Виджеты которые появляются и исчезают
 

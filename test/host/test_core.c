@@ -480,9 +480,51 @@ static void test_rest(void)
     dgx_ui_free(&ui);
 }
 
+/* a field: DGX_UI_EDIT on a click and on ACTIVATE while it has the focus; not when the finger goes down, nor on a
+   long hold or a swipe; again on a second click, the focus staying */
+static const dgx_ui_widget_t e_field = {.kind = DGX_UI_INPUT, .text = &text_box, .want_h = 12, .on = on};
+static const dgx_ui_widget_t e_button = {.kind = DGX_UI_BUTTON, .want_h = 12, .on = on};
+
+static void test_edit(void)
+{
+    dgx_ui_textbox_init(&text_box, text_buf, sizeof text_buf, 1, &st12);
+    dgx_ui_node_t first[4];
+    dgx_ui_t      ui;
+    dgx_ui_init(&ui, first, 4, 1);
+    dgx_ui_add(&ui, -1, &column);
+    const int f = dgx_ui_add(&ui, 0, &e_field), b = dgx_ui_add(&ui, 0, &e_button);
+    dgx_ui_set_root(&ui, 0, 0, 60, 40);
+    told_count = 0;
+    /* down: the focus, no edit yet; up soon: the edit */
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .down = true, .pressed = true, .ms = 100});
+    CHECK(told_of(f, DGX_UI_FOCUS) == 1 && told_of(f, DGX_UI_EDIT) == 0);
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .released = true, .ms = 150});
+    CHECK(told_of(f, DGX_UI_EDIT) == 1 && ui.focus == f);
+    /* clicked again, the focus on it already: the edit again, no focus told */
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .down = true, .pressed = true, .ms = 200});
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .released = true, .ms = 250});
+    CHECK(told_of(f, DGX_UI_EDIT) == 2 && told_of(f, DGX_UI_FOCUS) == 1);
+    /* held long, or swiped: no edit */
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .down = true, .pressed = true, .ms = 300});
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .released = true, .ms = 900});
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .down = true, .pressed = true, .ms = 1000});
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 40, .y = 5, .down = true, .swipe = true, .ms = 1040});
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 40, .y = 5, .released = true, .ms = 1060});
+    CHECK(told_of(f, DGX_UI_EDIT) == 2);
+    /* the keys: NEXT past the field opens nothing; ACTIVATE on it, the edit; on the button, its activation */
+    dgx_ui_focus(&ui, -1);
+    told_count = 0;
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && ui.focus == f && told_of(f, DGX_UI_EDIT) == 0);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE) && told_of(f, DGX_UI_EDIT) == 1);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && ui.focus == b && told_of(f, DGX_UI_EDIT) == 1);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE) && told_of(b, DGX_UI_ACTIVATED) == 1 && told_of(b, DGX_UI_EDIT) == 0);
+    dgx_ui_free(&ui);
+}
+
 int main(void)
 {
     test_tree();
+    test_edit();
     test_layout();
     test_text_height();
     test_rest();

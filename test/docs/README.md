@@ -20,5 +20,20 @@ Russian pages hold the same blocks as the English ones.
 
 `run_cookbook.c` runs the recipes of the cookbook with the program's own functions stubbed; given a directory, it also
 draws there the pictures of the ring scale, `ring.ppm` and `ring-layout.ppm`, by the very code of the page.
+
+```sh
+make -C test/host -f ../docs/run.mk run-cookbook            # the checker, then the recipes run
+make -C test/host -f ../docs/run.mk run-cookbook OUT=/tmp   # and the pictures of the ring drawn there
+```
+
+`docs/images/strip.png` is the example `examples/controls` itself, built for the computer and stopped while the PIN is
+typed:
+
+```sh
+cd examples/controls
+SDL_VIDEODRIVER=offscreen DGX_HOST_SCRIPT=script.txt DGX_HOST_QUIT_MS=4950 DGX_HOST_SHOT=strip.ppm \
+    ./build/host_cyd_s028r/controls.elf
+```
+
 `pictures.c` draws the other pictures of `docs/images` (as PPM, to be turned into PNG). Both are built as the tests of `test/host` are, with the sources
 of dgx-ui and of DGX for the computer.

@@ -132,10 +132,14 @@ typedef struct dgx_ui_picture_look_t {
     uint8_t paper; ///< index of the table; DGX_UI_PAPER: what lies under the widget
 } dgx_ui_picture_look_t;
 
-/** Parameters of a field typed into: its text and, focused, a caret where the next letter goes. */
+/**
+ * Parameters of a field typed into: its text and, focused, a caret where the next letter goes. A secret field (a
+ * password, a PIN) shows a star for each letter; the text box keeps the letters themselves.
+ */
 typedef struct dgx_ui_input_look_t {
     uint8_t ink, caret; ///< indices of the table
     uint8_t paper;      ///< index of the table; DGX_UI_PAPER: what lies under the widget
+    bool    secret;     ///< a star for each letter
 } dgx_ui_input_look_t;
 
 /**

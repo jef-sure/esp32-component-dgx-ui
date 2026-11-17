@@ -22,6 +22,7 @@ in: the display, the queue and the loop of the task that owns the tree.
 - [Buttons of the board](#buttons-of-the-board)
 - [Touch with DGX-DI](#touch-with-dgx-di)
 - [A field and a keyboard](#a-field-and-a-keyboard)
+- [A field edited in a strip over the keypad](#a-field-edited-in-a-strip-over-the-keypad)
 - [Widgets that come and go](#widgets-that-come-and-go)
 - [Large data: a message by reference](#large-data-a-message-by-reference)
 - [A message from an interrupt](#a-message-from-an-interrupt)
@@ -514,7 +515,7 @@ static void buttons_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg, uint32_t now_
 | `DGX_UI_PAD_DOWN` | `DGX_UI_KEY_NEXT` | the focus to the widget after |
 | `DGX_UI_PAD_LEFT` | `DGX_UI_KEY_LESS` | the focused slider a step down, a switch off |
 | `DGX_UI_PAD_RIGHT` | `DGX_UI_KEY_MORE` | the focused slider a step up, a switch on |
-| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned |
+| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned, a field told `DGX_UI_EDIT` |
 | `DGX_UI_PAD_BACK`, `DGX_UI_PAD_B` | `DGX_UI_KEY_BACK` | nothing in a widget: the program's |
 | `DGX_UI_PAD_START` | none | the button is the program's |
 
@@ -583,6 +584,13 @@ static void touch_message(dgx_ui_t *ui, dgx_di_pointer_t *pointer, dgx_di_touch_
   `DGX_UI_DRAG`: those own the finger.
 - A finger that went down on no widget gives the program all its gestures; `g.taken` tells whether a widget took the
   press.
+- In a window on the computer the mouse is the finger, through `dgx_di_host.h` of DGX-DI. The window of DGX reads
+  its mouse and its keys in `vTaskDelay()` of the task that owns it, and a loop that sleeps on its queue never calls
+  it. The ticker is there for this: at the tick that reads the touch, call `vTaskDelay(0)` first. The example
+  [controls](../../examples/controls/main/controls.c) does so.
+- [boards](https://github.com/jef-sure/esp32-component-boards) gives a program the display of its board and a
+  pointer of DGX-DI already calibrated, and on the computer a window in place of the board. The example controls
+  takes both from it.
 
 ## A field and a keyboard
 
@@ -604,23 +612,151 @@ static void pass_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
 
 static const dgx_ui_widget_t pass_w = {.kind = DGX_UI_INPUT, .text = &pass_box, .want_h = 14, .look = &dgx_ui_look_input, .on = pass_on};
 
-/* in the loop, after the pointer was read: the keyboard of DGX-DI types into the focused field */
-static void keyboard_pass(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_di_keyboard_t *kb, dgx_di_pointer_t *pointer, uint32_t now_ms)
+/* in the loop, after the pointer was read and before the tree gets the finger: the keyboard of DGX-DI takes its
+   fingers first and types into the focused field */
+static void keyboard_pass(dgx_ui_t *ui, dgx_di_keyboard_t *kb, dgx_di_pointer_t *pointer, uint32_t now_ms)
 {
     uint32_t  typed[8];
     const int n = dgx_di_keyboard_take(kb, pointer, now_ms, typed, 8);
     if (n > 0) dgx_ui_typed(ui, typed, n);
-    /* the painter leaves the keyboard's band alone while it is open */
+}
+
+/* in the loop, right before dgx_ui_paint(): the painter leaves the keyboard's band alone while it is open */
+static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
+{
     paint->cover = kb->open ? dgx_ui_rect(kb->x, kb->y, kb->w, kb->h) : dgx_ui_rect(0, 0, 0, 0);
 }
 ```
 
 - The size of the buffer is the most the field takes; a letter that has no room is not typed.
 - Erase takes the last letter off, whole, in UTF-8.
-- `on()` is told `DGX_UI_CHANGED` at every letter, and `DGX_UI_FOCUS` when the field gets the focus: the place to
-  open the keyboard.
+- `on()` is told `DGX_UI_CHANGED` at every letter, `DGX_UI_FOCUS` when the field gets the focus, and `DGX_UI_EDIT`
+  when the field is clicked, or activated by a key while it has the focus: the place to open the keyboard.
+- The band is told to the painter right before it draws, not where the letters are taken: an `on()` called in
+  between may have opened or closed the keyboard, and a widget drawn in that pass would be drawn over its keys.
 - When the keyboard closes and the band is empty again, the painter draws the tree there by itself.
 - Code points from any other source go the same way: `dgx_ui_typed(ui, code_points, count)`.
+- The text stands at the top of the field; with `DGX_UI_TEXT_MIDDLE` in its style, in the middle of its height.
+- The keys of DGX-DI's keyboard are as large as a finger, in millimetres of the glass. On a small display, the 2.8
+  inches of a CYD, even its pad of digits takes the whole screen, and the field is not seen until the keyboard
+  closes. The next recipe is for such a display.
+
+## A field edited in a strip over the keypad
+
+![A PIN edited in a strip at the top of the display, the keypad under it](../images/strip.png)
+
+On a small display the keyboard hides the field, and the user does not see what is typed. So the field is edited
+elsewhere: in a strip at the top of the display, with a keypad of the program's own under it. The strip is a popup
+that holds a copy of the field's text. The picture is `examples/controls` on the display of a CYD, 320 by 240, a
+PIN of two digits typed so far.
+
+Take a field "Code" that holds `123`:
+
+1. The user clicks the field. Its `on()` is told `DGX_UI_EDIT` and calls `edit_open()`.
+2. `edit_open()` opens the keyboard and names it a field one pixel high at the very top of the display. The
+   keyboard keeps away from the field it is given, so its band goes to the bottom; `keypad_kb.y` is where the band
+   begins.
+3. From the top of the display down to the band it opens a popup: a box with one field in it. That field gets the
+   focus of the popup and a copy of the text, so the strip shows `123` and the caret after it.
+4. The user types `9`. `dgx_ui_typed()` gives a letter to the top popup first, so it goes to the copy: the strip
+   shows `1239`, the field under it still holds `123`.
+5. "Done" on the keypad: the strip's `on()` is told `DGX_UI_ACTIVATED`, and `edit_close(true)` gives the copy to the
+   field, which holds `1239` now. "Cancel" instead: it is told `DGX_UI_BACK`, and `edit_close(false)` only closes.
+   The field was never written to, so it holds `123` and there is nothing to undo.
+
+```c
+/* the program's keypad: a layout of DGX-DI made a C array by its tools/keyboard_blob.py --c */
+extern const uint8_t keypad[];
+extern const size_t  keypad_size;
+
+/* a secret field: a star for each letter; the text box keeps the letters */
+static const dgx_ui_input_look_t pin_colors = {.ink = INK, .caret = ACCENT, .paper = DGX_UI_PAPER, .secret = true};
+static const dgx_ui_look_t       look_pin   = {.draw = dgx_ui_draw_input, .params = &pin_colors, .fill = -1};
+
+static void strip_on(dgx_ui_t *strip, int i, const dgx_ui_node_t *node, int what, void *ctx);
+
+static char             edit_buf[33]; /* the copy that is typed into */
+static dgx_ui_textbox_t edit_box;
+static const dgx_ui_widget_t strip_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 4};
+static const dgx_ui_widget_t strip_in_w = {
+    .kind = DGX_UI_INPUT, .text = &edit_box, .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &dgx_ui_look_input, .on = strip_on};
+static const dgx_ui_widget_t strip_pin_w = {
+    .kind = DGX_UI_INPUT, .text = &edit_box, .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &look_pin, .on = strip_on};
+
+static dgx_ui_node_t     strip_nodes[2];
+static dgx_ui_t          strip_ui;
+static dgx_di_keyboard_t keypad_kb;
+static dgx_ui_t         *edit_ui;              /* the tree of the fields; set at the start, with the next three */
+static dgx_screen_t     *edit_scr;
+static int               edit_mm_w, edit_mm_h; /* the glass in millimetres: the keys are sized by it */
+static int               edit_field = -1;      /* the field being edited; -1: none */
+
+static void edit_open(int field)
+{
+    if (edit_field >= 0) return;
+    /* the keyboard keeps away from the field it is given: one at the very top sends its band to the bottom */
+    const dgx_di_rect_t top = {.x = 0, .y = 0, .w = (int16_t)edit_scr->width, .h = 1};
+    if (!dgx_di_keyboard_open(&keypad_kb, edit_scr, edit_mm_w, edit_mm_h, keypad, keypad_size, TerminusTTFMedium12(), &top)) return;
+    const dgx_ui_widget_t *w = dgx_ui_widget(edit_ui, field);
+    /* the copy: no longer than the field's own buffer, in the field's style and look */
+    const int size = w->text->size < sizeof edit_buf ? w->text->size : (int)sizeof edit_buf;
+    dgx_ui_textbox_init(&edit_box, edit_buf, size, 1, w->text->style);
+    dgx_ui_init(&strip_ui, strip_nodes, 2, 1);
+    dgx_ui_add(&strip_ui, -1, &strip_w);
+    const int in = dgx_ui_add(&strip_ui, 0, w->look == &look_pin ? &strip_pin_w : &strip_in_w);
+    dgx_ui_text_set(&strip_ui, in, w->text->buf);
+    /* the strip: from the top of the display down to the keyboard's band */
+    dgx_ui_popup_open(edit_ui, &strip_ui, 0, 0, edit_scr->width, keypad_kb.y, DGX_UI_POPUP_MODAL);
+    dgx_ui_focus(&strip_ui, in); /* what is typed goes to the copy */
+    edit_field = field;
+}
+
+static void edit_close(bool keep)
+{
+    if (edit_field < 0) return;
+    if (keep) dgx_ui_text_set(edit_ui, edit_field, edit_buf); /* done: the copy given to the field */
+    dgx_di_keyboard_close(&keypad_kb);
+    dgx_ui_popup_close(edit_ui); /* the focus stays on the field: the keys go on from it */
+    edit_field = -1;
+}
+
+/* the on() of every field edited so: clicked, or activated by a key while it has the focus */
+static void field_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_EDIT) edit_open(i);
+}
+
+static void strip_on(dgx_ui_t *strip, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) edit_close(true); /* "done" on the keypad */
+    if (what == DGX_UI_BACK) edit_close(false);     /* "cancel": the field keeps what it had */
+}
+
+static char             code_buf[9], pin_buf[9];
+static dgx_ui_textbox_t code_box, pin_box;
+static const dgx_ui_widget_t code_w = {.kind = DGX_UI_INPUT, .text = &code_box, .want_h = 14, .look = &dgx_ui_look_input, .on = field_on};
+static const dgx_ui_widget_t pin_w  = {.kind = DGX_UI_INPUT, .text = &pin_box, .want_h = 14, .look = &look_pin, .on = field_on};
+```
+
+- **The loop** is that of the recipe above: `keyboard_pass(ui, &keypad_kb, pointer, now_ms)` before the tree gets
+  the finger, `keyboard_cover(paint, &keypad_kb)` before `dgx_ui_paint()`. The program calls them with the tree of
+  the fields; what is typed finds the strip by itself.
+- **The keypad** is a layout of the program's own, as DGX-DI's ready pad of digits leaves no room for a strip on a
+  CYD. The one of `examples/controls`, `main/keypad.json`, has rows 7.5 mm high, which leaves a strip of 36 pixels
+  there, and a last row of cancel, 0, erase and done.
+- **The copy** is why cancel costs nothing: the field's own text is written once, on done. The copy is no longer
+  than the field's buffer, so what was typed always fits the field.
+- **A secret field** names a look whose parameters say `.secret = true`: a star is drawn for each letter, in the
+  field and in the strip, and the text box keeps the letters. The font must have the star. A font made at build
+  time for the digits of a PIN has none, and the field then shows nothing: list `*` among the characters of the
+  need.
+- **`DGX_UI_EDIT` is a click**, as a button's: the finger let go soon, not swiped. A swipe that begins on a field
+  opens nothing, and a field clicked again opens its strip again.
+- **The focus stays on the field** when the strip closes. A walk by the keys passes the fields and opens nothing,
+  so the keys go on from the field to the next widget; the key that activates, on a field, opens its strip.
+- **A button of the board that means done** is acted on after `dgx_ui_buttons()` got the buttons of that tick, not
+  instead of it. The strip is modal and takes the key. A button that `dgx_ui_buttons()` did not see go down is a
+  new press at the next tick: the key that activates, on the field that has the focus, and the strip opens again.
 
 ## Widgets that come and go
 

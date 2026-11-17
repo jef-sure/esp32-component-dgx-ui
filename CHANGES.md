@@ -1,5 +1,23 @@
 # Changes
 
+## 0.0.3 - 2026-11-17
+
+- The look of a field (`dgx_ui_look_input`) sets its text in the middle of the field when the style says
+  `DGX_UI_TEXT_MIDDLE`, as a label does.
+- `DGX_UI_EDIT`: a field (INPUT) is told it on a click, by the rule of a button's click, and on `DGX_UI_KEY_ACTIVATE`
+  while it has the focus; the program opens its editor on it. The focus no longer opens one: the walk of the keys
+  passes the fields, a swipe that begins on a field opens nothing, a second click opens it again.
+- A secret field: `dgx_ui_input_look_t::secret` draws a star for each letter, the text box keeping the letters (a
+  password, a PIN).
+- A widget whose `on(DGX_UI_FOCUS)` opens a popup over it (an editor of a field) is not left pressed under it: the
+  finger that touched it is spent.
+- An example of the controls worked by a finger, the keys and DGX-DI's keyboard on the display, `examples/controls`.
+  A field is edited in a strip at the top of the display with a keypad of its own under it: a copy of the field's
+  text, given to the field on done and dropped on cancel (the keypad's, or BACK).
+  The board comes from jef-sure/boards: the CYD with its touch, calibrated by the board's data, and the computer
+  showing the CYD's display in a window, the mouse its finger and the arrows and Enter its buttons; a script plays a
+  run of every control there.
+
 ## 0.0.2 - 2026-11-17
 
 - A box and a frame of a column or a row fill only what their children do not cover: drawn whole, every pixel of

@@ -121,10 +121,10 @@ Anybody may change the state through the calls: the pointer, a key, the program,
 `dgx_ui_set_value()`, `dgx_ui_set_state()`, `dgx_ui_show()` and `dgx_ui_text_printf()` compare the new with the old and
 change nothing when they are equal.
 
-A widget's `on()` is told only what the user did: `DGX_UI_ACTIVATED`, `DGX_UI_CHANGED`, `DGX_UI_FOCUS`, `DGX_UI_BACK`.
-No call of the program tells it anything. Take a thermostat: its set point comes by a message from the network, and
-`on(DGX_UI_CHANGED)` sends the user's new set point to the network. If the message's value told `on()` too, the
-program would send it back to where it came from.
+A widget's `on()` is told only what the user did: `DGX_UI_ACTIVATED`, `DGX_UI_CHANGED`, `DGX_UI_FOCUS`, `DGX_UI_BACK`,
+`DGX_UI_EDIT`. No call of the program tells it anything. Take a thermostat: its set point comes by a message from the
+network, and `on(DGX_UI_CHANGED)` sends the user's new set point to the network. If the message's value told `on()`
+too, the program would send it back to where it came from.
 
 For the same reason a button the program set to pressed is drawn pressed and activates nothing: a hardware "OK"
 held down may show on the screen's "OK" without pressing it.

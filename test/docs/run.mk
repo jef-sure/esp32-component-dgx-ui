@@ -1,0 +1,16 @@
+# The recipes of the cookbook run, by the code of the page itself:
+#   make -C test/host -f ../docs/run.mk run-cookbook [OUT=<a directory for ring.ppm and ring-layout.ppm>]
+# The checker writes the page's C into $(BUILD)/docs first; the runner is built as the tests of test/host are.
+include Makefile
+
+RUN_WARN := -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable \
+            -Wno-missing-field-initializers
+
+run-cookbook:
+	mkdir -p $(BUILD)/docs
+	python3 ../docs/check_docs.py $(DGX) $(DGX_DI) $(BUILD)/docs
+	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) -DDGX_HOST_WINDOW -I../docs/stubs $(CPPFLAGS) $(DGX_FLAGS) -I$(DGX)/host/window \
+		-I$(DGX_DI)/include -I$(BUILD)/docs -o $(BUILD)/run_cookbook ../docs/run_cookbook.c $(PAINT) $(DGX_SRCS) -lm
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/run_cookbook $(OUT)
+
+.PHONY: run-cookbook

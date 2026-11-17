@@ -617,8 +617,11 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         const int i = dgx_ui_hit(ui, p->x, p->y);
         if (i < 0) return false;
         ui->press_ms = p->ms, ui->swiped = p->swipe;
+        const dgx_ui_t *popup = ui->popup;
         dgx_ui_focus(ui, i);
-        if (live(ui, i)) press(ui, i, p->x, p->y); /* on(FOCUS) may have removed it */
+        /* on(FOCUS) may have removed it, or opened a popup over it (an editor of a field): the finger is spent then; a
+           popup closed by it (a hint, a dropdown left) takes nothing of the press */
+        if (live(ui, i) && (!ui->popup || ui->popup == popup)) press(ui, i, p->x, p->y);
         return true;
     }
     dgx_ui_node_t *n = live(ui, ui->pressed);
@@ -676,6 +679,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
             return true;
         }
         if (w->kind == DGX_UI_SWITCH) user_value(ui, i, n->state_value.value ? 0 : 1);
+        if (w->kind == DGX_UI_INPUT) tell(ui, i, DGX_UI_EDIT); /* a field clicked: to be edited */
         if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN) tell(ui, i, DGX_UI_ACTIVATED);
         return true;
     }
@@ -750,6 +754,7 @@ static bool key_in(dgx_ui_t *ui, int key)
         if (!w) return false;
         if (w->kind == DGX_UI_SWITCH) user_value(ui, f, n->state_value.value ? 0 : 1);
         else if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN) tell(ui, f, DGX_UI_ACTIVATED);
+        else if (w->kind == DGX_UI_INPUT) tell(ui, f, DGX_UI_EDIT);
         else return false;
         return true;
     default:

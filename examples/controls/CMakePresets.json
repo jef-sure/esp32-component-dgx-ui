@@ -1,0 +1,35 @@
+{
+    "version": 3,
+    "vendor": {"jef-sure/boards": {"made by": "board_select.py --again .", "follows": "host_cyd_s028r"}},
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "The current board: the computer as CYD (ESP32-2432S028R)",
+            "generator": "Ninja",
+            "binaryDir": "build/host_cyd_s028r",
+            "cacheVariables": {
+                "BOARD": "host_cyd_s028r",
+                "IDF_TARGET": "linux",
+                "SDKCONFIG": "sdkconfig.host_cyd_s028r"
+            }
+        },
+        {
+            "name": "cyd_s028r",
+            "displayName": "CYD (ESP32-2432S028R)",
+            "generator": "Ninja",
+            "binaryDir": "build/cyd_s028r",
+            "cacheVariables": {"BOARD": "cyd_s028r", "IDF_TARGET": "esp32", "SDKCONFIG": "sdkconfig.cyd_s028r"}
+        },
+        {
+            "name": "host_cyd_s028r",
+            "displayName": "the computer as CYD (ESP32-2432S028R)",
+            "generator": "Ninja",
+            "binaryDir": "build/host_cyd_s028r",
+            "cacheVariables": {
+                "BOARD": "host_cyd_s028r",
+                "IDF_TARGET": "linux",
+                "SDKCONFIG": "sdkconfig.host_cyd_s028r"
+            }
+        }
+    ]
+}

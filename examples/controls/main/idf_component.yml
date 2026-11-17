@@ -1,0 +1,5 @@
+dependencies:
+  # the display and the touch of the board chosen, or of the computer showing it
+  jef-sure/boards: "^0.2.1"
+  # the keyboard on the display; the finger comes by the boards too. dgx-ui itself does not need it
+  jef-sure/dgx-di: ">=0.1.6,<0.2.0"

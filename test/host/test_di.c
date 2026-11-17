@@ -11,6 +11,8 @@
 #include "dgx_ui_msg.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_text.h"
+#include "dgx_vscreen.h"
+#include "dgx_draw.h"
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
 
@@ -30,9 +32,20 @@ static dgx_ui_text_style_t   style;
 static char                  field_buf[16];
 static dgx_ui_textbox_t      field_box;
 static const dgx_ui_widget_t field_w = {.kind = DGX_UI_INPUT, .text = &field_box, .want_h = 14, .look = &dgx_ui_look_input};
+/* a field of a text in its middle, taller than the text */
+static dgx_ui_text_style_t   middle;
+static char                  mid_buf[8];
+static dgx_ui_textbox_t      mid_box;
+static const dgx_ui_widget_t mid_w = {.kind = DGX_UI_INPUT, .text = &mid_box, .want_h = 22, .look = &dgx_ui_look_input};
+/* a secret field: a star for each letter */
+static const dgx_ui_input_look_t secret_colours = {.ink = 1, .caret = 3, .paper = 0, .secret = true};
+static const dgx_ui_look_t       secret_look    = {.draw = dgx_ui_draw_input, .params = &secret_colours, .fill = -1};
+static char                      pin_buf[8];
+static dgx_ui_textbox_t          pin_box;
+static const dgx_ui_widget_t     pin_w = {.kind = DGX_UI_INPUT, .text = &pin_box, .want_h = 14, .look = &secret_look};
 static dgx_ui_node_t         nodes[6];
 static dgx_ui_t              ui;
-static int                   sl, bt, fi;
+static int                   sl, bt, fi, mi;
 
 /* a finger: down at x, y at t, moved to x2, y2 by steps, held, let go */
 static dgx_ui_di_gestures_t all;
@@ -57,6 +70,8 @@ int main(void)
     variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
     style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
     dgx_ui_textbox_init(&field_box, field_buf, sizeof field_buf, 1, &style);
+    middle = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
+    dgx_ui_textbox_init(&mid_box, mid_buf, sizeof mid_buf, 1, &middle);
     panel_t       *panel = panel_make();
     dgx_screen_t  *scr   = &panel->sbus.scr;
     dgx_ui_paint_t pp    = {.scr = scr, .colors = colors, .color_count = 4};
@@ -108,6 +123,43 @@ int main(void)
     dgx_ui_focus(&ui, -1);
     dgx_ui_paint(&ui, &pp, 6002);
     CHECK(panel->mem[cy][cx] == colors[0]);
+
+    /* a field of DGX_UI_TEXT_MIDDLE: the caret in the middle rows of the field, as a label sets its text; every pixel
+       once */
+    mi = dgx_ui_add(&ui, 0, &mid_w); /* under the others, where the strokes above found no widget */
+    dgx_ui_paint(&ui, &pp, 6003);
+    dgx_ui_focus(&ui, mi);
+    panel_count_from_now(panel);
+    dgx_ui_paint(&ui, &pp, 6004);
+    const dgx_ui_node_t *mn   = dgx_ui_node(&ui, mi);
+    dgx_font_t          *t12  = TerminusTTFMedium12();
+    const int            cell = t12->yBottomMax - t12->yOffsetLowest, mtop = mn->y + (mn->h - cell) / 2;
+    CHECK(mn->h > cell + 4 && panel_twice(panel) == 0 && panel_written(panel) == mn->w * mn->h);
+    CHECK(panel->mem[mtop + cell / 2][mn->x] == colors[3] && panel->mem[mn->y][mn->x] == colors[0] && panel->mem[mn->y + mn->h - 1][mn->x] == colors[0]);
+
+    /* a secret field: "b\xd0\xb1" typed shows two stars, the caret after them; the text box keeps the letters */
+    dgx_ui_textbox_init(&pin_box, pin_buf, sizeof pin_buf, 1, &style);
+    dgx_ui_remove(&ui, mi);
+    const int pi = dgx_ui_add(&ui, 0, &pin_w);
+    dgx_ui_paint(&ui, &pp, 6005);
+    dgx_ui_focus(&ui, pi);
+    const uint32_t bb[] = {'b', 0x0431};
+    CHECK(dgx_ui_typed(&ui, bb, 2) && strcmp(pin_buf, "b\xd0\xb1") == 0);
+    panel_count_from_now(panel);
+    dgx_ui_paint(&ui, &pp, 6006);
+    const dgx_ui_node_t     *pn  = dgx_ui_node(&ui, pi);
+    const int                sx  = pn->x + dgx_font_bounds(&m, "**", NULL, NULL), sy = pn->y - t12->yOffsetLowest - 2;
+    CHECK(panel_twice(panel) == 0 && panel_written(panel) == pn->w * pn->h && panel->mem[sy][sx] == colors[3]);
+    /* the stars, not the letters: the row as "**" drawn by the font */
+    dgx_screen_t *e = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
+    dgx_fill_rectangle(e, 0, 0, PANEL_W, PANEL_H, colors[0]);
+    const dgx_font_context_t ec = {.scr = e, .font = t12, .color = colors[1], .bg = colors[0]};
+    dgx_font_draw(&ec, pn->x, pn->y - t12->yOffsetLowest, "**");
+    int off = 0;
+    for (int y = pn->y; y < pn->y + pn->h; ++y)
+        for (int x = pn->x; x < sx; ++x) off += panel->mem[y][x] != dgx_get_pixel(e, x, y);
+    CHECK(off == 0);
+    e->destroy(&e);
 
     dgx_ui_free(&ui);
     free(panel);

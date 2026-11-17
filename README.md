@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.2: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.3: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.2"
+    version: "0.0.3"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -86,8 +86,12 @@ It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from
 | [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, an icon, texts of several lines, a popup, keys, touch, a look of your own |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
 
-An example: [thin_paint](examples/thin_paint/main/thin_paint.c), for a CYD board and for a window on the computer.
-The list of changes is in [CHANGES.md](CHANGES.md).
+Examples, each for a CYD board and for a window on the computer:
+[thin_paint](examples/thin_paint/main/thin_paint.c), a value sent by a task and a clock;
+[controls](examples/controls/main/controls.c), a button with a popup, a switch, a slider and two fields, a code
+and a PIN shown as stars, each edited in a strip over a keypad of DGX-DI; worked by a finger and by the keys, on a
+board taken from [boards](https://github.com/jef-sure/esp32-component-boards). The list of changes is in
+[CHANGES.md](CHANGES.md).
 
 ## What is in it
 
