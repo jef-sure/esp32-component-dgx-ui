@@ -1,0 +1,109 @@
+#pragma once
+/*
+ * dgx_ui_text.h
+ *
+ *  The text box of a widget: its string, in a buffer the program gives, and how it is fitted to its field. The fit
+ *  picks the first variant of the style the text goes into whole; if none, the one that shows the most letters.
+ *  Bitmap fonts are never scaled: a smaller size is another variant. The fit is made by the painter, after the
+ *  layout: setting a text only keeps and compares it.
+ *
+ *  Copyright (c) 2026 Anton Petrusevich
+ *      Author: Anton Petrusevich
+ */
+
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "dgx_font.h"
+#include "dgx_ui.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/** @brief A font a text may be drawn in. */
+typedef struct dgx_ui_font_variant_t {
+    dgx_font_t *font;
+    int16_t     height; ///< a handwritten font: the height of a line in pixels; a bitmap font: 0, its own size
+    uint8_t     narrow; ///< a handwritten font: its x may shrink to so many percent of y first; 0 never
+} dgx_ui_font_variant_t;
+
+/** Flags of a style. */
+enum {
+    DGX_UI_TEXT_MIDDLE    = 1u << 0, ///< a text in a smaller variant stands in the middle of the field's height, not on the first one's base line
+    DGX_UI_TEXT_IMPORTANT = 1u << 1, ///< a text too long scrolls, a line up every scroll_ms, rather than being cut
+};
+
+/** @brief How a text is drawn: its fonts, the best first, and where it stands in its field. */
+typedef struct dgx_ui_text_style_t {
+    const dgx_ui_font_variant_t *variants; ///< the best first
+    uint8_t                      count;
+    uint8_t                      flags;     ///< DGX_UI_TEXT_*
+    dgx_font_align_t             align;     ///< each line in the field
+    uint16_t                     scroll_ms; ///< an important text: a line up every so many ms; 0 by hand
+} dgx_ui_text_style_t;
+
+/** Flags of a text box, the library's. */
+enum {
+    DGX_UI_TEXTBOX_START   = 1u << 0, ///< the times of scrolling and appearing start at the next pass of the painter
+    DGX_UI_TEXTBOX_CAME    = 1u << 1, ///< all its letters came: no time counted for them any more
+    DGX_UI_TEXTBOX_ENDED   = 1u << 2, ///< an important text scrolled to its end: no time counted for it any more
+    DGX_UI_TEXTBOX_COUNTED = 1u << 3, ///< lines and letters counted for the text, width and variant as they are
+};
+
+/**
+ * @brief A text box: the program's buffer of the string, its style and the lines it shows. The text is laid into
+ * lines, word by word, each time it is drawn: no table of lines is kept.
+ */
+struct dgx_ui_textbox_t {
+    char                      *buf;       ///< the program's: the string, cut to the size
+    uint16_t                   size;      ///< bytes of buf, the 0 at the end included
+    uint8_t                    lines;     ///< the lines it shows: its height is so many lines of the first variant
+    uint8_t                    variant;   ///< the variant the text was fitted in, by the painter
+    const dgx_ui_text_style_t *style;
+    uint16_t                   top;       ///< the first line shown: an important text scrolls, else dgx_ui_text_scroll()
+    uint8_t                    letter_ms; ///< appearing: a letter every so many ms; 0 all at once
+    uint8_t                    flags;     ///< DGX_UI_TEXTBOX_*
+    uint32_t                   since_ms;  ///< when the text was first drawn: its scroll and its letters count from it
+    uint16_t                   letters_drawn; ///< the look of lines: the letters come when it last drew
+    uint16_t                   total_lines, total_letters; ///< the look of lines: of the text laid, while COUNTED
+};
+
+/** @brief The height of a line of a variant: its own for a handwritten font, the font's advance for a bitmap one. */
+int dgx_ui_variant_line(const dgx_ui_font_variant_t *v);
+
+/**
+ * @brief A text box over the program's buffer, empty, of so many lines in a style.
+ * @param size Bytes of buf; a text set is cut to size - 1 bytes.
+ */
+void dgx_ui_textbox_init(dgx_ui_textbox_t *box, char *buf, int size, int lines, const dgx_ui_text_style_t *style);
+
+/**
+ * @brief The text of a widget set as by printf(), cut to its buffer on a whole letter; nothing is drawn or
+ * measured here.
+ *
+ * A buffer of up to 256 bytes is compared with the text before: the same text changes nothing. A longer buffer
+ * is taken as changed every time.
+ * @return true when the text changed: the widget is marked to be fitted and drawn again.
+ */
+bool dgx_ui_text_printf(dgx_ui_t *ui, int i, const char *format, ...) __attribute__((format(printf, 3, 4)));
+
+/** @brief The same with a va_list. */
+bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args);
+
+/** @brief The text of a widget set as it is. */
+bool dgx_ui_text_set(dgx_ui_t *ui, int i, const char *text);
+
+/**
+ * @brief The text of a widget appears letter by letter from the next pass of the painter, a letter every so many
+ * ms; 0 shows it at once. A text set after this appears too; the painter asks for time while it appears.
+ */
+void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms);
+
+/** @brief The lines of a text that is not important moved by hand: so many up (down when negative), as far as there are. */
+void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines);
+
+#ifdef __cplusplus
+}
+#endif

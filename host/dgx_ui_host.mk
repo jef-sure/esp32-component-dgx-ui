@@ -1,0 +1,18 @@
+# dgx-ui built on a PC with make, beside DGX's host/dgx_host.mk: include this file from a Makefile.
+#
+#   include path/to/dgx/host/dgx_host.mk
+#   include path/to/dgx-ui/host/dgx_ui_host.mk
+#   CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
+#   CFLAGS   += $(DGX_HOST_CFLAGS)
+#   LDLIBS   += $(DGX_HOST_LDLIBS)
+#   check: main.c $(DGX_HOST_SRCS) $(DGX_UI_HOST_SRCS)
+#
+# The paths are absolute, found from where this file lies.
+
+DGX_UI_HOST_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+DGX_UI_ROOT     := $(patsubst %/,%,$(dir $(DGX_UI_HOST_DIR)))
+
+DGX_UI_HOST_SRCS     := $(addprefix $(DGX_UI_ROOT)/src/, dgx_ui.c dgx_ui_text.c dgx_ui_rect.c dgx_ui_msg.c dgx_ui_paint.c dgx_ui_looks.c dgx_ui_text_look.c dgx_ui_lines_look.c \
+                        dgx_ui_button_look.c dgx_ui_input_look.c dgx_ui_control_looks.c dgx_ui_picture_look.c dgx_ui_rgb565_look.c)
+# dgx_ui_post.c and dgx_ui_ticker.c need FreeRTOS's queues and esp_timer, which the stubs of DGX do not have
+DGX_UI_HOST_CPPFLAGS := -I$(DGX_UI_ROOT)/include

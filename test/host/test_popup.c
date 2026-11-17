@@ -1,0 +1,229 @@
+/*
+ * A popup over a tree: drawn over it in its rectangle, the tree under it drawn around it and never inside it, the
+ * pointer and the keys to it first, a modal one taking all, one closed by a finger outside; messages to both trees;
+ * where it lay composed again when it closes; the screen composed in strips with it open.
+ */
+#include <string.h>
+
+#include "check.h"
+#include "dgx_draw.h"
+#include "dgx_ui_msg.h"
+#include "dgx_ui_paint.h"
+#include "dgx_ui_text.h"
+#include "dgx_vscreen.h"
+#include "fonts/DejaVuSansBook32.h"
+#include "fonts/TerminusTTFMedium12.h"
+#include "panel.h"
+
+static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
+
+static int  activated[8], activated_count, caught;
+static void on(dgx_ui_t *ui, int i, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED && activated_count < 8) activated[activated_count++] = (int)(intptr_t)ctx;
+}
+static bool take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
+{
+    caught = msg->what;
+    return true;
+}
+
+static dgx_ui_font_variant_t variant[1];
+static dgx_ui_text_style_t   style;
+static char                  under_buf[16], ok_buf[8];
+static dgx_ui_textbox_t      under_box, ok_box;
+
+static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
+static const dgx_ui_widget_t under_w = {.kind = DGX_UI_LABEL, .text = &under_box};
+static const dgx_ui_widget_t main_bt = {.kind = DGX_UI_BUTTON, .want_h = 14, .look = &dgx_ui_look_button, .on = on, .ctx = (void *)1};
+static const dgx_ui_widget_t pop_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2};
+static const dgx_ui_widget_t pop_bt  = {.kind = DGX_UI_BUTTON, .text = &ok_box, .want_h = 14, .look = &dgx_ui_look_button, .on = on, .ctx = (void *)2, .take = take};
+
+static dgx_ui_node_t nodes[4], pop_nodes[4];
+static dgx_ui_t      ui, pop;
+static int           under, mbt, pbt;
+
+static void make(void)
+{
+    dgx_ui_textbox_init(&under_box, under_buf, sizeof under_buf, 1, &style);
+    dgx_ui_textbox_init(&ok_box, ok_buf, sizeof ok_buf, 1, &style);
+    dgx_ui_init(&ui, nodes, 4, 1);
+    dgx_ui_add(&ui, -1, &root_w);
+    under = dgx_ui_add(&ui, 0, &under_w);
+    mbt   = dgx_ui_add(&ui, 0, &main_bt);
+    dgx_ui_text_set(&ui, under, "under it");
+    dgx_ui_init(&pop, pop_nodes, 4, 1);
+    dgx_ui_add(&pop, -1, &pop_w);
+    pbt = dgx_ui_add(&pop, 0, &pop_bt);
+    dgx_ui_text_set(&pop, pbt, "OK");
+    activated_count = 0, caught = 0;
+}
+
+static int differ(const panel_t *p, dgx_screen_t *v)
+{
+    int n = 0;
+    for (int y = 0; y < PANEL_H; ++y)
+        for (int x = 0; x < PANEL_W; ++x) n += p->mem[y][x] != dgx_get_pixel(v, x, y);
+    return n;
+}
+
+int main(void)
+{
+    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+    panel_t       *panel = panel_make();
+    dgx_ui_paint_t pp    = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 4};
+    dgx_screen_t  *v     = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
+    dgx_ui_paint_t pv    = {.scr = v, .colors = colors, .color_count = 4};
+    const int      px = 10, py = 4, pw = 60, ph = 22; /* over the text and the top of the button */
+
+    make();
+    dgx_ui_paint(&ui, &pp, 0);
+    dgx_ui_popup_open(&ui, &pop, px, py, pw, ph, DGX_UI_POPUP_MODAL);
+    dgx_ui_paint(&ui, &pp, 1);
+    /* the tree under it changed: drawn around the popup, every pixel once, nothing inside it */
+    panel_count_from_now(panel);
+    dgx_ui_text_set(&ui, under, "UNDER IT");
+    dgx_ui_paint(&ui, &pp, 2);
+    CHECK(panel_written(panel) > 0 && panel_twice(panel) == 0);
+    {
+        int inside = 0;
+        for (int y = py; y < py + ph; ++y)
+            for (int x = px; x < px + pw; ++x) inside += panel->writes[y][x] != 0;
+        CHECK(inside == 0);
+    }
+    /* the pointer: the popup's button pressed; a modal popup swallows a finger on the tree under it */
+    const dgx_ui_node_t *pn = dgx_ui_node(&pop, pbt), *mn = dgx_ui_node(&ui, mbt);
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(pn->x + 2), .y = (int16_t)(pn->y + 2), .down = true, .pressed = true});
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(pn->x + 2), .y = (int16_t)(pn->y + 2), .released = true});
+    CHECK(activated_count == 1 && activated[0] == 2);
+    const int my = mn->y + mn->h - 2; /* the bottom of the main button: outside the popup */
+    CHECK(my >= py + ph);
+    CHECK(dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 4, .y = (int16_t)my, .down = true, .pressed = true}));
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 4, .y = (int16_t)my, .released = true});
+    CHECK(activated_count == 1);
+    /* the keys: the popup's focus; BACK is the program's */
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && pop.focus == pbt && ui.focus == -1);
+    CHECK(!dgx_ui_key(&ui, DGX_UI_KEY_BACK));
+    /* a message reaches the popup's widgets */
+    dgx_ui_msg_t msg;
+    dgx_ui_msg_value(&msg, 42, NULL, 0);
+    CHECK(dgx_ui_take(&ui, &msg) && caught == 42);
+    /* composed in strips with it open: as drawn */
+    {
+        dgx_ui_redraw(&ui, 0);
+        dgx_ui_redraw(&pop, 0);
+        dgx_ui_paint(&ui, &pp, 3);
+        dgx_screen_t  *band = dgx_vscreen_init(PANEL_W, 4, 16, DgxScreenRGB);
+        dgx_ui_paint_t pb   = {.scr = band, .colors = colors, .color_count = 4};
+        int            off  = 0;
+        for (int y0 = 0; y0 < PANEL_H; y0 += 4) {
+            pb.oy = (int16_t)y0;
+            dgx_ui_paint_area(&ui, &pb, 0, y0, PANEL_W, 4);
+            for (int y = 0; y < 4 && y0 + y < PANEL_H; ++y)
+                for (int x = 0; x < PANEL_W; ++x) off += dgx_get_pixel(band, x, y) != panel->mem[y0 + y][x];
+        }
+        CHECK(off == 0);
+        band->destroy(&band);
+    }
+    /* closed: where it lay drawn again from the tree under it, as the tree drawn alone */
+    dgx_ui_popup_close(&ui);
+    CHECK(ui.popup == NULL);
+    dgx_ui_paint(&ui, &pp, 4);
+    {
+        static dgx_ui_node_t alone_nodes[4];
+        static char          alone_buf[16];
+        static dgx_ui_textbox_t alone_box;
+        static dgx_ui_widget_t  alone_under;
+        dgx_ui_t                alone;
+        dgx_ui_textbox_init(&alone_box, alone_buf, sizeof alone_buf, 1, &style);
+        alone_under = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &alone_box};
+        dgx_ui_init(&alone, alone_nodes, 4, 1);
+        dgx_ui_add(&alone, -1, &root_w);
+        const int au = dgx_ui_add(&alone, 0, &alone_under);
+        dgx_ui_add(&alone, 0, &main_bt);
+        dgx_ui_text_set(&alone, au, "UNDER IT");
+        dgx_ui_paint(&alone, &pv, 0);
+        CHECK(differ(panel, v) == 0);
+        dgx_ui_free(&alone);
+    }
+    /* closed by a finger outside it: the finger spent, the tree under it untouched */
+    dgx_ui_popup_open(&ui, &pop, px, py, pw, ph, DGX_UI_POPUP_CLOSE_OUTSIDE);
+    CHECK(dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 4, .y = (int16_t)my, .down = true, .pressed = true}));
+    CHECK(ui.popup == NULL && ui.pressed == -1);
+    /* not modal: a finger on the tree under it is the tree's */
+    dgx_ui_popup_open(&ui, &pop, px, py, pw, ph, 0);
+    activated_count = 0;
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 4, .y = (int16_t)my, .down = true, .pressed = true});
+    dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 4, .y = (int16_t)my, .released = true});
+    CHECK(activated_count == 1 && activated[0] == 1);
+    dgx_ui_popup_close(&ui);
+
+    /* the audit of the popup: 1, a change made under a popup over all of the screen is drawn when it closes */
+    {
+        static dgx_ui_font_variant_t two[2];
+        static dgx_ui_text_style_t   st2;
+        static char                  b2[24], c2[24];
+        static dgx_ui_textbox_t      t2, u2;
+        static dgx_ui_widget_t       w2, x2;
+        static dgx_ui_node_t         n2[2], m2[2], q2[2];
+        static const dgx_ui_widget_t cover_all = {.kind = DGX_UI_FRAME};
+        two[0] = (dgx_ui_font_variant_t){.font = DejaVuSansBook32()}, two[1] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+        st2    = (dgx_ui_text_style_t){.variants = two, .count = 2, .flags = DGX_UI_TEXT_MIDDLE};
+        dgx_ui_t a, b, all;
+        dgx_ui_textbox_init(&t2, b2, sizeof b2, 1, &st2);
+        w2 = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t2, .want_w = 80};
+        dgx_ui_init(&a, n2, 2, 1), dgx_ui_add(&a, -1, &root_w);
+        const int at = dgx_ui_add(&a, 0, &w2);
+        dgx_ui_init(&all, q2, 2, 1), dgx_ui_add(&all, -1, &cover_all);
+        dgx_ui_text_set(&a, at, "21");
+        dgx_ui_paint(&a, &pp, 10);
+        dgx_ui_popup_open(&a, &all, 0, 0, PANEL_W, PANEL_H, DGX_UI_POPUP_MODAL);
+        dgx_ui_paint(&a, &pp, 11);
+        dgx_ui_text_set(&a, at, "21.5 C, 40%"); /* a message while the popup hides it */
+        dgx_ui_paint(&a, &pp, 12);
+        dgx_ui_popup_close(&a);
+        dgx_ui_paint(&a, &pp, 13);
+        dgx_ui_textbox_init(&u2, c2, sizeof c2, 1, &st2);
+        x2 = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &u2, .want_w = 80};
+        dgx_ui_init(&b, m2, 2, 1), dgx_ui_add(&b, -1, &root_w);
+        const int bt2 = dgx_ui_add(&b, 0, &x2);
+        dgx_ui_text_set(&b, bt2, "21.5 C, 40%");
+        dgx_ui_paint(&b, &pv, 0);
+        CHECK(t2.variant == u2.variant && differ(panel, v) == 0);
+        dgx_ui_free(&a), dgx_ui_free(&b), dgx_ui_free(&all);
+    }
+    /* 2: a popup not modal over the tree's button: a finger on the popup's frame presses nothing under it */
+    make();
+    dgx_ui_paint(&ui, &pp, 20);
+    dgx_ui_popup_open(&ui, &pop, 0, 0, PANEL_W, 40, 0);
+    activated_count = 0;
+    {
+        const dgx_ui_node_t *b = dgx_ui_node(&ui, mbt);
+        CHECK(b->y < 40);
+        CHECK(!dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(b->x + 1), .y = (int16_t)(b->y + 1), .down = true, .pressed = true}));
+        dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(b->x + 1), .y = (int16_t)(b->y + 1), .released = true});
+        CHECK(activated_count == 0 && ui.pressed == -1);
+    }
+    dgx_ui_popup_close(&ui);
+    dgx_ui_free(&ui), dgx_ui_free(&pop);
+    /* 3: a slider of a popup held: the tree tells it is dragged */
+    {
+        static const dgx_ui_widget_t pslider = {.kind = DGX_UI_SLIDER, .want_h = 10, .max = 10, .look = &dgx_ui_look_slider};
+        static dgx_ui_node_t         tn[2], pn2[3];
+        dgx_ui_t                     tree, p2;
+        dgx_ui_init(&tree, tn, 2, 1), dgx_ui_add(&tree, -1, &root_w);
+        dgx_ui_init(&p2, pn2, 3, 1), dgx_ui_add(&p2, -1, &pop_w);
+        dgx_ui_add(&p2, 0, &pslider);
+        dgx_ui_set_root(&tree, 0, 0, PANEL_W, PANEL_H);
+        dgx_ui_popup_open(&tree, &p2, 10, 10, 60, 30, DGX_UI_POPUP_MODAL);
+        dgx_ui_layout(&p2);
+        const dgx_ui_node_t *sn = dgx_ui_node(&p2, 1);
+        dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(sn->x + 5), .y = (int16_t)(sn->y + 5), .down = true, .pressed = true});
+        CHECK(dgx_ui_holding(&tree) && dgx_ui_dragging(&tree));
+        dgx_ui_free(&tree), dgx_ui_free(&p2);
+    }
+    v->destroy(&v);
+    free(panel);
+    CHECK_DONE();
+}

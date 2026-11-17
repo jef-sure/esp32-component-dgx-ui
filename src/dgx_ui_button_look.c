@@ -1,0 +1,78 @@
+/*
+ * dgx_ui_button_look.c
+ *
+ *  The look of a button: a face over a shadow to its right and below; pressed, the face moves onto the shadow and
+ *  paper shows above and left of it. The box is cut into the face, the shadow's strips and the paper's corners, so
+ *  every pixel of it is written once in any state; the text, the variant 0 of the text box's style, is a field of
+ *  DGX in the middle of the face, its paper the face.
+ *
+ *  Copyright (c) 2026 Anton Petrusevich
+ *      Author: Anton Petrusevich
+ */
+
+#include "dgx_draw.h"
+#include "dgx_ui_paint.h"
+#include "dgx_ui_text.h"
+#include "dgx_ui_text_priv.h"
+
+static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
+{
+    if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, c);
+}
+
+static bool button_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    const dgx_ui_node_t        *n = dgx_ui_node(ui, i);
+    const dgx_ui_button_look_t *p = look->params;
+    const unsigned              bits = n->state_value.bits;
+    const bool                  pressed = bits & DGX_UI_PRESSED, off = bits & DGX_UI_DISABLED;
+    const uint32_t paper  = dgx_ui_color(paint, paint->paper), shadow = dgx_ui_color(paint, p->shadow);
+    const uint32_t face   = dgx_ui_color(paint, off ? p->disabled : pressed ? p->pressed : (bits & DGX_UI_FOCUSED) ? p->focused : p->face);
+    const uint32_t ink    = dgx_ui_color(paint, off ? p->text_disabled : p->text);
+    int            d      = p->depth * ui->unit;
+    const int      x = n->x, y = n->y, w = n->w, h = n->h;
+    if (2 * d > w) d = w / 2;
+    if (2 * d > h) d = h / 2;
+    int fx, fy;
+    if (pressed) {
+        /* the face on the shadow: paper above and left */
+        fx = x + d, fy = y + d;
+        fill(paint, x, y, w, d, paper);
+        fill(paint, x, y + d, d, h - d, paper);
+    } else {
+        /* the face up and left, the shadow right and below, paper in the two corners the shadow leaves */
+        fx = x, fy = y;
+        fill(paint, x + w - d, y + d, d, h - d, shadow);
+        fill(paint, x + d, y + h - d, w - 2 * d, d, shadow);
+        fill(paint, x + w - d, y, d, d, paper);
+        fill(paint, x, y + h - d, d, d, paper);
+    }
+    const int fw = w - d, fh = h - d;
+    /* the face: its rows above and below the text's field, then the field */
+    const dgx_ui_textbox_t *box = n->widget->text;
+    dgx_font_t             *f   = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
+    if (!dgx_ui_variant_usable(f) || fw <= 0) {
+        fill(paint, fx, fy, fw, fh, face);
+        return false;
+    }
+    const int cell = f->yBottomMax - f->yOffsetLowest, base = fy + (fh - cell) / 2 - f->yOffsetLowest;
+    const int top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
+    fill(paint, fx, fy, fw, top - fy, face);
+    fill(paint, fx, bottom, fw, fy + fh - bottom, face);
+    /* the field kept to the rows of the face: in a button lower than the font it would write over the strips */
+    int px, py, pw, ph;
+    dgx_screen_clip_get(paint->scr, &px, &py, &pw, &ph);
+    const int t = (top > fy ? top : fy) - paint->oy, b = (bottom < fy + fh ? bottom : fy + fh) - paint->oy;
+    const int y0 = t > py ? t : py, y1 = b < py + ph ? b : py + ph;
+    if (y1 > y0) {
+        dgx_screen_clip(paint->scr, px, y0, pw, y1 - y0);
+        const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = face, .field = fw, .align = DGX_FONT_ALIGN_CENTER};
+        dgx_font_draw(&ctx, fx - paint->ox, base - paint->oy, box->buf ? box->buf : "");
+        dgx_screen_clip(paint->scr, px, py, pw, ph);
+    }
+    return false;
+}
+
+static const dgx_ui_button_look_t button_default = {
+    .face = 2, .pressed = 3, .focused = 3, .disabled = 0, .text = 1, .text_disabled = 2, .shadow = 0, .depth = 1};
+const dgx_ui_look_t dgx_ui_look_button = {.draw = button_draw, .params = &button_default, .fill = -1};

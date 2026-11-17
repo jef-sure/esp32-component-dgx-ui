@@ -1,0 +1,48 @@
+## IDF Component Manager Manifest File
+version: "0.0.1"
+description: "A light layer of widgets on the DGX display library for ESP32: rows and columns, values that come as messages from other tasks, animation only while a widget asks for time"
+url: https://github.com/jef-sure/esp32-component-dgx-ui
+repository: https://github.com/jef-sure/esp32-component-dgx-ui.git
+documentation: https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/README.md
+issues: https://github.com/jef-sure/esp32-component-dgx-ui/issues
+
+dependencies:
+  idf:
+    version: ">=5.2.0"
+  jef-sure/dgx:
+    version: "^0.11.4"  # 0.11.3: the clip of a screen; 0.11.4: a text set in a field, an opaque 1-bit picture
+
+tags:
+  - user-interface
+  - gui
+  - widgets
+  - display
+  - dgx
+  - esp32
+
+maintainers:
+  - "Anton Petrusevich <anton.petrusevich.mobile@gmail.com>"
+
+license: MIT
+
+files:
+  # A list of what goes into the archive, and nothing else does, as DGX has it: the manager starts from every file in
+  # the directory, takes away what "exclude" says and adds back what "include" says, so "include" limits nothing by
+  # itself. A file of a new kind (the tests, the examples, the plans, an editor's index) stays out until it is listed
+  # here.
+  exclude:
+    - "**/*"
+  include:
+    - "idf_component.yml"
+    - "CMakeLists.txt"
+    - "host/**/*.mk"  # dgx-ui built on the computer with make, beside DGX's host/dgx_host.mk
+    - "src/**/*.c"
+    - "src/**/*.h"
+    - "include/**/*.h"
+    - "README.md"
+    - "README-ru.md"
+    - "docs/en/*.md"
+    - "docs/ru/*.md"
+    - "docs/images/*.png"
+    - "CHANGES.md"
+    - "LICENSE"

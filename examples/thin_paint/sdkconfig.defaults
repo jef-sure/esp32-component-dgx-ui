@@ -1,0 +1,6 @@
+CONFIG_FREERTOS_HZ=1000
+# the window of DGX on the computer: SDL needs a larger stack of the task that makes it
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+# a CYD (ESP32-2432S028R): an ILI9341 of 240x320 on SPI
+CONFIG_DGX_ENABLE_SPI=y
+CONFIG_DGX_ENABLE_SPI_ILI_9341=y

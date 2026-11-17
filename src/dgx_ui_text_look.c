@@ -1,0 +1,100 @@
+/*
+ * dgx_ui_text_look.c
+ *
+ *  The look of a text of one line, the default of a LABEL: the variant of the style it goes into, set in a field of
+ *  DGX, cut with an ellipsis when none takes it whole. A value drawn again writes its field once and nothing else.
+ *  Several lines, a scroll and letters appearing are the look of lines, dgx_ui_lines_look.c, named by a widget that
+ *  wants them: a program of labels does not carry it.
+ *
+ *  Copyright (c) 2026 Anton Petrusevich
+ *      Author: Anton Petrusevich
+ */
+
+#include "dgx_draw.h"
+#include "dgx_ui_paint.h"
+#include "dgx_ui_text.h"
+#include "dgx_ui_text_priv.h"
+
+static const char ELLIPSIS[] = "...";
+
+/* how many bytes of a text go into a field with an ellipsis after them, in whole letters; and how many letters */
+static int cut_for(dgx_font_t *font, const char *text, int field, int *letters)
+{
+    const int dots = dgx_ui_width_of(font, ELLIPSIS, (int)sizeof ELLIPSIS - 1);
+    int       n = 0, count = 0;
+    for (int k = 0; text[k]; k = dgx_ui_next_char(text, k)) {
+        const int end = dgx_ui_next_char(text, k);
+        if (end > DGX_UI_LINE || dgx_ui_width_of(font, text, end) + dots > field) break; /* past the line kept: not taken */
+        n = end, ++count;
+    }
+    if (letters) *letters = count;
+    return n;
+}
+
+/* the first variant the text goes into whole; else the one that shows the most letters, the earlier of equals; -1
+   when there is none the look can draw */
+static int fit(const dgx_ui_text_style_t *st, const char *text, int field)
+{
+    int best = -1, most = -1;
+    for (int v = 0; v < st->count; ++v) {
+        dgx_font_t *f = st->variants[v].font;
+        if (!dgx_ui_variant_usable(f)) continue;
+        if (dgx_ui_width_of(f, text, (int)strlen(text)) <= field && strlen(text) <= DGX_UI_LINE) return v;
+        int letters;
+        cut_for(f, text, field, &letters);
+        if (letters > most) best = v, most = letters;
+    }
+    return best;
+}
+
+static bool text_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    dgx_ui_node_t            *w   = dgx_ui_node(ui, i);
+    dgx_ui_textbox_t         *box = w->widget->text;
+    const dgx_ui_text_look_t *p   = look->params;
+    const uint32_t ink = dgx_ui_color(paint, p->ink), paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper);
+    const int      x = w->x - paint->ox, oy = paint->oy;
+    if (!box || !box->style || !box->style->count || w->w <= 0) {
+        if (paint->whole) dgx_fill_rectangle(paint->scr, x, w->y - oy, w->w, w->h, paper);
+        return false;
+    }
+    const dgx_ui_text_style_t *st   = box->style;
+    const char                *text = box->buf ? box->buf : "";
+    /* the variant: fitted again when the text or the width changed; remembered only by the painter's own pass, so
+       that a composing does not hide from it that the variant, and with it the rows around the field, changed */
+    int v = box->variant;
+    if (w->marks & DGX_UI_MARK_FIT) v = fit(st, text, w->w);
+    if (v < 0 || v >= st->count || !dgx_ui_variant_usable(st->variants[v].font)) {
+        if (paint->whole) dgx_fill_rectangle(paint->scr, x, w->y - oy, w->w, w->h, paper);
+        return false;
+    }
+    if (v != box->variant) paint->whole = true; /* another height: around it too */
+    if (!paint->composing && paint->part + 1 >= paint->parts) box->variant = (uint8_t)v; /* stored by the last part only */
+    dgx_font_t *f = st->variants[v].font, *f0 = st->variants[0].font;
+    if (!dgx_ui_variant_usable(f0)) f0 = f;
+    /* the base line: the first variant's, or the middle of the box for a smaller one */
+    const int cell = f->yBottomMax - f->yOffsetLowest;
+    const int base = (st->flags & DGX_UI_TEXT_MIDDLE) ? w->y + (w->h - cell) / 2 - f->yOffsetLowest : w->y - f0->yOffsetLowest;
+    const int top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
+    if (paint->whole) {
+        /* the rows of the box above and below the field: the field writes its own */
+        if (top > w->y) dgx_fill_rectangle(paint->scr, x, w->y - oy, w->w, top - w->y, paper);
+        if (bottom < w->y + w->h) dgx_fill_rectangle(paint->scr, x, bottom - oy, w->w, w->y + w->h - bottom, paper);
+    }
+    /* the text, cut with an ellipsis when it does not go in */
+    char      line[DGX_UI_LINE + sizeof ELLIPSIS];
+    const int n = (int)strlen(text);
+    if (n <= DGX_UI_LINE && dgx_ui_width_of(f, text, n) <= w->w) {
+        memcpy(line, text, (size_t)n + 1);
+    } else {
+        const int keep = cut_for(f, text, w->w, NULL);
+        memcpy(line, text, (size_t)keep);
+        memcpy(line + keep, ELLIPSIS, sizeof ELLIPSIS);
+    }
+    const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = paper, .field = w->w, .align = st->align};
+    dgx_font_draw(&ctx, x, base - oy, line);
+    return false;
+}
+
+static const dgx_ui_text_look_t text_default = {.ink = 1, .paper = DGX_UI_PAPER};
+const dgx_ui_look_t             dgx_ui_look_text = {.draw = text_draw, .params = &text_default, .fill = -1};
