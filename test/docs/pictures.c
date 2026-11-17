@@ -76,8 +76,8 @@ static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLU
 static const dgx_ui_widget_t frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .want_h = 40};
 static const dgx_ui_widget_t co2_w   = {.kind = DGX_UI_LABEL, .text = &co2_box, .want_h = 34, .take = co2_take};
 static const dgx_ui_widget_t row_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 10};
-static const dgx_ui_widget_t clock_w = {.kind = DGX_UI_LABEL, .text = &clock_box, .want_w = 76, .take = clock_take};
-static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .text = &note_box, .want_w = 76};
+static const dgx_ui_widget_t clock_w = {.kind = DGX_UI_LABEL, .text = &clock_box, .want_w = 50, .take = clock_take};
+static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &note_box};
 
 static void scene_first(dgx_screen_t *scr, const char *out)
 {
@@ -120,23 +120,19 @@ static const dgx_image_t signal_im[4] = {
 };
 static const dgx_ui_picture_t signal_pic[4] = {{.image = &signal_im[0]}, {.image = &signal_im[1]}, {.image = &signal_im[2]}, {.image = &signal_im[3]}};
 
-/* looks in the program's own colours: the draw of the library's look, parameters of its own */
+/* looks in the program's own colours: the library's drawing, parameters of its own, constants */
 static const dgx_ui_button_look_t my_button = {
     .face = ACCENT, .pressed = ACCENT_DOWN, .focused = ACCENT_DOWN, .disabled = FILL, .text = INK, .text_disabled = DIM, .shadow = SHADOW, .depth = 1};
 static const dgx_ui_slider_look_t my_slider = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = BORDER, .disabled = DIM, .track_h = 2};
 static const dgx_ui_switch_look_t my_switch = {.off = FILL, .on = ACCENT, .knob = INK, .focused = BORDER, .disabled = DIM};
-static dgx_ui_look_t look_button, look_slider, look_switch; /* filled at the start: see make_looks() */
-static void make_looks(void)
-{
-    look_button = dgx_ui_look_button, look_button.params = &my_button;
-    look_slider = dgx_ui_look_slider, look_slider.params = &my_slider;
-    look_switch = dgx_ui_look_switch, look_switch.params = &my_switch;
-}
+static const dgx_ui_look_t look_button = {.draw = dgx_ui_draw_button, .params = &my_button, .fill = -1};
+static const dgx_ui_look_t look_slider = {.draw = dgx_ui_draw_slider, .params = &my_slider, .fill = -1};
+static const dgx_ui_look_t look_switch = {.draw = dgx_ui_draw_switch, .params = &my_switch, .fill = -1};
 
 static char title_buf[16], light_buf[16], wifi_buf[16], sound_buf[16], ok_buf[8], cancel_buf[8];
 static dgx_ui_textbox_t title_box, light_box, wifi_box, sound_box, ok_box, cancel_box;
 static int  saved;
-static void on_ok(dgx_ui_t *ui, int i, int what, void *ctx)
+static void on_ok(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) saved = 1;
 }
@@ -189,8 +185,8 @@ static dgx_ui_textbox_t ask_box, yes_box, no_box;
 static const dgx_ui_widget_t pop_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 5, .gap = 5};
 static const dgx_ui_widget_t ask_w      = {.kind = DGX_UI_LABEL, .text = &ask_box, .want_h = 12};
 static const dgx_ui_widget_t pop_row_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 18, .gap = 6};
-static const dgx_ui_widget_t yes_w      = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &yes_box, .want_w = 50, .look = &look_button};
-static const dgx_ui_widget_t no_w       = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &no_box, .want_w = 50, .look = &look_button};
+static const dgx_ui_widget_t yes_w      = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &yes_box, .look = &look_button};
+static const dgx_ui_widget_t no_w       = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &no_box, .look = &look_button};
 static dgx_ui_node_t pop_nodes[6];
 static dgx_ui_t      pop_ui;
 static void make_popup(void)
@@ -265,7 +261,7 @@ int main(int argc, char **argv)
     const char   *dir = argc > 1 ? argv[1] : ".";
     char          a[512], b[512];
     dgx_screen_t *scr = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
-    make_colors(scr), make_styles(), make_looks();
+    make_colors(scr), make_styles();
     snprintf(a, sizeof a, "%s/first.ppm", dir), scene_first(scr, a);
     dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
     snprintf(a, sizeof a, "%s/settings.ppm", dir), snprintf(b, sizeof b, "%s/popup.ppm", dir), scene_settings(scr, a, b);

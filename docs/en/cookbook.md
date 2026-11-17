@@ -7,6 +7,7 @@ such as `settings_save()`, are the program's own. [Getting started](getting-star
 in: the display, the queue and the loop of the task that owns the tree.
 
 - [What the recipes share](#what-the-recipes-share)
+- [A row and a column that fit any screen](#a-row-and-a-column-that-fit-any-screen)
 - [One message for several widgets](#one-message-for-several-widgets)
 - [A clock, or anything once in a while](#a-clock-or-anything-once-in-a-while)
 - [A button](#a-button)
@@ -25,6 +26,7 @@ in: the display, the queue and the loop of the task that owns the tree.
 - [Large data: a message by reference](#large-data-a-message-by-reference)
 - [A message from an interrupt](#a-message-from-an-interrupt)
 - [A look of your own](#a-look-of-your-own)
+- [A ring scale with widgets inside](#a-ring-scale-with-widgets-inside)
 - [Turning the screen](#turning-the-screen)
 - [Testing an interface on the computer](#testing-an-interface-on-the-computer)
 
@@ -58,6 +60,31 @@ static void styles_init(void)
     st_centre = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
 }
 ```
+
+## A row and a column that fit any screen
+
+A child with the flag `DGX_UI_REST` takes what its row or column has left after the others. No width is counted by
+hand, and the same tree fits a screen of another width, another unit or a turned screen.
+
+```c
+static char             name_buf[16], value_buf[16], title_buf[16];
+static dgx_ui_textbox_t name_box, value_box, title_box;
+
+/* a row: the name takes what the value leaves */
+static const dgx_ui_widget_t fit_row_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 10, .gap = 4};
+static const dgx_ui_widget_t name_w    = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &name_box};
+static const dgx_ui_widget_t value_w   = {.kind = DGX_UI_LABEL, .text = &value_box, .want_w = 40};
+
+/* a column: the content takes what the title and the buttons leave, so the buttons stand at the bottom */
+static const dgx_ui_widget_t page_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 4, .gap = 4};
+static const dgx_ui_widget_t title_w   = {.kind = DGX_UI_LABEL, .text = &title_box};
+static const dgx_ui_widget_t content_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_REST, .gap = 2};
+static const dgx_ui_widget_t bottom_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 18, .gap = 6};
+```
+
+- Several children with the flag share what is left equally.
+- When nothing is left, such a child gets no size and is not seen.
+- In a box that is neither a column nor a row the flag does nothing.
 
 ## One message for several widgets
 
@@ -148,7 +175,7 @@ void settings_save(void);
 static char             save_buf[8];
 static dgx_ui_textbox_t save_box;
 
-static void save_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void save_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) settings_save();
 }
@@ -173,21 +200,22 @@ static int save_add(dgx_ui_t *ui, int parent)
 
 ## A slider and a switch
 
-The value of a control is in its node. `on()` is told `DGX_UI_CHANGED` when the user changed it: a slider at every
-step of the finger, a switch when it is clicked.
+The value of a control is in its node, and `on()` gets the node: `node->state_value.value` is the value the user
+set. `on()` is told `DGX_UI_CHANGED` when the user changed it: a slider at every step of the finger, a switch when
+it is clicked.
 
 ```c
 void backlight_set(int percent);
 void wifi_enable(bool on);
 
-static void backlight_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void backlight_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) backlight_set(dgx_ui_node(ui, i)->state_value.value);
+    if (what == DGX_UI_CHANGED) backlight_set(node->state_value.value);
 }
 
-static void wifi_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void wifi_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) wifi_enable(dgx_ui_node(ui, i)->state_value.value != 0);
+    if (what == DGX_UI_CHANGED) wifi_enable(node->state_value.value != 0);
 }
 
 /* a slider of 0..100 by 5 that starts at 70, and a switch that starts off */
@@ -330,19 +358,14 @@ static void city_style_init(void)
 ## Colours of your own, and a night mode
 
 The looks of the library have parameters: which colour of the table is the face, the text, the shadow. A look in
-other colours is the library's look with parameters of its own. It is filled at the start, 12 bytes of RAM:
+other colours is the library's drawing with parameters of its own. It is a constant and lies in flash:
 
 ```c
 static const dgx_ui_button_look_t blue_button = {
     .face = ACCENT, .pressed = ACCENT_DOWN, .focused = ACCENT_DOWN, .disabled = FILL,
     .text = INK, .text_disabled = DIM, .shadow = SHADOW, .depth = 1};
-static dgx_ui_look_t look_blue_button;
-
-static void looks_init(void)
-{
-    look_blue_button        = dgx_ui_look_button; /* its drawing */
-    look_blue_button.params = &blue_button;       /* in these colours */
-}
+/* the library's drawing of a button, in these colours */
+static const dgx_ui_look_t look_blue_button = {.draw = dgx_ui_draw_button, .params = &blue_button, .fill = -1};
 
 static const dgx_ui_widget_t ok_w = {.kind = DGX_UI_BUTTON, .want_w = 60, .want_h = 18, .look = &look_blue_button};
 ```
@@ -388,14 +411,14 @@ static dgx_ui_node_t    ask_nodes[6];
 static dgx_ui_t         ask_ui;
 static dgx_ui_t        *ask_over; /* the tree it is open over */
 
-static void yes_on(dgx_ui_t *popup, int i, int what, void *ctx)
+static void yes_on(dgx_ui_t *popup, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what != DGX_UI_ACTIVATED) return;
     settings_save();
     dgx_ui_popup_close(ask_over);
 }
 
-static void no_on(dgx_ui_t *popup, int i, int what, void *ctx)
+static void no_on(dgx_ui_t *popup, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) dgx_ui_popup_close(ask_over);
 }
@@ -403,10 +426,11 @@ static void no_on(dgx_ui_t *popup, int i, int what, void *ctx)
 static const dgx_ui_widget_t ask_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 5, .gap = 5};
 static const dgx_ui_widget_t ask_w      = {.kind = DGX_UI_LABEL, .text = &ask_box, .want_h = 12};
 static const dgx_ui_widget_t ask_row_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 18, .gap = 6};
+/* the two buttons share the row: as high as it (STRETCH), each a half of what it has (REST) */
 static const dgx_ui_widget_t yes_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &yes_box, .want_w = 50, .look = &dgx_ui_look_button, .on = yes_on};
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &yes_box, .look = &dgx_ui_look_button, .on = yes_on};
 static const dgx_ui_widget_t no_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &no_box, .want_w = 50, .look = &dgx_ui_look_button, .on = no_on};
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &no_box, .look = &dgx_ui_look_button, .on = no_on};
 
 static void ask_open(dgx_ui_t *ui)
 {
@@ -432,6 +456,26 @@ static void ask_open(dgx_ui_t *ui)
 - When the popup closes, the painter draws the tree again where it lay.
 - The rectangle is in pixels of the screen as it stands. When the screen is turned, close the popup, or open it again
   in the new pixels.
+
+A popup is a tree, so a popup may be opened over it in turn: a question over a dialog, a list of choices that hangs
+out of it.
+
+```c
+static dgx_ui_node_t sure_nodes[6];
+static dgx_ui_t      sure_ui; /* built as ask_ui above: a frame, a label, two buttons */
+
+/* a second popup, over the first: it is opened over the popup's own tree */
+static bool sure_open(void)
+{
+    return dgx_ui_popup_open(&ask_ui, &sure_ui, 80, 110, 200, 80, DGX_UI_POPUP_MODAL);
+}
+```
+
+- Up to `DGX_UI_POPUP_DEPTH`, 8, popups stand one over another; `dgx_ui_popup_open()` returns `false` for the ninth,
+  and for a tree that is already open as a popup.
+- The finger and the keys go to the top popup first. A finger on the part of an upper popup that hangs out of the
+  lower one is the upper one's.
+- `dgx_ui_popup_close(ui)` closes the popup of that tree and every popup over it.
 
 ## Buttons of the board
 
@@ -461,6 +505,54 @@ static void buttons_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg, uint32_t now_
 - A held up, down, left or right repeats after 500 ms, every 100 ms. The repeat is made by `dgx_ui_time()`, which the
   loop calls before `dgx_ui_paint()`; while a button is held it returns `true`, and the loop does not sleep.
 - A single key of a dialog is `dgx_ui_key(ui, DGX_UI_KEY_NEXT)` and its kin.
+
+**Which key a button gives** is a table. By default:
+
+| Button | Its key by default | What the key does |
+| ------ | ------------------ | ----------------- |
+| `DGX_UI_PAD_UP` | `DGX_UI_KEY_PREV` | the focus to the widget before |
+| `DGX_UI_PAD_DOWN` | `DGX_UI_KEY_NEXT` | the focus to the widget after |
+| `DGX_UI_PAD_LEFT` | `DGX_UI_KEY_LESS` | the focused slider a step down, a switch off |
+| `DGX_UI_PAD_RIGHT` | `DGX_UI_KEY_MORE` | the focused slider a step up, a switch on |
+| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned |
+| `DGX_UI_PAD_BACK`, `DGX_UI_PAD_B` | `DGX_UI_KEY_BACK` | nothing in a widget: the program's |
+| `DGX_UI_PAD_START` | none | the button is the program's |
+
+The default fits a column of settings: up and down go from one to the next, left and right change the one in focus.
+
+It does not fit buttons that stand in a row. Take a dialog with three buttons side by side, "Back", "OK" and "Next",
+the focus on "Back". The user presses right to get to "OK". Right is "more"; a button has no value to make more of,
+so nothing happens. The focus moves by up and down only, which nobody looking at a row would guess.
+
+A table of the program's own gives left and right the keys that move the focus:
+
+```c
+/* three buttons in a row, "Back", "OK", "Next": left and right move the focus along the row */
+static const uint8_t row_keys[8] = {
+    DGX_UI_KEY_PREV,     /* DGX_UI_PAD_LEFT:  the focus to the button on the left; by default LESS */
+    DGX_UI_KEY_NEXT,     /* DGX_UI_PAD_RIGHT: the focus to the button on the right; by default MORE */
+    DGX_UI_KEY_PREV,     /* DGX_UI_PAD_UP:    the focus back, as by default */
+    DGX_UI_KEY_NEXT,     /* DGX_UI_PAD_DOWN:  the focus on, as by default */
+    DGX_UI_KEY_ACTIVATE, /* DGX_UI_PAD_A:     the focused button activated, as by default */
+    0xff,                /* DGX_UI_PAD_START: no key, the button is the program's, as by default */
+    DGX_UI_KEY_BACK,     /* DGX_UI_PAD_BACK:  back, which no widget takes: the program's, as by default */
+    DGX_UI_KEY_BACK,     /* DGX_UI_PAD_B:     the same */
+};
+
+static void dialog_keys(dgx_ui_t *ui, bool buttons_in_a_row)
+{
+    dgx_ui_button_keys(ui, buttons_in_a_row ? row_keys : NULL); /* NULL: the default table again */
+}
+```
+
+- The table has 8 entries, one for each button, in the order of the bits `DGX_UI_PAD_*`: LEFT, RIGHT, UP, DOWN, A,
+  START, BACK, B.
+- An entry is a `DGX_UI_KEY_*`, or 0xff: the button gives no key and stays the program's.
+- The tree keeps the pointer and copies nothing: give a constant.
+- It may be given again at any time, as when a dialog of a column gives way to a dialog of a row. `NULL` gives the
+  default back.
+- It is the table of the tree given to `dgx_ui_buttons()`. The keys it gives go to the popups over that tree as any
+  key does.
 
 ## Touch with DGX-DI
 
@@ -504,7 +596,7 @@ void wifi_connect(const char *password);
 static char             pass_buf[33];
 static dgx_ui_textbox_t pass_box;
 
-static void pass_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void pass_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) wifi_connect(pass_buf); /* "done" was typed */
     if (what == DGX_UI_BACK) dgx_ui_text_set(ui, i, "");  /* "cancel" was typed */
@@ -663,6 +755,141 @@ The rules a look keeps:
 - **Its fill.** `fill` is the index of the colour the look leaves under the widget's children, or -1 when it leaves
   what was there. A frame's is its fill.
 
+## A ring scale with widgets inside
+
+![A CO2 station: a coloured ring scale with a number and two values inside](../images/ring.png)
+![The same with its layout: the boxes of the widgets in dashes](../images/ring-layout.png)
+
+A scale that goes round the screen, with widgets inside it, is one tree: the ring is a widget of the program's own
+kind that holds the others as its children, as a frame does. It needs no popup. The dashes of the second picture
+mark what the layout gave: the square the ring's pad leaves inside the circle, and in it the boxes of the number, of
+its unit, of the empty box that takes the rest, and of the row with its two labels.
+
+The ring's look draws a `dgx_gauge_t` of DGX:
+
+```c
+#include "dgx_gauge.h"
+
+/* the colours of the scale, packed for the screen at the start */
+static uint32_t ring_low, ring_mid, ring_high, ring_off;
+
+static uint32_t ring_color(int ppm)
+{
+    return ppm < 800 ? ring_low : ppm < 1200 ? ring_mid : ring_high;
+}
+
+typedef struct {
+    uint8_t width; /* of the ring, in points */
+} ring_look_t;
+
+/* what the ring remembers: the gauge of DGX, which draws only the steps that changed */
+typedef struct {
+    dgx_gauge_t gauge;
+    bool        made;
+} ring_t;
+
+static bool ring_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    const dgx_ui_node_t   *n = dgx_ui_node(ui, i);
+    const dgx_ui_widget_t *w = n->widget;
+    const ring_look_t     *p = look->params;
+    ring_t                *r = w->own;
+    const int thick = p->width * ui->unit, outer = (n->w < n->h ? n->w : n->h) / 2 - 2;
+    if (paint->whole || !r->made) {
+        /* nothing of it is on this screen: its paper around the children, the empty ring, the steps up to the value */
+        dgx_gauge_t fresh;
+        dgx_ui_fill_around(paint, ui, i, dgx_ui_rect(n->x, n->y, n->w, n->h), dgx_ui_color(paint, paint->paper));
+        dgx_gauge_init(&fresh, paint->scr, n->x + n->w / 2 - paint->ox, n->y + n->h / 2 - paint->oy, outer - thick, thick, 225.0f, 270,
+                       w->min, w->max, ring_off, ring_color);
+        dgx_gauge_set_value(&fresh, n->state_value.value);
+        if (!paint->composing) r->gauge = fresh, r->made = true; /* remembered only by the painter's own pass */
+    } else if (paint->part == 0) {
+        dgx_gauge_set_value(&r->gauge, n->state_value.value); /* only the steps that changed */
+    } else {
+        dgx_gauge_redraw(&r->gauge); /* another part of it, beside a popup: all of the ring there */
+    }
+    return false;
+}
+```
+
+The widgets. One message of the value feeds both the ring and the number; the two labels at the bottom are those of
+[One message for several widgets](#one-message-for-several-widgets).
+
+```c
+enum { MSG_PPM = 17 };
+typedef struct {
+    int16_t ppm;
+} ppm_t;
+DGX_UI_MESSAGE(ppm, MSG_PPM, ppm_t)
+
+static bool ring_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
+{
+    ppm_t v;
+    if (msg_decode_ppm(msg, &v) == ESP_OK) dgx_ui_set_value(ui, i, v.ppm);
+    return false; /* the number inside reads the same message */
+}
+
+static bool ppm_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
+{
+    ppm_t v;
+    if (msg_decode_ppm(msg, &v) == ESP_OK) dgx_ui_text_printf(ui, i, "%d", v.ppm);
+    return false;
+}
+
+static char                ppm_buf[8], ppm_unit_buf[12], ring_temp_buf[12], ring_rh_buf[8];
+static dgx_ui_textbox_t    ppm_box, ppm_unit_box;
+static dgx_ui_text_style_t st_ring_right;
+static ring_t              ring_data;
+static const ring_look_t   ring_params = {.width = 14};
+static const dgx_ui_look_t ring_look   = {.draw = ring_draw, .params = &ring_params, .fill = -1};
+
+/* the ring is a column: its pad keeps its children inside the circle */
+static const dgx_ui_widget_t ring_w = {
+    .kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 47, .gap = 2, .min = 400, .max = 2000,
+    .look = &ring_look, .own = &ring_data, .take = ring_take};
+static const dgx_ui_widget_t ppm_w       = {.kind = DGX_UI_LABEL, .text = &ppm_box, .want_h = 44, .take = ppm_take};
+static const dgx_ui_widget_t ppm_unit_w  = {.kind = DGX_UI_LABEL, .text = &ppm_unit_box};
+static const dgx_ui_widget_t ring_rest_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
+static const dgx_ui_widget_t ring_row_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 13};
+static const dgx_ui_widget_t ring_temp_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &temp_box, .take = temp_take};
+static const dgx_ui_widget_t ring_rh_w   = {.kind = DGX_UI_LABEL, .text = &rh_box, .want_w = 50, .take = rh_take};
+
+/* the tree of a round screen of 240: the ring is its root */
+static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
+{
+    ring_low  = dgx_screen_rgb(scr, 60, 200, 90);
+    ring_mid  = dgx_screen_rgb(scr, 240, 200, 40);
+    ring_high = dgx_screen_rgb(scr, 230, 60, 50);
+    ring_off  = dgx_screen_rgb(scr, 40, 46, 60);
+    st_ring_right = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
+    dgx_ui_textbox_init(&ppm_box, ppm_buf, sizeof ppm_buf, 1, &st_city); /* the large font, or the small one */
+    dgx_ui_textbox_init(&ppm_unit_box, ppm_unit_buf, sizeof ppm_unit_buf, 1, &st_centre);
+    dgx_ui_textbox_init(&temp_box, ring_temp_buf, sizeof ring_temp_buf, 1, &st_left);
+    dgx_ui_textbox_init(&rh_box, ring_rh_buf, sizeof ring_rh_buf, 1, &st_ring_right);
+    const int ring = dgx_ui_add(ui, -1, &ring_w);
+    dgx_ui_add(ui, ring, &ppm_w);
+    dgx_ui_text_set(ui, dgx_ui_add(ui, ring, &ppm_unit_w), "ppm CO2");
+    dgx_ui_add(ui, ring, &ring_rest_w); /* pushes the row to the bottom of the square */
+    const int row = dgx_ui_add(ui, ring, &ring_row_w);
+    dgx_ui_add(ui, row, &ring_temp_w);
+    dgx_ui_add(ui, row, &ring_rh_w);
+    return ring;
+}
+```
+
+- **The pad** keeps the children inside the circle. On a screen of 240 the ring's outer radius is 118 and its width
+  14, so the inner circle has a radius of 104. The square inside that circle has a side of 104 x 1.41 = 147, and the
+  pad is (240 - 147) / 2 = 47.
+- **A new value** calls the ring's look once, and the gauge of DGX draws only the steps that changed. The number
+  writes its own field. Nothing else is touched.
+- **Drawn whole**, at the first paint and after a turn, the ring fills its box around its children by
+  `dgx_ui_fill_around()` and draws itself over that paper: the pixels of the ring are written twice then, the
+  children's once.
+- **Under a popup** a part of the ring may show beside it. The look is then called for each part; the gauge remembers
+  its steps after the first, so the other parts are drawn whole.
+- A child hidden or shown makes a ring be drawn whole with its children: only a box and a frame fill around what
+  stayed.
+
 ## Turning the screen
 
 ```c
@@ -674,7 +901,8 @@ static void screen_turn(dgx_screen_t *scr, bool landscape)
 ```
 
 Nothing else: the painter compares the size and the orientation of the screen at every pass, lays the tree again and
-draws it whole. Sizes in points keep; a row that was wide enough may not be after the turn.
+draws it whole. Sizes in points keep; a row that was wide enough may not be after the turn, unless one of its
+children [takes the rest](#a-row-and-a-column-that-fit-any-screen).
 
 ## Testing an interface on the computer
 
@@ -685,7 +913,7 @@ does what the user would do:
 #include <assert.h>
 
 static int  saved;
-static void test_save_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void test_save_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) ++saved;
 }

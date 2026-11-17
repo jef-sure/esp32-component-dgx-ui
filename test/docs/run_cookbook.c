@@ -1,5 +1,6 @@
 /* The recipes of the cookbook run: its C blocks, as the checker joined them, with the program's own functions stubbed. */
 #include "docs_en_cookbook.md.c" /* written by check_docs.py into its build directory: give it with -I */
+#include <stdio.h>
 #include "dgx_vscreen.h"
 
 static int saves, backs, menus, backlight = -1, wifi = -1;
@@ -25,12 +26,75 @@ int  dgx_di_keyboard_take(dgx_di_keyboard_t *kb, dgx_di_pointer_t *p, uint32_t n
 static uint32_t table[COLORS];
 static const dgx_ui_widget_t col_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 
-int main(void)
+/* a picture of a screen as PPM */
+static void shot(dgx_screen_t *scr, const char *dir, const char *name)
+{
+    static uint32_t px[320 * 240];
+    char            path[600];
+    if (!dir) return;
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    dgx_vscreen_to_argb8888(scr, 0, 0, scr->width, scr->height, NULL, px, scr->width);
+    FILE *f = fopen(path, "wb");
+    fprintf(f, "P6\n%d %d\n255\n", scr->width, scr->height);
+    for (int i = 0; i < scr->width * scr->height; ++i) fputc(px[i] >> 16 & 255, f), fputc(px[i] >> 8 & 255, f), fputc(px[i] & 255, f);
+    fclose(f);
+}
+
+/* a rectangle outlined in thin dashes: three pixels on, three off */
+static void dashes(dgx_screen_t *scr, int x, int y, int w, int h, uint32_t color)
+{
+    for (int k = 0; k < w; ++k)
+        if (k % 6 < 3) dgx_set_pixel(scr, x + k, y, color), dgx_set_pixel(scr, x + k, y + h - 1, color);
+    for (int k = 0; k < h; ++k)
+        if (k % 6 < 3) dgx_set_pixel(scr, x, y + k, color), dgx_set_pixel(scr, x + w - 1, y + k, color);
+}
+
+/* the recipe of the ring scale on a screen of 240: its picture, and the same with the boxes of the layout in dashes */
+static void ring_pictures(const char *dir)
+{
+    static dgx_ui_node_t nodes[8];
+    dgx_ui_t             ui;
+    dgx_screen_t        *scr = dgx_vscreen_init(240, 240, 16, DgxScreenRGB);
+    static uint32_t      table[COLORS];
+    table[PAPER] = dgx_screen_rgb(scr, 12, 14, 20), table[INK] = dgx_screen_rgb(scr, 235, 235, 225);
+    dgx_ui_paint_t paint = {.scr = scr, .colors = table, .color_count = COLORS, .background = PAPER};
+    dgx_ui_init(&ui, nodes, 8, 1);
+    const int ring = ring_add(&ui, scr);
+    dgx_ui_msg_t    msg;
+    const ppm_t     v = {.ppm = 1340};
+    const climate_t c = {.t10 = 215, .rh = 41};
+    dgx_ui_msg_value(&msg, MSG_PPM, &v, sizeof v), dgx_ui_take(&ui, &msg), dgx_ui_msg_done(&msg);
+    dgx_ui_msg_value(&msg, MSG_CLIMATE, &c, sizeof c), dgx_ui_take(&ui, &msg), dgx_ui_msg_done(&msg);
+    dgx_ui_paint(&ui, &paint, 0);
+    shot(scr, dir, "ring.ppm");
+    /* a second value: only the steps that changed and the number's field */
+    const ppm_t v2 = {.ppm = 1350};
+    dgx_ui_msg_value(&msg, MSG_PPM, &v2, sizeof v2), dgx_ui_take(&ui, &msg), dgx_ui_msg_done(&msg);
+    dgx_ui_paint(&ui, &paint, 1000);
+    const ppm_t v3 = {.ppm = 1340};
+    dgx_ui_msg_value(&msg, MSG_PPM, &v3, sizeof v3), dgx_ui_take(&ui, &msg), dgx_ui_msg_done(&msg);
+    dgx_ui_paint(&ui, &paint, 2000);
+    /* the layout in dashes: the square the pad leaves, then the box of every widget */
+    const dgx_ui_node_t *r   = dgx_ui_node(&ui, ring);
+    const int            pad = r->widget->pad * ui.unit;
+    dashes(scr, r->x + pad, r->y + pad, r->w - 2 * pad, r->h - 2 * pad, dgx_screen_rgb(scr, 90, 140, 255));
+    for (int i = 0; i < ui.count; ++i) {
+        const dgx_ui_node_t *n = dgx_ui_node(&ui, i);
+        if (n->widget && n->w > 0 && n->h > 0) dashes(scr, n->x, n->y, n->w, n->h, dgx_screen_rgb(scr, 255, 170, 60));
+    }
+    shot(scr, dir, "ring-layout.ppm");
+    for (int i = 0; i < ui.count; ++i) {
+        const dgx_ui_node_t *n = dgx_ui_node(&ui, i);
+        printf("ring: widget %d at %d,%d %dx%d\n", i, n->x, n->y, n->w, n->h);
+    }
+}
+
+int main(int argc, char **argv)
 {
     dgx_screen_t  *scr = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
     for (int k = 0; k < COLORS; ++k) table[k] = dgx_screen_rgb(scr, 30 * k, 30 * k, 255 - 30 * k);
     dgx_ui_paint_t paint = {.scr = scr, .colors = table, .color_count = COLORS, .background = PAPER};
-    styles_init(), city_style_init(), looks_init();
+    styles_init(), city_style_init();
 
     interface_test(); /* the message and the tap of the last recipe */
     printf("test recipe: the label got its text, the tap saved %d time(s)\n", saved);
@@ -96,6 +160,26 @@ int main(void)
     printf("popup: open %d before; Yes by keys saved %d more time(s), open after: %d\n", 1, saves - saves0, ui.popup != NULL);
     dgx_ui_paint(&ui, &paint, 400);
     dgx_ui_paint_free(&paint);
+    /* the row of three buttons: right does nothing by default, and moves the focus with the program's table */
+    {
+        static const dgx_ui_widget_t  line_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 20};
+        static const dgx_ui_widget_t  b_w    = {.kind = DGX_UI_BUTTON, .want_w = 40};
+        static dgx_ui_node_t          rn[6];
+        dgx_ui_t                      r;
+        dgx_ui_init(&r, rn, 6, 1);
+        const int line = dgx_ui_add(&r, -1, &line_w), back = dgx_ui_add(&r, line, &b_w), ok = dgx_ui_add(&r, line, &b_w);
+        dgx_ui_add(&r, line, &b_w);
+        dgx_ui_screen(&r, 200, 100, 0);
+        dgx_ui_focus(&r, back);
+        const bool took_default = dgx_ui_buttons(&r, DGX_UI_PAD_RIGHT, 0);
+        const int  f_default    = r.focus;
+        dgx_ui_buttons(&r, 0, 10);
+        dialog_keys(&r, true);
+        const bool took_row = dgx_ui_buttons(&r, DGX_UI_PAD_RIGHT, 20);
+        printf("row of buttons: by default right is taken %d and the focus stays on Back %d; with row_keys taken %d and the focus is on OK %d\n", took_default,
+               f_default == back, took_row, r.focus == ok);
+    }
+    ring_pictures(argc > 1 ? argv[1] : NULL);
     puts("cookbook: ran to the end");
     return 0;
 }

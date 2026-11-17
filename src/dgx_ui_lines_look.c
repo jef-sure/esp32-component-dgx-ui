@@ -105,7 +105,7 @@ static bool clip_rows(dgx_ui_paint_t *paint, const int part[4], int top, int bot
     return true;
 }
 
-static bool lines_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     dgx_ui_node_t            *w   = dgx_ui_node(ui, i);
     dgx_ui_textbox_t         *box = w->widget->text;
@@ -253,4 +253,4 @@ static bool lines_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 }
 
 static const dgx_ui_text_look_t lines_default = {.ink = 1, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t             dgx_ui_look_lines = {.draw = lines_draw, .params = &lines_default, .fill = -1};
+const dgx_ui_look_t             dgx_ui_look_lines = {.draw = dgx_ui_draw_lines, .params = &lines_default, .fill = -1};

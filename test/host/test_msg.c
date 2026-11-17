@@ -145,7 +145,7 @@ static void test_ref(void)
 
 /* a field: typed into, erased, done and cancelled */
 static int  field_told[8], field_told_count;
-static void field_on(dgx_ui_t *u, int i, int what, void *ctx)
+static void field_on(dgx_ui_t *u, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (field_told_count < 8) field_told[field_told_count++] = what;
 }

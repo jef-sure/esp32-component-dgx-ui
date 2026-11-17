@@ -90,10 +90,16 @@ The size of a child is `want_w`, `want_h`. Where one is 0:
 | a box, a frame, a control without a text | none of its own | none of its own |
 
 A size the widget has none of is taken across the stacking: the width of the column, or the height of the row.
-Along the stacking it stays 0, so a box in a column needs `want_h`, and a label in a row needs `want_w`. The flag
+Along the stacking it stays 0, so a box in a column needs `want_h`, and a label in a row needs `want_w`, or the
+flag `DGX_UI_REST`. The flag
 `DGX_UI_STRETCH` makes a child as wide as its column or as high as its row whatever its own size.
 
-A hidden widget takes no place. There is no child that takes "all that is left".
+A child with the flag `DGX_UI_REST` takes, along the stacking, all the box has left after the other children, the
+gaps and the pads; several such children share it equally. A row of a name and a value, or a column of a title, a
+content and buttons at the bottom, then needs no exact sizes and fits a screen of any width.
+
+A hidden widget takes no place. A widget is drawn and hit only within its parent's box: what of it lies outside,
+because it is laid larger than the box or put out of it by `at_x` and `at_y`, is cut off.
 
 The tree is laid again:
 
@@ -103,7 +109,8 @@ The tree is laid again:
 4. when the program asks: `dgx_ui_relayout()`, after it changed a widget it keeps in its own RAM.
 
 A change only marks the tree. The layout runs once, before the next drawing or the next hit of the pointer. A widget
-that moved is drawn whole, and its parent with it; after a turn of the screen everything is.
+that moved, came or changed its size is drawn whole. Its parent fills only what its children do not cover, and the
+children that stayed where they were are not drawn again. After a turn of the screen everything is drawn.
 
 ## State and events
 
@@ -132,6 +139,10 @@ too, so that they are fresh when shown; then to the widgets of an open popup. A 
 claim the message, and the walk stops there. `dgx_ui_take()` returns whether a widget claimed it; an unclaimed
 message is the program's.
 
+Return `true` only for a message meant for one widget. Take a CO2 value shown twice, as a large number and as a small
+graph: if the number's `take()` returned `true`, the graph would never get the value. A value several widgets may
+show is read and left unclaimed: `false`.
+
 Data by reference belongs to the message from the sending until `dgx_ui_msg_done()`, which calls the sender's `done()`
 once, in the owner's task. The loop calls `dgx_ui_msg_done()` once for every message. A widget that needs the data
 after the walk calls `dgx_ui_msg_keep()` in its `take()`: it gets a copy of the message, the loop's
@@ -156,7 +167,8 @@ asking for time: then the task sleeps between them.
 
 ## The painter
 
-`dgx_ui_paint()` walks the tree, parents before children, in one batch of DGX. A widget is drawn when:
+`dgx_ui_paint()` walks the tree, parents before children, in one batch of DGX. It goes down only into the parts of
+the tree where something changed, so a pass over a large tree with one new value costs little. A widget is drawn when:
 
 - its state differs from the state as drawn;
 - its content changed: a text, a picture's value;
@@ -172,12 +184,13 @@ the clip it had before.
 
 **Every pixel once.** A look writes each pixel of what it draws once. A text is set in a field of DGX: the letters
 and the paper around them go out in one pass, so a shorter text leaves nothing of a longer one and nothing blinks. A
-picture of 1 bit is drawn opaque, a frame as four strips and a fill. This holds for a 16-bit display behind a bus. A
-box drawn whole fills its paper and its children then draw over it: that happens when the layout changed, not when a
-value did.
+picture of 1 bit is drawn opaque. A box or a frame that stacks its children fills only what they do not cover: its
+pads, its gaps and what is left after the last child. So a widget hidden, shown or added does not blink either. This
+holds for a 16-bit display behind a bus. A box whose children sit where they ask may have them overlap: it is filled
+whole, and its children draw over it.
 
-**Covers.** Two rectangles may lie over the tree: an open popup, and the band of DGX-DI's keyboard, which the program
-gives as `cover`. A widget partly under them is drawn in the parts that show, the clip set to each part in turn. One
+**Covers.** Rectangles may lie over a tree: the popups open over it, and the band of DGX-DI's keyboard, which the
+program gives as `cover`. A widget partly under them is drawn in the parts that show, the clip set to each part in turn. One
 wholly under them is not drawn and keeps its marks, so a text changed under a popup is drawn right when the popup
 closes. Where a cover was and is no more, the painter composes the tree again.
 
@@ -192,8 +205,12 @@ Colours are indices of a table the program gives the painter, packed for the scr
 table is the whole interface in other colours: a night mode is one assignment and a redraw of the root.
 
 A box, a frame and a label have a look when theirs is `NULL`. A control names its look: `.look = &dgx_ui_look_button`.
+A control with no look is not drawn, and the painter says so once in the log.
 A look that no widget names is not in the program, so a clock of labels does not carry the button, the slider and the
 text of several lines.
+
+A look in the program's own colours is a constant of the library's drawing function and parameters of its own:
+`{.draw = dgx_ui_draw_button, .params = &my_colours, .fill = -1}`.
 
 The looks of the library draw the whole box of the widget in its state as it is, and keep no memory of their own.
 A look that does remember what it drew stores it only in the last part of a pass: see
@@ -236,7 +253,12 @@ is dragged: a slider at the left edge is dragged to the right without opening a 
 A popup is the only thing that lies over other widgets. It is a tree of its own, laid in its rectangle and drawn over
 the tree, which is drawn around it. The pointer and the keys go to it first; a finger that goes down inside it is the
 popup's or nobody's. A modal popup takes everything; one with `DGX_UI_POPUP_CLOSE_OUTSIDE` is closed by a finger
-outside it. Messages go to both trees. One popup is open at a time.
+outside it. Messages go to every tree.
+
+A popup is a tree, so it may have a popup of its own: a list of choices opened from a dialog, a question asked over
+it. Up to `DGX_UI_POPUP_DEPTH`, 8, popups stand one over another. An upper one may hang out of the one under it; each
+tree is drawn around every popup over it. The finger and the keys go to the top one first. Closing a popup closes
+every popup over it.
 
 ## Memory and weight
 
@@ -248,7 +270,7 @@ outside it. Messages go to both trees. One popup is open at a time.
 | a message | 20 bytes |
 | a text box | 28 bytes and the program's buffer |
 | a tree, `dgx_ui_t` | 96 bytes |
-| the code of the smallest program, one label fed by a message | about 6 KB |
+| the code of the smallest program, one label fed by a message | about 7.5 KB |
 | the look of several lines, when named | about 2.5 KB |
 
 No memory is taken for pixels: everything is drawn straight on the display.

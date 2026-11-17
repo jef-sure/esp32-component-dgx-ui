@@ -40,7 +40,7 @@ static dgx_screen_t *source(dgx_ui_paint_t *paint, const dgx_ui_picture_t *pic)
     return paint->rgb565;
 }
 
-static bool rgb565_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t         *n     = dgx_ui_node(ui, i);
     const dgx_ui_picture_look_t *p     = look->params;
@@ -59,4 +59,4 @@ static bool rgb565_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 }
 
 static const dgx_ui_picture_look_t rgb565_default = {.ink = 1, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t                dgx_ui_look_rgb565 = {.draw = rgb565_draw, .params = &rgb565_default, .fill = -1};
+const dgx_ui_look_t                dgx_ui_look_rgb565 = {.draw = dgx_ui_draw_rgb565, .params = &rgb565_default, .fill = -1};

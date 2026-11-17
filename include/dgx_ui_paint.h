@@ -35,7 +35,8 @@ typedef struct dgx_ui_paint_t {
     bool            whole;       ///< while a look draws: nothing of the widget is on the screen as it should be
     bool            composing;   ///< while a look draws: dgx_ui_paint_area() composes, nothing is to be remembered
     uint8_t         part, parts; ///< while a look draws: the part of the box it is called for, of so many
-    dgx_ui_rect_t   popup_cover; ///< while the tree under a popup is drawn: the popup's rectangle, the second cover
+    const dgx_ui_t *popup_over;  ///< while a tree is drawn: the popup over it, whose rectangle and those of the popups
+                                 ///< over it are covers after the keyboard's band; NULL none
     dgx_screen_t   *rgb565;      ///< the look of RGB565: a virtual screen pointed at each picture, made at its first need
     dgx_ui_rect_t   cover_was;   ///< the keyboard's band as the last pass left it: where it goes, the tree is composed again
 } dgx_ui_paint_t;
@@ -64,6 +65,21 @@ static inline uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)
     return paint->colors && index >= 0 && index < paint->color_count ? paint->colors[index] : 0;
 }
 
+/**
+ * @brief An area filled with a colour, less the children of widget i that are drawn: for a look of a widget that
+ * holds children, as the looks of a box and a frame do it, so that drawn whole no pixel is written twice.
+ *
+ * Called from a look, under the painter's clip of the part it draws. The children left out are the shown ones that a
+ * look draws (their own or their kind's), each cut to the area; a child with no look covers nothing, so its place is
+ * filled. The area is any rectangle in pixels of the tree's screen (paint's ox and oy are taken off here): the whole
+ * box, or a part of it, as a frame gives the inside of its border. A widget of neither DGX_UI_COLUMN nor DGX_UI_ROW,
+ * whose children sit where they ask and may lie over each other, has the area filled whole, children and all.
+ *
+ * @param area  The rectangle to fill, in pixels of the tree's screen.
+ * @param color The colour packed for the screen: dgx_ui_color(paint, index).
+ */
+void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color);
+
 /** Parameters of the frame's look: a border; its fill is the look's own fill, dgx_ui_look_t::fill. */
 typedef struct dgx_ui_frame_look_t {
     uint8_t border; ///< index of the table
@@ -85,7 +101,8 @@ extern const dgx_ui_look_t dgx_ui_look_box, dgx_ui_look_frame, dgx_ui_look_text;
 /*
  * The looks of the controls and the pictures. A control has no look of its kind: it names one, so that a program
  * carries only the looks it uses. Each writes every pixel of the widget's box once, whatever its state; a program
- * makes a look of its own colours by a dgx_ui_look_t of the same draw and its own parameters.
+ * makes a look of its own colours by a dgx_ui_look_t of the same draw (dgx_ui_draw_button() and the others below) and
+ * its own parameters, a constant that may lie in flash.
  */
 
 /** Parameters of a button: a face over a shadow; pressed, the face moves onto the shadow. Indices of the table. */
@@ -143,9 +160,27 @@ extern const dgx_ui_look_t dgx_ui_look_button, dgx_ui_look_input, dgx_ui_look_sw
 extern const dgx_ui_look_t dgx_ui_look_lines;
 
 /**
- * @brief The tree drawn on the screen: laid out first if it has to be, then what changed, in one batch.
+ * @brief The draw functions of the looks above, for a look of the program's own colours as a constant:
+ * `static const dgx_ui_look_t mine = {.draw = dgx_ui_draw_button, .params = &my_colours, .fill = -1};`. Each takes the
+ * parameters of its look's type; one that holds children (a box, a frame) takes dgx_ui_look_t::fill as its fill.
+ */
+bool dgx_ui_draw_box(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_frame(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_input(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_switch(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_slider(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+
+/**
+ * @brief The tree drawn on the screen, and every popup open over it one over another: laid out first if they have to
+ * be, then what changed, each tree around the popups over it, in one batch.
  *
- * Called by the task that owns the screen. The screen's clip is set for each widget and given back as it was.
+ * Called by the task that owns the screen. The screen's clip is set for each widget and given back as it was. Where
+ * a popup closed, the trees still open are composed again (dgx_ui_paint_area()).
  * Nothing is drawn under the keyboard's band, `cover`; where a band was and is no more, the tree is composed again
  * whole (dgx_ui_paint_area()), so that a keyboard closed leaves no hole.
  *
@@ -158,7 +193,8 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint);
 
 /**
  * @brief A rectangle of the tree's screen composed from the root down: the background, then every widget that meets
- * it, each drawn whole under a clip of its part of the rectangle.
+ * it, each drawn whole under a clip of its part of the rectangle; then the popups open over it the same way, each
+ * tree around the popups over it.
  *
  * Nothing is marked as drawn: the widgets drawn whole only in part are drawn as usual by the next dgx_ui_paint().
  * The rectangle is in pixels of the tree's screen; paint's scr may be a buffer, its (0, 0) at ox, oy of it, so a

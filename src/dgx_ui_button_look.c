@@ -20,7 +20,7 @@ static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
     if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, c);
 }
 
-static bool button_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t        *n = dgx_ui_node(ui, i);
     const dgx_ui_button_look_t *p = look->params;
@@ -75,4 +75,4 @@ static bool button_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 
 static const dgx_ui_button_look_t button_default = {
     .face = 2, .pressed = 3, .focused = 3, .disabled = 0, .text = 1, .text_disabled = 2, .shadow = 0, .depth = 1};
-const dgx_ui_look_t dgx_ui_look_button = {.draw = button_draw, .params = &button_default, .fill = -1};
+const dgx_ui_look_t dgx_ui_look_button = {.draw = dgx_ui_draw_button, .params = &button_default, .fill = -1};

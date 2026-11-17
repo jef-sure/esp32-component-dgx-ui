@@ -18,7 +18,7 @@
 static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 
 static int  activated[8], activated_count, caught;
-static void on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED && activated_count < 8) activated[activated_count++] = (int)(intptr_t)ctx;
 }

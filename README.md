@@ -59,8 +59,9 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.1: the first tag, not in the ESP Component Registry yet. It is being built, and its API may still change.
-What it has is listed under [What is in it](#what-is-in-it), what it lacks under [Not there yet](#not-there-yet).
+Version 0.0.2: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
+[Not there yet](#not-there-yet).
 
 ## Quick start
 
@@ -70,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.1"
+    version: "0.0.2"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -93,7 +94,8 @@ The list of changes is in [CHANGES.md](CHANGES.md).
 - **A tree of widgets** in an array the program gives, and in blocks of 64 past it. What the program says of a
   widget is constant and may lie in flash; the tree keeps 28 bytes of RAM a widget.
 - **Rows and columns**: a box stacks its children as a column or a row, with a padding and a gap, in points that are
-  so many pixels. The layout is made again only when the screen, the widgets or their sizes change.
+  so many pixels; a child may take all that is left. The layout is made again only when the screen, the widgets or
+  their sizes change, and then only what moved is drawn.
 - **Messages**: a number of the program's and up to 12 bytes by value, or data by reference. Other tasks send them
   through a queue of FreeRTOS, an interrupt too; every widget is offered a message and catches its own values.
   A ticker sends one every so many milliseconds and keeps at most one of them in the queue.
@@ -103,7 +105,7 @@ The list of changes is in [CHANGES.md](CHANGES.md).
   too long cut with an ellipsis or scrolled; letters that appear one by one.
 - **Controls**: a button with a shadow and a pressed face, a switch, a slider, a field typed into, pictures and icons
   of 1 bit and of RGB565. A control names its look, so a program carries only the looks it uses.
-- **A popup** over the tree: modal, or closed by a finger outside it.
+- **Popups** over the tree, one over another: modal, or closed by a finger outside.
 - **Input**: a pointer, the keys of a dialog, the buttons of a game pad with a repeat of a held one, code points
   typed; the touch of [DGX-DI](https://github.com/jef-sure/esp32-component-dgx-di) through a header, if the program
   has it.
@@ -127,7 +129,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 
 | | |
 | --- | --- |
-| code of dgx-ui in the program | about 6 KB |
+| code of dgx-ui in the program | about 7.5 KB |
 | RAM of dgx-ui itself | none |
 | a widget | 28 bytes of RAM and 52 bytes of flash |
 | a message | 20 bytes |

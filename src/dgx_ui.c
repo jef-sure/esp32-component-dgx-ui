@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "dgx_ui.h"
+#include "dgx_ui_priv.h"
 #include "esp_log.h"
 
 static const char *TAG = "dgx_ui";
@@ -27,6 +27,34 @@ dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i)
     if (i < ui->first_size) return &ui->first[i];
     const int b = (i - ui->first_size) / DGX_UI_BLOCK;
     return b < ui->block_count ? &ui->blocks[b][(i - ui->first_size) % DGX_UI_BLOCK] : NULL;
+}
+
+dgx_ui_node_t *dgx_ui_at(const dgx_ui_t *ui, int i)
+{
+    if (i < ui->first_size) return &ui->first[i];
+    const unsigned k = (unsigned)(i - ui->first_size);
+    return &ui->blocks[k / DGX_UI_BLOCK][k % DGX_UI_BLOCK];
+}
+
+void dgx_ui_touched(dgx_ui_t *ui, int i)
+{
+    for (int p = dgx_ui_at(ui, i)->parent; p >= 0; p = dgx_ui_at(ui, p)->parent) dgx_ui_at(ui, p)->marks |= DGX_UI_MARK_BELOW;
+}
+
+/* drawn by a look: its own, else its kind's, as the painter has it (dgx_ui_look_of()) */
+static bool drawn(const dgx_ui_widget_t *w)
+{
+    return w->look || w->kind == DGX_UI_BOX || w->kind == DGX_UI_FRAME || w->kind == DGX_UI_LABEL;
+}
+
+/* a child of p moved, came or went: the nearest widget from p up that a look draws fills around its children, as one
+   drawn by none fills nothing */
+static void around(dgx_ui_t *ui, int p)
+{
+    while (p >= 0 && !drawn(dgx_ui_at(ui, p)->widget)) p = dgx_ui_at(ui, p)->parent;
+    if (p < 0) return;
+    dgx_ui_at(ui, p)->marks |= DGX_UI_MARK_AROUND;
+    dgx_ui_touched(ui, p);
 }
 
 /* a node that holds a widget: not a free slot */
@@ -43,7 +71,7 @@ const dgx_ui_widget_t *dgx_ui_widget(const dgx_ui_t *ui, int i)
 }
 
 /* the node of a number known to be in the tree */
-#define NODE(ui, i) dgx_ui_node((ui), (i))
+#define NODE(ui, i) dgx_ui_at((ui), (i)) /* a number known to hold one */
 
 void dgx_ui_init(dgx_ui_t *ui, dgx_ui_node_t *first, int first_size, int unit)
 {
@@ -107,7 +135,7 @@ int dgx_ui_insert(dgx_ui_t *ui, int parent, int before, const dgx_ui_widget_t *w
         int16_t       *at = &p->child;
         while (*at >= 0 && *at != before) at = &NODE(ui, *at)->next;
         n->next = *at;
-        *at     = (int16_t)i;
+        *at     = (int16_t)i; /* drawn when laid: place() marks it and those above it */
     }
     ui->needs_layout = true;
     return i;
@@ -146,7 +174,7 @@ void dgx_ui_remove(dgx_ui_t *ui, int i)
     if (ui->pressed >= 0 && within(ui, ui->pressed, i)) ui->pressed = -1;
     if (n->parent >= 0) {
         dgx_ui_node_t *p = NODE(ui, n->parent);
-        p->marks |= DGX_UI_MARK_WHOLE; /* the place it leaves */
+        around(ui, n->parent); /* the place it leaves, filled around the children that stay */
         int16_t *at = &p->child;
         while (*at != i) at = &NODE(ui, *at)->next;
         *at = n->next;
@@ -223,7 +251,7 @@ static int want_h(const dgx_ui_t *ui, const dgx_ui_widget_t *w)
     return 0;
 }
 
-/* a widget laid in a place: drawn whole, and its parent too, when the place changed */
+/* a widget laid in a place: drawn whole when the place changed, its parent filling around it and the others */
 static void place(dgx_ui_t *ui, int i, int x, int y, int w, int h)
 {
     dgx_ui_node_t *n = NODE(ui, i);
@@ -231,7 +259,8 @@ static void place(dgx_ui_t *ui, int i, int x, int y, int w, int h)
     if (n->w != w) n->marks |= DGX_UI_MARK_FIT;
     n->x = (int16_t)x, n->y = (int16_t)y, n->w = (int16_t)w, n->h = (int16_t)h;
     n->marks |= DGX_UI_MARK_WHOLE;
-    if (n->parent >= 0) NODE(ui, n->parent)->marks |= DGX_UI_MARK_WHOLE;
+    around(ui, n->parent);
+    dgx_ui_touched(ui, i);
 }
 
 static void lay(dgx_ui_t *ui, int i)
@@ -240,19 +269,36 @@ static void lay(dgx_ui_t *ui, int i)
     const dgx_ui_widget_t *p  = pn->widget;
     const int  u = ui->unit, pad = p->pad * u, gap = p->gap * u;
     const int  ix = pn->x + pad, iy = pn->y + pad, iw = pn->w - 2 * pad, ih = pn->h - 2 * pad;
-    const bool column = p->flags & DGX_UI_COLUMN, row = p->flags & DGX_UI_ROW;
-    int        along  = 0;
+    const bool column = p->flags & DGX_UI_COLUMN, row = !column && (p->flags & DGX_UI_ROW);
+    /* along the stacking: what the others take, the gaps between all; the rest shared by those that take it */
+    int fixed = 0, shown = 0, takers = 0;
+    if (column || row)
+        for (int c = pn->child; c >= 0; c = NODE(ui, c)->next) {
+            const dgx_ui_widget_t *w = NODE(ui, c)->widget;
+            if (NODE(ui, c)->state_value.bits & DGX_UI_HIDDEN) continue;
+            ++shown;
+            if (w->flags & DGX_UI_REST) ++takers;
+            else fixed += column ? want_h(ui, w) : want_w(ui, w);
+        }
+    int left = (column ? ih : iw) - fixed - (shown > 1 ? (shown - 1) * gap : 0);
+    if (left < 0) left = 0;
+    const int share = takers ? left / takers : 0;
+    int       along = 0, taken = 0;
     for (int c = pn->child; c >= 0; c = NODE(ui, c)->next) {
         const dgx_ui_widget_t *w = NODE(ui, c)->widget;
         if (NODE(ui, c)->state_value.bits & DGX_UI_HIDDEN) continue;
-        int ww = want_w(ui, w), wh = want_h(ui, w), x, y;
+        int        ww = want_w(ui, w), wh = want_h(ui, w), x, y;
+        const bool rest = w->flags & DGX_UI_REST; /* a box of neither lays it where it asks */
+        const int  took = !rest ? 0 : ++taken < takers ? share : left - share * (takers - 1); /* the last: the odd pixels */
         if (column) {
+            if (rest) wh = took;
             if (w->flags & DGX_UI_STRETCH || !ww) ww = iw;
             x = ix + (w->at_x >= 0 ? w->at_x * u : iw - ww + w->at_x * u), y = iy + along;
             along += wh + gap;
         } else if (row) {
+            if (rest) ww = took;
             if (w->flags & DGX_UI_STRETCH || !wh) wh = ih;
-            if (!ww && w->text && !ui->told_width) {
+            if (!ww && w->text && !rest && !ui->told_width) {
                 ESP_LOGW(TAG, "widget %d of a text in a row has no width: give it want_w", c);
                 ui->told_width = true;
             }
@@ -298,7 +344,9 @@ static int clamp_value(const dgx_ui_widget_t *w, int value)
 void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)
 {
     dgx_ui_node_t *n = live(ui, i);
-    if (n) n->state_value.value = (int16_t)clamp_value(n->widget, value);
+    if (!n) return;
+    n->state_value.value = (int16_t)clamp_value(n->widget, value);
+    dgx_ui_touched(ui, i);
 }
 
 void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)
@@ -307,6 +355,7 @@ void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)
     if (!n) return;
     bits &= DGX_UI_DISABLED | DGX_UI_PRESSED;
     n->state_value.bits = (uint8_t)(on ? n->state_value.bits | bits : n->state_value.bits & ~bits);
+    dgx_ui_touched(ui, i);
     if ((bits & DGX_UI_DISABLED) && on && ui->focus >= 0 && within(ui, ui->focus, i)) dgx_ui_focus(ui, -1);
     if ((bits & DGX_UI_DISABLED) && on && ui->pressed >= 0 && within(ui, ui->pressed, i)) unpress(ui); /* the press ends, told nothing */
 }
@@ -318,15 +367,18 @@ void dgx_ui_show(dgx_ui_t *ui, int i, bool shown)
     n->state_value.bits = (uint8_t)(shown ? n->state_value.bits & ~DGX_UI_HIDDEN : n->state_value.bits | DGX_UI_HIDDEN);
     if (!shown && ui->focus >= 0 && within(ui, ui->focus, i)) dgx_ui_focus(ui, -1);
     if (!shown && ui->pressed >= 0 && within(ui, ui->pressed, i)) unpress(ui);
-    if (n->parent >= 0) NODE(ui, n->parent)->marks |= DGX_UI_MARK_WHOLE;
+    around(ui, n->parent); /* where it went, or will lie: filled around the others */
     n->marks |= DGX_UI_MARK_WHOLE;
+    dgx_ui_touched(ui, i);
     ui->needs_layout = true;
 }
 
 void dgx_ui_redraw(dgx_ui_t *ui, int i)
 {
     dgx_ui_node_t *n = live(ui, i);
-    if (n) n->marks |= DGX_UI_MARK_WHOLE;
+    if (!n) return;
+    n->marks |= DGX_UI_MARK_WHOLE;
+    dgx_ui_touched(ui, i);
 }
 
 /* ---- the pointer, the keys and the focus ---- */
@@ -359,26 +411,39 @@ static bool inside(const dgx_ui_node_t *n, int x, int y)
     return x >= n->x && y >= n->y && x < n->x + n->w && y < n->y + n->h;
 }
 
+/* the deepest usable widget under a point in the tree from i, at depth d: down only where the point is, as a widget is
+   seen only within its parent's box; nothing under a hidden or a disabled one */
+typedef struct {
+    int  best, depth;
+    long area;
+} hit_t;
+
+static void hit_in(const dgx_ui_t *ui, int i, int d, int x, int y, hit_t *h)
+{
+    const dgx_ui_node_t *n = NODE(ui, i);
+    if (n->state_value.bits & (DGX_UI_HIDDEN | DGX_UI_DISABLED)) return;
+    const bool in = inside(n, x, y);
+    if (in && interactive(n->widget)) {
+        /* of two as deep (a control over a row of a list), the smaller; of two as small, the first in the tree */
+        const long a = (long)n->w * n->h;
+        if (d > h->depth || (d == h->depth && a < h->area)) h->best = i, h->depth = d, h->area = a;
+    }
+    if (!in) return;
+    for (int c = n->child; c >= 0; c = NODE(ui, c)->next) hit_in(ui, c, d + 1, x, y, h);
+}
+
 int dgx_ui_hit(dgx_ui_t *ui, int x, int y)
 {
     dgx_ui_layout(ui);
-    /* the deepest one under the point; of two as deep (a control over a row of a list), the smaller */
-    int  best = -1, depth = -1;
-    long area = 0;
-    for (int i = 0; i < ui->count; ++i) {
-        const dgx_ui_node_t *n = live(ui, i);
-        if (!n || !inside(n, x, y) || !usable(ui, i)) continue;
-        const int  d = depth_of(ui, i);
-        const long a = (long)n->w * n->h;
-        if (d > depth || (d == depth && a < area)) best = i, depth = d, area = a;
-    }
-    return best;
+    hit_t h = {.best = -1, .depth = -1};
+    if (live(ui, 0)) hit_in(ui, 0, 0, x, y, &h);
+    return h.best;
 }
 
 static void tell(dgx_ui_t *ui, int i, int what)
 {
     const dgx_ui_widget_t *w = NODE(ui, i)->widget;
-    if (w->on) w->on(ui, i, what, w->ctx);
+    if (w->on) w->on(ui, i, NODE(ui, i), what, w->ctx);
 }
 
 void dgx_ui_focus(dgx_ui_t *ui, int i)
@@ -386,10 +451,11 @@ void dgx_ui_focus(dgx_ui_t *ui, int i)
     if (i >= 0 && !usable(ui, i)) i = -1;
     if (ui->focus == i) return;
     dgx_ui_node_t *old = live(ui, ui->focus);
-    if (old) old->state_value.bits &= (uint8_t)~DGX_UI_FOCUSED;
+    if (old) old->state_value.bits &= (uint8_t)~DGX_UI_FOCUSED, dgx_ui_touched(ui, ui->focus);
     ui->focus = (int16_t)i;
     if (i >= 0) {
         NODE(ui, i)->state_value.bits |= DGX_UI_FOCUSED;
+        dgx_ui_touched(ui, i);
         tell(ui, i, DGX_UI_FOCUS);
     }
 }
@@ -401,6 +467,7 @@ static void user_value(dgx_ui_t *ui, int i, int value)
     value            = clamp_value(n->widget, value);
     if (value == n->state_value.value) return;
     n->state_value.value = (int16_t)value;
+    dgx_ui_touched(ui, i);
     tell(ui, i, DGX_UI_CHANGED);
 }
 
@@ -482,6 +549,7 @@ static void press(dgx_ui_t *ui, int i, int x, int y)
     ui->press_x = ui->move_x = (int16_t)x, ui->press_y = ui->move_y = (int16_t)y, ui->dragged = false;
     ui->between = between_rows(n, y - n->y);
     n->state_value.bits |= DGX_UI_PRESSED;
+    dgx_ui_touched(ui, i);
     if (!swiped_slider(n->widget) && !ui->between) point_to_value(ui, i, x - n->x, y - n->y);
     if (!live(ui, i)) { /* on(CHANGED) removed it */
         ui->pressed = -1;
@@ -493,18 +561,18 @@ static void press(dgx_ui_t *ui, int i, int x, int y)
 static void unpress(dgx_ui_t *ui)
 {
     dgx_ui_node_t *n = live(ui, ui->pressed);
-    if (n) n->state_value.bits &= (uint8_t)~DGX_UI_PRESSED;
+    if (n) n->state_value.bits &= (uint8_t)~DGX_UI_PRESSED, dgx_ui_touched(ui, ui->pressed);
     ui->pressed = -1;
 }
 
 bool dgx_ui_holding(const dgx_ui_t *ui)
 {
-    return live(ui, ui->pressed) || (ui->popup && live(ui->popup, ui->popup->pressed));
+    return live(ui, ui->pressed) || (ui->popup && dgx_ui_holding(ui->popup));
 }
 
 bool dgx_ui_dragging(const dgx_ui_t *ui)
 {
-    if (ui->popup && live(ui->popup, ui->popup->pressed)) return dgx_ui_dragging(ui->popup);
+    if (ui->popup && dgx_ui_holding(ui->popup)) return dgx_ui_dragging(ui->popup);
     const dgx_ui_node_t *n = live(ui, ui->pressed);
     if (!n) return false;
     const dgx_ui_widget_t *w = n->widget;
@@ -513,19 +581,29 @@ bool dgx_ui_dragging(const dgx_ui_t *ui)
 
 static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p);
 
+/* whether a point lies on a popup or on one over it, which may hang out of it */
+static bool on_popup(const dgx_ui_t *pop, int x, int y)
+{
+    for (; pop; pop = pop->popup) {
+        const dgx_ui_rect_t r = pop->root_rect;
+        if (x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h) return true;
+    }
+    return false;
+}
+
 bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
 {
     dgx_ui_t *pop = ui->popup;
     if (pop) {
-        const dgx_ui_rect_t r      = pop->root_rect;
-        const bool          inside = p->x >= r.x && p->y >= r.y && p->x < r.x + r.w && p->y < r.y + r.h;
+        const bool inside = on_popup(pop, p->x, p->y);
         if (p->pressed && !inside && (ui->popup_flags & DGX_UI_POPUP_CLOSE_OUTSIDE)) {
             dgx_ui_popup_close(ui);
             return true; /* the finger that closed it is spent */
         }
-        /* a finger down inside the popup is its or nobody's, whatever the flags: no widget it hides is pressed */
-        if (p->pressed && inside) return pointer_in(pop, p);
-        if (pointer_in(pop, p)) return true;
+        /* a finger down on the popup or on one over it is theirs or nobody's, whatever the flags: no widget they
+           hide is pressed; the one on top first */
+        if (p->pressed && inside) return dgx_ui_pointer(pop, p);
+        if (dgx_ui_pointer(pop, p)) return true; /* held by a popup's widget, at whatever level; or one over closed */
         if (ui->popup_flags & DGX_UI_POPUP_MODAL) return true;
     }
     return pointer_in(ui, p);
@@ -566,6 +644,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
             if (l >= 0) {
                 if (n->state_value.value != ui->press_value) user_value(ui, ui->pressed, ui->press_value);
                 n->state_value.bits &= (uint8_t)~DGX_UI_PRESSED;
+                dgx_ui_touched(ui, ui->pressed);
                 if (!live(ui, l)) return ui->pressed = -1, true;
                 press(ui, l, ui->press_x, ui->press_y);
                 if (ui->pressed < 0) return true;
@@ -629,7 +708,7 @@ static bool key_in(dgx_ui_t *ui, int key);
 bool dgx_ui_key(dgx_ui_t *ui, int key)
 {
     if (ui->popup) {
-        if (key_in(ui->popup, key)) return true;
+        if (dgx_ui_key(ui->popup, key)) return true; /* the top one first */
         if (ui->popup_flags & DGX_UI_POPUP_MODAL) return key != DGX_UI_KEY_BACK; /* BACK stays the program's: it may close it */
     }
     return key_in(ui, key);
@@ -687,6 +766,11 @@ static bool repeats(int key)
     return key == DGX_UI_KEY_NEXT || key == DGX_UI_KEY_PREV || key == DGX_UI_KEY_MORE || key == DGX_UI_KEY_LESS;
 }
 
+void dgx_ui_button_keys(dgx_ui_t *ui, const uint8_t *keys)
+{
+    ui->button_keys = keys;
+}
+
 bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)
 {
     const uint8_t *keys  = ui->button_keys ? ui->button_keys : default_keys;
@@ -722,28 +806,46 @@ bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)
 
 /* ---- the popup ---- */
 
-void dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags)
+bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags)
 {
+    if (!popup || popup == ui) return false;
+    if (popup == ui->popup) dgx_ui_popup_close(ui); /* opened again, elsewhere: what was open over it goes too */
+    /* a tree open as a popup already, here or elsewhere, or with a popup of its own (under this one: a loop); and no
+       deeper than the depth */
+    if (popup->popup || popup->level || ui->level >= DGX_UI_POPUP_DEPTH) {
+        ESP_LOGW(TAG, "a popup refused: %s", ui->level >= DGX_UI_POPUP_DEPTH ? "too deep" : "it is open already, or has one over it");
+        return false;
+    }
     if (ui->popup) dgx_ui_popup_close(ui);
     if (ui->pressed >= 0) unpress(ui); /* the finger on the tree under it is spent */
     dgx_ui_set_root(popup, x, y, w, h);
     for (int i = 0; i < popup->count; ++i) NODE(popup, i)->marks |= DGX_UI_MARK_WHOLE;
+    popup->level = (uint8_t)(ui->level + 1);
     ui->popup = popup, ui->popup_flags = (uint8_t)flags;
+    return true;
+}
+
+/* the rectangle that holds two, an empty one none */
+static dgx_ui_rect_t hull(dgx_ui_rect_t a, dgx_ui_rect_t b)
+{
+    if (dgx_ui_rect_empty(&a)) return b;
+    if (dgx_ui_rect_empty(&b)) return a;
+    const int x0 = a.x < b.x ? a.x : b.x, y0 = a.y < b.y ? a.y : b.y;
+    const int x1 = a.x + a.w > b.x + b.w ? a.x + a.w : b.x + b.w, y1 = a.y + a.h > b.y + b.h ? a.y + a.h : b.y + b.h;
+    return dgx_ui_rect(x0, y0, x1 - x0, y1 - y0);
 }
 
 void dgx_ui_popup_close(dgx_ui_t *ui)
 {
     dgx_ui_t *pop = ui->popup;
     if (!pop) return;
+    dgx_ui_popup_close(pop); /* the ones over it first */
     if (pop->pressed >= 0) unpress(pop);
     dgx_ui_focus(pop, -1);
-    /* where it lay is drawn again; two closed before a pass: the rectangle that holds both */
-    dgx_ui_rect_t r = pop->root_rect, w = ui->popup_was;
-    if (!dgx_ui_rect_empty(&w)) {
-        const int x0 = w.x < r.x ? w.x : r.x, y0 = w.y < r.y ? w.y : r.y;
-        const int x1 = w.x + w.w > r.x + r.w ? w.x + w.w : r.x + r.w, y1 = w.y + w.h > r.y + r.h ? w.y + w.h : r.y + r.h;
-        r = dgx_ui_rect(x0, y0, x1 - x0, y1 - y0);
-    }
-    ui->popup_was = r;
-    ui->popup     = NULL;
+    /* where it lay, and the ones over it, drawn again from this tree up; two closed before a pass: the rectangle
+       that holds both */
+    ui->popup_was  = hull(ui->popup_was, hull(pop->root_rect, pop->popup_was));
+    pop->popup_was = dgx_ui_rect(0, 0, 0, 0);
+    pop->level     = 0;
+    ui->popup      = NULL;
 }

@@ -33,7 +33,7 @@ static void paper_around(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dg
     for (int j = 0; j < k; ++j) dgx_fill_rectangle(paint->scr, parts[j].x - paint->ox, parts[j].y - paint->oy, parts[j].w, parts[j].h, paper);
 }
 
-static bool picture_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+bool dgx_ui_draw_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t         *n   = dgx_ui_node(ui, i);
     const dgx_ui_picture_look_t *p   = look->params;
@@ -53,4 +53,4 @@ static bool picture_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
 }
 
 static const dgx_ui_picture_look_t picture_default = {.ink = 1, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t                dgx_ui_look_picture = {.draw = picture_draw, .params = &picture_default, .fill = -1};
+const dgx_ui_look_t                dgx_ui_look_picture = {.draw = dgx_ui_draw_picture, .params = &picture_default, .fill = -1};

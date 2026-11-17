@@ -15,11 +15,12 @@
 #include "dgx_ui_text.h"
 
 /* what on() was told, in order */
-static int told[64][2], told_count;
+static int told[64][2], told_count, told_value, told_node_ok;
 
-static void on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (told_count < 64) told[told_count][0] = i, told[told_count][1] = what, ++told_count;
+    told_value = node->state_value.value, told_node_ok = node == dgx_ui_node(ui, i); /* the value as the finger set it */
 }
 
 static int told_of(int i, int what)
@@ -122,10 +123,10 @@ static void test_layout(void)
     CHECK(!dgx_ui_layout(&ui));       /* nothing changed: not laid again */
     /* drawn: the marks are the painter's to clear */
     for (int i = 0; i < ui.count; ++i) dgx_ui_node(&ui, i)->marks = 0;
-    /* hidden: takes no place, the one after moves up, the box is drawn again */
+    /* hidden: takes no place, the one after moves up, the box fills around its children, not drawn whole */
     dgx_ui_show(&ui, b, false);
     CHECK(dgx_ui_layout(&ui) && wc->y == 14);
-    CHECK(dgx_ui_node(&ui, root)->marks & DGX_UI_MARK_WHOLE);
+    CHECK((dgx_ui_node(&ui, root)->marks & DGX_UI_MARK_AROUND) && !(dgx_ui_node(&ui, root)->marks & DGX_UI_MARK_WHOLE));
     CHECK(!(wa->marks & DGX_UI_MARK_WHOLE)); /* a did not move */
     CHECK(wc->marks & DGX_UI_MARK_WHOLE);
     dgx_ui_show(&ui, b, true);
@@ -257,6 +258,7 @@ static void test_pointer(void)
     /* a slider: the knob at the point, then where it is dragged; it owns the finger */
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 51, .y = 25, .down = true, .pressed = true});
     CHECK(dgx_ui_node(&pui, sl)->state_value.value == 50 && told_of(sl, DGX_UI_CHANGED) == 1);
+    CHECK(told_value == 50 && told_node_ok); /* on() has the node: the value without a call */
     CHECK(dgx_ui_dragging(&pui));
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 101, .y = 25, .down = true});
     CHECK(dgx_ui_node(&pui, sl)->state_value.value == 100 && told_of(sl, DGX_UI_CHANGED) == 2);
@@ -327,6 +329,20 @@ static void test_keys(void)
     CHECK(!dgx_ui_buttons(&pui, DGX_UI_PAD_B, 30));
     CHECK(!dgx_ui_buttons(&pui, DGX_UI_PAD_B | DGX_UI_PAD_START, 40));
     CHECK(!dgx_ui_time(&pui, 50));
+    /* the program's keys of the buttons: left and right move the focus, as in a row; NULL the default again */
+    static const uint8_t row_keys[8] = {DGX_UI_KEY_PREV, DGX_UI_KEY_NEXT, DGX_UI_KEY_PREV, DGX_UI_KEY_NEXT, DGX_UI_KEY_ACTIVATE, 0xff, DGX_UI_KEY_BACK, DGX_UI_KEY_BACK};
+    dgx_ui_focus(&pui, bt);
+    dgx_ui_button_keys(&pui, row_keys);
+    CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_RIGHT, 60) && pui.focus == sl);
+    dgx_ui_buttons(&pui, 0, 70);
+    CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_LEFT, 80) && pui.focus == bt);
+    dgx_ui_buttons(&pui, 0, 90);
+    dgx_ui_button_keys(&pui, NULL);
+    dgx_ui_focus(&pui, sl);
+    const int was = dgx_ui_node(&pui, sl)->state_value.value;
+    CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_RIGHT, 100) && pui.focus == sl && dgx_ui_node(&pui, sl)->state_value.value == was + 1);
+    dgx_ui_buttons(&pui, 0, 110);
+    dgx_ui_focus(&pui, bt);
     /* disabled while focused: the focus leaves it */
     dgx_ui_set_state(&pui, bt, DGX_UI_DISABLED, true);
     CHECK(pui.focus == -1);
@@ -334,7 +350,7 @@ static void test_keys(void)
 }
 
 /* the cases of the audit of steps 2 and 3 */
-static void on_remove(dgx_ui_t *ui, int i, int what, void *ctx)
+static void on_remove(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == (int)(intptr_t)ctx) dgx_ui_remove(ui, i);
 }
@@ -397,11 +413,79 @@ static void test_audit(void)
     dgx_ui_free(&ui);
 }
 
+/* a child that takes what is left: a row of a name and a value at the right edge on any width; a column of a title,
+   the content and buttons at the bottom; two that share; nothing left, none negative; in a free box nothing */
+static const dgx_ui_widget_t r_row     = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 2, .gap = 4};
+static const dgx_ui_widget_t r_name    = {.kind = DGX_UI_LABEL, .text = &text_box, .want_h = 10, .flags = DGX_UI_REST};
+static const dgx_ui_widget_t r_value   = {.kind = DGX_UI_LABEL, .text = &text_box, .want_h = 10, .want_w = 60};
+static const dgx_ui_widget_t r_column  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 3, .gap = 2};
+static const dgx_ui_widget_t r_title   = {.kind = DGX_UI_BOX, .want_h = 10};
+static const dgx_ui_widget_t r_content = {.kind = DGX_UI_BOX, .want_h = 99, .flags = DGX_UI_REST};
+static const dgx_ui_widget_t r_buttons = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 12};
+static const dgx_ui_widget_t r_free    = {.kind = DGX_UI_BOX};
+static const dgx_ui_widget_t r_freerest = {.kind = DGX_UI_BOX, .want_w = 7, .want_h = 5, .at_x = 1, .at_y = 1, .flags = DGX_UI_REST};
+
+static void test_rest(void)
+{
+    dgx_ui_textbox_init(&text_box, text_buf, sizeof text_buf, 1, &st12);
+    dgx_ui_node_t first[6];
+    dgx_ui_t      ui;
+    /* a row on 240, then on 320: the value at the right edge; the name all the rest, told of no width */
+    dgx_ui_init(&ui, first, 6, 1);
+    dgx_ui_add(&ui, -1, &r_row);
+    const int name = dgx_ui_add(&ui, 0, &r_name), value = dgx_ui_add(&ui, 0, &r_value);
+    dgx_ui_screen(&ui, 240, 20, 0);
+    dgx_ui_layout(&ui);
+    const dgx_ui_node_t *n = dgx_ui_node(&ui, name), *v = dgx_ui_node(&ui, value);
+    CHECK(v->x + v->w == 238 && v->w == 60 && n->x == 2 && n->w == 240 - 4 - 4 - 60 && !ui.told_width);
+    dgx_ui_screen(&ui, 320, 20, 0);
+    dgx_ui_layout(&ui);
+    CHECK(v->x + v->w == 318 && n->w == 320 - 4 - 4 - 60);
+    /* so narrow nothing is left: the name 0 wide, and still no warning of a text with no width */
+    dgx_ui_screen(&ui, 60, 20, 0);
+    dgx_ui_layout(&ui);
+    CHECK(n->w == 0 && !ui.told_width);
+    dgx_ui_free(&ui);
+    /* a column: the buttons at the bottom, the content all between, its own height not asked */
+    dgx_ui_init(&ui, first, 6, 1);
+    dgx_ui_add(&ui, -1, &r_column);
+    const int title = dgx_ui_add(&ui, 0, &r_title), content = dgx_ui_add(&ui, 0, &r_content), buttons = dgx_ui_add(&ui, 0, &r_buttons);
+    dgx_ui_screen(&ui, 100, 80, 0);
+    dgx_ui_layout(&ui);
+    const dgx_ui_node_t *t = dgx_ui_node(&ui, title), *c = dgx_ui_node(&ui, content), *b = dgx_ui_node(&ui, buttons);
+    CHECK(t->y == 3 && c->y == 15 && c->h == 80 - 6 - 10 - 12 - 4 && b->y == 15 + c->h + 2 && b->y + b->h == 77);
+    /* two share: 119 inside the pads, less 22 of the others and 6 of the gaps, is 91: 45, and the last 46 */
+    const int second = dgx_ui_insert(&ui, 0, buttons, &r_content);
+    dgx_ui_screen(&ui, 100, 101 + 12 + 10 + 2, 0);
+    dgx_ui_layout(&ui);
+    CHECK(c->h == 45 && dgx_ui_node(&ui, second)->h == 46 && dgx_ui_node(&ui, second)->y == c->y + 45 + 2);
+    CHECK(b->y + b->h == 101 + 12 + 10 + 2 - 3);
+    /* nothing left: 0, never below */
+    dgx_ui_screen(&ui, 100, 20, 0);
+    dgx_ui_layout(&ui);
+    CHECK(c->h == 0 && dgx_ui_node(&ui, second)->h == 0);
+    /* hidden, it takes nothing: the other one all */
+    dgx_ui_show(&ui, second, false);
+    dgx_ui_screen(&ui, 100, 80, 0);
+    dgx_ui_layout(&ui);
+    CHECK(c->h == 80 - 6 - 10 - 12 - 4 && b->y + b->h == 77);
+    dgx_ui_free(&ui);
+    /* in a box of neither: where it asks, as without the flag */
+    dgx_ui_init(&ui, first, 6, 1);
+    dgx_ui_add(&ui, -1, &r_free);
+    const int f = dgx_ui_add(&ui, 0, &r_freerest);
+    dgx_ui_screen(&ui, 50, 50, 0);
+    dgx_ui_layout(&ui);
+    CHECK(dgx_ui_node(&ui, f)->x == 1 && dgx_ui_node(&ui, f)->w == 7 && dgx_ui_node(&ui, f)->h == 5);
+    dgx_ui_free(&ui);
+}
+
 int main(void)
 {
     test_tree();
     test_layout();
     test_text_height();
+    test_rest();
     test_pointer();
     test_keys();
     test_audit();

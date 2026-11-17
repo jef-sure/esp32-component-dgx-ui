@@ -19,7 +19,7 @@ static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
 
 /* ---- a switch: the track, the knob a square at one end ---- */
 
-static bool switch_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+bool dgx_ui_draw_switch(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t        *n  = dgx_ui_node(ui, i);
     const dgx_ui_switch_look_t *p  = look->params;
@@ -37,12 +37,12 @@ static bool switch_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 }
 
 static const dgx_ui_switch_look_t switch_default = {.off = 2, .on = 3, .knob = 1, .focused = 1, .disabled = 2};
-const dgx_ui_look_t               dgx_ui_look_switch = {.draw = switch_draw, .params = &switch_default, .fill = -1};
+const dgx_ui_look_t               dgx_ui_look_switch = {.draw = dgx_ui_draw_switch, .params = &switch_default, .fill = -1};
 
 /* ---- a slider: paper above and below a track in the middle, filled up to the knob ---- */
 
 
-static bool slider_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+bool dgx_ui_draw_slider(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t        *n = dgx_ui_node(ui, i);
     const dgx_ui_widget_t      *w = n->widget;
@@ -68,4 +68,4 @@ static bool slider_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 }
 
 static const dgx_ui_slider_look_t slider_default = {.track = 2, .fill = 3, .knob = 1, .focused = 1, .disabled = 2, .track_h = 2};
-const dgx_ui_look_t               dgx_ui_look_slider = {.draw = slider_draw, .params = &slider_default, .fill = -1};
+const dgx_ui_look_t               dgx_ui_look_slider = {.draw = dgx_ui_draw_slider, .params = &slider_default, .fill = -1};

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "dgx_ui_priv.h"
 #include "dgx_ui_text.h"
 
 int dgx_ui_variant_line(const dgx_ui_font_variant_t *v)
@@ -59,6 +60,7 @@ bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)
         if (n < 0) box->buf[0] = 0;
         else if (n >= box->size) box->buf[whole_chars(box->buf, box->size - 1)] = 0;
         w->marks |= DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT;
+        dgx_ui_touched(ui, i);
         box->top = 0, box->flags = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_COUNTED));
         return true;
     }
@@ -70,6 +72,7 @@ bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)
     if (strcmp(text, box->buf) == 0) return false;
     strcpy(box->buf, text);
     w->marks |= DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT;
+    dgx_ui_touched(ui, i);
     box->top = 0, box->flags = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_COUNTED));
     return true;
 }
@@ -96,6 +99,7 @@ void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms)
     box->letter_ms = (uint8_t)(letter_ms < 0 ? 0 : letter_ms > 255 ? 255 : letter_ms);
     box->flags     = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED));
     n->marks |= DGX_UI_MARK_CHANGED;
+    dgx_ui_touched(ui, i);
 }
 
 void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines)
@@ -106,4 +110,5 @@ void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines)
     const int top = box->top + lines; /* bound by the painter, which knows how many lines there are */
     box->top      = (uint16_t)(top < 0 ? 0 : top > 0xFFFF ? 0xFFFF : top);
     n->marks |= DGX_UI_MARK_CHANGED;
+    dgx_ui_touched(ui, i);
 }

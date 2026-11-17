@@ -15,7 +15,7 @@ Every public type, function and constant, by header. How they work together is t
 | [`dgx_ui_paint.h`](#dgx_ui_painth) | the painter, the looks and their parameters |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.1: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.2: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -75,7 +75,7 @@ typedef struct dgx_ui_widget_t {
     dgx_ui_textbox_t       *text;
     const dgx_ui_look_t    *look;
     bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg);
-    void (*on)(dgx_ui_t *ui, int i, int what, void *ctx);
+    void (*on)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
     void *ctx;
     void *own;
 } dgx_ui_widget_t;
@@ -96,9 +96,9 @@ of every member.
 | `state` | the state it starts with: `DGX_UI_HIDDEN`, `DGX_UI_DISABLED`, the first value |
 | `picture` | a picture: one; an icon: an array for the values `min..max` |
 | `text` | its text box, in RAM |
-| `look` | how it is drawn; `NULL`: the look of its kind, which a box, a frame and a label have |
+| `look` | how it is drawn; `NULL`: the look of its kind, which a box, a frame and a label have. Any other widget with no look is not drawn, and the painter logs it once |
 | `take` | called with every message offered to the tree; `true` claims the message |
-| `on` | told what the user did to it: see the events below |
+| `on` | told what the user did to it: see the events below. It gets the widget's node as it is now: `node->state_value.value` is the value the user set |
 | `ctx` | given to `on()` |
 | `own` | the data of a widget of the program's own kind |
 
@@ -128,6 +128,7 @@ of every member.
 | `DGX_UI_STRETCH` | as wide as its column, or as high as its row, whatever its own size |
 | `DGX_UI_SWIPE` | a slider moved by the way the finger goes from where it went down, its width the whole range; a tap on it activates it |
 | `DGX_UI_DRAG` | a button dragged up or down as well as clicked, as the knob of a scroll bar: `on()` is told `DGX_UI_CHANGED` at every move |
+| `DGX_UI_REST` | along the stacking of a column or a row it takes all the box has left after the other children, the gaps and the pads; several share it equally; never less than 0 |
 | `DGX_UI_CANVAS` | kept for the canvas of a widget; not used yet |
 
 **Events**: what `on()` is told in `what`.
@@ -191,13 +192,16 @@ A widget in a tree, 28 bytes of RAM on a 32-bit chip. The program reads it and d
 | `DGX_UI_MARK_WHOLE` | to be drawn whole |
 | `DGX_UI_MARK_FIT` | its text is to be fitted to its field again |
 | `DGX_UI_MARK_TIME` | its look asked for time: it is called again at the next pass |
+| `DGX_UI_MARK_BELOW` | a widget under it is to be drawn: the painter goes down only where this is set |
+| `DGX_UI_MARK_AROUND` | a child of it moved, came or went: a box or a frame that stacks its children fills around them, and only the children marked themselves are drawn |
 | `DGX_UI_MARK_HARD_SIZE` | kept for the canvas of a widget; not used yet |
 
 ### The tree
 
 `dgx_ui_t` is a tree and what the pointer and the keys are doing to it, 96 bytes. The program fills it by
 `dgx_ui_init()` and changes it by the calls only. Members a program may read: `focus`, the number of the focused
-widget, and `pressed`, the one the pointer is held on, both -1 for none; `popup`, the popup open over it.
+widget, and `pressed`, the one the pointer is held on, both -1 for none; `popup`, the popup open over it; `level`,
+how many popups lie under it, 0 for a tree that is no popup.
 
 `DGX_UI_BLOCK` is 64: the nodes past the program's array come in blocks of so many.
 
@@ -250,7 +254,7 @@ The pointer as it is now: where, in pixels of the screen; `down` now; `pressed` 
 | Call | What it does |
 | ---- | ------------ |
 | `bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *pointer)` | The pointer given to the tree, or to its popup first. The widget it went down on is pressed until it goes up, wherever it goes. Let go within `DGX_UI_CLICK_MS`, not swiped and not dragged, it is a click. It returns `true` when a widget took it. |
-| `int dgx_ui_hit(dgx_ui_t *ui, int x, int y)` | The deepest widget under a pixel that answers a pointer; -1 for none. |
+| `int dgx_ui_hit(dgx_ui_t *ui, int x, int y)` | The deepest widget under a pixel that answers a pointer; -1 for none. A widget is hit, as it is drawn, only within its parent's box. |
 | `bool dgx_ui_holding(const dgx_ui_t *ui)` | Whether a widget of the tree or of its popup holds the pointer. |
 | `bool dgx_ui_dragging(const dgx_ui_t *ui)` | Whether the widget that holds it is dragged: a slider, a list, a button with `DGX_UI_DRAG`. Such a widget owns the finger. |
 
@@ -275,29 +279,70 @@ and the bottom twelfth of a list's row belong to no row.
 | `bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)` | The time step of the logic: a held key repeats when its time comes. `true` while such a key is held: the loop asks for time. |
 | `void dgx_ui_focus(dgx_ui_t *ui, int i)` | The focus put on a widget, which is told `DGX_UI_FOCUS`; -1: on none. |
 
-The buttons are the bits of a game pad, the same as in DGX-DI and DGX-GE:
-
-| Button | Key |
-| ------ | --- |
-| `DGX_UI_PAD_UP`, `DGX_UI_PAD_DOWN` | previous, next |
-| `DGX_UI_PAD_LEFT`, `DGX_UI_PAD_RIGHT` | less, more |
-| `DGX_UI_PAD_A` | activate |
-| `DGX_UI_PAD_B`, `DGX_UI_PAD_BACK` | back |
-| `DGX_UI_PAD_START` | none |
-
 A held key repeats `DGX_UI_REPEAT_FIRST_MS`, 500 ms, after it went down, and every `DGX_UI_REPEAT_MS`, 100 ms, after.
+
+### Which key a button gives
+
+`dgx_ui_buttons()` takes the buttons as bits of a game pad, the same as in DGX-DI and DGX-GE, and turns each button
+into a key by a table.
+
+| Button | Its key by default | What the key does |
+| ------ | ------------------ | ----------------- |
+| `DGX_UI_PAD_UP` | `DGX_UI_KEY_PREV` | the focus to the widget before |
+| `DGX_UI_PAD_DOWN` | `DGX_UI_KEY_NEXT` | the focus to the widget after |
+| `DGX_UI_PAD_LEFT` | `DGX_UI_KEY_LESS` | the focused slider a step down, a switch off |
+| `DGX_UI_PAD_RIGHT` | `DGX_UI_KEY_MORE` | the focused slider a step up, a switch on |
+| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned |
+| `DGX_UI_PAD_BACK`, `DGX_UI_PAD_B` | `DGX_UI_KEY_BACK` | nothing in a widget: the program's |
+| `DGX_UI_PAD_START` | none | the button is the program's |
+
+The default fits a column of settings: up and down go from one to the next, left and right change the one in focus.
+
+It does not fit buttons that stand in a row. Take a dialog with three buttons side by side, "Back", "OK" and "Next",
+the focus on "Back". The user presses right to get to "OK". Right is "more"; a button has no value to make more of,
+so nothing happens. The focus moves by up and down only, which nobody looking at a row would guess.
+
+A table of the program's own gives left and right the keys that move the focus:
+
+```c
+/* three buttons in a row, "Back", "OK", "Next": left and right move the focus along the row */
+static const uint8_t row_keys[8] = {
+    DGX_UI_KEY_PREV,     /* DGX_UI_PAD_LEFT:  the focus to the button on the left; by default LESS */
+    DGX_UI_KEY_NEXT,     /* DGX_UI_PAD_RIGHT: the focus to the button on the right; by default MORE */
+    DGX_UI_KEY_PREV,     /* DGX_UI_PAD_UP:    the focus back, as by default */
+    DGX_UI_KEY_NEXT,     /* DGX_UI_PAD_DOWN:  the focus on, as by default */
+    DGX_UI_KEY_ACTIVATE, /* DGX_UI_PAD_A:     the focused button activated, as by default */
+    0xff,                /* DGX_UI_PAD_START: no key, the button is the program's, as by default */
+    DGX_UI_KEY_BACK,     /* DGX_UI_PAD_BACK:  back, which no widget takes: the program's, as by default */
+    DGX_UI_KEY_BACK,     /* DGX_UI_PAD_B:     the same */
+};
+```
+
+`void dgx_ui_button_keys(dgx_ui_t *ui, const uint8_t *keys)` gives the tree such a table: after
+`dgx_ui_button_keys(&ui, row_keys)` right on "Back" moves the focus to "OK".
+
+- The table has 8 entries, one for each button, in the order of the bits `DGX_UI_PAD_*`: LEFT, RIGHT, UP, DOWN, A,
+  START, BACK, B.
+- An entry is a `DGX_UI_KEY_*`, or 0xff: the button gives no key and stays the program's.
+- The tree keeps the pointer and copies nothing: give a constant.
+- It may be given again at any time, as when a dialog of a column gives way to a dialog of a row. `NULL` gives the
+  default back.
+- It is the table of the tree given to `dgx_ui_buttons()`. The keys it gives go to the popups over that tree as any
+  key does.
 
 ### A popup
 
 | Call | What it does |
 | ---- | ------------ |
-| `void dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags)` | A tree opened over another in a rectangle of the screen, in pixels; one already open is closed first. |
-| `void dgx_ui_popup_close(dgx_ui_t *ui)` | The popup closed; the tree under it is drawn again there at the next pass. |
+| `bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags)` | A tree opened over another in a rectangle of the screen, in pixels; a popup that tree already had open is closed first. `ui` may itself be a popup: popups stand one over another. `false`, and nothing opened: the popup is the tree itself, it has a popup of its own open or is open elsewhere, or `DGX_UI_POPUP_DEPTH` popups already lie under the tree. |
+| `void dgx_ui_popup_close(dgx_ui_t *ui)` | The popup of that tree closed, with every popup over it; the trees under are drawn again there at the next pass. |
 
 | Flag | Meaning |
 | ---- | ------- |
 | `DGX_UI_POPUP_MODAL` | it takes every pointer and key; back stays the program's |
-| `DGX_UI_POPUP_CLOSE_OUTSIDE` | a finger that goes down outside it closes it |
+| `DGX_UI_POPUP_CLOSE_OUTSIDE` | a finger that goes down outside it, and outside every popup over it, closes it |
+
+`DGX_UI_POPUP_DEPTH` is 8: at most so many popups stand one over another over a tree.
 
 ### Other
 
@@ -466,7 +511,7 @@ typedef struct dgx_ui_paint_t {
     bool            whole;
     bool            composing;
     uint8_t         part, parts;
-    dgx_ui_rect_t   popup_cover;
+    const dgx_ui_t *popup_over;
     dgx_screen_t   *rgb565;
     dgx_ui_rect_t   cover_was;
 } dgx_ui_paint_t;
@@ -493,6 +538,7 @@ how many.
 | `void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)` | A rectangle of the tree's screen composed from the root down: the background, then every widget that meets it, whole, under a clip. Nothing is marked as drawn. Pixels may be written more than once. |
 | `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen object of the look of RGB565. The struct may be used again. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | A colour of the table; 0 past its end. |
+| `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | For a look of the program's own that holds children: an area of the widget `i`, in pixels of the tree's screen, filled with a colour everywhere but under its shown children that a look draws. In a column or a row; a widget of neither has the area filled whole. Called from a look's `draw`. |
 
 ### A look
 
@@ -528,6 +574,28 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen | `dgx_ui_picture_look_t` |
 
 A look that no widget names is not linked into the program.
+
+### The drawing functions
+
+The drawing of each look of the library has a name of its own, so that a look in the program's own colours is a
+constant: `static const dgx_ui_look_t mine = {.draw = dgx_ui_draw_button, .params = &my_colours, .fill = -1};`. All
+have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of its look's type.
+
+| Function | The look it draws | Parameters |
+| -------- | ----------------- | ---------- |
+| `dgx_ui_draw_box` | `dgx_ui_look_box` | none; its paper is what lies under it |
+| `dgx_ui_draw_frame` | `dgx_ui_look_frame` | `dgx_ui_frame_look_t`; its fill is the look's `fill` |
+| `dgx_ui_draw_text` | `dgx_ui_look_text` | `dgx_ui_text_look_t` |
+| `dgx_ui_draw_lines` | `dgx_ui_look_lines` | `dgx_ui_text_look_t` |
+| `dgx_ui_draw_button` | `dgx_ui_look_button` | `dgx_ui_button_look_t` |
+| `dgx_ui_draw_input` | `dgx_ui_look_input` | `dgx_ui_input_look_t` |
+| `dgx_ui_draw_switch` | `dgx_ui_look_switch` | `dgx_ui_switch_look_t` |
+| `dgx_ui_draw_slider` | `dgx_ui_look_slider` | `dgx_ui_slider_look_t` |
+| `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
+| `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
+
+A look of the program's with `dgx_ui_draw_box` or `dgx_ui_draw_frame` fills around its children as the library's box
+and frame do.
 
 ```c
 typedef struct dgx_ui_frame_look_t {

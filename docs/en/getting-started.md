@@ -15,14 +15,14 @@ From an ESP-IDF project with a display to a program that shows a value another t
 
 ## 1. Adding the component
 
-Version 0.0.1 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
+Version 0.0.2 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
 the project:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.1"
+    version: "0.0.2"
 ```
 
 The component manager takes dgx-ui from GitHub at the next build, and DGX from the registry, as dgx-ui asks for it.
@@ -141,15 +141,15 @@ lies in flash. Sizes are in points; a point is so many pixels, given to `dgx_ui_
 
 - The root is a box that stacks its children as a column, 4 points from its edges and 4 points apart.
 - The frame is 40 points high and as wide as the column. It holds the label of the value.
-- The row under it holds two labels, 76 points wide each.
+- The row under it holds two labels: the clock, 50 points wide, and a note that takes the rest of the row.
 
 ```c
 static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 4, .gap = 4};
 static const dgx_ui_widget_t frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .want_h = 40};
 static const dgx_ui_widget_t co2_w   = {.kind = DGX_UI_LABEL, .text = &co2_box, .want_h = 34, .take = co2_take};
 static const dgx_ui_widget_t row_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 10};
-static const dgx_ui_widget_t clock_w = {.kind = DGX_UI_LABEL, .text = &clock_box, .want_w = 76, .take = clock_take};
-static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .text = &note_box, .want_w = 76};
+static const dgx_ui_widget_t clock_w = {.kind = DGX_UI_LABEL, .text = &clock_box, .want_w = 50, .take = clock_take};
+static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &note_box};
 ```
 
 Two rules of the sizes to remember:
@@ -157,6 +157,8 @@ Two rules of the sizes to remember:
 - A box has no size of its own. In a column it is as wide as the column, and its height is `want_h`.
 - A label is as high as its lines of text. It has no width of its own: in a column it takes the column's, in a row it
   needs `want_w`.
+- A child with the flag `DGX_UI_REST` takes what its row or column has left after the others. The note above is
+  such a child, so the row fits a screen of any width.
 
 ### The tree, the queue and the sensor
 

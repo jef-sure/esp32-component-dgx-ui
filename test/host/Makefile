@@ -17,7 +17,7 @@ include $(ROOT)/host/dgx_ui_host.mk
 CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
 WARN     := -Wall -Wextra -Wno-unused-parameter
 
-all: run-test_rect run-test_core run-test_msg run-test_paint run-test_lines run-test_controls run-test_popup $(if $(DGX_DI),run-test_di) check-cxx
+all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip $(if $(DGX_DI),run-test_di) check-cxx
 
 run-%: $(BUILD)/%
 	$<
@@ -47,6 +47,10 @@ $(BUILD)/test_paint: test_paint.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/in
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_paint.c $(PAINT) $(DGX_SRCS) -lm
 
+$(BUILD)/test_around: test_around.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
+	mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_around.c $(PAINT) $(DGX_SRCS) -lm
+
 $(BUILD)/test_lines: test_lines.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_lines.c $(PAINT) $(DGX_SRCS) -lm
@@ -58,6 +62,14 @@ $(BUILD)/test_controls: test_controls.c check.h panel.h $(PAINT) $(wildcard $(RO
 $(BUILD)/test_popup: test_popup.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_popup.c $(PAINT) $(DGX_SRCS) -lm
+
+$(BUILD)/test_nest: test_nest.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
+	mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_nest.c $(PAINT) $(DGX_SRCS) -lm
+
+$(BUILD)/test_skip: test_skip.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
+	mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_skip.c $(PAINT) $(DGX_SRCS) -lm
 
 $(BUILD)/test_di: test_di.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)

@@ -15,13 +15,13 @@
 
 ## 1. Подключение компонента
 
-Версия 0.0.1 — это тег в репозитории, в реестре компонентов ESP её пока нет. В `main/idf_component.yml` проекта:
+Версия 0.0.2 — это тег в репозитории, в реестре компонентов ESP её пока нет. В `main/idf_component.yml` проекта:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.1"
+    version: "0.0.2"
 ```
 
 При следующей сборке менеджер компонентов возьмёт dgx-ui с GitHub, а DGX — из реестра, потому что dgx-ui её
@@ -142,15 +142,15 @@ static bool clock_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 
 - Корень — контейнер, который ставит детей столбцом, в 4 точках от своих краёв и в 4 точках друг от друга.
 - Рамка высотой 40 точек, шириной во весь столбец. В ней надпись со значением.
-- В строке под ней две надписи, по 76 точек шириной.
+- В строке под ней две надписи: часы шириной 50 точек и подпись, которая занимает остаток строки.
 
 ```c
 static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 4, .gap = 4};
 static const dgx_ui_widget_t frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .want_h = 40};
 static const dgx_ui_widget_t co2_w   = {.kind = DGX_UI_LABEL, .text = &co2_box, .want_h = 34, .take = co2_take};
 static const dgx_ui_widget_t row_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 10};
-static const dgx_ui_widget_t clock_w = {.kind = DGX_UI_LABEL, .text = &clock_box, .want_w = 76, .take = clock_take};
-static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .text = &note_box, .want_w = 76};
+static const dgx_ui_widget_t clock_w = {.kind = DGX_UI_LABEL, .text = &clock_box, .want_w = 50, .take = clock_take};
+static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &note_box};
 ```
 
 Два правила о размерах стоит запомнить:
@@ -158,6 +158,8 @@ static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .text = &note_box,
 - У контейнера своего размера нет. В столбце он шириной со столбец, а высоту ему задаёт `want_h`.
 - Надпись высотой в свои строки текста. Своей ширины у неё нет: в столбце она берёт ширину столбца, а в строке
   ей нужен `want_w`.
+- Ребёнок с флагом `DGX_UI_REST` занимает то, что осталось в его строке или столбце после остальных. Подпись выше
+  именно такая, поэтому строка подходит экрану любой ширины.
 
 ### Дерево, очередь и датчик
 

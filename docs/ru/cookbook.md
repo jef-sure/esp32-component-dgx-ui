@@ -7,6 +7,7 @@
 очередь и цикл задачи, владеющей деревом, — показана в [Начале работы](getting-started.md).
 
 - [Общее для всех рецептов](#общее-для-всех-рецептов)
+- [Строка и столбец под любой экран](#строка-и-столбец-под-любой-экран)
 - [Одно сообщение для нескольких виджетов](#одно-сообщение-для-нескольких-виджетов)
 - [Часы или что угодно время от времени](#часы-или-что-угодно-время-от-времени)
 - [Кнопка](#кнопка)
@@ -25,6 +26,7 @@
 - [Большие данные: сообщение по ссылке](#большие-данные-сообщение-по-ссылке)
 - [Сообщение из прерывания](#сообщение-из-прерывания)
 - [Свой облик](#свой-облик)
+- [Шкала по кругу с виджетами внутри](#шкала-по-кругу-с-виджетами-внутри)
 - [Поворот экрана](#поворот-экрана)
 - [Проверка интерфейса на компьютере](#проверка-интерфейса-на-компьютере)
 
@@ -58,6 +60,31 @@ static void styles_init(void)
     st_centre = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
 }
 ```
+
+## Строка и столбец под любой экран
+
+Ребёнок с флагом `DGX_UI_REST` занимает то, что осталось в его строке или столбце после остальных. Ширину не надо
+считать руками, и то же дерево подходит экрану другой ширины, другому `unit` и повёрнутому экрану.
+
+```c
+static char             name_buf[16], value_buf[16], title_buf[16];
+static dgx_ui_textbox_t name_box, value_box, title_box;
+
+/* a row: the name takes what the value leaves */
+static const dgx_ui_widget_t fit_row_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 10, .gap = 4};
+static const dgx_ui_widget_t name_w    = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &name_box};
+static const dgx_ui_widget_t value_w   = {.kind = DGX_UI_LABEL, .text = &value_box, .want_w = 40};
+
+/* a column: the content takes what the title and the buttons leave, so the buttons stand at the bottom */
+static const dgx_ui_widget_t page_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 4, .gap = 4};
+static const dgx_ui_widget_t title_w   = {.kind = DGX_UI_LABEL, .text = &title_box};
+static const dgx_ui_widget_t content_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_REST, .gap = 2};
+static const dgx_ui_widget_t bottom_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 18, .gap = 6};
+```
+
+- Несколько детей с этим флагом делят остаток поровну.
+- Если не осталось ничего, такой ребёнок не получает размера и не виден.
+- В контейнере, который не столбец и не строка, флаг ничего не делает.
 
 ## Одно сообщение для нескольких виджетов
 
@@ -149,7 +176,7 @@ void settings_save(void);
 static char             save_buf[8];
 static dgx_ui_textbox_t save_box;
 
-static void save_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void save_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) settings_save();
 }
@@ -174,21 +201,22 @@ static int save_add(dgx_ui_t *ui, int parent)
 
 ## Ползунок и переключатель
 
-Значение элемента управления лежит в его узле. Функции `on()` сообщается `DGX_UI_CHANGED`, когда значение изменил
-пользователь: у ползунка — на каждом шаге пальца, у переключателя — по нажатию.
+Значение элемента управления лежит в его узле, и `on()` получает этот узел: `node->state_value.value` — значение,
+которое выставил пользователь. Функции `on()` сообщается `DGX_UI_CHANGED`, когда значение изменил пользователь: у
+ползунка — на каждом шаге пальца, у переключателя — по нажатию.
 
 ```c
 void backlight_set(int percent);
 void wifi_enable(bool on);
 
-static void backlight_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void backlight_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) backlight_set(dgx_ui_node(ui, i)->state_value.value);
+    if (what == DGX_UI_CHANGED) backlight_set(node->state_value.value);
 }
 
-static void wifi_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void wifi_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) wifi_enable(dgx_ui_node(ui, i)->state_value.value != 0);
+    if (what == DGX_UI_CHANGED) wifi_enable(node->state_value.value != 0);
 }
 
 /* a slider of 0..100 by 5 that starts at 70, and a switch that starts off */
@@ -330,19 +358,14 @@ static void city_style_init(void)
 ## Свои цвета и ночной режим
 
 У обликов библиотеки есть параметры: какой цвет таблицы у лицевой стороны, у текста, у тени. Облик в других
-цветах — это облик библиотеки со своими параметрами. Он заполняется при запуске и занимает 12 байт памяти:
+цветах — это рисование библиотеки со своими параметрами. Он константа и лежит во флеше:
 
 ```c
 static const dgx_ui_button_look_t blue_button = {
     .face = ACCENT, .pressed = ACCENT_DOWN, .focused = ACCENT_DOWN, .disabled = FILL,
     .text = INK, .text_disabled = DIM, .shadow = SHADOW, .depth = 1};
-static dgx_ui_look_t look_blue_button;
-
-static void looks_init(void)
-{
-    look_blue_button        = dgx_ui_look_button; /* its drawing */
-    look_blue_button.params = &blue_button;       /* in these colours */
-}
+/* the library's drawing of a button, in these colours */
+static const dgx_ui_look_t look_blue_button = {.draw = dgx_ui_draw_button, .params = &blue_button, .fill = -1};
 
 static const dgx_ui_widget_t ok_w = {.kind = DGX_UI_BUTTON, .want_w = 60, .want_h = 18, .look = &look_blue_button};
 ```
@@ -388,14 +411,14 @@ static dgx_ui_node_t    ask_nodes[6];
 static dgx_ui_t         ask_ui;
 static dgx_ui_t        *ask_over; /* the tree it is open over */
 
-static void yes_on(dgx_ui_t *popup, int i, int what, void *ctx)
+static void yes_on(dgx_ui_t *popup, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what != DGX_UI_ACTIVATED) return;
     settings_save();
     dgx_ui_popup_close(ask_over);
 }
 
-static void no_on(dgx_ui_t *popup, int i, int what, void *ctx)
+static void no_on(dgx_ui_t *popup, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) dgx_ui_popup_close(ask_over);
 }
@@ -403,10 +426,11 @@ static void no_on(dgx_ui_t *popup, int i, int what, void *ctx)
 static const dgx_ui_widget_t ask_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 5, .gap = 5};
 static const dgx_ui_widget_t ask_w      = {.kind = DGX_UI_LABEL, .text = &ask_box, .want_h = 12};
 static const dgx_ui_widget_t ask_row_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 18, .gap = 6};
+/* the two buttons share the row: as high as it (STRETCH), each a half of what it has (REST) */
 static const dgx_ui_widget_t yes_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &yes_box, .want_w = 50, .look = &dgx_ui_look_button, .on = yes_on};
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &yes_box, .look = &dgx_ui_look_button, .on = yes_on};
 static const dgx_ui_widget_t no_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &no_box, .want_w = 50, .look = &dgx_ui_look_button, .on = no_on};
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &no_box, .look = &dgx_ui_look_button, .on = no_on};
 
 static void ask_open(dgx_ui_t *ui)
 {
@@ -432,6 +456,26 @@ static void ask_open(dgx_ui_t *ui)
 - Когда окно закрывается, отрисовка заново рисует дерево там, где оно лежало.
 - Прямоугольник задан в пикселях экрана, как он стоит сейчас. При повороте экрана закройте окно или откройте заново
   в новых пикселях.
+
+Окно — это дерево, поэтому над ним в свою очередь можно открыть окно: вопрос поверх диалога или список выбора,
+который выступает за его край.
+
+```c
+static dgx_ui_node_t sure_nodes[6];
+static dgx_ui_t      sure_ui; /* built as ask_ui above: a frame, a label, two buttons */
+
+/* a second popup, over the first: it is opened over the popup's own tree */
+static bool sure_open(void)
+{
+    return dgx_ui_popup_open(&ask_ui, &sure_ui, 80, 110, 200, 80, DGX_UI_POPUP_MODAL);
+}
+```
+
+- Одно над другим могут стоять до `DGX_UI_POPUP_DEPTH`, то есть 8, окон. Для девятого `dgx_ui_popup_open()`
+  возвращает `false`, как и для дерева, которое уже открыто как окно.
+- Палец и клавиши сначала идут в верхнее окно. Палец на той части верхнего окна, что выступает за нижнее, достаётся
+  верхнему.
+- `dgx_ui_popup_close(ui)` закрывает окно этого дерева и все окна над ним.
 
 ## Кнопки платы
 
@@ -462,6 +506,55 @@ static void buttons_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg, uint32_t now_
   `dgx_ui_time()`, которую цикл вызывает перед `dgx_ui_paint()`. Пока кнопка удерживается, она возвращает `true`, и
   цикл не спит.
 - Одна клавиша диалога — это `dgx_ui_key(ui, DGX_UI_KEY_NEXT)` и ей подобные.
+
+**Какую клавишу даёт кнопка**, определяет таблица. По умолчанию:
+
+| Кнопка | Её клавиша по умолчанию | Что делает клавиша |
+| ------ | ----------------------- | ------------------ |
+| `DGX_UI_PAD_UP` | `DGX_UI_KEY_PREV` | фокус переходит к предыдущему виджету |
+| `DGX_UI_PAD_DOWN` | `DGX_UI_KEY_NEXT` | фокус переходит к следующему виджету |
+| `DGX_UI_PAD_LEFT` | `DGX_UI_KEY_LESS` | ползунок в фокусе на шаг вниз, переключатель выключается |
+| `DGX_UI_PAD_RIGHT` | `DGX_UI_KEY_MORE` | ползунок в фокусе на шаг вверх, переключатель включается |
+| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | срабатывает кнопка, строка или выпадающий список в фокусе, переключатель меняет положение |
+| `DGX_UI_PAD_BACK`, `DGX_UI_PAD_B` | `DGX_UI_KEY_BACK` | виджеты её не берут: достаётся программе |
+| `DGX_UI_PAD_START` | никакая | кнопка достаётся программе |
+
+Таблица по умолчанию подходит столбцу настроек: вверх и вниз переходят от одной к другой, влево и вправо меняют ту,
+что в фокусе.
+
+Она не подходит кнопкам, которые стоят в ряд. Возьмём диалог с тремя кнопками в строке: «Назад», «OK» и «Дальше»,
+фокус на «Назад». Пользователь нажимает вправо, чтобы перейти на «OK». Вправо — это «больше»; у кнопки нет значения,
+которое можно увеличить, поэтому не происходит ничего. Фокус двигается только кнопками вверх и вниз, о чём, глядя на
+ряд кнопок, не догадается никто.
+
+Своя таблица программы даёт кнопкам влево и вправо клавиши, которые двигают фокус:
+
+```c
+/* three buttons in a row, "Back", "OK", "Next": left and right move the focus along the row */
+static const uint8_t row_keys[8] = {
+    DGX_UI_KEY_PREV,     /* DGX_UI_PAD_LEFT:  the focus to the button on the left; by default LESS */
+    DGX_UI_KEY_NEXT,     /* DGX_UI_PAD_RIGHT: the focus to the button on the right; by default MORE */
+    DGX_UI_KEY_PREV,     /* DGX_UI_PAD_UP:    the focus back, as by default */
+    DGX_UI_KEY_NEXT,     /* DGX_UI_PAD_DOWN:  the focus on, as by default */
+    DGX_UI_KEY_ACTIVATE, /* DGX_UI_PAD_A:     the focused button activated, as by default */
+    0xff,                /* DGX_UI_PAD_START: no key, the button is the program's, as by default */
+    DGX_UI_KEY_BACK,     /* DGX_UI_PAD_BACK:  back, which no widget takes: the program's, as by default */
+    DGX_UI_KEY_BACK,     /* DGX_UI_PAD_B:     the same */
+};
+
+static void dialog_keys(dgx_ui_t *ui, bool buttons_in_a_row)
+{
+    dgx_ui_button_keys(ui, buttons_in_a_row ? row_keys : NULL); /* NULL: the default table again */
+}
+```
+
+- В таблице 8 записей, по одной на кнопку, в порядке битов `DGX_UI_PAD_*`: LEFT, RIGHT, UP, DOWN, A, START, BACK, B.
+- Запись — это `DGX_UI_KEY_*` или 0xff: кнопка не даёт клавиши и остаётся программе.
+- Дерево запоминает указатель и ничего не копирует: дайте константу.
+- Таблицу можно задать заново в любой момент, например когда диалог-столбец сменился диалогом-строкой. `NULL`
+  возвращает таблицу по умолчанию.
+- Это таблица того дерева, которое передано в `dgx_ui_buttons()`. Клавиши, которые она даёт, идут и в окна над этим
+  деревом, как любая клавиша.
 
 ## Касание с DGX-DI
 
@@ -505,7 +598,7 @@ void wifi_connect(const char *password);
 static char             pass_buf[33];
 static dgx_ui_textbox_t pass_box;
 
-static void pass_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void pass_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) wifi_connect(pass_buf); /* "done" was typed */
     if (what == DGX_UI_BACK) dgx_ui_text_set(ui, i, "");  /* "cancel" was typed */
@@ -666,6 +759,141 @@ static const dgx_ui_widget_t level_w      = {.kind = DGX_UI_OWN, .min = 0, .max 
 - **Его заливка.** `fill` — номер цвета, который облик оставляет под детьми виджета, или -1, если он оставляет то,
   что было. У рамки это её заливка.
 
+## Шкала по кругу с виджетами внутри
+
+![Станция CO2: цветная шкала по кругу, внутри число и два значения](../images/ring.png)
+![То же с раскладкой: коробки виджетов показаны штрихами](../images/ring-layout.png)
+
+Шкала, которая идёт по кругу экрана, с виджетами внутри — это одно дерево: кольцо — виджет собственного вида
+программы, а остальные виджеты — его дети, как у рамки. Всплывающее окно для этого не нужно. Штрихи на второй
+картинке показывают, что дала раскладка: квадрат, который отступ кольца оставляет внутри круга, и в нём коробки
+числа, его единицы, пустого контейнера, который занимает остаток, и строки с двумя надписями.
+
+Облик кольца рисует `dgx_gauge_t` из DGX:
+
+```c
+#include "dgx_gauge.h"
+
+/* the colours of the scale, packed for the screen at the start */
+static uint32_t ring_low, ring_mid, ring_high, ring_off;
+
+static uint32_t ring_color(int ppm)
+{
+    return ppm < 800 ? ring_low : ppm < 1200 ? ring_mid : ring_high;
+}
+
+typedef struct {
+    uint8_t width; /* of the ring, in points */
+} ring_look_t;
+
+/* what the ring remembers: the gauge of DGX, which draws only the steps that changed */
+typedef struct {
+    dgx_gauge_t gauge;
+    bool        made;
+} ring_t;
+
+static bool ring_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    const dgx_ui_node_t   *n = dgx_ui_node(ui, i);
+    const dgx_ui_widget_t *w = n->widget;
+    const ring_look_t     *p = look->params;
+    ring_t                *r = w->own;
+    const int thick = p->width * ui->unit, outer = (n->w < n->h ? n->w : n->h) / 2 - 2;
+    if (paint->whole || !r->made) {
+        /* nothing of it is on this screen: its paper around the children, the empty ring, the steps up to the value */
+        dgx_gauge_t fresh;
+        dgx_ui_fill_around(paint, ui, i, dgx_ui_rect(n->x, n->y, n->w, n->h), dgx_ui_color(paint, paint->paper));
+        dgx_gauge_init(&fresh, paint->scr, n->x + n->w / 2 - paint->ox, n->y + n->h / 2 - paint->oy, outer - thick, thick, 225.0f, 270,
+                       w->min, w->max, ring_off, ring_color);
+        dgx_gauge_set_value(&fresh, n->state_value.value);
+        if (!paint->composing) r->gauge = fresh, r->made = true; /* remembered only by the painter's own pass */
+    } else if (paint->part == 0) {
+        dgx_gauge_set_value(&r->gauge, n->state_value.value); /* only the steps that changed */
+    } else {
+        dgx_gauge_redraw(&r->gauge); /* another part of it, beside a popup: all of the ring there */
+    }
+    return false;
+}
+```
+
+Виджеты. Одно сообщение со значением получают и кольцо, и число. Две надписи внизу — те же, что в рецепте
+[Одно сообщение для нескольких виджетов](#одно-сообщение-для-нескольких-виджетов).
+
+```c
+enum { MSG_PPM = 17 };
+typedef struct {
+    int16_t ppm;
+} ppm_t;
+DGX_UI_MESSAGE(ppm, MSG_PPM, ppm_t)
+
+static bool ring_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
+{
+    ppm_t v;
+    if (msg_decode_ppm(msg, &v) == ESP_OK) dgx_ui_set_value(ui, i, v.ppm);
+    return false; /* the number inside reads the same message */
+}
+
+static bool ppm_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
+{
+    ppm_t v;
+    if (msg_decode_ppm(msg, &v) == ESP_OK) dgx_ui_text_printf(ui, i, "%d", v.ppm);
+    return false;
+}
+
+static char                ppm_buf[8], ppm_unit_buf[12], ring_temp_buf[12], ring_rh_buf[8];
+static dgx_ui_textbox_t    ppm_box, ppm_unit_box;
+static dgx_ui_text_style_t st_ring_right;
+static ring_t              ring_data;
+static const ring_look_t   ring_params = {.width = 14};
+static const dgx_ui_look_t ring_look   = {.draw = ring_draw, .params = &ring_params, .fill = -1};
+
+/* the ring is a column: its pad keeps its children inside the circle */
+static const dgx_ui_widget_t ring_w = {
+    .kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 47, .gap = 2, .min = 400, .max = 2000,
+    .look = &ring_look, .own = &ring_data, .take = ring_take};
+static const dgx_ui_widget_t ppm_w       = {.kind = DGX_UI_LABEL, .text = &ppm_box, .want_h = 44, .take = ppm_take};
+static const dgx_ui_widget_t ppm_unit_w  = {.kind = DGX_UI_LABEL, .text = &ppm_unit_box};
+static const dgx_ui_widget_t ring_rest_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
+static const dgx_ui_widget_t ring_row_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 13};
+static const dgx_ui_widget_t ring_temp_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &temp_box, .take = temp_take};
+static const dgx_ui_widget_t ring_rh_w   = {.kind = DGX_UI_LABEL, .text = &rh_box, .want_w = 50, .take = rh_take};
+
+/* the tree of a round screen of 240: the ring is its root */
+static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
+{
+    ring_low  = dgx_screen_rgb(scr, 60, 200, 90);
+    ring_mid  = dgx_screen_rgb(scr, 240, 200, 40);
+    ring_high = dgx_screen_rgb(scr, 230, 60, 50);
+    ring_off  = dgx_screen_rgb(scr, 40, 46, 60);
+    st_ring_right = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
+    dgx_ui_textbox_init(&ppm_box, ppm_buf, sizeof ppm_buf, 1, &st_city); /* the large font, or the small one */
+    dgx_ui_textbox_init(&ppm_unit_box, ppm_unit_buf, sizeof ppm_unit_buf, 1, &st_centre);
+    dgx_ui_textbox_init(&temp_box, ring_temp_buf, sizeof ring_temp_buf, 1, &st_left);
+    dgx_ui_textbox_init(&rh_box, ring_rh_buf, sizeof ring_rh_buf, 1, &st_ring_right);
+    const int ring = dgx_ui_add(ui, -1, &ring_w);
+    dgx_ui_add(ui, ring, &ppm_w);
+    dgx_ui_text_set(ui, dgx_ui_add(ui, ring, &ppm_unit_w), "ppm CO2");
+    dgx_ui_add(ui, ring, &ring_rest_w); /* pushes the row to the bottom of the square */
+    const int row = dgx_ui_add(ui, ring, &ring_row_w);
+    dgx_ui_add(ui, row, &ring_temp_w);
+    dgx_ui_add(ui, row, &ring_rh_w);
+    return ring;
+}
+```
+
+- **Отступ** держит детей внутри круга. На экране 240 внешний радиус кольца 118, ширина 14, значит, радиус
+  внутреннего круга 104. У квадрата внутри этого круга сторона 104 x 1,41 = 147, поэтому отступ равен
+  (240 - 147) / 2 = 47.
+- **Новое значение** вызывает облик кольца один раз, и шкала DGX рисует только те деления, которые изменились.
+  Число пишет своё поле. Больше ничего не трогается.
+- **Целиком**, при первой отрисовке и после поворота, кольцо заливает свою коробку вокруг детей вызовом
+  `dgx_ui_fill_around()` и рисует себя поверх этой бумаги: пиксели кольца в этом случае пишутся дважды, пиксели
+  детей — один раз.
+- **Под всплывающим окном** часть кольца может быть видна рядом с ним. Тогда облик вызывается для каждой части;
+  после первой шкала уже помнит свои деления, поэтому остальные части рисуются целиком.
+- Если ребёнка скрыли или показали, кольцо рисуется целиком вместе с детьми: вокруг оставшихся на месте заливают
+  только контейнер и рамка.
+
 ## Поворот экрана
 
 ```c
@@ -678,7 +906,7 @@ static void screen_turn(dgx_screen_t *scr, bool landscape)
 
 Больше ничего: отрисовка на каждом проходе сравнивает размер и ориентацию экрана, раскладывает дерево заново и
 рисует его целиком. Размеры в точках остаются прежними; строка, которой хватало ширины, после поворота может не
-поместиться.
+поместиться, если только один из её детей не [занимает остаток](#строка-и-столбец-под-любой-экран).
 
 ## Проверка интерфейса на компьютере
 
@@ -689,7 +917,7 @@ static void screen_turn(dgx_screen_t *scr, bool landscape)
 #include <assert.h>
 
 static int  saved;
-static void test_save_on(dgx_ui_t *ui, int i, int what, void *ctx)
+static void test_save_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) ++saved;
 }

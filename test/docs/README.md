@@ -18,6 +18,7 @@ It checks that:
 The code blocks of a page, in their order, are one file of C: a block is whole declarations and functions, and the
 Russian pages hold the same blocks as the English ones.
 
-`run_cookbook.c` runs the recipes of the cookbook with the program's own functions stubbed, and `pictures.c` draws
-`docs/images/*.png` (as PPM, to be turned into PNG). Both are built as the tests of `test/host` are, with the sources
+`run_cookbook.c` runs the recipes of the cookbook with the program's own functions stubbed; given a directory, it also
+draws there the pictures of the ring scale, `ring.ppm` and `ring-layout.ppm`, by the very code of the page.
+`pictures.c` draws the other pictures of `docs/images` (as PPM, to be turned into PNG). Both are built as the tests of `test/host` are, with the sources
 of dgx-ui and of DGX for the computer.

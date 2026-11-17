@@ -20,7 +20,7 @@ static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
 static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .want_h = 10, .max = 100, .look = &dgx_ui_look_slider};
 static int                   clicks;
-static void                  on_button(dgx_ui_t *u, int i, int what, void *ctx)
+static void                  on_button(dgx_ui_t *u, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     clicks += what == DGX_UI_ACTIVATED;
 }

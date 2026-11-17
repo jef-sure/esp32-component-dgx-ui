@@ -84,8 +84,8 @@ int main(void)
     CHECK(!dgx_ui_paint(&a.ui, &pa, 0));
     dgx_ui_paint(&b.ui, &pv, 0);
     CHECK(differ(panel, v) == 0);
-    /* every pixel of the screen written: the root's paper first, so some twice when drawn whole */
-    CHECK(panel_written(panel) == PANEL_W * PANEL_H);
+    /* every pixel of the screen written, once: the boxes fill around their children */
+    CHECK(panel_written(panel) == PANEL_W * PANEL_H && panel_twice(panel) == 0);
 
     /* nothing changed: nothing written */
     panel_count_from_now(panel);

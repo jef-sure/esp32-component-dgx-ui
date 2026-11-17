@@ -19,7 +19,7 @@ static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
     if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, c);
 }
 
-static bool input_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+bool dgx_ui_draw_input(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t       *n   = dgx_ui_node(ui, i);
     const dgx_ui_input_look_t *p   = look->params;
@@ -57,4 +57,4 @@ static bool input_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 }
 
 static const dgx_ui_input_look_t input_default = {.ink = 1, .paper = DGX_UI_PAPER, .caret = 3};
-const dgx_ui_look_t              dgx_ui_look_input = {.draw = input_draw, .params = &input_default, .fill = -1};
+const dgx_ui_look_t              dgx_ui_look_input = {.draw = dgx_ui_draw_input, .params = &input_default, .fill = -1};
