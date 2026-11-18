@@ -1,5 +1,9 @@
 # Changes
 
+## 0.0.12 - 2026-11-18
+
+- A program that reads no buttons no longer carries the keys: about 1.4 KB less.
+
 ## 0.0.11 - 2026-11-18
 
 - Widgets of the program's own: a look names a behaviour, `dgx_ui_look_t::behavior` (`down`, `move`, `up`, `key`),

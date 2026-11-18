@@ -291,6 +291,8 @@ every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_d
 | a text box | 28 bytes and the program's buffer |
 | a tree, `dgx_ui_t` | 96 bytes |
 | the code of the smallest program, one label fed by a message | about 8 KB |
+| the library's own RAM | none; 4 bytes once the loop calls `dgx_ui_time()` |
+| the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB |
 | the look of several lines, when named | about 2.5 KB |
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the

@@ -875,6 +875,21 @@ static bool repeats(int key)
     return key == DGX_UI_KEY_NEXT || key == DGX_UI_KEY_PREV || key == DGX_UI_KEY_MORE || key == DGX_UI_KEY_LESS;
 }
 
+/* the next step of a held key. By difference: now_ms runs over in 49.7 days */
+static bool repeat(dgx_ui_t *ui, uint32_t now_ms)
+{
+    if ((int32_t)(now_ms - ui->repeat_at) >= 0) {
+        dgx_ui_key(ui, ui->repeat_key);
+        ui->repeat_at += DGX_UI_REPEAT_MS;
+        if ((int32_t)(now_ms - ui->repeat_at) >= 0) ui->repeat_at = now_ms + DGX_UI_REPEAT_MS; /* a long stall: no burst */
+    }
+    return true;
+}
+
+/* reached by dgx_ui_time() only through this, named by dgx_ui_buttons(), the one call that holds a key: a program that
+   reads no buttons carries no keys. One for all trees: it is the same function for each */
+static bool (*repeat_step)(dgx_ui_t *ui, uint32_t now_ms);
+
 void dgx_ui_button_keys(dgx_ui_t *ui, const uint8_t *keys)
 {
     ui->button_keys = keys;
@@ -886,6 +901,7 @@ bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)
     const uint32_t went  = held & ~ui->held;
     bool           taken = false;
     ui->held             = held;
+    repeat_step          = repeat;
     /* the key repeating stops when its button is let go */
     if (ui->repeat_key >= 0) {
         bool still = false;
@@ -904,13 +920,7 @@ bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)
 bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)
 {
     if (ui->repeat_key < 0) return false;
-    /* by difference: now_ms runs over in 49.7 days */
-    if ((int32_t)(now_ms - ui->repeat_at) >= 0) {
-        dgx_ui_key(ui, ui->repeat_key);
-        ui->repeat_at += DGX_UI_REPEAT_MS;
-        if ((int32_t)(now_ms - ui->repeat_at) >= 0) ui->repeat_at = now_ms + DGX_UI_REPEAT_MS; /* a long stall: no burst */
-    }
-    return true;
+    return repeat_step(ui, now_ms); /* a key is held only after dgx_ui_buttons(), which named the step */
 }
 
 /* ---- the popup ---- */

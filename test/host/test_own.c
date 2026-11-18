@@ -213,6 +213,8 @@ int main(void)
         CHECK(ups == 0 && on->state_value.value == 0 && told_n == 1 && told[0] == DGX_UI_ACTIVATED);
     }
 
+    /* keys pressed, no buttons ever read: no key is held, dgx_ui_time() has nothing to step and calls nothing */
+    CHECK(!dgx_ui_time(&ui, 5000) && !dgx_ui_time(&ui, 0));
     /* dgx_ui_user_value() on a slider, as the user: CHANGED once; the same value, nothing */
     {
         static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 10, .want_w = 40, .want_h = 10, .on = on_any};

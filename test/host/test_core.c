@@ -338,6 +338,51 @@ static void test_keys(void)
     CHECK(dgx_ui_time(&pui, t0 + 600) && pui.focus == li);
     dgx_ui_buttons(&pui, 0, t0 + 650);
     CHECK(!dgx_ui_time(&pui, t0 + 700));
+    /* two trees, a key held in one: the other, never given the buttons, has no time and nothing moves in it */
+    {
+        static dgx_ui_node_t other_nodes[2];
+        static dgx_ui_t      other;
+        dgx_ui_init(&other, other_nodes, 2, 1);
+        dgx_ui_add(&other, -1, &(dgx_ui_widget_t){.kind = DGX_UI_BOX});
+        dgx_ui_add(&other, 0, &(dgx_ui_widget_t){.kind = DGX_UI_BUTTON, .want_h = 10});
+        dgx_ui_focus(&pui, bt);
+        CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_DOWN, 2000) && pui.focus == sl);
+        CHECK(!dgx_ui_time(&other, 2500) && other.focus == -1);
+        CHECK(dgx_ui_time(&pui, 2500) && pui.focus == sw);
+        dgx_ui_buttons(&pui, 0, 2550);
+        dgx_ui_free(&other);
+    }
+    /* held under a popup: each step goes to the popup first, as a key pressed would. Modal, the steps stay in it, round
+       its two buttons; not modal, a popup that takes no key lets them through to the tree */
+    {
+        static const dgx_ui_widget_t column_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
+        static const dgx_ui_widget_t small_w  = {.kind = DGX_UI_BUTTON, .want_h = 10};
+        static const dgx_ui_widget_t note_w   = {.kind = DGX_UI_LABEL, .want_h = 10};
+        static dgx_ui_node_t         popup_nodes[3];
+        static dgx_ui_t              popup;
+        dgx_ui_init(&popup, popup_nodes, 3, 1);
+        dgx_ui_add(&popup, -1, &column_w);
+        const int first = dgx_ui_add(&popup, 0, &small_w), second = dgx_ui_add(&popup, 0, &small_w);
+        dgx_ui_focus(&pui, bt);
+        CHECK(dgx_ui_popup_open(&pui, &popup, 0, 0, 50, 30, DGX_UI_POPUP_MODAL));
+        CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_DOWN, 3000) && popup.focus == first && pui.focus == bt);
+        CHECK(dgx_ui_time(&pui, 3500) && popup.focus == second && pui.focus == bt);
+        CHECK(dgx_ui_time(&pui, 3600) && popup.focus == first && pui.focus == bt);
+        dgx_ui_buttons(&pui, 0, 3650);
+        dgx_ui_popup_close(&pui);
+        dgx_ui_free(&popup);
+        static dgx_ui_node_t note_nodes[2];
+        static dgx_ui_t      note;
+        dgx_ui_init(&note, note_nodes, 2, 1);
+        dgx_ui_add(&note, -1, &column_w);
+        dgx_ui_add(&note, 0, &note_w);
+        CHECK(dgx_ui_popup_open(&pui, &note, 0, 0, 50, 30, 0));
+        CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_DOWN, 4000) && pui.focus == sl);
+        CHECK(dgx_ui_time(&pui, 4500) && pui.focus == sw && note.focus == -1);
+        dgx_ui_buttons(&pui, 0, 4550);
+        dgx_ui_popup_close(&pui);
+        dgx_ui_free(&note);
+    }
     /* A activates, BACK is nobody's, a button of no key nothing */
     dgx_ui_focus(&pui, bt);
     told_count = 0;
