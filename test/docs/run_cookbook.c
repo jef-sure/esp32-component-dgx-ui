@@ -17,6 +17,8 @@ static int fan_speed = -1, fans;
 void fan_set(int s) { fan_speed = s, ++fans; }
 void wifi_connect(const char *password) { (void)password; }
 const uint16_t logo_pixels[64 * 32];
+const uint16_t map_pixels[320 * 240]  = {[0 ... 320 * 240 - 1] = 0x1084}; /* two maps of one colour each */
+const uint16_t rain_pixels[320 * 240] = {[0 ... 320 * 240 - 1] = 0x1f00};
 int64_t    esp_timer_get_time(void) { return 0; }
 void       vTaskDelay(TickType_t t) { (void)t; }
 BaseType_t xQueueSend(QueueHandle_t q, const void *i, TickType_t w) { return pdTRUE; }
@@ -226,6 +228,49 @@ int main(int argc, char **argv)
         printf("list: NEXT on row 2: the pick %d, the focus still on the list %d; NEXT on the last row: the focus on the next widget %d\n", next1, f1 == list,
                l.focus == after);
         dgx_ui_free(&l);
+    }
+    /* a picture under the widgets: the map between the letters of a label, a frame's fill, the label changed, the map
+       swapped */
+    {
+        static dgx_ui_node_t mn[4];
+        static dgx_ui_t      m;
+        static char          wind_buf[16], in_buf[8];
+        static dgx_ui_textbox_t wind_box, in_box;
+        static const dgx_ui_widget_t wind_w  = {.kind = DGX_UI_LABEL, .text = &wind_box, .want_h = 14};
+        static const dgx_ui_widget_t panel_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .want_h = 20};
+        static const dgx_ui_widget_t in_w    = {.kind = DGX_UI_LABEL, .text = &in_box, .want_h = 14};
+        dgx_screen_t                *scr = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
+        static uint32_t              tb[COLORS];
+        for (int k = 0; k < COLORS; ++k) tb[k] = dgx_screen_rgb(scr, (uint8_t)(200 - 20 * k), (uint8_t)(30 * k), (uint8_t)(250 - 30 * k));
+        dgx_ui_paint_t pp = {.scr = scr, .colors = tb, .color_count = COLORS, .background = PAPER};
+        dgx_ui_textbox_init(&wind_box, wind_buf, sizeof wind_buf, 1, &st_left);
+        dgx_ui_textbox_init(&in_box, in_buf, sizeof in_buf, 1, &st_left);
+        dgx_ui_init(&m, mn, 4, 1);
+        const int top = dgx_ui_add(&m, -1, &col_w), wind = dgx_ui_add(&m, top, &wind_w), fr = dgx_ui_add(&m, top, &panel_w);
+        dgx_ui_text_set(&m, dgx_ui_add(&m, fr, &in_w), "+4 C");
+        dgx_ui_text_set(&m, wind, "5 m/s");
+        const bool set = map_under(&pp);
+        dgx_ui_paint(&m, &pp, 0);
+        const dgx_ui_node_t *wn = dgx_ui_node(&m, wind), *fn = dgx_ui_node(&m, fr);
+        const uint32_t       map0 = dgx_get_pixel(map_screen, 0, 0);
+        int                  ink = 0, map_px = 0, other = 0;
+        for (int y = wn->y; y < wn->y + wn->h; ++y)
+            for (int x = wn->x; x < wn->x + wn->w; ++x) {
+                const uint32_t c = dgx_get_pixel(scr, x, y);
+                c == tb[INK] ? ++ink : c == map0 ? ++map_px : ++other;
+            }
+        printf("map: set %d; the label's box: %d pixels of ink, %d of the map, %d of anything else (the paper would be one); the corner of the screen is the map %d, "
+               "the inside of the frame its fill %d\n",
+               set, ink, map_px, other, dgx_get_pixel(scr, 319, 239) == map0, dgx_get_pixel(scr, fn->x + fn->w - 4, fn->y + 4) == tb[2]);
+        map_rain(&m, &pp);
+        const uint32_t rain = dgx_get_pixel(map_screen, 0, 0);
+        printf("map: swapped and told: the corner is the rain's colour %d (another than the map's %d), the label's paper the rain's %d, the frame still its fill %d\n",
+               dgx_get_pixel(scr, 319, 239) == rain, rain != map0, dgx_get_pixel(scr, wn->x + wn->w - 2, wn->y + 1) == rain,
+               dgx_get_pixel(scr, fn->x + fn->w - 4, fn->y + 4) == tb[2]);
+        dgx_ui_background_set(&pp, NULL, NULL), dgx_ui_redraw(&m, 0), dgx_ui_paint(&m, &pp, 1);
+        printf("map: taken away and the tree redrawn: the corner is the paper %d\n", dgx_get_pixel(scr, 319, 239) == tb[PAPER]);
+        dgx_ui_paint_free(&pp), dgx_ui_free(&m);
+        scr->destroy(&scr);
     }
     /* a display of 24 bits: the thermometer's label from 21.5 to 21.6, straight and through the strips */
     {

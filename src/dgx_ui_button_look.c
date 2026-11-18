@@ -26,7 +26,7 @@ bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const dgx_ui_button_look_t *p = look->params;
     const unsigned              bits = n->state_value.bits;
     const bool                  pressed = bits & DGX_UI_PRESSED, off = bits & DGX_UI_DISABLED;
-    const uint32_t paper  = dgx_ui_color(paint, paint->paper), shadow = dgx_ui_color(paint, p->shadow);
+    const uint32_t shadow = dgx_ui_color(paint, p->shadow);
     const uint32_t face   = dgx_ui_color(paint, off ? p->disabled : pressed ? p->pressed : (bits & DGX_UI_FOCUSED) ? p->focused : p->face);
     const uint32_t ink    = dgx_ui_color(paint, off ? p->text_disabled : p->text);
     int            d      = p->depth * ui->unit;
@@ -37,15 +37,15 @@ bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     if (pressed) {
         /* the face on the shadow: paper above and left */
         fx = x + d, fy = y + d;
-        fill(paint, x, y, w, d, paper);
-        fill(paint, x, y + d, d, h - d, paper);
+        dgx_ui_lay_paper(paint, DGX_UI_PAPER, x, y, w, d);
+        dgx_ui_lay_paper(paint, DGX_UI_PAPER, x, y + d, d, h - d);
     } else {
         /* the face up and left, the shadow right and below, paper in the two corners the shadow leaves */
         fx = x, fy = y;
         fill(paint, x + w - d, y + d, d, h - d, shadow);
         fill(paint, x + d, y + h - d, w - 2 * d, d, shadow);
-        fill(paint, x + w - d, y, d, d, paper);
-        fill(paint, x, y + h - d, d, d, paper);
+        dgx_ui_lay_paper(paint, DGX_UI_PAPER, x + w - d, y, d, d);
+        dgx_ui_lay_paper(paint, DGX_UI_PAPER, x, y + h - d, d, d);
     }
     const int fw = w - d, fh = h - d;
     /* the face: its rows above and below the text's field, then the field */

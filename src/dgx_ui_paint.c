@@ -57,13 +57,13 @@ static bool differs(const dgx_ui_state_t *a, const dgx_ui_state_t *b)
     return a->bits != b->bits || a->value != b->value;
 }
 
-/* a rectangle cut by the covers: its parts counted, or drawn by a look, or filled with a colour, under a clip of each */
+/* a rectangle cut by the covers: its parts counted, or drawn by a look, or laid with the paper, under a clip of each */
 typedef struct {
     dgx_ui_paint_t      *paint;
     dgx_ui_t            *ui;
     int                  i, count;
-    const dgx_ui_look_t *look; /* NULL: filled */
-    uint32_t             now_ms, color;
+    const dgx_ui_look_t *look; /* NULL: the paint's paper laid */
+    uint32_t             now_ms;
     bool                 draw, more;
 } cut_t;
 
@@ -80,7 +80,7 @@ static void cut(cut_t *c, dgx_ui_rect_t r, const dgx_ui_rect_t *cover, const dgx
     if (c->draw) {
         dgx_ui_paint_t *p = c->paint;
         dgx_screen_clip(p->scr, r.x - p->ox, r.y - p->oy, r.w, r.h);
-        if (!c->look) dgx_fill_rectangle(p->scr, r.x - p->ox, r.y - p->oy, r.w, r.h, c->color);
+        if (!c->look) dgx_ui_lay_paper(p, DGX_UI_PAPER, r.x, r.y, r.w, r.h);
         else {
             p->part = (uint8_t)(c->count < p->parts ? c->count : p->parts - 1);
             /* through the buffer when the program named the strips and they take this part; else straight */
@@ -120,8 +120,9 @@ static dgx_ui_rect_t hull(dgx_ui_rect_t a, dgx_ui_rect_t b)
  * A widget drawn when it is to be, then its children: all when it was drawn whole, else those marked or with a mark
  * below them; a widget and all under it skipped when nothing is. Returns whether it, or one under it, is still to be
  * drawn: under a cover, or asking for time; the widgets above it keep DGX_UI_MARK_BELOW then. *time: time asked.
+ * paper, on_bg: what lies under it, the drawn background when no box above it fills.
  */
-static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool whole, uint32_t now_ms, bool *time, const dgx_ui_rect_t *clip)
+static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool on_bg, bool whole, uint32_t now_ms, bool *time, const dgx_ui_rect_t *clip)
 {
     dgx_ui_node_t *w = dgx_ui_at(ui, i);
     if (w->state_value.bits & DGX_UI_HIDDEN) return false; /* drawn whole when shown: what is under it waits */
@@ -142,7 +143,7 @@ static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool
     if (around && !fills_around(ui, w, look)) whole = true, around = false;
     bool more = false, unseen = false;
     if (look && itself) {
-        paint->paper = paper, paint->whole = whole || around;
+        paint->paper = paper, paint->on_background = on_bg, paint->whole = whole || around;
         more         = draw_parts(paint, ui, i, look, &seen, now_ms);
         if (!around) whole = paint->whole; /* a look may find it has to be drawn whole: its children too then */
         unseen = paint->parts == 0;
@@ -155,9 +156,10 @@ static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool
     /* else wholly under a cover: no part drawn, so its marks and its state as drawn stay, for the pass that sees it */
     *time |= more;
     if (whole || (w->marks & DGX_UI_MARK_BELOW)) {
-        const uint8_t in    = look && look->fill >= 0 ? (uint8_t)look->fill : paper;
+        const bool    fills = look && look->fill >= 0;
+        const uint8_t in    = fills ? (uint8_t)look->fill : paper;
         bool          below = false;
-        for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) below |= walk(paint, ui, c, in, whole, now_ms, time, &seen);
+        for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) below |= walk(paint, ui, c, in, on_bg && !fills, whole, now_ms, time, &seen);
         w->marks = (uint8_t)(below ? w->marks | DGX_UI_MARK_BELOW : w->marks & ~DGX_UI_MARK_BELOW);
     }
     return (w->marks & (DGX_UI_MARKS_TO_DRAW | DGX_UI_MARK_BELOW)) || differs(&w->state_value, &w->state_drawn);
@@ -191,7 +193,7 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
     for (dgx_ui_t *t = ui; t; t = t->popup) {
         /* each tree under the popups over it; a popup is a tree of its own in its rectangle */
         paint->popup_over = t->popup;
-        if (dgx_ui_widget(t, 0)) walk(paint, t, 0, paint->background, false, now_ms, &more, &everywhere);
+        if (dgx_ui_widget(t, 0)) walk(paint, t, 0, paint->background, paint->drawn != NULL, false, now_ms, &more, &everywhere);
     }
     paint->popup_over = NULL;
     dgx_screen_clip(scr, cx, cy, cw, ch);
@@ -215,41 +217,50 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint)
     paint->lut = NULL;
 }
 
-/* every widget under i that meets the area drawn whole under a clip of its part of it, nothing marked */
-static void walk_area(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, const dgx_ui_rect_t *area)
+/* every widget under i that meets the area drawn whole under a clip of its part of it, nothing marked; for the
+   background only, nothing within a widget whose look fills: none of the background shows there */
+static void walk_area(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool on_bg, bool background, const dgx_ui_rect_t *area)
 {
     const dgx_ui_node_t *w = dgx_ui_at(ui, i);
     dgx_ui_rect_t        seen; /* its box within the area and its parent's: its children lie within it, or are cut */
     if ((w->state_value.bits & DGX_UI_HIDDEN) || !dgx_ui_rect_intersect(&(dgx_ui_rect_t){w->x, w->y, w->w, w->h}, area, &seen)) return;
-    const dgx_ui_look_t *look = look_told(ui, i);
+    const dgx_ui_look_t *look  = look_told(ui, i);
+    const bool           fills = look && look->fill >= 0;
+    if (background && fills) return;
     if (look) {
-        paint->paper = paper, paint->whole = true;
+        paint->paper = paper, paint->on_background = on_bg, paint->whole = true;
         draw_parts(paint, ui, i, look, &seen, 0);
     }
-    const uint8_t in = look && look->fill >= 0 ? (uint8_t)look->fill : paper;
-    for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) walk_area(paint, ui, c, in, &seen);
+    const uint8_t in = fills ? (uint8_t)look->fill : paper;
+    for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) walk_area(paint, ui, c, in, on_bg && !fills, background, &seen);
 }
 
 void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)
 {
+    dgx_ui_compose(ui, paint, dgx_ui_rect(x, y, w, h), false);
+}
+
+void dgx_ui_compose(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area, bool background)
+{
     dgx_screen_t *scr = paint->scr;
     for (dgx_ui_t *t = ui; t; t = t->popup) dgx_ui_layout(t);
-    const dgx_ui_node_t *root = dgx_ui_widget(ui, 0) ? dgx_ui_node(ui, 0) : NULL;
-    const dgx_ui_rect_t  area = dgx_ui_rect(x, y, w, h);
-    int                    cx, cy, cw, ch;
+    const dgx_ui_node_t *root  = dgx_ui_widget(ui, 0) ? dgx_ui_node(ui, 0) : NULL;
+    const bool           drawn = paint->drawn != NULL;
+    int                  cx, cy, cw, ch;
     dgx_screen_clip_get(scr, &cx, &cy, &cw, &ch);
     dgx_screen_batch_begin(scr);
     /* the background where the root does not lie, less the keyboard's band and the popups over it */
     dgx_ui_rect_t       parts[4];
     const dgx_ui_rect_t rbox = root ? dgx_ui_rect(root->x, root->y, root->w, root->h) : dgx_ui_rect(0, 0, 0, 0);
     const int           n    = dgx_ui_rect_subtract(&area, &rbox, parts);
-    cut_t               c    = {.paint = paint, .color = dgx_ui_color(paint, paint->background), .draw = true};
+    cut_t               c    = {.paint = paint, .draw = true};
+    paint->paper = paint->background, paint->on_background = drawn;
     for (int k = 0; k < n; ++k) cut(&c, parts[k], &paint->cover, ui->popup);
     /* every tree in the area, each under the popups over it */
     paint->composing = true;
     for (dgx_ui_t *t = ui; t; t = t->popup) {
         paint->popup_over = t->popup;
-        if (dgx_ui_widget(t, 0)) walk_area(paint, t, 0, paint->background, &area);
+        if (dgx_ui_widget(t, 0)) walk_area(paint, t, 0, paint->background, drawn, background, &area);
     }
     paint->popup_over = NULL;
     paint->composing  = false;

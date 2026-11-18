@@ -2,9 +2,10 @@
  * dgx_ui_strips.c
  *
  *  The painter drawing through the buffer in strips, named by the program: paint's strips = &dgx_ui_strips. On a
- *  display behind a bus of 18 or 24 bits a field of text is filled before its letters are written, and blinks; there
- *  every widget without children is drawn whole in strips of a virtual screen of the display's depth over the buffer,
- *  each strip sent by one transfer: every pixel once. It needs the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN):
+ *  display behind a bus of 18 or 24 bits a field of text is filled before its letters are written, and blinks; and on
+ *  any, the letters over a drawn background come after its piece. There every widget without children is drawn whole
+ *  in strips of a virtual screen of the display's depth over the buffer, each strip sent by one transfer: every pixel
+ *  once, and the soft edges of letters mixed with the picture under them, which a strip can read. It needs the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN):
  *  named without them, the program does not link. A program that does not name it does not carry it.
  *
  *  Copyright (c) 2026 Anton Petrusevich
@@ -22,18 +23,19 @@ static const char *TAG = "dgx_ui";
  * screen of the display's depth over the buffer (set there, it has no clip), the look drawing it whole there (a strip
  * holds nothing else), sent by one transfer within the part, under its clip. The look remembers what it drew only in
  * the last strip: the others are drawn as composing. false, not drawn: a widget with children (it fills around them,
- * which a strip would send as what it held), a display that does not blink (16 bits, a virtual screen), no room for a
- * row of the part, or no memory for the strip's screen; the painter draws the part straight.
+ * which a strip would send as what it held), a display that does not blink (16 bits off a drawn background, a virtual
+ * screen), no room for a row of the part, or no memory for the strip's screen; the painter draws the part straight.
  */
 static bool draw(dgx_ui_paint_t *p, const dgx_ui_look_t *look, dgx_ui_t *ui, int i, uint32_t now_ms, dgx_ui_rect_t r, bool *more)
 {
     dgx_screen_t *scr  = p->scr;
     const uint8_t bits = scr->color_bits;
-    if (dgx_ui_at(ui, i)->child >= 0 || scr->screen_subtype != DgxPhysicalScreenWithBus || (bits != 18 && bits != 24)) return false;
+    if (dgx_ui_at(ui, i)->child >= 0 || scr->screen_subtype != DgxPhysicalScreenWithBus || (bits != 18 && bits != 24 && !p->on_background)) return false;
     size_t       room;
     void        *buffer = dgx_ui_buffer_free(p, &room);
     const size_t row    = dgx_color_points_to_bytes(bits, (uint32_t)r.w);
-    const int    rows   = buffer && row ? (int)(room / row) : 0;
+    const int    fit    = buffer && row ? (int)(room / row) : 0;
+    const int    rows   = fit < r.h ? fit : r.h; /* no more than the part: the rest of the room is a look's own */
     if (rows < 1) {
         static bool told;
         if (!told) ESP_LOGW(TAG, "widget %d: drawn straight, and blinks: the paint's buffer takes no row of it (%u bytes)", i, (unsigned)row);

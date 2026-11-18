@@ -19,8 +19,28 @@
  *  widget changed is sent whole, all of its box, where straight only what changed would be written; a buffer of a
  *  row of the widget at least (its width × 3 bytes), more rows fewer transfers. A widget too wide for a row of the
  *  buffer goes straight, as without one, told once in the log; a widget with children goes straight too, as it fills
- *  around them. Displays of 16 bits draw straight: their text is not filled first. The strips need the virtual
- *  screens of DGX (CONFIG_DGX_ENABLE_VSCREEN); a program that does not name them does not carry them.
+ *  around them. Displays of 16 bits draw straight, their text not filled first, but for a widget on a drawn background
+ *  (below), which the strips take there too. The strips need the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN); a
+ *  program that does not name them does not carry them.
+ *
+ *  The background under the tree is a colour, `background`, or a picture the program puts there by a function of its
+ *  own, `background_draw`: a weather map under a column of labels, the frame of a game under a dialog.
+ *
+ *      static void map(dgx_ui_paint_t *paint, int x, int y, int w, int h, void *ctx)
+ *      {
+ *          // the piece x, y, w, h of the map, a virtual screen of RGB565 as large as the display
+ *          dgx_vscreen_region_to_screen(paint->scr, x - paint->ox, y - paint->oy, ctx, x, y, w, h, 0);
+ *      }
+ *      ...
+ *      dgx_ui_background_set(&paint, map, map_screen);
+ *
+ *  A look whose paper is what lies under it lays the map's piece of its box, then draws its letters and pictures over
+ *  it: the label "5 m/s" gets the map under its letters. With the strips named the piece and the letters go into a
+ *  strip and leave once, on a display of 16 bits too, and the soft edges of the letters mix with the map. Drawn
+ *  straight on a display behind a bus, the label blinks (the map, then the letters), and the edges, which cannot read
+ *  the display, mix with the colour `background`: give it the map's main colour. A frame that fills shows its fill,
+ *  as always. When the map changes, the program says where: dgx_ui_background_changed(). The laying of a drawn
+ *  background is in the library only for a program that calls dgx_ui_background_set().
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -40,40 +60,70 @@ extern "C" {
 /** @brief The painter's way of drawing through the buffer in strips: dgx_ui_strips, for paint's strips. */
 typedef struct dgx_ui_strips_t dgx_ui_strips_t;
 
+/**
+ * @brief The program's picture under the tree, paint's background_draw: it puts the rectangle x, y, w, h of the
+ * tree's screen on paint->scr at x - paint->ox, y - paint->oy, the clip of the screen set to that rectangle. The
+ * screen is the display, or a strip of the painter's over the buffer of the display's depth (18 or 24 bits too).
+ * ctx is the program's background_ctx.
+ */
+struct dgx_ui_paint_t;
+typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, int y, int w, int h, void *ctx);
+
+/** @brief The library's laying of a drawn background, named by dgx_ui_background_set(). */
+typedef struct dgx_ui_drawn_background_t dgx_ui_drawn_background_t;
+
 /** @brief How a tree is drawn on a screen. Filled by the program; the members after `cover` are the painter's. */
 typedef struct dgx_ui_paint_t {
-    dgx_screen_t          *scr;         ///< where
-    const uint32_t        *colors;      ///< the table: an index of a look to a color of the screen
-    uint16_t               color_count; ///< its size
-    uint8_t                background;  ///< the index of the paper under the tree
-    void                  *buffer;      ///< the program's memory the painter draws in: a look that needs it (pictures of
-                                        ///< 4 and 8 bits), and the strips; start it on a word boundary, DMA-capable on a
-                                        ///< chip; NULL none
-    size_t                 buffer_size; ///< its bytes
-    const dgx_ui_strips_t *strips;      ///< &dgx_ui_strips: the painter draws through the buffer in strips; name it for
-                                        ///< a display behind a bus of 18 or 24 bits (above); NULL: straight
-    dgx_ui_rect_t          cover;       ///< the band of DGX-DI's keyboard while it is open: not drawn there; else empty
-    int16_t                ox, oy;      ///< the pixel of the tree's screen at (0, 0) of scr: 0, or a buffer's place when
-                                        ///< composing
+    dgx_screen_t                    *scr;             ///< where
+    const uint32_t                  *colors;          ///< the table: an index of a look to a color of the screen
+    uint16_t                         color_count;     ///< its size
+    uint8_t                          background;      ///< the index of the colour under the tree; with background_draw
+                                                      ///< the colour a look is told as its paper where it cannot lay
+                                                      ///< the picture (the soft edges of letters drawn straight, a look
+                                                      ///< of the program's own that does not lay it): the picture's
+                                                      ///< main colour
+    dgx_ui_background_draw_t         background_draw; ///< the program's picture under the tree (above), set by
+                                                      ///< dgx_ui_background_set(); NULL: the colour `background`
+    void                            *background_ctx;  ///< the program's, given to background_draw; set by
+                                                      ///< dgx_ui_background_set()
+    const dgx_ui_drawn_background_t *drawn;           ///< set by dgx_ui_background_set(): without it background_draw is
+                                                      ///< not called, the colour `background` is under the tree
+    void                            *buffer;          ///< the program's memory the painter draws in: a look that needs
+                                                      ///< it (pictures of 4 and 8 bits), and the strips; start it on a
+                                                      ///< word boundary, DMA-capable on a chip; NULL none
+    size_t                           buffer_size;     ///< its bytes
+    const dgx_ui_strips_t           *strips;          ///< &dgx_ui_strips: the painter draws through the buffer in
+                                                      ///< strips; name it for a display behind a bus of 18 or 24 bits
+                                                      ///< (above); NULL: straight
+    dgx_ui_rect_t                    cover;           ///< the band of DGX-DI's keyboard while it is open: not drawn
+                                                      ///< there; else empty
+    int16_t                          ox, oy;          ///< the pixel of the tree's screen at (0, 0) of scr: 0, or a
+                                                      ///< buffer's place when composing
     /* the painter's */
-    uint8_t                paper;       ///< while a look draws: the index of the color under the widget, its parent's
-                                        ///< fill or the background
-    bool                   whole;       ///< while a look draws: nothing of the widget is on the screen as it should be
-    bool                   composing;   ///< while a look draws: dgx_ui_paint_area() composes, nothing is to be
-                                        ///< remembered
-    uint8_t                part, parts; ///< while a look draws: the part of the box it is called for, of so many
-    const dgx_ui_t        *popup_over;  ///< while a tree is drawn: the popup over it, whose rectangle and those of the
-                                        ///< popups over it are covers after the keyboard's band; NULL none
-    dgx_screen_t          *rgb565;      ///< the look of RGB565: a virtual screen pointed at each picture, made at its
-                                        ///< first need
-    dgx_screen_t          *indexed;     ///< the look of indexed pictures: an 8-bit virtual screen over the buffer, made
-                                        ///< at its first need
-    uint16_t              *lut;         ///< and the RGB565 of the 256 indices, made at its first need
-    dgx_screen_t          *strip;       ///< the strips: a virtual screen of the display's depth over the buffer, made at
-                                        ///< its first need
-    size_t                 buffer_used; ///< while a strip is drawn: its bytes at the start of the buffer
-    dgx_ui_rect_t          cover_was;   ///< the keyboard's band as the last pass left it: where it goes, the tree is
-                                        ///< composed again
+    uint8_t                          paper;           ///< while a look draws: the index of the color under the widget,
+                                                      ///< its parent's fill or the background
+    bool                             on_background;   ///< while a look draws: what lies under the widget is the
+                                                      ///< program's drawn background, no box above it fills;
+                                                      ///< dgx_ui_lay_paper() lays it
+    bool                             whole;           ///< while a look draws: nothing of the widget is on the screen as
+                                                      ///< it should be
+    bool                             composing;       ///< while a look draws: dgx_ui_paint_area() composes, nothing is
+                                                      ///< to be remembered
+    uint8_t                          part, parts;     ///< while a look draws: the part of the box it is called for, of
+                                                      ///< so many
+    const dgx_ui_t                  *popup_over;      ///< while a tree is drawn: the popup over it, whose rectangle and
+                                                      ///< those of the popups over it are covers after the keyboard's
+                                                      ///< band; NULL none
+    dgx_screen_t                    *rgb565;          ///< the look of RGB565: a virtual screen pointed at each picture,
+                                                      ///< made at its first need
+    dgx_screen_t                    *indexed;         ///< the look of indexed pictures: an 8-bit virtual screen over
+                                                      ///< the buffer, made at its first need
+    uint16_t                        *lut;             ///< and the RGB565 of the 256 indices, made at its first need
+    dgx_screen_t                    *strip;           ///< the strips: a virtual screen of the display's depth over the
+                                                      ///< buffer, made at its first need
+    size_t                           buffer_used;     ///< while a strip is drawn: its bytes at the start of the buffer
+    dgx_ui_rect_t                    cover_was;       ///< the keyboard's band as the last pass left it: where it goes,
+                                                      ///< the tree is composed again
 } dgx_ui_paint_t;
 
 /**
@@ -84,6 +134,10 @@ typedef struct dgx_ui_paint_t {
  * several parts in turn. It should write every pixel once. It draws the widget's box less paint's ox and oy: the
  * screen may be a buffer that holds a part of the tree's screen. So it is drawn in strips on a display of 18 or 24
  * bits (above): whole in each strip, composing in all but the last strip of a part.
+ *
+ * Its paper, where it is what lies under the widget (DGX_UI_PAPER), it lays by dgx_ui_lay_paper(): on a drawn
+ * background (paint->on_background) that is the program's picture, and the look draws its letters and pictures over
+ * it without paper, with no field, no DGX_FONT_FILL and no DGX_IMAGE_OPAQUE.
  *
  * A look that remembers what it drew (a variant fitted, a line scrolled to) works it out the same in every part and
  * stores it only in the last part of the painter's own pass: paint->part == paint->parts - 1 and not composing.
@@ -100,6 +154,16 @@ static inline uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)
 {
     return paint->colors && index >= 0 && index < paint->color_count ? paint->colors[index] : 0;
 }
+
+/**
+ * @brief The paper of a look laid on a rectangle of the tree's screen: the colour of `paper`, an index of the table;
+ * DGX_UI_PAPER, what lies under the widget: the colour paint->paper, or, on a drawn background (on_background), the
+ * program's picture, by background_draw under a clip of the rectangle.
+ *
+ * Called from a look, under the painter's clip of the part it draws; paint's ox and oy are taken off here. A look of
+ * the program's own lays its paper so, and on the background draws its letters and pictures without paper (above).
+ */
+void dgx_ui_lay_paper(dgx_ui_paint_t *paint, uint8_t paper, int x, int y, int w, int h);
 
 /**
  * @brief An area filled with a colour, less the children of widget i that are drawn: for a look of a widget that
@@ -270,8 +334,9 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint);
 
 /**
  * @brief The painter drawing through the buffer in strips, for paint's strips: on a display behind a bus of 18 or 24
- * bits every widget without children is drawn whole in a strip of the buffer and sent once, so its text does not
- * blink (above). Needs CONFIG_DGX_ENABLE_VSCREEN: named without it, the program does not link.
+ * bits every widget without children, and on one of 16 bits every widget without children on a drawn background, is
+ * drawn whole in a strip of the buffer and sent once, so its text does not blink (above). Needs
+ * CONFIG_DGX_ENABLE_VSCREEN: named without it, the program does not link.
  */
 extern const dgx_ui_strips_t dgx_ui_strips;
 
@@ -286,6 +351,38 @@ extern const dgx_ui_strips_t dgx_ui_strips;
  * buffer for a display behind a bus where that would show.
  */
 void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h);
+
+/**
+ * @brief The program's picture under the tree changed in a rectangle of the tree's screen (dgx_ui_background_set()): laid there now where it
+ * shows, and the widgets on it drawn again over it.
+ *
+ * The picture is laid where the root does not lie and wherever the paper is what lies under a widget; a widget
+ * without children that meets the rectangle is drawn whole under a clip of its part of it, through the strips when
+ * they are named. Nothing is drawn within a widget whose look fills (a frame and all in it), under a popup over the
+ * tree, nor under the keyboard's band; a popup's own root that does not fill shows the picture too, as any root. A
+ * game calls it for each piece of its frame that changed, where it sent the piece to the display before; a program of
+ * a weather map, when the new map has come. Called by the task that owns the screen; within a batch of DGX the pieces
+ * go out with the batch. Without a drawn background it does nothing.
+ */
+void dgx_ui_background_changed(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h);
+
+/** @brief The library's laying of a drawn background: named by dgx_ui_background_set(), not by the program. */
+extern const dgx_ui_drawn_background_t dgx_ui_drawn_background;
+
+/**
+ * @brief The program's picture under the tree (above): its function and what it is given, or NULL and NULL for the
+ * colour `background` again.
+ *
+ * It names the library's laying of a drawn background, so that a program that never calls it does not carry it: the
+ * function written into background_draw by hand is not called. Set before a pass; a background set or taken away
+ * while the tree is on the screen shows where it is drawn next. To see it at once: set, the program calls
+ * dgx_ui_background_changed() for all of the screen; taken away, which that call no longer draws, dgx_ui_redraw(ui,
+ * 0).
+ */
+static inline void dgx_ui_background_set(dgx_ui_paint_t *paint, dgx_ui_background_draw_t draw, void *ctx)
+{
+    paint->background_draw = draw, paint->background_ctx = ctx, paint->drawn = draw ? &dgx_ui_drawn_background : NULL;
+}
 
 #ifdef __cplusplus
 }

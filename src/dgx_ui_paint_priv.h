@@ -8,6 +8,7 @@
  *      Author: Anton Petrusevich
  */
 
+#include "dgx_font.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_priv.h"
 
@@ -23,3 +24,26 @@ void *dgx_ui_buffer_free(const dgx_ui_paint_t *paint, size_t *size);
 struct dgx_ui_strips_t {
     bool (*draw)(dgx_ui_paint_t *paint, const dgx_ui_look_t *look, dgx_ui_t *ui, int i, uint32_t now_ms, dgx_ui_rect_t r, bool *more);
 };
+
+/* the drawn halves of laying the paper and of letters in a field (dgx_ui_background.c), named by the program through
+   dgx_ui_background_set(): the drawn background under a clip of a rectangle of the tree's screen; letters over it */
+struct dgx_ui_drawn_background_t {
+    void (*lay)(dgx_ui_paint_t *paint, int x, int y, int w, int h);
+    void (*text)(dgx_ui_paint_t *paint, const dgx_font_context_t *ctx, int x, int y, const char *text, uint8_t paper);
+};
+
+/* a look's paper, an index or DGX_UI_PAPER, is the program's drawn background here: laid by dgx_ui_lay_paper(), and
+   the letters and pictures over it drawn without paper */
+static inline bool dgx_ui_paper_drawn(const dgx_ui_paint_t *paint, uint8_t paper)
+{
+    return paper == DGX_UI_PAPER && paint->on_background;
+}
+
+/* letters in a field of a look, as dgx_font_draw() draws them with ctx->field at x, y of paint's screen, the field's
+   paper `paper`, an index or DGX_UI_PAPER (ctx->bg its colour). On a drawn background the field's rectangle is laid
+   and the letters drawn over it without a field, set where the field sets them and cut to it */
+void dgx_ui_field_text(dgx_ui_paint_t *paint, const dgx_font_context_t *ctx, int x, int y, const char *text, uint8_t paper);
+
+/* a rectangle of the tree's screen composed, as dgx_ui_paint_area() does it; background: only where the drawn
+   background shows (dgx_ui_background_changed()), nothing within a widget whose look fills */
+void dgx_ui_compose(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area, bool background);

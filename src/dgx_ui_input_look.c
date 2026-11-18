@@ -11,7 +11,7 @@
  */
 
 #include "dgx_draw.h"
-#include "dgx_ui_paint.h"
+#include "dgx_ui_paint_priv.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_text_priv.h"
 
@@ -29,7 +29,7 @@ static bool draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui,
     const uint32_t paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper), ink = dgx_ui_color(paint, p->ink);
     dgx_font_t *f = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
     if (!dgx_ui_variant_usable(f) || n->w <= 0) {
-        fill(paint, n->x, n->y, n->w, n->h, paper);
+        dgx_ui_lay_paper(paint, p->paper, n->x, n->y, n->w, n->h);
         return false;
     }
     const bool  caret = n->state_value.bits & DGX_UI_FOCUSED;
@@ -38,8 +38,8 @@ static bool draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui,
     const int   base = (box->style->flags & DGX_UI_TEXT_MIDDLE) ? n->y + (n->h - cell) / 2 - f->yOffsetLowest : n->y - f->yOffsetLowest;
     const int   top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
     /* the rows above and below the text */
-    fill(paint, n->x, n->y, n->w, top - n->y, paper);
-    fill(paint, n->x, bottom, n->w, n->y + n->h - bottom, paper);
+    dgx_ui_lay_paper(paint, p->paper, n->x, n->y, n->w, top - n->y);
+    dgx_ui_lay_paper(paint, p->paper, n->x, bottom, n->w, n->y + n->h - bottom);
     /* the text up to the caret, its end when it is longer than the field */
     const int room = n->w - cw, tw = dgx_ui_width_of(f, text, (int)strlen(text));
     const int field = tw < room ? tw : room;
@@ -51,10 +51,10 @@ static bool draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui,
     dgx_screen_clip(paint->scr, px, y0, pw, y1 - y0);
     if (field > 0) {
         const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = paper, .field = field, .align = tw > room ? DGX_FONT_ALIGN_RIGHT : DGX_FONT_ALIGN_LEFT};
-        dgx_font_draw(&ctx, n->x - paint->ox, base - paint->oy, text);
+        dgx_ui_field_text(paint, &ctx, n->x - paint->ox, base - paint->oy, text, p->paper);
     }
     fill(paint, n->x + field, top, cw, bottom - top, dgx_ui_color(paint, p->caret));
-    fill(paint, n->x + field + cw, top, n->w - field - cw, bottom - top, paper);
+    dgx_ui_lay_paper(paint, p->paper, n->x + field + cw, top, n->w - field - cw, bottom - top);
     dgx_screen_clip(paint->scr, px, py, pw, ph);
     return false;
 }

@@ -13,14 +13,9 @@
  */
 
 #include "dgx_draw.h"
-#include "dgx_ui_paint.h"
+#include "dgx_ui_paint_priv.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_text_priv.h"
-
-static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
-{
-    if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, c);
-}
 
 /* the line k of a text of lines ended by '\n': where it begins, and its bytes in *len; none past the last */
 static const char *line_of(const char *text, int k, int *len)
@@ -43,10 +38,11 @@ static const char *line_of(const char *text, int k, int *len)
 }
 
 /* row r of the list: its rows above and below the line's cell, then the line in a field as wide as the row, all under
-   a clip of the row */
-static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, dgx_font_t *f, int align, int r, int rows, const char *text, uint32_t bg,
+   a clip of the row; its paper the index paper (DGX_UI_PAPER: what lies under the list) */
+static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, dgx_font_t *f, int align, int r, int rows, const char *text, uint8_t paper,
                      uint32_t fg)
 {
+    const uint32_t bg = dgx_ui_color(paint, paper == DGX_UI_PAPER ? paint->paper : paper);
     const int rh = n->h / rows, y = n->y + r * rh, h = r == rows - 1 ? n->h - r * rh : rh;
     int       px, py, pw, ph;
     dgx_screen_clip_get(paint->scr, &px, &py, &pw, &ph);
@@ -55,8 +51,8 @@ static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, dgx_font_t *
     dgx_screen_clip(paint->scr, px, y0, pw, y1 - y0);
     const int cell = f->yBottomMax - f->yOffsetLowest, base = y + (h - cell) / 2 - f->yOffsetLowest;
     const int top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
-    fill(paint, n->x, y, n->w, top - y, bg);
-    fill(paint, n->x, bottom, n->w, y + h - bottom, bg);
+    dgx_ui_lay_paper(paint, paper, n->x, y, n->w, top - y);
+    dgx_ui_lay_paper(paint, paper, n->x, bottom, n->w, y + h - bottom);
     int         len;
     const char *at = line_of(text, r, &len);
     char        line[DGX_UI_LINE + 1];
@@ -66,10 +62,10 @@ static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, dgx_font_t *
        is when the dropdown's list opens under it */
     int pad = cell / 4;
     if (2 * pad >= n->w) pad = 0;
-    fill(paint, n->x, top, pad, bottom - top, bg);
-    fill(paint, n->x + n->w - pad, top, pad, bottom - top, bg);
+    dgx_ui_lay_paper(paint, paper, n->x, top, pad, bottom - top);
+    dgx_ui_lay_paper(paint, paper, n->x + n->w - pad, top, pad, bottom - top);
     const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = fg, .bg = bg, .field = n->w - 2 * pad, .align = (dgx_font_align_t)align};
-    dgx_font_draw(&ctx, n->x + pad - paint->ox, base - paint->oy, line);
+    dgx_ui_field_text(paint, &ctx, n->x + pad - paint->ox, base - paint->oy, line, paper);
     dgx_screen_clip(paint->scr, px, py, pw, ph);
 }
 
@@ -78,17 +74,17 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     const dgx_ui_node_t      *n = dgx_ui_node(ui, i);
     const dgx_ui_widget_t    *w = n->widget;
     const dgx_ui_list_look_t *p = look->params;
-    const uint32_t            paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper);
     const dgx_ui_textbox_t   *box   = w->text;
     dgx_font_t               *f     = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
     const int                 rows  = w->max - w->min + 1;
     if (!dgx_ui_variant_usable(f) || rows <= 0 || n->h < rows || n->w <= 0) {
-        if (paint->whole) fill(paint, n->x, n->y, n->w, n->h, paper);
+        if (paint->whole) dgx_ui_lay_paper(paint, p->paper, n->x, n->y, n->w, n->h);
         return false;
     }
     const char    *text = box->buf ? box->buf : "";
     const bool     focused = n->state_value.bits & DGX_UI_FOCUSED, off = n->state_value.bits & DGX_UI_DISABLED;
-    const uint32_t bar = dgx_ui_color(paint, focused ? p->focused : p->pick), ink = dgx_ui_color(paint, off ? p->disabled : p->ink);
+    const uint8_t  bar = focused ? p->focused : p->pick;
+    const uint32_t ink = dgx_ui_color(paint, off ? p->disabled : p->ink);
     const uint32_t bar_ink = dgx_ui_color(paint, off ? p->disabled : p->pick_ink);
     const int      picked = n->state_value.value - w->min, was = n->state_drawn.value - w->min;
     /* only the pick or the focus changed: the row picked before and the row picked now; disabled, all of them */
@@ -96,7 +92,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
                      ((n->state_value.bits ^ n->state_drawn.bits) & DGX_UI_DISABLED);
     for (int r = 0; r < rows; ++r) {
         if (!all && r != picked && r != was) continue;
-        draw_row(paint, n, f, box->style->align, r, rows, text, r == picked ? bar : paper, r == picked ? bar_ink : ink);
+        draw_row(paint, n, f, box->style->align, r, rows, text, r == picked ? bar : p->paper, r == picked ? bar_ink : ink);
     }
     return false;
 }

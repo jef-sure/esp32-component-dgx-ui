@@ -11,7 +11,7 @@
  */
 
 #include "dgx_draw.h"
-#include "dgx_ui_paint.h"
+#include "dgx_ui_paint_priv.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_text_priv.h"
 
@@ -55,7 +55,7 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     const uint32_t ink = dgx_ui_color(paint, p->ink), paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper);
     const int      x = w->x - paint->ox, oy = paint->oy;
     if (!box || !box->style || !box->style->count || w->w <= 0) {
-        if (paint->whole) dgx_fill_rectangle(paint->scr, x, w->y - oy, w->w, w->h, paper);
+        if (paint->whole) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, w->h);
         return false;
     }
     const dgx_ui_text_style_t *st   = box->style;
@@ -65,7 +65,7 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     int v = box->variant;
     if (w->marks & DGX_UI_MARK_FIT) v = fit(st, text, w->w);
     if (v < 0 || v >= st->count || !dgx_ui_variant_usable(st->variants[v].font)) {
-        if (paint->whole) dgx_fill_rectangle(paint->scr, x, w->y - oy, w->w, w->h, paper);
+        if (paint->whole) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, w->h);
         return false;
     }
     if (v != box->variant) paint->whole = true; /* another height: around it too */
@@ -78,8 +78,8 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     const int top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
     if (paint->whole) {
         /* the rows of the box above and below the field: the field writes its own */
-        if (top > w->y) dgx_fill_rectangle(paint->scr, x, w->y - oy, w->w, top - w->y, paper);
-        if (bottom < w->y + w->h) dgx_fill_rectangle(paint->scr, x, bottom - oy, w->w, w->y + w->h - bottom, paper);
+        if (top > w->y) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, top - w->y);
+        if (bottom < w->y + w->h) dgx_ui_lay_paper(paint, p->paper, w->x, bottom, w->w, w->y + w->h - bottom);
     }
     /* the text, cut with an ellipsis when it does not go in */
     char      line[DGX_UI_LINE + sizeof ELLIPSIS];
@@ -92,7 +92,7 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         memcpy(line + keep, ELLIPSIS, sizeof ELLIPSIS);
     }
     const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = paper, .field = w->w, .align = st->align};
-    dgx_font_draw(&ctx, x, base - oy, line);
+    dgx_ui_field_text(paint, &ctx, x, base - oy, line, p->paper);
     return false;
 }
 

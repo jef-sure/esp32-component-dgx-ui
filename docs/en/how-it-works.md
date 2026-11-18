@@ -2,8 +2,9 @@
 
 *[По-русски](../ru/how-it-works.md)*
 
-What dgx-ui is made of, and the rules each part keeps. The [Cookbook](cookbook.md) shows the same things as code, the
-[API reference](api.md) lists every call.
+This page explains how dgx-ui works: what parts it is made of, and what rules each part keeps. Read it when the
+first program runs and you want to know why it is written the way it is. The [Cookbook](cookbook.md) shows the same
+things as code, and the [API reference](api.md) lists every call.
 
 ## The parts
 
@@ -180,7 +181,10 @@ For each such widget the clip of the screen is set to its box, and its look draw
 the clip it had before.
 
 **The paper.** A widget is told the colour that lies under it: the fill of the nearest widget above it that has one
-(a frame), or the background. A label drawn on a frame fills its field with the frame's fill by itself.
+(a frame), or the background. A label drawn on a frame fills its field with the frame's fill by itself. The
+background is a colour, or a picture the program draws by a function of its own: then a label over it shows the
+picture between its letters, and a frame still shows its fill. See
+[A picture under the widgets](cookbook.md#a-picture-under-the-widgets).
 
 **Every pixel once.** A look writes each pixel of what it draws once. A text is set in a field of DGX: the letters
 and the paper around them go out in one pass, so a shorter text leaves nothing of a longer one and nothing blinks. A
@@ -275,7 +279,7 @@ every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_d
 | a message | 20 bytes |
 | a text box | 28 bytes and the program's buffer |
 | a tree, `dgx_ui_t` | 96 bytes |
-| the code of the smallest program, one label fed by a message | about 7.5 KB |
+| the code of the smallest program, one label fed by a message | about 8 KB |
 | the look of several lines, when named | about 2.5 KB |
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the

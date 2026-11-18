@@ -2,9 +2,10 @@
 
 *[По-русски](../ru/cookbook.md)*
 
-Recipes for the things an interface is made of. Each is a few whole pieces of C; the names a recipe does not define,
-such as `settings_save()`, are the program's own. [Getting started](getting-started.md) has the frame they all sit
-in: the display, the queue and the loop of the task that owns the tree.
+This page is a collection of recipes: short pieces of code for the things an interface is made of, from a button to
+a popup and touch. A recipe is a few whole pieces of C that go into a program as they are; the names it does not
+define, such as `settings_save()`, are the program's own. The frame all the recipes sit in, the display, the queue
+and the loop of the task that owns the tree, is written in [Getting started](getting-started.md).
 
 - [What the recipes share](#what-the-recipes-share)
 - [A row and a column that fit any screen](#a-row-and-a-column-that-fit-any-screen)
@@ -16,6 +17,7 @@ in: the display, the queue and the loop of the task that owns the tree.
 - [A dropdown](#a-dropdown)
 - [An icon that shows a state](#an-icon-that-shows-a-state)
 - [A picture from flash](#a-picture-from-flash)
+- [A picture under the widgets](#a-picture-under-the-widgets)
 - [A text of several lines](#a-text-of-several-lines)
 - [A font that fits](#a-font-that-fits)
 - [Colours of your own, and a night mode](#colours-of-your-own-and-a-night-mode)
@@ -454,6 +456,77 @@ static void paint_buffer_give(dgx_ui_paint_t *paint)
   `dgx_ui_paint_free(&paint)` gives them back.
 - A picture of 1 bit is drawn by this look as well, so an icon whose pictures are of different depths names it. A
   program that has pictures of 1 bit only names `dgx_ui_look_picture` and carries none of this.
+
+## A picture under the widgets
+
+![Labels, a frame and a button over a picture of hills and a sun](../images/background.png)
+
+The background of a tree is a colour, or a picture the program draws. The program gives the painter a function that
+puts a rectangle of its picture on the screen, and every widget whose paper is "what lies under me" shows the
+picture there. Take a weather map with a column of labels over it, the wind at "5 m/s":
+
+1. The painter draws the label. Its look lays the map's piece of its box by the program's function and writes the
+   letters over it with no field around them: the map shows between the letters.
+2. The wind becomes "6 m/s". With the strips named, the piece of the map and the new letters are put together in the
+   buffer and go to the display once. The label does not blink.
+3. The program swaps the map for the one with rain and tells the painter where the picture changed. The painter lays
+   the new map there at once, wherever it shows, and draws the labels again over it. Under the frame of the
+   temperature nothing is written: a frame fills, and the map does not show through it.
+
+```c
+#include "dgx_vscreen.h"
+
+extern const uint16_t map_pixels[320 * 240]; /* the map, as large as the screen: rows of RGB565, high byte first */
+extern const uint16_t rain_pixels[320 * 240];
+
+static dgx_screen_t *map_screen;               /* a virtual screen over the map's pixels: made once */
+static uint8_t       map_buffer[320 * 2 * 8];  /* eight rows of 16 bits: what lies on the map goes out through it */
+
+/* the program's function: the piece x, y, w, h of the map put where the painter draws */
+static void map_draw(dgx_ui_paint_t *paint, int x, int y, int w, int h, void *ctx)
+{
+    dgx_vscreen_region_to_screen(paint->scr, x - paint->ox, y - paint->oy, ctx, x, y, w, h, 0);
+}
+
+/* at the start, before the first pass */
+static bool map_under(dgx_ui_paint_t *paint)
+{
+    map_screen = dgx_vscreen_from_array((void *)map_pixels, 320, 240, 16, DgxScreenRGB);
+    if (!map_screen) return false;
+    dgx_ui_background_set(paint, map_draw, map_screen);
+    paint->buffer = map_buffer, paint->buffer_size = sizeof map_buffer, paint->strips = &dgx_ui_strips;
+    return true;
+}
+
+/* another map: the same screen pointed at other pixels, and the painter told where the picture changed */
+static void map_rain(dgx_ui_t *ui, dgx_ui_paint_t *paint)
+{
+    dgx_vscreen_array_set(map_screen, (void *)rain_pixels, 320, 240);
+    dgx_ui_background_changed(ui, paint, 0, 0, 320, 240);
+}
+```
+
+- **The function** puts the rectangle `x, y, w, h` of the tree's screen on `paint->scr` at `x - paint->ox`,
+  `y - paint->oy`. The painter has set the clip to the rectangle, so a function that draws more than it was asked
+  harms nothing. The screen is the display, or a strip of the buffer of the display's depth: on a display of 18 or
+  24 bits the picture must be of that depth.
+- **`dgx_ui_background_set()`** gives the function and what it is called with. `NULL` takes the picture away; then
+  `dgx_ui_redraw(ui, 0)` draws the tree on the colour again. A function written into the paint by hand is not
+  called: the call is what brings the laying of a picture into the program.
+- **What shows the picture**: a label and a text of lines between their letters, a button around its face, a slider
+  around its track, a picture of 1 bit and one of 4 or 8 bits in their holes, a box everywhere. **What does not**: a
+  frame and everything in it, as it fills; a look whose parameters name a paper of their own.
+- **Name the strips** with a picture on a display behind a bus, of 16 bits too. Drawn straight, a label over the
+  picture is written twice, the map and then the letters, and blinks; and the soft edges of its letters, which
+  cannot read the display, are mixed with the colour `background`. Through the strips it goes out once and the edges
+  mix with the map. The buffer holds a row of the widest such widget at least, its width times 2 bytes at 16 bits.
+- **`background`** stays the colour a look is told where it cannot lay the picture. Give it the picture's main
+  colour.
+- **`dgx_ui_background_changed()`** draws at once and keeps nothing: the picture where it shows in the rectangle,
+  then the widgets on it. A game with a dialog over its frame calls it for each piece of the frame that changed,
+  where it sent the piece to the display before; inside one batch of DGX the pieces go out together.
+- **What it costs**: about 0.5 KB of dgx-ui for the program that calls `dgx_ui_background_set()`, and what its own
+  function brings of DGX. A program with a colour for a background carries none of it.
 
 ## A text of several lines
 
@@ -1050,6 +1123,10 @@ The rules a look keeps:
   from `now_ms`.
 - **Its fill.** `fill` is the index of the colour the look leaves under the widget's children, or -1 when it leaves
   what was there. A frame's is its fill.
+- **Its paper.** Where the look's paper is what lies under the widget, it lays it by
+  `dgx_ui_lay_paper(paint, DGX_UI_PAPER, x, y, w, h)` and not by a fill of its own: that is the colour `paint->paper`,
+  or, when `paint->on_background`, the program's picture. On the picture the look draws its letters and pictures
+  with no paper of their own: no field of a text, no `DGX_FONT_FILL`, no `DGX_IMAGE_OPAQUE`.
 
 ## A ring scale with widgets inside
 

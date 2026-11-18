@@ -47,7 +47,7 @@ bool dgx_ui_draw_slider(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const dgx_ui_node_t        *n = dgx_ui_node(ui, i);
     const dgx_ui_widget_t      *w = n->widget;
     const dgx_ui_slider_look_t *p = look->params;
-    const uint32_t paper = dgx_ui_color(paint, paint->paper), track = dgx_ui_color(paint, p->track), filled = dgx_ui_color(paint, p->fill);
+    const uint32_t track = dgx_ui_color(paint, p->track), filled = dgx_ui_color(paint, p->fill);
     const unsigned bits  = n->state_value.bits;
     const uint32_t knob  = dgx_ui_color(paint, (bits & DGX_UI_DISABLED) ? p->disabled : (bits & DGX_UI_FOCUSED) ? p->focused : p->knob);
     int            kw    = DGX_UI_KNOB * ui->unit, th = p->track_h * ui->unit;
@@ -56,14 +56,14 @@ bool dgx_ui_draw_slider(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const int span = w->max > w->min ? w->max - w->min : 1, at = (n->w - kw) * (n->state_value.value - w->min) / span;
     const int kx = n->x + (at < 0 ? 0 : at > n->w - kw ? n->w - kw : at), ty = n->y + (n->h - th) / 2;
     /* left of the knob: paper, the filled track, paper; the knob whole height; right of it: paper, the track, paper */
-    fill(paint, n->x, n->y, kx - n->x, ty - n->y, paper);
+    dgx_ui_lay_paper(paint, DGX_UI_PAPER, n->x, n->y, kx - n->x, ty - n->y);
     fill(paint, n->x, ty, kx - n->x, th, filled);
-    fill(paint, n->x, ty + th, kx - n->x, n->y + n->h - ty - th, paper);
+    dgx_ui_lay_paper(paint, DGX_UI_PAPER, n->x, ty + th, kx - n->x, n->y + n->h - ty - th);
     fill(paint, kx, n->y, kw, n->h, knob);
     const int rx = kx + kw, rw = n->x + n->w - rx;
-    fill(paint, rx, n->y, rw, ty - n->y, paper);
+    dgx_ui_lay_paper(paint, DGX_UI_PAPER, rx, n->y, rw, ty - n->y);
     fill(paint, rx, ty, rw, th, track);
-    fill(paint, rx, ty + th, rw, n->y + n->h - ty - th, paper);
+    dgx_ui_lay_paper(paint, DGX_UI_PAPER, rx, ty + th, rw, n->y + n->h - ty - th);
     return false;
 }
 

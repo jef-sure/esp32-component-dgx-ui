@@ -303,6 +303,57 @@ static void scene_pick(dgx_screen_t *scr, const char *out_list, const char *out_
     dgx_ui_paint_free(&paint);
 }
 
+/* ---------------------------------------------------------------- scene 5: a picture under the widgets */
+static dgx_screen_t *map_screen; /* the picture: hills and a sun, drawn here with DGX */
+static void map_draw(dgx_ui_paint_t *paint, int x, int y, int w, int h, void *ctx)
+{
+    dgx_vscreen_region_to_screen(paint->scr, x - paint->ox, y - paint->oy, ctx, x, y, w, h, 0);
+}
+static char             wind_buf[16], rain_buf[16], temp_buf[12], more_buf[8], place_buf[20];
+static dgx_ui_textbox_t wind_box, rain_box, temp_box, more_box, place_box;
+static const dgx_ui_widget_t wx_root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 8, .gap = 4};
+static const dgx_ui_widget_t place_w    = {.kind = DGX_UI_LABEL, .text = &place_box};
+static const dgx_ui_widget_t wind_w     = {.kind = DGX_UI_LABEL, .text = &wind_box};
+static const dgx_ui_widget_t rain_w     = {.kind = DGX_UI_LABEL, .text = &rain_box};
+static const dgx_ui_widget_t wx_space_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
+static const dgx_ui_widget_t wx_row_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 8, .want_h = 22};
+static const dgx_ui_widget_t temp_fr_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .want_w = 60, .want_h = 22};
+static const dgx_ui_widget_t temp_w     = {.kind = DGX_UI_LABEL, .text = &temp_box, .want_h = 18};
+static const dgx_ui_widget_t wx_gap_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
+static const dgx_ui_widget_t more_w     = {.kind = DGX_UI_BUTTON, .text = &more_box, .want_w = 40, .want_h = 18, .at_y = 2, .look = &dgx_ui_look_button};
+
+static void scene_background(dgx_screen_t *scr, const char *out)
+{
+    static dgx_ui_node_t nodes[12];
+    static dgx_ui_t      ui;
+    /* the picture: a sky in bands, a sun, two hills */
+    map_screen = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
+    for (int y = 0; y < 240; ++y) dgx_fill_rectangle(map_screen, 0, y, 320, 1, dgx_screen_rgb(map_screen, (uint8_t)(20 + y / 6), (uint8_t)(40 + y / 3), (uint8_t)(90 + y / 4)));
+    dgx_fill_circle(map_screen, 250, 60, 26, dgx_screen_rgb(map_screen, 250, 210, 90));
+    dgx_fill_circle(map_screen, 90, 330, 170, dgx_screen_rgb(map_screen, 30, 90, 60));
+    dgx_fill_circle(map_screen, 270, 360, 180, dgx_screen_rgb(map_screen, 24, 70, 50));
+    dgx_ui_textbox_init(&place_box, place_buf, sizeof place_buf, 1, &st_left);
+    dgx_ui_textbox_init(&wind_box, wind_buf, sizeof wind_buf, 1, &st_left);
+    dgx_ui_textbox_init(&rain_box, rain_buf, sizeof rain_buf, 1, &st_left);
+    dgx_ui_textbox_init(&temp_box, temp_buf, sizeof temp_buf, 1, &st_big);
+    dgx_ui_textbox_init(&more_box, more_buf, sizeof more_buf, 1, &st_centre);
+    dgx_ui_init(&ui, nodes, 12, 2);
+    const int root = dgx_ui_add(&ui, -1, &wx_root_w);
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, root, &place_w), "Tallinn");
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, root, &wind_w), "wind 6 m/s");
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, root, &rain_w), "rain 20 %");
+    dgx_ui_add(&ui, root, &wx_space_w);
+    const int row = dgx_ui_add(&ui, root, &wx_row_w), fr = dgx_ui_add(&ui, row, &temp_fr_w);
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, fr, &temp_w), "+4 C");
+    dgx_ui_add(&ui, row, &wx_gap_w);
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, row, &more_w), "More");
+    dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = COLORS, .background = PAPER};
+    dgx_ui_background_set(&paint, map_draw, map_screen);
+    dgx_ui_paint(&ui, &paint, 0);
+    shot(scr, out);
+    dgx_ui_paint_free(&paint);
+}
+
 int main(int argc, char **argv)
 {
     const char   *dir = argc > 1 ? argv[1] : ".";
@@ -316,6 +367,8 @@ int main(int argc, char **argv)
     snprintf(a, sizeof a, "%s/lines.ppm", dir), scene_lines(scr, a);
     dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
     snprintf(a, sizeof a, "%s/list.ppm", dir), snprintf(b, sizeof b, "%s/dropdown.ppm", dir), scene_pick(scr, a, b);
+    dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
+    snprintf(a, sizeof a, "%s/background.ppm", dir), scene_background(scr, a);
     printf("sizes on this machine: widget %zu, node %zu, msg %zu, saved %d\n", sizeof(dgx_ui_widget_t), sizeof(dgx_ui_node_t), sizeof(dgx_ui_msg_t), saved);
     return 0;
 }

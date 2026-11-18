@@ -2,8 +2,8 @@
 
 *[По-русски](../ru/api.md)*
 
-Every public type, function and constant, by header. How they work together is told in
-[How it works](how-it-works.md); the [Cookbook](cookbook.md) shows them at work.
+This page lists every public type, function and constant of dgx-ui, header by header. How they work together is
+explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows them at work.
 
 | Header | What it holds |
 | ------ | ------------- |
@@ -13,9 +13,10 @@ Every public type, function and constant, by header. How they work together is t
 | [`dgx_ui_post.h`](#dgx_ui_posth) | sending a message through a queue of FreeRTOS |
 | [`dgx_ui_ticker.h`](#dgx_ui_tickerh) | a message every so many milliseconds |
 | [`dgx_ui_paint.h`](#dgx_ui_painth) | the painter, the looks and their parameters |
+| [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.6: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.7: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -506,6 +507,9 @@ typedef struct dgx_ui_paint_t {
     const uint32_t *colors;
     uint16_t        color_count;
     uint8_t         background;
+    dgx_ui_background_draw_t         background_draw;
+    void           *background_ctx;
+    const dgx_ui_drawn_background_t *drawn;
     void           *buffer;
     size_t          buffer_size;
     const dgx_ui_strips_t *strips;
@@ -513,6 +517,7 @@ typedef struct dgx_ui_paint_t {
     int16_t         ox, oy;
     /* the painter's */
     uint8_t         paper;
+    bool            on_background;
     bool            whole;
     bool            composing;
     uint8_t         part, parts;
@@ -532,14 +537,15 @@ How a tree is drawn on a screen. The program fills the first members and keeps t
 | ------ | ------- |
 | `scr` | the screen of DGX |
 | `colors`, `color_count` | the table of colours: an index of a look to a colour of the screen, as `dgx_screen_rgb()` packs it |
-| `background` | the index of the colour under the tree |
+| `background` | the index of the colour under the tree. With a drawn background, the colour a look is told where it cannot lay the picture: give the picture's main colour |
+| `background_draw`, `background_ctx`, `drawn` | the program's picture under the tree; set by `dgx_ui_background_set()`, not by hand |
 | `buffer`, `buffer_size` | memory of the program's that the painter draws in: for a look that needs it, a picture of 4 or 8 bits, a strip of its rows at a time; and for the strips. Start it on a word boundary, in memory the bus sends by DMA on a chip. `NULL`: none |
-| `strips` | `&dgx_ui_strips`: the painter draws through the buffer in strips. Name it for a display behind a bus of 18 or 24 bits. `NULL`: straight |
+| `strips` | `&dgx_ui_strips`: the painter draws through the buffer in strips. Name it for a display behind a bus of 18 or 24 bits, and for one of 16 bits with a drawn background. `NULL`: straight |
 | `cover` | a rectangle not drawn into: the band of DGX-DI's keyboard while it is open; empty otherwise |
 | `ox`, `oy` | the pixel of the tree's screen that lies at (0, 0) of `scr`; 0, or the place of a buffer when composing |
 
-The members after them are the painter's. A look reads four of them while it draws: `paper`, the index of the colour
-under the widget; `whole`, nothing of the widget is on the screen as it should be; `composing`, `dgx_ui_paint_area()`
+The members after them are the painter's. A look reads these while it draws: `paper`, the index of the colour
+under the widget; `on_background`, what lies under the widget is the program's picture; `whole`, nothing of the widget is on the screen as it should be; `composing`, `dgx_ui_paint_area()`
 is drawing and nothing is to be remembered; `part` and `parts`, which part of the widget's box this call is for, of
 how many.
 
@@ -550,6 +556,34 @@ how many.
 | `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures and of the strips, and the table of the indexed pictures. The struct may be used again. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | A colour of the table; 0 past its end. |
 | `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | For a look of the program's own that holds children: an area of the widget `i`, in pixels of the tree's screen, filled with a colour everywhere but under its shown children that a look draws. In a column or a row; a widget of neither has the area filled whole. Called from a look's `draw`. |
+
+### A drawn background
+
+```c
+typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, int y, int w, int h, void *ctx);
+```
+
+The program's picture under the tree: a function that puts the rectangle `x, y, w, h` of the tree's screen on
+`paint->scr` at `x - paint->ox`, `y - paint->oy`. The painter has set the clip of the screen to the rectangle. The
+screen is the display, or a strip of the painter's over the buffer, of the display's depth. `ctx` is what the program
+gave with the function.
+
+| Call | What it does |
+| ---- | ------------ |
+| `void dgx_ui_background_set(dgx_ui_paint_t *paint, dgx_ui_background_draw_t draw, void *ctx)` | Gives the paint the function and what it is called with; `NULL` and `NULL` take the picture away. It sets `background_draw`, `background_ctx` and `drawn`. An inline of the header: only a program that calls it carries the laying of a picture, so a function written into `background_draw` by hand is not called. After the picture was taken away, `dgx_ui_redraw(ui, 0)` draws the tree on the colour again. |
+| `void dgx_ui_background_changed(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)` | The picture changed in a rectangle of the tree's screen: it is laid there at once where it shows, and the widgets on it are drawn again over it. Nothing is drawn within a widget whose look fills, under a popup, or under the keyboard's band. Nothing is kept for the next pass. Called by the task that owns the screen; inside a batch of DGX several calls go out together. Without a drawn background it does nothing. |
+| `void dgx_ui_lay_paper(dgx_ui_paint_t *paint, uint8_t paper, int x, int y, int w, int h)` | For a look: its paper laid on a rectangle of the tree's screen. `paper` is an index of the table, or `DGX_UI_PAPER`, what lies under the widget: the colour `paint->paper`, or, when `paint->on_background`, the program's picture. |
+
+`dgx_ui_drawn_background_t` is opaque, and `extern const dgx_ui_drawn_background_t dgx_ui_drawn_background;` is the
+library's laying of a picture; `dgx_ui_background_set()` names it, the program does not.
+
+- The picture shows wherever the paper of a look is what lies under the widget and no widget above it fills: between
+  the letters of a label, around the face of a button, in a box, outside the root. A frame fills, so it and all in it
+  show its fill.
+- On a display behind a bus name the strips as well, of 16 bits too: a widget over the picture is then put together
+  in the buffer and sent once. Drawn straight it is written twice, and the soft edges of its letters mix with the
+  colour `background`, not with the picture.
+- The recipe is [A picture under the widgets](cookbook.md#a-picture-under-the-widgets).
 
 ### Drawing through the buffer
 
@@ -564,7 +598,8 @@ takes, and each strip is sent once: every pixel once.
 - A widget that changed is sent whole, all of its box.
 - The buffer holds a row of the widget at least, its width times 3 bytes; a widget too wide for it is drawn straight,
   told once in the log. A widget with children is drawn straight too: it fills around them.
-- A 16-bit display and a virtual screen draw straight whatever is named.
+- A 16-bit display draws straight, but for a widget on a drawn background, which goes through the strips at any
+  depth. A virtual screen draws straight whatever is named.
 - It needs `CONFIG_DGX_ENABLE_VSCREEN`: named without it, the program does not link. A program that does not name it
   carries none of it.
 

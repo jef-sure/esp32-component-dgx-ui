@@ -2,9 +2,20 @@
 
 *[По-русски](../ru/getting-started.md)*
 
-From an ESP-IDF project with a display to a program that shows a value another task sends, and a clock under it.
+dgx-ui is a light layer of widgets on [DGX](https://github.com/jef-sure/esp32-component-dgx), the display library
+for ESP32. In this guide we add it to an ESP-IDF project and write its first program, in three steps:
+
+1. add the component to the project;
+2. write a program of one file: a CO2 value that another task sends, shown in a frame, and a clock under it;
+3. build it and run it, on a board or in a window on the computer.
+
+At the end the display shows this. The value changes five times a second and the clock once a second, and between
+the changes the task that owns the display sleeps:
 
 ![A value in a frame, a clock and a note under it](../images/first.png)
+
+You need to know how an ESP-IDF project is built and flashed. Nothing of dgx-ui or of DGX is assumed: every part of
+the program is explained where it appears.
 
 ## What you need
 
@@ -13,16 +24,16 @@ From an ESP-IDF project with a display to a program that shows a value another t
   runs in a window on the computer.
 - DGX 0.11.4 or later. It comes by itself with dgx-ui.
 
-## 1. Adding the component
+## 1. Add the component
 
-Version 0.0.6 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
+Version 0.0.7 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
 the project:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.6"
+    version: "0.0.7"
 ```
 
 The component manager takes dgx-ui from GitHub at the next build, and DGX from the registry, as dgx-ui asks for it.
@@ -38,7 +49,7 @@ CONFIG_DGX_ENABLE_SPI_ILI_9341=y
 The other displays and buses are in
 [Getting started of DGX](https://github.com/jef-sure/esp32-component-dgx#getting-started).
 
-## 2. The first program
+## 2. Write the first program
 
 The program below is `main/main.c`, piece by piece; the pieces in their order are the whole file. The example
 [thin_paint](../../examples/thin_paint/main/thin_paint.c) of the repository is a program of the same shape.
@@ -254,7 +265,7 @@ What the loop does:
 4. A widget that animates makes `dgx_ui_paint()` return `true`, and a held key makes `dgx_ui_time()` do so. Then the
    loop waits a tick of FreeRTOS, not for ever. In this program nothing asks for time, and the task sleeps.
 
-## 3. Building and running
+## 3. Build and run
 
 For the board:
 
@@ -273,6 +284,21 @@ idf.py --preview set-target linux
 idf.py build
 ./build/main.elf
 ```
+
+What you should see, on the board and in the window alike: a frame with the value in large letters, `CO2 400 ppm` at
+first and another number every 200 ms; under the frame, on the left, the time since the start, `00:00:01`,
+`00:00:02`, and on the right the note `living room`. Only the numbers change: the frame, the note and the paper are
+drawn once.
+
+## 4. Change it
+
+Three small changes show how the parts depend on one another. Make one, build and run again:
+
+- In `sensor_task()`, change `pdMS_TO_TICKS(200)` to `pdMS_TO_TICKS(1000)`. The value now changes once a second.
+  Nothing else in the program knows how often it comes: the label is told only when a message arrives.
+- In `root_w`, change `.gap = 4` to `.gap = 12`. The row with the clock moves 8 points, 16 pixels, down from the
+  frame: the column lays its children again, and no coordinate is written anywhere in the program.
+- In `app_main()`, change `"living room"` to `"kitchen"`. The note is set once and never drawn again.
 
 ## Where to go next
 

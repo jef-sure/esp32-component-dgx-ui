@@ -1,5 +1,26 @@
 # Changes
 
+## 0.0.7 - 2026-11-18
+
+- A drawn background, set by `dgx_ui_background_set(paint, draw, ctx)`: a function of the program's that puts a
+  rectangle of its picture under the tree (a map, the frame of a game under a dialog), in the paint's
+  `background_draw` and `background_ctx`. The call names the library's laying of it, so a program that never calls it
+  does not carry it: about 0.5 KB, and some 0.3 KB in every program for the looks to know of it. Every look lays it
+  where its paper is what lies under it and draws over it: letters without a field, set where the field sets them, a
+  picture of 1 bit by its ones, one of 4 or 8 bits with its index 0 leaving the background. A frame that fills shows
+  its fill; a popup's root that does not fill shows the picture. `background` stays the colour a look is told as its
+  paper.
+- `dgx_ui_lay_paper()`: the paper of a look laid, a colour or the drawn background; for a look of the program's own.
+  The painter part of the paint has `on_background`.
+- `dgx_ui_background_changed(ui, paint, x, y, w, h)`: the picture changed in a rectangle, laid there at once where it
+  shows, the widgets on it drawn again over it; nothing within a widget that fills, under a popup or under the
+  keyboard's band.
+- The strips take a widget on a drawn background on a display of 16 bits too: the piece of the picture and the
+  letters leave once, the soft edges of the letters mixed with the picture. A strip takes no more rows than its part,
+  the rest of the buffer left to a look of its own (a picture of 4 or 8 bits in a strip).
+- `dgx_ui_paint_area()` lays the drawn background where the root does not lie, as the composing where a popup or the
+  keyboard's band was.
+
 ## 0.0.6 - 2026-11-18
 
 - The strips, `dgx_ui_strips`, named by the program in the paint's new member `strips`: on a display behind a bus of

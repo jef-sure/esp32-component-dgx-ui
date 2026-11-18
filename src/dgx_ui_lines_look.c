@@ -13,7 +13,7 @@
  */
 
 #include "dgx_draw.h"
-#include "dgx_ui_paint.h"
+#include "dgx_ui_paint_priv.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_text_priv.h"
 
@@ -113,7 +113,7 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const uint32_t ink = dgx_ui_color(paint, p->ink), paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper);
     const int      x = w->x - paint->ox;
     if (!box || !box->style || !box->style->count || w->w <= 0) {
-        if (paint->whole) dgx_fill_rectangle(paint->scr, x, w->y - paint->oy, w->w, w->h, paper);
+        if (paint->whole) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, w->h);
         return false;
     }
     const dgx_ui_text_style_t *st   = box->style;
@@ -127,7 +127,7 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     int v = box->variant;
     if (w->marks & DGX_UI_MARK_FIT) v = fit(st, text, len, w->w, w->h);
     if (v < 0 || v >= st->count || !usable(&st->variants[v])) {
-        if (paint->whole) dgx_fill_rectangle(paint->scr, x, w->y - paint->oy, w->w, w->h, paper);
+        if (paint->whole) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, w->h);
         return false;
     }
     if (v != box->variant) paint->whole = true; /* another height: the rows around the fields too */
@@ -198,7 +198,7 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
         const int band_top = ft > filled ? ft : filled, band_bottom = fb < bottom ? fb : bottom;
         if (paint->whole && band_top > filled) {
             dgx_screen_clip(paint->scr, part[0], part[1], part[2], part[3]);
-            dgx_fill_rectangle(paint->scr, x, filled - paint->oy, w->w, band_top - filled, paper);
+            dgx_ui_lay_paper(paint, p->paper, w->x, filled, w->w, band_top - filled);
         }
         if (band_bottom > filled) filled = band_bottom;
         /* the line of this row */
@@ -235,7 +235,7 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
                 const int lead = room <= 0 ? 0 : st->align == DGX_FONT_ALIGN_CENTER ? room / 2 : room;
                 fx += lead, fw -= lead, align = DGX_FONT_ALIGN_LEFT;
                 if (lead > 0 && clip_rows(paint, part, band_top, band_bottom))
-                    dgx_fill_rectangle(paint->scr, x, band_top - paint->oy, lead, band_bottom - band_top, paper);
+                    dgx_ui_lay_paper(paint, p->paper, w->x, band_top, lead, band_bottom - band_top);
             }
             int b = 0;
             for (int l = 0; s[b] && l < (here > 0 ? here : 0); ++l) b = next_char(s, b);
@@ -243,12 +243,12 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
         }
         if (clip_rows(paint, part, band_top, band_bottom)) {
             const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = paper, .field = fw, .align = align};
-            dgx_font_draw(&ctx, fx, base0 + k * lh - paint->oy, s);
+            dgx_ui_field_text(paint, &ctx, fx, base0 + k * lh - paint->oy, s, p->paper);
         }
         letters_before += letters_in(text, start, end); /* the letters of this row came before the next row's */
     }
     dgx_screen_clip(paint->scr, part[0], part[1], part[2], part[3]);
-    if (paint->whole && bottom > filled) dgx_fill_rectangle(paint->scr, x, filled - paint->oy, w->w, bottom - filled, paper);
+    if (paint->whole && bottom > filled) dgx_ui_lay_paper(paint, p->paper, w->x, filled, w->w, bottom - filled);
     return more;
 }
 

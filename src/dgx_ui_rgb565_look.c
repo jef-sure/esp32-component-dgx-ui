@@ -45,7 +45,6 @@ bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const dgx_ui_node_t         *n     = dgx_ui_node(ui, i);
     const dgx_ui_picture_look_t *p     = look->params;
     const dgx_ui_picture_t      *pic   = shown(n);
-    const uint32_t               paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper);
     const dgx_ui_rect_t          box   = dgx_ui_rect(n->x, n->y, n->w, n->h);
     dgx_ui_rect_t                hole  = dgx_ui_rect(0, 0, 0, 0);
     const bool    fits = pic && !pic->image && pic->rgb565 && pic->width > 0 && pic->height > 0 && paint->scr->color_bits == 16;
@@ -53,7 +52,7 @@ bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     if (src) hole = dgx_ui_rect(n->x + (n->w - pic->width) / 2, n->y + (n->h - pic->height) / 2, pic->width, pic->height);
     dgx_ui_rect_t parts[4];
     const int     k = dgx_ui_rect_subtract(&box, &hole, parts);
-    for (int j = 0; j < k; ++j) dgx_fill_rectangle(paint->scr, parts[j].x - paint->ox, parts[j].y - paint->oy, parts[j].w, parts[j].h, paper);
+    for (int j = 0; j < k; ++j) dgx_ui_lay_paper(paint, p->paper, parts[j].x, parts[j].y, parts[j].w, parts[j].h);
     if (src) dgx_vscreen_to_screen(paint->scr, hole.x - paint->ox, hole.y - paint->oy, src, 0);
     return false;
 }
