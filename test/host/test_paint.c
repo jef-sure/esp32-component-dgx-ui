@@ -182,7 +182,7 @@ int main(void)
     CHECK(col_off == 0);
     band->destroy(&band), col->destroy(&col);
 
-    /* 8 of the audit: a text of more than 256 bytes, a letter of three at byte 255, in a field wide enough for all
+    /* a text of more than 256 bytes, a letter of three at byte 255, in a field wide enough for all
        of it: cut without writing past the line (the sanitizer is the proof) */
     {
         static char                  longest[300];
@@ -203,7 +203,7 @@ int main(void)
         dgx_ui_free(&lu);
     }
 
-    /* 9 of the audit: a strip composed before the paint does not hide from it that the variant changed: the rows of
+    /* a strip composed before the paint does not hide from it that the variant changed: the rows of
        the large letters above and below the small field are drawn again */
     make_tree(&a);
     dgx_ui_text_set(&a.ui, a.text1, "1"), dgx_ui_text_set(&a.ui, a.text2, "21.5");
@@ -231,7 +231,7 @@ int main(void)
     dgx_ui_paint(&a.ui, &pa, 60);
     CHECK(panel_written_outside(panel, 0, 24, PANEL_W, PANEL_H) == 0 && panel_written(panel) > 0);
 
-    /* 10 of the audit: a text changed under the band, then the band gone: the place it leaves composed again */
+    /* a text changed under the band, then the band gone: the place it leaves composed again */
     dgx_ui_text_set(&a.ui, a.text1, "5555");
     dgx_ui_paint(&a.ui, &pa, 90); /* under the band: not drawn */
     pa.cover = dgx_ui_rect(0, 0, 0, 0);

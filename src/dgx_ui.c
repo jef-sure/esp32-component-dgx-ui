@@ -422,10 +422,16 @@ void dgx_ui_redraw(dgx_ui_t *ui, int i)
 
 /* ---- the pointer, the keys and the focus ---- */
 
+/* the behaviour of a widget of the program's own, named by its look; NULL, none */
+static const dgx_ui_behavior_t *behavior_of(const dgx_ui_widget_t *w)
+{
+    return w->kind == DGX_UI_OWN && w->look ? w->look->behavior : NULL;
+}
+
 static bool interactive(const dgx_ui_widget_t *w)
 {
     return w->kind == DGX_UI_LIST || w->kind == DGX_UI_SWITCH || w->kind == DGX_UI_SLIDER || w->kind == DGX_UI_BUTTON ||
-           w->kind == DGX_UI_INPUT || w->kind == DGX_UI_DROPDOWN;
+           w->kind == DGX_UI_INPUT || w->kind == DGX_UI_DROPDOWN || behavior_of(w);
 }
 
 /* answers the pointer and takes the focus: interactive, shown and not disabled, nor any above it */
@@ -485,9 +491,17 @@ static void tell(dgx_ui_t *ui, int i, int what)
     if (w->on) w->on(ui, i, NODE(ui, i), what, w->ctx);
 }
 
+/* takes the focus: usable, and a widget of the program's own only with DGX_UI_BEHAVIOR_FOCUS */
+static bool focusable(const dgx_ui_t *ui, int i)
+{
+    if (!usable(ui, i)) return false;
+    const dgx_ui_behavior_t *b = behavior_of(NODE(ui, i)->widget);
+    return !b || (b->flags & DGX_UI_BEHAVIOR_FOCUS);
+}
+
 void dgx_ui_focus(dgx_ui_t *ui, int i)
 {
-    if (i >= 0 && !usable(ui, i)) i = -1;
+    if (i >= 0 && !focusable(ui, i)) i = -1;
     if (ui->focus == i) return;
     dgx_ui_node_t *old = live(ui, ui->focus);
     if (old) old->state_value.bits &= (uint8_t)~DGX_UI_FOCUSED, dgx_ui_touched(ui, ui->focus);
@@ -497,6 +511,11 @@ void dgx_ui_focus(dgx_ui_t *ui, int i)
         dgx_ui_touched(ui, i);
         tell(ui, i, DGX_UI_FOCUS);
     }
+}
+
+void dgx_ui_tell(dgx_ui_t *ui, int i, int what)
+{
+    if (live(ui, i)) tell(ui, i, what);
 }
 
 /* a value set by the user: within its bounds, on() told when it changed */
@@ -509,6 +528,11 @@ static void user_value(dgx_ui_t *ui, int i, int value)
     dgx_ui_touched(ui, i);
     list_follow(ui, i); /* a list's pick in its window */
     tell(ui, i, DGX_UI_CHANGED);
+}
+
+void dgx_ui_user_value(dgx_ui_t *ui, int i, int value)
+{
+    if (live(ui, i)) user_value(ui, i, value);
 }
 
 /* the height of a row of a list; *top the first row shown, *scrolls whether some rows are not */
@@ -599,7 +623,9 @@ static void press(dgx_ui_t *ui, int i, int x, int y)
     ui->between = between_rows(ui, n, y - n->y);
     n->state_value.bits |= DGX_UI_PRESSED;
     dgx_ui_touched(ui, i);
-    if (!swiped_slider(n->widget) && !ui->between && !list_scrolls(ui, n)) point_to_value(ui, i, x - n->x, y - n->y);
+    const dgx_ui_behavior_t *b = behavior_of(n->widget);
+    if (b && b->down) b->down(ui, i, x - n->x, y - n->y); /* a widget of the program's own: its own */
+    else if (!b && !swiped_slider(n->widget) && !ui->between && !list_scrolls(ui, n)) point_to_value(ui, i, x - n->x, y - n->y);
     if (!live(ui, i)) { /* on(CHANGED) removed it */
         ui->pressed = -1;
         return;
@@ -625,7 +651,8 @@ bool dgx_ui_dragging(const dgx_ui_t *ui)
     const dgx_ui_node_t *n = live(ui, ui->pressed);
     if (!n) return false;
     const dgx_ui_widget_t *w = n->widget;
-    return w->kind == DGX_UI_SLIDER || w->kind == DGX_UI_LIST || (w->kind == DGX_UI_BUTTON && (w->flags & DGX_UI_DRAG));
+    return w->kind == DGX_UI_SLIDER || w->kind == DGX_UI_LIST || (w->kind == DGX_UI_BUTTON && (w->flags & DGX_UI_DRAG)) ||
+           (behavior_of(w) && ui->dragged); /* a widget of the program's own that took a move as a drag */
 }
 
 static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p);
@@ -667,7 +694,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         if (i < 0) return false;
         ui->press_ms = p->ms, ui->swiped = p->swipe;
         const dgx_ui_t *popup = ui->popup;
-        dgx_ui_focus(ui, i);
+        if (focusable(ui, i)) dgx_ui_focus(ui, i); /* a widget of the program's own of the finger alone leaves it */
         /* on(FOCUS) may have removed it, or opened a popup over it (an editor of a field): the finger is spent then; a
            popup closed by it (a hint, a dropdown left) takes nothing of the press */
         if (live(ui, i) && (!ui->popup || ui->popup == popup)) press(ui, i, p->x, p->y);
@@ -683,6 +710,12 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
     if (p->down) {
         const int dx = p->x - ui->press_x, dy = p->y - ui->press_y, ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
         ui->move_x = (int16_t)p->x, ui->move_y = (int16_t)p->y;
+        const dgx_ui_behavior_t *b = behavior_of(w);
+        if (b) {
+            /* a widget of the program's own: the move its own, taken as a drag when it says so */
+            if (b->move && b->move(ui, ui->pressed, p->x - n->x, p->y - n->y)) ui->dragged = true;
+            return true; /* removed by it, or by on(): dgx_ui_remove() let the finger go */
+        }
         if (w->kind == DGX_UI_BUTTON && (w->flags & DGX_UI_DRAG)) {
             /* dragged up or down half its width: changed at every move from then on (a scroll bar's knob following) */
             if (!ui->dragged && 2 * ay >= n->w) ui->dragged = true;
@@ -731,6 +764,13 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         const int  i     = ui->pressed;
         const bool click = !ui->dragged && !ui->swiped && !ui->between && (uint32_t)(p->ms - ui->press_ms) < DGX_UI_CLICK_MS;
         unpress(ui);
+        const dgx_ui_behavior_t *b = behavior_of(w);
+        if (b) {
+            /* a widget of the program's own: up() first, a value it sets heard of with the click */
+            if (b->up) b->up(ui, i, p->x - n->x, p->y - n->y, click);
+            if (click && live(ui, i) && NODE(ui, i)->widget == w) tell(ui, i, DGX_UI_ACTIVATED); /* not one put in its place */
+            return true;
+        }
         if (!click) return true;
         if (swiped_slider(w)) {
             tell(ui, i, DGX_UI_ACTIVATED); /* a click: nothing moved */
@@ -739,7 +779,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         if (w->kind == DGX_UI_SWITCH) user_value(ui, i, n->state_value.value ? 0 : 1);
         /* a list that scrolls, a click: the row it went down on, picked now */
         if (list_scrolls(ui, n)) point_to_value(ui, i, ui->press_x - n->x, ui->press_y - n->y);
-        if (!live(ui, i)) return true; /* on(CHANGED) removed it */
+        if (!live(ui, i) || NODE(ui, i)->widget != w) return true; /* on(CHANGED) removed it, or put another in its place */
         if (w->kind == DGX_UI_INPUT) tell(ui, i, DGX_UI_EDIT); /* a field clicked: to be edited */
         if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN) tell(ui, i, DGX_UI_ACTIVATED);
         return true;
@@ -755,7 +795,7 @@ static int next_focus(dgx_ui_t *ui, int i, int step)
         int j = i < 0 ? 0 : preorder_next(ui, i, -1);
         for (int k = 0; k <= ui->count; ++k, j = preorder_next(ui, j, -1)) {
             if (j < 0) j = 0; /* round the tree */
-            if (usable(ui, j)) return j;
+            if (focusable(ui, j)) return j;
         }
         return -1;
     }
@@ -763,7 +803,7 @@ static int next_focus(dgx_ui_t *ui, int i, int step)
     int before = -1, last = -1;
     for (int j = 0; j >= 0; j = preorder_next(ui, j, -1)) {
         if (j == i) before = last;
-        if (usable(ui, j)) last = j;
+        if (focusable(ui, j)) last = j;
     }
     return i >= 0 && before >= 0 ? before : last;
 }
@@ -782,9 +822,12 @@ bool dgx_ui_key(dgx_ui_t *ui, int key)
 static bool key_in(dgx_ui_t *ui, int key)
 {
     dgx_ui_layout(ui);
-    const int            f = ui->focus;
-    dgx_ui_node_t       *n = live(ui, f);
-    const dgx_ui_widget_t *w = n ? n->widget : NULL;
+    const int                f = ui->focus;
+    dgx_ui_node_t           *n = live(ui, f);
+    const dgx_ui_widget_t   *w = n ? n->widget : NULL;
+    const dgx_ui_behavior_t *b = w ? behavior_of(w) : NULL;
+    if (b && b->key && b->key(ui, f, key)) return true; /* a widget of the program's own first */
+    n = live(ui, f), w = n ? n->widget : NULL;           /* it may have gone */
     switch (key) {
     case DGX_UI_KEY_NEXT:
     case DGX_UI_KEY_PREV: {
@@ -814,7 +857,7 @@ static bool key_in(dgx_ui_t *ui, int key)
     case DGX_UI_KEY_ACTIVATE:
         if (!w) return false;
         if (w->kind == DGX_UI_SWITCH) user_value(ui, f, n->state_value.value ? 0 : 1);
-        else if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN) tell(ui, f, DGX_UI_ACTIVATED);
+        else if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN || behavior_of(w)) tell(ui, f, DGX_UI_ACTIVATED); /* of the program's own: what key() did not take, as a click */
         else if (w->kind == DGX_UI_INPUT) tell(ui, f, DGX_UI_EDIT);
         else return false;
         return true;

@@ -1,5 +1,15 @@
 # Changes
 
+## 0.0.11 - 2026-11-18
+
+- Widgets of the program's own: a look names a behaviour, `dgx_ui_look_t::behavior` (`down`, `move`, `up`, `key`),
+  and the core works a `DGX_UI_OWN` widget drawn by it as one of its kinds: the hit, the press, the focus (with
+  `DGX_UI_BEHAVIOR_FOCUS`), the click, the keys. Another component's widget is one constant, as a look is.
+- `dgx_ui_user_value()` and `dgx_ui_tell()`: a value set and an event told as the user would cause them, for any widget.
+- `struct dgx_ui_look_t` moved to `dgx_ui.h`; every look is 4 bytes larger.
+- Fixed: a widget that `on()` puts in the slot of a list just clicked is no longer told `DGX_UI_ACTIVATED`.
+- The mirror recipe draws the keyboard and the pad of DGX-DI 0.1.7 into its strips.
+
 ## 0.0.10 - 2026-11-18
 
 - Time as "when": a look that asks for time names its moment, `dgx_ui_wake_in(paint, ms)`, and the paint's `wake_ms`
@@ -20,8 +30,8 @@
   at a line of its text or at its `step` (now the least height of a row, in points, for a list), the first one shown
   its text box's `top`; a list whose rows all go in is drawn as before, row for row. The window follows the pick: the
   keys, the finger and `dgx_ui_set_value()` bring it to the pick (a mark, `DGX_UI_MARK_WINDOW`, for the look to do it
-  when it draws), and `dgx_ui_text_scroll()` moves it, the pick staying. Owed by the plan and lost in 0.0.4.
-- The finger on a list that scrolls, his word "как в DGX-GE": put down it picks nothing; moved up or down half a row's
+  when it draws), and `dgx_ui_text_scroll()` moves it, the pick staying. Promised for 0.0.4 and left out of it.
+- The finger on a list that scrolls, as on DGX-GE's list: put down it picks nothing; moved up or down half a row's
   height, it moves the pick a row for each row's height it goes, up going on down the list, the window following; let
   go without having moved, a click picks the row it went down on. A list whose rows all show picks the row under the
   finger as in 0.0.4.

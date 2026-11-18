@@ -16,6 +16,9 @@ void mode_set(int m) { mode = m, ++modes; }
 static int fan_speed = -1, fans;
 static uint16_t mirror_all[320 * 240]; /* what mirror_send() was given, strip after strip */
 static int      mirror_got;
+/* the pad of two axes: what the program is told */
+static int point_calls, point_x, point_y;
+void       point_set(int x, int y) { ++point_calls, point_x = x, point_y = y; }
 void mirror_send(const uint16_t *pixels, int count)
 {
     if (mirror_got + count <= 320 * 240) memcpy(mirror_all + mirror_got, pixels, (size_t)count * 2), mirror_got += count;
@@ -46,6 +49,11 @@ bool dgx_di_keyboard_open(dgx_di_keyboard_t *kb, dgx_screen_t *d, int mm_w, int 
     return true;
 }
 void dgx_di_keyboard_close(dgx_di_keyboard_t *kb) { kb->open = false; }
+/* the keyboard's band drawn on another screen at an offset, as DGX-DI 0.1.7 does it: here one colour, 0xffff */
+void dgx_di_keyboard_draw_to(const dgx_di_keyboard_t *kb, dgx_screen_t *scr, int ox, int oy)
+{
+    if (kb->open) dgx_fill_rectangle(scr, kb->x - ox, kb->y - oy, kb->w, kb->h, 0xffff);
+}
 
 static uint32_t table[COLORS];
 static const dgx_ui_widget_t col_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
@@ -135,6 +143,52 @@ int main(int argc, char **argv)
     const dgx_ui_node_t *n = dgx_ui_node(&ui, level);
     printf("level look: box %d,%d %dx%d; a pixel at 20%% is the bar %d, at 80%% the rest %d\n", n->x, n->y, n->w, n->h,
            dgx_get_pixel(scr, n->x + n->w / 5, n->y + 1) == table[ACCENT], dgx_get_pixel(scr, n->x + n->w * 4 / 5, n->y + 1) == table[FILL]);
+
+    /* a widget of the program's own worked by the finger and the keys: the pad of two axes, and the bar that is tapped */
+    {
+        dgx_screen_t                *xs = dgx_vscreen_init(40, 64, 16, DgxScreenRGB); /* a column 40 pixels wide */
+        dgx_ui_paint_t               xp = {.scr = xs, .colors = table, .color_count = COLORS, .background = PAPER};
+        static const dgx_ui_widget_t xrow_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
+        static dgx_ui_node_t         xn[6];
+        dgx_ui_t                     x;
+        dgx_ui_init(&x, xn, 6, 1);
+        dgx_ui_add(&x, -1, &xrow_w);
+        const int pad = dgx_ui_add(&x, 0, &xy_w), tap = dgx_ui_add(&x, 0, &tap_w);
+        dgx_ui_paint(&x, &xp, 0);
+        const dgx_ui_node_t *pn = dgx_ui_node(&x, pad), *tn = dgx_ui_node(&x, tap);
+        printf("own: the pad at %d,%d %dx%d, hit %d; the bar at %d,%d %dx%d, hit %d\n", pn->x, pn->y, pn->w, pn->h,
+               dgx_ui_hit(&x, pn->x + 30, pn->y + 10) == pad, tn->x, tn->y, tn->w, tn->h, dgx_ui_hit(&x, tn->x + 1, tn->y + 1) == tap);
+        /* step 1: down at 30, 10 */
+        dgx_ui_pointer(&x, &(dgx_ui_pointer_t){.x = (int16_t)(pn->x + 30), .y = (int16_t)(pn->y + 10), .down = true, .pressed = true, .ms = 1000});
+        printf("own: down at 30,10: y %d, value %d, on() told %d time(s) the point %d,%d; pressed %d, focused %d, dragging %d\n", xy_data.y,
+               pn->state_value.value, point_calls, point_x, point_y, !!(pn->state_value.bits & DGX_UI_PRESSED), x.focus == pad, dgx_ui_dragging(&x));
+        dgx_ui_paint(&x, &xp, 10);
+        int knob = 0, kx0 = 999, ky0 = 999, field = 0;
+        for (int yy = 0; yy < pn->h; ++yy)
+            for (int xx = 0; xx < pn->w; ++xx) {
+                const uint32_t c = dgx_get_pixel(xs, pn->x + xx, pn->y + yy);
+                if (c == table[ACCENT]) ++knob, kx0 = xx < kx0 ? xx : kx0, ky0 = yy < ky0 ? yy : ky0;
+                else if (c == table[FILL]) ++field;
+            }
+        printf("own: drawn pressed: %d pixels of the knob from %d,%d, %d of the field, of %d\n", knob, kx0, ky0, field, pn->w * pn->h);
+        /* step 2: a move out of the widget, up and to the left of it and under it */
+        dgx_ui_pointer(&x, &(dgx_ui_pointer_t){.x = (int16_t)(pn->x - 10), .y = (int16_t)(pn->y + 70), .down = true, .ms = 1050});
+        printf("own: moved to -10,70: y %d, value %d, dragging %d\n", xy_data.y, pn->state_value.value, dgx_ui_dragging(&x));
+        /* step 3: let go: no click */
+        point_calls = 0;
+        dgx_ui_pointer(&x, &(dgx_ui_pointer_t){.x = (int16_t)(pn->x - 10), .y = (int16_t)(pn->y + 70), .released = true, .ms = 1100});
+        printf("own: let go: pressed %d, on() told %d more time(s)\n", !!(pn->state_value.bits & DGX_UI_PRESSED), point_calls);
+        /* step 4: the keys */
+        const bool more = dgx_ui_key(&x, DGX_UI_KEY_MORE);
+        printf("own: MORE taken %d, value %d; ACTIVATE taken %d; NEXT taken %d, the focus stays on the pad (nobody else takes it) %d\n", more,
+               pn->state_value.value, dgx_ui_key(&x, DGX_UI_KEY_ACTIVATE), dgx_ui_key(&x, DGX_UI_KEY_NEXT), x.focus == pad);
+        /* the bar that is tapped: pressed, the focus left on the pad */
+        dgx_ui_pointer(&x, &(dgx_ui_pointer_t){.x = (int16_t)(tn->x + 1), .y = (int16_t)(tn->y + 1), .down = true, .pressed = true, .ms = 2000});
+        printf("own: the bar pressed %d, the focus still on the pad %d\n", !!(tn->state_value.bits & DGX_UI_PRESSED), x.focus == pad);
+        dgx_ui_pointer(&x, &(dgx_ui_pointer_t){.x = (int16_t)(tn->x + 1), .y = (int16_t)(tn->y + 1), .released = true, .ms = 2050});
+        dgx_ui_free(&x);
+        dgx_screen_destroy(&xs);
+    }
 
     /* the icon: a message of 3 bars, then of none */
     const int   sig = dgx_ui_add(&ui, root, &signal_w);
@@ -268,13 +322,26 @@ int main(int argc, char **argv)
         dgx_ui_text_set(&wpop, dgx_ui_add(&wpop, 0, &ask2_w), "Sure?");
         dgx_ui_popup_open(&w, &wpop, 60, 80, 200, 60, DGX_UI_POPUP_MODAL);
         dgx_ui_paint(&w, &pp, 700);
-        mirror(&w, &pp);
+        mirror(&w, &pp, NULL);
         dgx_screen_t *whole = dgx_vscreen_from_array(mirror_all, 320, 240, 16, DgxScreenRGB);
         int           off   = 0;
         for (int y = 0; y < 240; ++y)
             for (int x = 0; x < 320; ++x) off += dgx_get_pixel(whole, x, y) != dgx_get_pixel(scr, x, y);
         printf("mirror: %d pixels sent in strips; with a popup open it differs from the screen in %d pixels; the paint draws on its screen again %d\n", mirror_got,
                off, pp.scr == scr);
+        /* with a keyboard of DGX-DI open over the rows from 203 down, a band that begins inside a strip */
+        dgx_di_keyboard_t kbd = {.open = true, .x = 0, .y = 203, .w = 320, .h = 37};
+        mirror_got            = 0;
+        mirror(&w, &pp, &kbd);
+        int band_px = 0, above = 0;
+        for (int y = 0; y < 240; ++y)
+            for (int x = 0; x < 320; ++x) {
+                const bool key = dgx_get_pixel(whole, x, y) == 0xffff;
+                if (y >= 203) band_px += key;
+                else above += dgx_get_pixel(whole, x, y) != dgx_get_pixel(scr, x, y);
+            }
+        printf("mirror: with the keyboard's band from row 203: %d of its %d pixels are the keyboard's, the rows above it differ from the screen in %d\n", band_px,
+               320 * 37, above);
         dgx_screen_destroy(&whole);
         dgx_ui_paint_free(&pp), dgx_ui_free(&w), dgx_ui_free(&wpop);
         scr->destroy(&scr);

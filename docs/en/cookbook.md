@@ -1191,6 +1191,126 @@ The rules a look keeps:
   or, when `paint->on_background`, the program's picture. On the picture the look draws its letters and pictures
   with no paper of their own: no field of a text, no `DGX_FONT_FILL`, no `DGX_IMAGE_OPAQUE`.
 
+## A widget of your own that the finger and the keys work
+
+A widget of `DGX_UI_OWN` is drawn by its look, and that is all: `dgx_ui_hit()` passes it, a finger on it goes to
+nobody, the keys walk past it. A look that names a **behaviour** makes it a control. The core does what is common
+to every control: it finds the widget under the finger, sets `DGX_UI_PRESSED`, gives it the focus, decides whether
+a let-go is a click, and leaves a hidden or a disabled one alone. The behaviour is four functions for what is the
+widget's own; each may be `NULL`.
+
+Here a pad of two axes: the finger's x is the widget's value, its y a number in the program's data.
+
+```c
+void point_set(int x, int y); /* the program's: what it does with the two axes, each 0..100 */
+
+/* a pad of two axes: x is the widget's value, 0..100; y lies in the program's data, 0..100 */
+typedef struct {
+    int16_t y;
+} xy_data_t;
+
+enum { XY_KNOB = 6 }; /* the side of the knob, in pixels */
+
+static bool xy_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    const dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    const xy_data_t     *d = n->widget->own;
+    const int            x = n->x - paint->ox, y = n->y - paint->oy;
+    const int            kx = (n->w - XY_KNOB) * n->state_value.value / 100, ky = (n->h - XY_KNOB) * d->y / 100;
+    const bool           lit   = n->state_value.bits & (DGX_UI_PRESSED | DGX_UI_FOCUSED);
+    const uint32_t       field = dgx_ui_color(paint, FILL), knob = dgx_ui_color(paint, lit ? ACCENT : INK);
+    /* the field in four rectangles round the knob, then the knob: every pixel once */
+    if (ky > 0) dgx_fill_rectangle(paint->scr, x, y, n->w, ky, field);
+    if (ky + XY_KNOB < n->h) dgx_fill_rectangle(paint->scr, x, y + ky + XY_KNOB, n->w, n->h - ky - XY_KNOB, field);
+    if (kx > 0) dgx_fill_rectangle(paint->scr, x, y + ky, kx, XY_KNOB, field);
+    if (kx + XY_KNOB < n->w) dgx_fill_rectangle(paint->scr, x + kx + XY_KNOB, y + ky, n->w - kx - XY_KNOB, XY_KNOB, field);
+    dgx_fill_rectangle(paint->scr, x + kx, y + ky, XY_KNOB, XY_KNOB, knob);
+    return false;
+}
+
+/* the finger at x, y of the widget's own pixels: both axes set as the user sets them */
+static void xy_at(dgx_ui_t *ui, int i, int x, int y)
+{
+    const dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    xy_data_t           *d = n->widget->own;
+    /* while it is held the finger may be anywhere, outside the widget too */
+    const int nx = x * 100 / (n->w - 1), ny = y <= 0 ? 0 : y >= n->h - 1 ? 100 : y * 100 / (n->h - 1);
+    if (ny != d->y) {
+        d->y = (int16_t)ny;
+        dgx_ui_redraw(ui, i);               /* data of its own changed: to be drawn */
+        dgx_ui_tell(ui, i, DGX_UI_CHANGED); /* and on() told, as for a value */
+    }
+    dgx_ui_user_value(ui, i, nx); /* kept within min..max; on() told when it changed */
+}
+
+static bool xy_move(dgx_ui_t *ui, int i, int x, int y)
+{
+    xy_at(ui, i, x, y);
+    return true; /* a drag: no click when it is let go, and a swipe from an edge is not the program's */
+}
+
+static bool xy_key(dgx_ui_t *ui, int i, int key)
+{
+    if (key != DGX_UI_KEY_MORE && key != DGX_UI_KEY_LESS) return false; /* the rest is the core's */
+    dgx_ui_user_value(ui, i, dgx_ui_node(ui, i)->state_value.value + (key == DGX_UI_KEY_MORE ? 5 : -5));
+    return true;
+}
+
+static const dgx_ui_behavior_t xy_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .down = xy_at, .move = xy_move, .key = xy_key};
+static const dgx_ui_look_t     xy_look     = {.draw = xy_draw, .fill = -1, .behavior = &xy_behavior};
+
+static xy_data_t xy_data;
+static void      on_xy(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_CHANGED) point_set(node->state_value.value, xy_data.y);
+}
+static const dgx_ui_widget_t xy_w = {
+    .kind = DGX_UI_OWN, .min = 0, .max = 100, .want_w = 40, .want_h = 40, .look = &xy_look, .own = &xy_data, .on = on_xy};
+```
+
+What happens, step by step, on a pad of 40 by 40 pixels:
+
+1. The finger goes down at 30, 10 of the widget. The core sets `DGX_UI_PRESSED`, gives the widget the focus and
+   calls `down(ui, i, 30, 10)`. `xy_at()` puts 25 into `xy_data.y`, marks the widget and tells `on()`
+   `DGX_UI_CHANGED`; then `dgx_ui_user_value()` sets the value 76, and `on()` is told again.
+2. The finger moves, anywhere: the widget holds it until it goes up, so x and y may be negative or past the widget's
+   size. `move()` is called at every look of the pointer. It returns `true`: this is a drag. From then on a let-go
+   is no click, and a swipe from an edge that began on the pad is the pad's, not the program's
+   (`dgx_ui_dragging()`).
+3. The finger goes up: `up()`, when there is one, is called with `click` false. Had the widget not been dragged and
+   been let go within `DGX_UI_CLICK_MS`, `click` would be true, and after `up()` the core would tell `on()`
+   `DGX_UI_ACTIVATED`.
+4. The keys: `key()` of the focused widget is asked first, for every key. The pad takes `DGX_UI_KEY_MORE` and
+   `DGX_UI_KEY_LESS`. What it answers `false` to is the core's as usual: next and previous move the focus on,
+   `DGX_UI_KEY_ACTIVATE` tells `on()` `DGX_UI_ACTIVATED`, back is the program's.
+
+What the code rests on:
+
+- **`dgx_ui_user_value()`** sets a value as the user does: within `min`..`max`, the widget marked, `on()` told
+  `DGX_UI_CHANGED` when it changed and nothing when it is the same. `dgx_ui_set_value()` is the program's own
+  setting, and `on()` is not told of it.
+- **`dgx_ui_tell()`** tells `on()` an event the core knows nothing of: here the second axis. Data of the widget's
+  own that its look draws is marked by `dgx_ui_redraw()`.
+- **A click or a drag.** The pad returns `true` from every move, so it is never clicked. A widget that is both
+  dragged and clicked returns `true` only once the finger has gone far enough from where it went down. One that is
+  only pressed has no `move()`.
+- **The finger alone.** Without `DGX_UI_BEHAVIOR_FOCUS` the widget takes no focus: the keys pass it, and a press on
+  it leaves the focus where it was. A key of a keypad of the program's own is such a widget: the field it types
+  into keeps the focus. A behaviour of all `NULL`s is enough for it, as in the bar below.
+- **Only for `DGX_UI_OWN`.** A behaviour named by the look of a button or a slider is not called: they are worked as
+  their kind.
+- **Not there yet.** Code points typed go to a `DGX_UI_INPUT` only. The widget is hit in its whole rectangle, a
+  round one in its corners too.
+
+A widget of the finger alone, the level bar of the recipe above made to be tapped:
+
+```c
+/* the level bar of the recipe above, tapped: pressed and clicked, the focus left where it is */
+static const dgx_ui_behavior_t tap_behavior = {0};
+static const dgx_ui_look_t     tap_look     = {.draw = level_draw, .params = &level_colors, .fill = -1, .behavior = &tap_behavior};
+static const dgx_ui_widget_t   tap_w        = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .look = &tap_look};
+```
+
 ## A picture that stays between passes
 
 A look draws its widget anew at every change. A widget with the flag `DGX_UI_CANVAS` has a canvas instead: a screen
@@ -1530,13 +1650,14 @@ void mirror_send(const uint16_t *pixels, int count); /* the program's: a strip t
 
 static uint16_t mirror_rows[320 * 8]; /* eight rows of RGB565 */
 
-/* the picture of a display 320 by 240, strip by strip */
-static void mirror(dgx_ui_t *ui, dgx_ui_paint_t *paint)
+/* the picture of a display 320 by 240, strip by strip; kb: the keyboard of DGX-DI when the program has one, else NULL */
+static void mirror(dgx_ui_t *ui, dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
 {
     dgx_screen_t *band = dgx_vscreen_from_array(mirror_rows, 320, 8, 16, DgxScreenRGB);
     if (!band) return;
     for (int y = 0; y < 240; y += 8) {
         dgx_ui_paint_area_to(ui, paint, band, NULL, 0, y, 320, 8);
+        if (kb) dgx_di_keyboard_draw_to(kb, band, 0, y); /* the keyboard over the tree, where it is open */
         mirror_send(mirror_rows, 320 * 8);
     }
     dgx_screen_destroy(&band);
@@ -1549,9 +1670,10 @@ static void mirror(dgx_ui_t *ui, dgx_ui_paint_t *paint)
 - **The colours** are the paint's table when the mirror has the display's depth; a mirror of another depth gives
   its own table in place of `NULL`.
 - **What moves** is shown as the last pass drew it: the looks are given the time of the last `dgx_ui_paint()`.
-- **The keyboard and the pad of DGX-DI** draw themselves past the tree and are not in this picture. DGX-DI from
-  0.1.7 on draws them onto the same strip, the pad and then the keyboard after the tree:
-  `dgx_di_pad_draw_to()` and `dgx_di_keyboard_draw_to()`.
+- **The keyboard and the pad of DGX-DI** draw themselves past the tree, so the painter does not put them in the
+  picture. DGX-DI from 0.1.7 on draws them onto the same strip, after the tree: the keyboard as above, with the
+  display's pixel at the strip's corner given, and the pad before it by `dgx_di_pad_draw_to(pad, band, 0, y)`. The
+  program's `main/idf_component.yml` then asks for `jef-sure/dgx-di` 0.1.7 or later.
 
 ## Turning the screen
 
@@ -1616,6 +1738,9 @@ static void interface_test(void)
     assert(saved == 1);
 }
 ```
+
+A test moves a control as the user would by `dgx_ui_user_value(&ui, slider, 7)`: the value is set within its range
+and `on()` is told `DGX_UI_CHANGED`, which `dgx_ui_set_value()` does not do. `dgx_ui_tell()` tells `on()` any event.
 
 `dgx_ui_dump(&ui)` prints the tree a test has built: a line for each widget with its number, kind, place and
 size, value, state and the beginning of its text, then how many nodes are in use and whether a block past the

@@ -367,7 +367,7 @@ static void test_keys(void)
     dgx_ui_free(&pui);
 }
 
-/* the cases of the audit of steps 2 and 3 */
+/* widgets removed by their own on(), values without a range, and the rest of the edge cases */
 static void on_remove(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == (int)(intptr_t)ctx) dgx_ui_remove(ui, i);
@@ -378,9 +378,9 @@ static const dgx_ui_widget_t focus_dies  = {.kind = DGX_UI_BUTTON, .want_h = 20,
 static const dgx_ui_widget_t change_dies = {.kind = DGX_UI_SLIDER, .want_h = 20, .max = 100, .on = on_remove, .ctx = (void *)(intptr_t)DGX_UI_CHANGED};
 static const dgx_ui_widget_t tagged_box  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .tag = 5, .want_h = 40};
 
-static void test_audit(void)
+static void test_edges(void)
 {
-    /* 1: an ICON's value is not bound, so it can show none; nor is a value without a range */
+    /* an ICON's value is not bound, so it can show none; nor is a value without a range */
     dgx_ui_node_t n[8];
     dgx_ui_t      ui;
     dgx_ui_init(&ui, n, 8, 1);
@@ -392,19 +392,19 @@ static void test_audit(void)
     CHECK(dgx_ui_node(&ui, icon)->state_value.value == -1);
     dgx_ui_set_value(&ui, plain, 3);
     CHECK(dgx_ui_node(&ui, plain)->state_value.value == 3);
-    /* 6: find looks under the parent, not at it; 0 is the tag of every untagged widget, the root's too */
+    /* find looks under the parent, not at it; 0 is the tag of every untagged widget, the root's too */
     const int tb = dgx_ui_add(&ui, 0, &tagged_box);
     CHECK(dgx_ui_find(&ui, tb, 5) == -1 && dgx_ui_find(&ui, -1, 5) == tb && dgx_ui_find(&ui, -1, 0) == 0);
     dgx_ui_free(&ui);
 
-    /* 2: hidden while pressed: the press ends, and shown again it is not drawn pressed */
+    /* hidden while pressed: the press ends, and shown again it is not drawn pressed */
     make_panel();
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .down = true, .pressed = true});
     dgx_ui_show(&pui, bt, false);
     CHECK(pui.pressed == -1 && !(dgx_ui_node(&pui, bt)->state_value.bits & DGX_UI_PRESSED));
     dgx_ui_show(&pui, bt, true);
     CHECK(!(dgx_ui_node(&pui, bt)->state_value.bits & DGX_UI_PRESSED));
-    /* 3: disabled while dragged: the press ends, the next move changes nothing and tells nothing */
+    /* disabled while dragged: the press ends, the next move changes nothing and tells nothing */
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 51, .y = 25, .down = true, .pressed = true});
     const int v = dgx_ui_node(&pui, sl)->state_value.value, before = told_count;
     dgx_ui_set_state(&pui, sl, DGX_UI_DISABLED, true);
@@ -413,7 +413,7 @@ static void test_audit(void)
     CHECK(!dgx_ui_dragging(&pui));
     dgx_ui_free(&pui);
 
-    /* 5: on() removes the widget it is told of: nothing is written through it, the press ends */
+    /* on() removes the widget it is told of: nothing is written through it, the press ends */
     dgx_ui_init(&ui, n, 8, 1);
     dgx_ui_add(&ui, -1, &column);
     const int fd = dgx_ui_add(&ui, 0, &focus_dies);
@@ -548,6 +548,6 @@ int main(void)
     test_rest();
     test_pointer();
     test_keys();
-    test_audit();
+    test_edges();
     CHECK_DONE();
 }

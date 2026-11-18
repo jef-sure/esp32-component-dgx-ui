@@ -6,7 +6,8 @@
  * following, and let go without a move picks the row it went down on; dgx_ui_set_value() far down, the window at it;
  * dgx_ui_text_scroll() moves the window and not the pick; min other than 0; a box lower than a line; the text set anew
  * with fewer lines; a value set while a finger scrolls; the bar seen in a frame; a dropdown of twenty options on a
- * small screen, its window at the option chosen.
+ * small screen, its window at the option chosen; a row tapped whose on(CHANGED) puts a button in the list's slot, the
+ * button told nothing.
  */
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +32,16 @@ static int                   told[16], told_n;
 static void on_list(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (told_n < 16 && (what == DGX_UI_CHANGED || what == DGX_UI_ACTIVATED)) told[told_n++] = what; /* the focus not counted */
+}
+
+/* a list whose on(CHANGED) takes it away and puts a button in its slot: the button is told nothing */
+static const dgx_ui_widget_t newcomer_w = {.kind = DGX_UI_BUTTON, .want_h = 20, .on = on_list};
+static int                   swapped    = -1;
+static void                  on_swap(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what != DGX_UI_CHANGED) return;
+    dgx_ui_remove(ui, i);
+    swapped = dgx_ui_add(ui, 0, &newcomer_w);
 }
 
 static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
@@ -295,6 +306,22 @@ int main(void)
         dgx_ui_paint_free(&pv);
         dgx_ui_free(&ui);
         v->destroy(&v);
+    }
+
+    /* a tap on a row of it, its on(CHANGED) putting a button in its slot: the button not told ACTIVATED */
+    {
+        static tree_t t;
+        make(&t, lines(0, 12), 0, 11, 0, 4 * line, false);
+        t.w.on = on_swap;
+        dgx_ui_screen(&t.ui, PANEL_W, PANEL_H, 0);
+        dgx_ui_layout(&t.ui);
+        const dgx_ui_node_t *tn = dgx_ui_node(&t.ui, t.i);
+        const int            tx = tn->x + 5, ty = tn->y + line + line / 2;
+        told_n                  = 0;
+        finger(&t.ui, tx, ty, true, false, 4000);
+        finger(&t.ui, tx, ty, false, true, 4050);
+        CHECK(swapped == t.i && dgx_ui_widget(&t.ui, t.i) == &newcomer_w && told_n == 0);
+        dgx_ui_free(&t.ui);
     }
 
     vr->destroy(&vr);

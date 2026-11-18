@@ -144,7 +144,7 @@ int main(void)
     dgx_ui_paint_free(&pb), dgx_ui_paint_free(&pv); /* the screens of RGB565 they made */
     band->destroy(&band), v->destroy(&v);
 
-    /* the audit of the looks: a button lower than its font's cell, pressed, writes every pixel once */
+    /* a button lower than its font's cell, pressed, writes every pixel once */
     {
         static const dgx_ui_widget_t low_w = {.kind = DGX_UI_BUTTON, .text = &ok_box, .want_h = 8, .look = &dgx_ui_look_button};
         static dgx_ui_node_t         ln[2];

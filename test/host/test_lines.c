@@ -203,7 +203,7 @@ int main(void)
     band->destroy(&band);
     dgx_ui_free(&ui);
 
-    /* the audit of the look of lines: 1, a scroll step drawn in every part the keyboard's band leaves of the box */
+    /* a scroll step drawn in every part the keyboard's band leaves of the box */
     {
         dgx_screen_t  *v2 = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
         dgx_ui_paint_t pc = {.scr = v, .colors = colors, .color_count = 2, .cover = {30, 20, 30, 100}};

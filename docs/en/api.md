@@ -16,7 +16,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.10: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.11: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -118,7 +118,7 @@ of every member.
 | `DGX_UI_BUTTON` | clicked: activated |
 | `DGX_UI_INPUT` | a field typed into |
 | `DGX_UI_DROPDOWN` | a button that shows the option chosen: its options the lines of its text, its value the one chosen. Activated, the program opens its list by `dgx_ui_dropdown_open()` |
-| `DGX_UI_OWN` | drawn by a look of the program's, its data in `own` |
+| `DGX_UI_OWN` | drawn by a look of the program's, its data in `own`; worked by the finger and the keys when its look names a behaviour |
 
 **Flags**
 
@@ -257,10 +257,10 @@ The pointer as it is now: where, in pixels of the screen; `down` now; `pressed` 
 
 | Call | What it does |
 | ---- | ------------ |
-| `bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *pointer)` | The pointer given to the tree, or to its popup first. The widget it went down on is pressed until it goes up, wherever it goes. Let go within `DGX_UI_CLICK_MS`, not swiped and not dragged, it is a click: a button, a row of a list or a dropdown is activated, a switch turned, a field told `DGX_UI_EDIT`. A swipe that begins on a field opens no editor. A widget whose `on(DGX_UI_FOCUS)` opens a popup over it is not pressed: the finger is spent. It returns `true` when a widget took it. |
+| `bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *pointer)` | The pointer given to the tree, or to its popup first. The widget it went down on is pressed until it goes up, wherever it goes. Let go within `DGX_UI_CLICK_MS`, not swiped and not dragged, it is a click: a button, a row of a list or a dropdown is activated, a switch turned, a field told `DGX_UI_EDIT`, a widget of the program's own told `DGX_UI_ACTIVATED` after its behaviour's `up`. A swipe that begins on a field opens no editor. A widget whose `on(DGX_UI_FOCUS)` opens a popup over it is not pressed: the finger is spent. It returns `true` when a widget took it. |
 | `int dgx_ui_hit(dgx_ui_t *ui, int x, int y)` | The deepest widget under a pixel that answers a pointer; -1 for none. A widget is hit, as it is drawn, only within its parent's box. |
 | `bool dgx_ui_holding(const dgx_ui_t *ui)` | Whether a widget of the tree or of its popup holds the pointer. |
-| `bool dgx_ui_dragging(const dgx_ui_t *ui)` | Whether the widget that holds it is dragged: a slider, a list, a button with `DGX_UI_DRAG`. Such a widget owns the finger. |
+| `bool dgx_ui_dragging(const dgx_ui_t *ui)` | Whether the widget that holds it is dragged: a slider, a list, a button with `DGX_UI_DRAG`, a widget of the program's own whose `move` said so. Such a widget owns the finger. |
 
 `DGX_UI_CLICK_MS` is 500. `DGX_UI_KNOB` is 3: the width of a slider's knob in points. `DGX_UI_ROW_GAP` is 12: the top
 and the bottom twelfth of a list's row belong to no row.
@@ -270,18 +270,19 @@ and the bottom twelfth of a list's row belong to no row.
 | Key | What it does |
 | --- | ------------ |
 | `DGX_UI_KEY_NEXT`, `DGX_UI_KEY_PREV` | the focus to the next or the previous widget that takes it; in a list the rows first. The walk passes the fields and opens no editor |
-| `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned, a field told `DGX_UI_EDIT` |
+| `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned, a field told `DGX_UI_EDIT`; a widget of the program's own that did not take the key told `DGX_UI_ACTIVATED` |
 | `DGX_UI_KEY_MORE`, `DGX_UI_KEY_LESS` | the focused slider a step up or down, a switch on or off |
-| `DGX_UI_KEY_BACK` | never taken: the program's |
+| `DGX_UI_KEY_BACK` | taken by no widget of the core: the program's |
 
-`DGX_UI_KEYS` is how many keys there are.
+`DGX_UI_KEYS` is how many keys there are. A focused widget of the program's own is asked first, for every key, by
+its behaviour's `key`: [A look and a behaviour](#a-look-and-a-behaviour).
 
 | Call | What it does |
 | ---- | ------------ |
 | `bool dgx_ui_key(dgx_ui_t *ui, int key)` | A key given to the tree, or to its popup first; `true` when a widget took it. |
 | `bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)` | The buttons held now. Each that went down is its key; next, previous, more and less repeat while held. Call it at every tick with all the buttons held, also when the program itself acts on one: a button it did not see go down is a new press at the next call. `true` when a widget took a key. |
 | `bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)` | The time step of the logic: a held key repeats when its time comes. `true` while such a key is held: the loop asks for time. |
-| `void dgx_ui_focus(dgx_ui_t *ui, int i)` | The focus put on a widget, which is told `DGX_UI_FOCUS`; -1: on none. |
+| `void dgx_ui_focus(dgx_ui_t *ui, int i)` | The focus put on a widget, which is told `DGX_UI_FOCUS`; -1: on none. A widget that cannot take it (hidden, disabled, of the program's own without `DGX_UI_BEHAVIOR_FOCUS`): on none. |
 
 A held key repeats `DGX_UI_REPEAT_FIRST_MS`, 500 ms, after it went down, and every `DGX_UI_REPEAT_MS`, 100 ms, after.
 
@@ -333,6 +334,52 @@ static const uint8_t row_keys[8] = {
   default back.
 - It is the table of the tree given to `dgx_ui_buttons()`. The keys it gives go to the popups over that tree as any
   key does.
+
+### A look and a behaviour
+
+```c
+struct dgx_ui_look_t {
+    bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+    const void              *params;
+    int16_t                  fill;
+    const dgx_ui_behavior_t *behavior;
+};
+
+typedef struct dgx_ui_behavior_t {
+    uint8_t flags;
+    void (*down)(dgx_ui_t *ui, int i, int x, int y);
+    bool (*move)(dgx_ui_t *ui, int i, int x, int y);
+    void (*up)(dgx_ui_t *ui, int i, int x, int y, bool click);
+    bool (*key)(dgx_ui_t *ui, int i, int key);
+} dgx_ui_behavior_t;
+```
+
+A look is how a widget is drawn. `draw` draws the widget `i` in its state and returns `true` to be called again at
+the next pass; `params` is the look's own type; `fill` is the index of the colour it leaves under the widget's
+children, -1: what lay there. `behavior` is the behaviour of a widget of `DGX_UI_OWN` drawn by this look; `NULL`:
+the widget is only drawn. The looks of the library name none. The rules a `draw` keeps are in
+[A look of your own](cookbook.md#a-look-of-your-own).
+
+A behaviour is how a widget of `DGX_UI_OWN` answers the finger and the keys. With it the core finds the widget
+under the finger, presses it and tells a click, as it does for its own kinds; without it the widget is only drawn.
+A behaviour named by the look of a widget of another kind is not called. Every function may be `NULL`. `x` and `y`
+are in the widget's own pixels, from its top left corner; while the finger is held they may lie outside the widget.
+
+| Member | When it is called |
+| ------ | ----------------- |
+| `flags` | `DGX_UI_BEHAVIOR_FOCUS`: the widget takes the focus, and the keys with it. Without it the widget is of the finger alone: a press on it leaves the focus where it was, the keys pass it, and `dgx_ui_focus()` on it leaves nobody focused |
+| `down` | the finger went down on the widget; `DGX_UI_PRESSED` is set and the focus given by then |
+| `move` | at every look of the pointer while the widget holds the finger. `true`: a drag, so there is no click when it is let go, and `dgx_ui_dragging()` is true: a swipe from an edge is not the program's |
+| `up` | the finger let go; `click`: not dragged, not swiped, within `DGX_UI_CLICK_MS`. After a click the core tells `on()` `DGX_UI_ACTIVATED`, so `on()` sees a value `up` has set |
+| `key` | a key while the widget has the focus; it is asked first, for every key; `true`: taken. What it does not take is the core's: next and previous move the focus on, `DGX_UI_KEY_ACTIVATE` tells `DGX_UI_ACTIVATED` (with no `up`), back is the program's |
+
+| Call | What it does |
+| ---- | ------------ |
+| `void dgx_ui_user_value(dgx_ui_t *ui, int i, int value)` | The value of a widget set as the user sets it: within `min`..`max`, the widget marked, `on()` told `DGX_UI_CHANGED` when it changed and nothing when it is the same. For a behaviour's code, and for any widget: a program's test acts as the user by it. |
+| `void dgx_ui_tell(dgx_ui_t *ui, int i, int what)` | An event told to a widget's `on()`, the node as it is now. For a behaviour whose data in `own` changed, and for any widget. |
+
+Code points typed go to a `DGX_UI_INPUT` only. The widget is hit in its whole rectangle. The recipe:
+[A widget of your own that the finger and the keys work](cookbook.md#a-widget-of-your-own-that-the-finger-and-the-keys-work).
 
 ### A popup
 
@@ -656,17 +703,9 @@ takes, and each strip is sent once: every pixel once.
 
 ### A look
 
-```c
-struct dgx_ui_look_t {
-    bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
-    const void *params;
-    int16_t     fill;
-};
-```
-
-How a widget is drawn. `draw` draws the widget `i` in its state and returns `true` to be called again at the next
-pass; `params` is the look's own type; `fill` is the index of the colour it leaves under the widget's children, -1:
-what lay there. The rules a `draw` keeps are in [A look of your own](cookbook.md#a-look-of-your-own).
+The struct of a look, `dgx_ui_look_t`, is declared in `dgx_ui.h`, so that the core sees the behaviour a look may
+name: [A look and a behaviour](#a-look-and-a-behaviour). The rules its `draw` keeps are in
+[A look of your own](cookbook.md#a-look-of-your-own).
 
 `DGX_UI_PAPER`, 0xff, as the paper of a look's parameters means the colour under the widget.
 

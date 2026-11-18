@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.10: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.11: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.10"
+    version: "0.0.11"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -83,7 +83,7 @@ It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from
 | ---- | ------------- |
 | [Getting started](docs/en/getting-started.md) | adding the component, the first program piece by piece, building for a chip and for the computer |
 | [How it works](docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
-| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a popup, keys, touch, a field and a keyboard, a look of your own |
+| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a popup, keys, touch, a field and a keyboard, a look of your own, a control of your own |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
 
 Examples, each for a CYD board and for a window on the computer: [thin_paint](examples/thin_paint/main/thin_paint.c),
@@ -110,6 +110,8 @@ worked by a finger and by the keys, on a board taken from
 - **Controls**: a button with a shadow and a pressed face, a switch, a slider, a list, a dropdown with its list, a
   field typed into, pictures and icons of 1, 4 and 8 bits and of RGB565. A control names its look, so a program
   carries only the looks it uses.
+- **Controls of the program's own**: a widget drawn by the program's look becomes a control when the look names a
+  behaviour, what the finger and the keys do with it; the core does the hit, the press, the focus and the click.
 - **A picture for the background**: a function of the program's lays it, and labels, buttons and pictures show it
   around their letters and faces; where it changes, the program says so and only that is drawn again.
 - **A canvas of a widget's own**: a picture that stays from pass to pass, for a look that only adds to it, a graph

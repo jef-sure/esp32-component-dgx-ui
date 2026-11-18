@@ -174,7 +174,7 @@ int main(void)
     CHECK(activated_count == 1 && activated[0] == 1);
     dgx_ui_popup_close(&ui);
 
-    /* the audit of the popup: 1, a change made under a popup over all of the screen is drawn when it closes */
+    /* a change made under a popup over all of the screen is drawn when it closes */
     {
         static dgx_ui_font_variant_t two[2];
         static dgx_ui_text_style_t   st2;

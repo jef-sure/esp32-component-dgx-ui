@@ -143,7 +143,7 @@ enum {
 
 /** What a widget's on() is told: what the user did, never what the program set. */
 enum {
-    DGX_UI_ACTIVATED, ///< a click of a button, a list's row or a dropdown; a field's "done"
+    DGX_UI_ACTIVATED, ///< a click of a button, a list's row, a dropdown or a widget of the program's own; a field's "done"
     DGX_UI_CHANGED,   ///< the value changed by the finger or a key
     DGX_UI_FOCUS,     ///< the focus came to it
     DGX_UI_BACK,      ///< a field's "cancel"
@@ -155,6 +155,56 @@ typedef struct dgx_ui_t        dgx_ui_t;
 typedef struct dgx_ui_msg_t    dgx_ui_msg_t;
 typedef struct dgx_ui_look_t   dgx_ui_look_t;
 typedef struct dgx_ui_node_t   dgx_ui_node_t;
+
+typedef struct dgx_ui_paint_t  dgx_ui_paint_t;
+
+/**
+ * @brief How a widget of the program's own (DGX_UI_OWN) behaves under the finger and the keys, named by its look
+ * (dgx_ui_look_t::behavior): the core does what is common to every kind (the hit, DGX_UI_PRESSED, the focus, the rule
+ * of a click, a swipe from an edge, hidden and disabled) and calls these for what is the widget's own. Every function
+ * may be NULL; x and y are in the widget's own pixels, from the top left of its box.
+ *
+ *     // a dial 0..100: the angle of the finger round its middle, set as the user set it
+ *     static void dial_down(dgx_ui_t *ui, int i, int x, int y) { dgx_ui_user_value(ui, i, angle_of(ui, i, x, y)); }
+ *     static bool dial_move(dgx_ui_t *ui, int i, int x, int y) { dial_down(ui, i, x, y); return true; } // a drag
+ *     static const dgx_ui_behavior_t dial_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .down = dial_down, .move = dial_move};
+ *     static const dgx_ui_look_t     dial_look     = {.draw = draw_dial, .fill = -1, .behavior = &dial_behavior};
+ *     static const dgx_ui_widget_t   dial_w        = {.kind = DGX_UI_OWN, .max = 100, .want_w = 40, .want_h = 40, .look = &dial_look};
+ *
+ * move() returning true takes the move as a drag: no click when let go, and a swipe from an edge that began on it is
+ * not the program's (dgx_ui_dragging()); a widget that is only pressed returns false, or has no move(), and keeps its
+ * click. Let go: up() first, with click by the rule of a click (not dragged, within DGX_UI_CLICK_MS), then on a click
+ * the core tells DGX_UI_ACTIVATED, so a value up() sets is the one the program hears of. A key while it has the focus
+ * goes to key() first; what it does not take (false) the core does as for any widget: NEXT and PREV move the focus on,
+ * ACTIVATE is told as DGX_UI_ACTIVATED, as a click (up() is the finger's and is not called), BACK is the program's. A
+ * widget of no DGX_UI_BEHAVIOR_FOCUS takes no focus: a press on it leaves the focus where it was, and dgx_ui_focus() on
+ * it leaves nobody focused, as on any widget that cannot take it. The widget's on() stays the program's: the behaviour tells through it, by dgx_ui_user_value()
+ * and dgx_ui_tell(). Not in it yet: the code points typed go to a DGX_UI_INPUT only, and the hit is the widget's
+ * rectangle, so a round dial is hit in its corners too.
+ */
+typedef struct dgx_ui_behavior_t {
+    uint8_t flags;                                             ///< DGX_UI_BEHAVIOR_FOCUS
+    void (*down)(dgx_ui_t *ui, int i, int x, int y);           ///< the finger went down on it
+    bool (*move)(dgx_ui_t *ui, int i, int x, int y);           ///< the finger moved while it holds it, anywhere; true: a drag
+    void (*up)(dgx_ui_t *ui, int i, int x, int y, bool click); ///< the finger let go; click: by the rule of a click
+    bool (*key)(dgx_ui_t *ui, int i, int key);                 ///< a key while it has the focus; true: taken
+} dgx_ui_behavior_t;
+
+/** Flags of a dgx_ui_behavior_t. */
+enum {
+    DGX_UI_BEHAVIOR_FOCUS = 1u << 0, ///< it takes the focus, and the keys with it; without it the finger alone
+};
+
+/**
+ * @brief How a kind of widget looks: a function that draws a widget in its state, and its parameters; and for a widget
+ * of the program's own, how it behaves (the painter's rules of a look: dgx_ui_paint.h).
+ */
+struct dgx_ui_look_t {
+    bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms); ///< true: more time
+    const void              *params;   ///< the look's own type
+    int16_t                  fill;     ///< the index of the color it leaves under its children; -1: what lies under it
+    const dgx_ui_behavior_t *behavior; ///< a widget of DGX_UI_OWN drawn by it: how it behaves; NULL, it is not worked (every look of the library)
+};
 
 /**
  * @brief A picture of a widget: a picture of DGX of 1, 4 or 8 bits, or one of RGB565.
@@ -239,7 +289,7 @@ enum {
     DGX_UI_KEY_NEXT,     ///< the focus on (in a list: the next row first)
     DGX_UI_KEY_PREV,     ///< the focus back (in a list: the row before first)
     DGX_UI_KEY_ACTIVATE, ///< the focused one pressed
-    DGX_UI_KEY_BACK,     ///< the program's: no widget takes it
+    DGX_UI_KEY_BACK,     ///< the program's: no widget of the core takes it (one of the program's own may, in its key())
     DGX_UI_KEY_MORE,     ///< the focused slider or switch up
     DGX_UI_KEY_LESS,     ///< the focused slider or switch down
     DGX_UI_KEYS
@@ -474,6 +524,19 @@ bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *pointer);
  * Such a widget owns the finger: a swipe from an edge that begins on it is not the program's.
  */
 bool dgx_ui_dragging(const dgx_ui_t *ui);
+
+/**
+ * @brief The value of widget i set as the user sets it, as the core sets a slider's: within min..max, the widget
+ * marked, DGX_UI_CHANGED told to its on() when it changed, nothing when it is the same. For the behaviour of a widget
+ * of the program's own (dgx_ui_behavior_t), and for any widget: a program's test acts as the user by it.
+ */
+void dgx_ui_user_value(dgx_ui_t *ui, int i, int value);
+
+/**
+ * @brief An event told to widget i's on(), DGX_UI_CHANGED, DGX_UI_ACTIVATED ..., the node as it is now: for the
+ * behaviour of a widget of the program's own (a value of its own in `own` changed), and for any widget.
+ */
+void dgx_ui_tell(dgx_ui_t *ui, int i, int what);
 
 /** @brief Whether the pointer is held by a widget of the tree or of its popup: it went down on one and is not up. */
 bool dgx_ui_holding(const dgx_ui_t *ui);

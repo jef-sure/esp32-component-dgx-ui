@@ -225,6 +225,12 @@ text of several lines.
 A look in the program's own colours is a constant of the library's drawing function and parameters of its own:
 `{.draw = dgx_ui_draw_button, .params = &my_colours, .fill = -1}`.
 
+A look may also name a behaviour: four functions for the finger going down, moving and going up, and for a key. A
+widget of the program's own kind, `DGX_UI_OWN`, drawn by such a look is a control: the core hits it, presses it,
+focuses it and tells a click as it does for its own kinds, and calls the behaviour for the rest. Without a
+behaviour such a widget is only drawn. See
+[A widget of your own that the finger and the keys work](cookbook.md#a-widget-of-your-own-that-the-finger-and-the-keys-work).
+
 The looks of the library draw the whole box of the widget in its state as it is, and keep no memory of their own.
 A look that does remember what it drew stores it only in the last part of a pass: see
 [A look of your own](cookbook.md#a-look-of-your-own).

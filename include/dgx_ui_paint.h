@@ -76,7 +76,7 @@ typedef struct dgx_ui_drawn_background_t dgx_ui_drawn_background_t;
 typedef struct dgx_ui_canvases_t dgx_ui_canvases_t;
 
 /** @brief How a tree is drawn on a screen. Filled by the program; the members after `cover` are the painter's. */
-typedef struct dgx_ui_paint_t {
+struct dgx_ui_paint_t {
     dgx_screen_t                    *scr;             ///< where
     const uint32_t                  *colors;          ///< the table: an index of a look to a color of the screen
     uint16_t                         color_count;     ///< its size
@@ -136,10 +136,10 @@ typedef struct dgx_ui_paint_t {
                                                       ///< dgx_ui_paint_free(); NULL none
     dgx_ui_rect_t                    cover_was;       ///< the keyboard's band as the last pass left it: where it goes,
                                                       ///< the tree is composed again
-} dgx_ui_paint_t;
+}; /* its name, dgx_ui_paint_t: dgx_ui.h */
 
-/**
- * @brief How a kind of widget looks: a function that draws a widget in its state, and its parameters.
+/*
+ * The rules of a look (struct dgx_ui_look_t, dgx_ui.h): what its function draws and when.
  *
  * The function draws what differs between the widget's state_drawn and state_value, or all of it when the painter
  * says whole; the clip of the screen is set to the part of the widget's box it may draw, and it may be called for
@@ -155,11 +155,6 @@ typedef struct dgx_ui_paint_t {
  * stores it only in the last part of the painter's own pass: paint->part == paint->parts - 1 and not composing.
  * Stored in the first, it would find nothing changed in the parts after.
  */
-struct dgx_ui_look_t {
-    bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms); ///< true: more time
-    const void *params; ///< the look's own type
-    int16_t     fill;   ///< the index of the color it leaves under its children; -1: what lies under it
-};
 
 /** @brief No look asks for time: paint's wake_ms, dgx_ui_wake(). */
 #define DGX_UI_WAKE_NONE UINT32_MAX
