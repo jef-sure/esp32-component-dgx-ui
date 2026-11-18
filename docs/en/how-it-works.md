@@ -284,7 +284,8 @@ every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_d
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the
 program gives the painter: a picture of 4 or 8 bits, a row of the picture at least; and, when the program names the
-strips, the widgets of a display of 18 or 24 bits, a row of the widest widget at least.
+strips, the widgets of a display of 18 or 24 bits, a row of the widest widget at least. And a widget with the flag
+`DGX_UI_CANVAS` keeps a picture of its own between passes: a byte for each pixel of its box.
 
 ## Tests on the computer
 

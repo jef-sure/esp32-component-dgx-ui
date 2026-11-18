@@ -168,6 +168,7 @@ static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool
 bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
 {
     dgx_screen_t *scr  = paint->scr;
+    paint->now_ms      = now_ms; /* the time of the composings below too: a look that counts by it is drawn as it stands */
     const int     turn = (int)scr->dir_x | (int)scr->dir_y << 2 | (int)scr->swap_xy << 4;
     for (dgx_ui_t *t = ui; t; t = t->popup) {
         /* every tree, the popups' too, laid for the screen as it stands */
@@ -198,6 +199,7 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
     paint->popup_over = NULL;
     dgx_screen_clip(scr, cx, cy, cw, ch);
     dgx_screen_batch_end(scr);
+    if (paint->canvases) paint->canvases->end(paint, ui); /* the canvases of widgets gone freed, NO_MEMORY told */
     return more;
 }
 
@@ -213,6 +215,7 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint)
     if (paint->rgb565) dgx_screen_destroy(&paint->rgb565);
     if (paint->indexed) dgx_screen_destroy(&paint->indexed);
     if (paint->strip) dgx_screen_destroy(&paint->strip);
+    if (paint->canvases) paint->canvases->free(paint);
     free(paint->lut);
     paint->lut = NULL;
 }
@@ -229,7 +232,7 @@ static void walk_area(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper,
     if (background && fills) return;
     if (look) {
         paint->paper = paper, paint->on_background = on_bg, paint->whole = true;
-        draw_parts(paint, ui, i, look, &seen, 0);
+        draw_parts(paint, ui, i, look, &seen, paint->now_ms);
     }
     const uint8_t in = fills ? (uint8_t)look->fill : paper;
     for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) walk_area(paint, ui, c, in, on_bg && !fills, background, &seen);

@@ -32,6 +32,13 @@ struct dgx_ui_drawn_background_t {
     void (*text)(dgx_ui_paint_t *paint, const dgx_font_context_t *ctx, int x, int y, const char *text, uint8_t paper);
 };
 
+/* the canvases of a paint (dgx_ui_canvas.c), reached by the painter through these two only: a program with no canvas
+   carries none of them */
+struct dgx_ui_canvases_t {
+    void (*end)(dgx_ui_paint_t *paint, dgx_ui_t *ui); /* after a pass over ui: the canvases of widgets gone freed, NO_MEMORY told */
+    void (*free)(dgx_ui_paint_t *paint);              /* all freed, the table too */
+};
+
 /* a look's paper, an index or DGX_UI_PAPER, is the program's drawn background here: laid by dgx_ui_lay_paper(), and
    the letters and pictures over it drawn without paper */
 static inline bool dgx_ui_paper_drawn(const dgx_ui_paint_t *paint, uint8_t paper)

@@ -27,13 +27,13 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 
 ## 1. Подключите компонент
 
-Версия 0.0.7 — это тег в репозитории, в реестре компонентов ESP её пока нет. В `main/idf_component.yml` проекта:
+Версия 0.0.8 — это тег в репозитории, в реестре компонентов ESP её пока нет. В `main/idf_component.yml` проекта:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.7"
+    version: "0.0.8"
 ```
 
 При следующей сборке менеджер компонентов возьмёт dgx-ui с GitHub, а DGX — из реестра, потому что dgx-ui её
@@ -165,7 +165,7 @@ static const dgx_ui_widget_t clock_w = {.kind = DGX_UI_LABEL, .text = &clock_box
 static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &note_box};
 ```
 
-Два правила о размерах стоит запомнить:
+Три правила о размерах стоит запомнить:
 
 - У контейнера своего размера нет. В столбце он шириной со столбец, а высоту ему задаёт `want_h`.
 - Надпись высотой в свои строки текста. Своей ширины у неё нет: в столбце она берёт ширину столбца, а в строке

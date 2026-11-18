@@ -16,7 +16,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.7: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.8: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -130,7 +130,7 @@ of every member.
 | `DGX_UI_SWIPE` | a slider moved by the way the finger goes from where it went down, its width the whole range; a tap on it activates it |
 | `DGX_UI_DRAG` | a button dragged up or down as well as clicked, as the knob of a scroll bar: `on()` is told `DGX_UI_CHANGED` at every move |
 | `DGX_UI_REST` | along the stacking of a column or a row it takes all the box has left after the other children, the gaps and the pads; several share it equally; never less than 0 |
-| `DGX_UI_CANVAS` | kept for the canvas of a widget; not used yet |
+| `DGX_UI_CANVAS` | the widget has a canvas of its own, a picture kept from pass to pass: `dgx_ui_canvas()` |
 
 **Events**: what `on()` is told in `what`.
 
@@ -140,7 +140,7 @@ of every member.
 | `DGX_UI_CHANGED` | the user changed the value: by the finger, a key, or a letter typed |
 | `DGX_UI_FOCUS` | the focus came to it |
 | `DGX_UI_BACK` | "cancel" was typed into a field |
-| `DGX_UI_NO_MEMORY` | kept for the canvas of a widget; not told yet |
+| `DGX_UI_NO_MEMORY` | the canvas of the widget could not be had: told once for that size, after the pass; it is tried again whenever its look asks |
 | `DGX_UI_EDIT` | a field was clicked, or activated by a key while it has the focus: the program opens its editor, a keyboard |
 
 `on()` is told only what the user did, never what the program set. It may change and remove widgets, the one it is
@@ -197,7 +197,7 @@ A widget in a tree, 28 bytes of RAM on a 32-bit chip. The program reads it and d
 | `DGX_UI_MARK_TIME` | its look asked for time: it is called again at the next pass |
 | `DGX_UI_MARK_BELOW` | a widget under it is to be drawn: the painter goes down only where this is set |
 | `DGX_UI_MARK_AROUND` | a child of it moved, came or went: a box or a frame that stacks its children fills around them, and only the children marked themselves are drawn |
-| `DGX_UI_MARK_HARD_SIZE` | kept for the canvas of a widget; not used yet |
+| `DGX_UI_MARK_HARD_SIZE` | its canvas keeps the size it has: a larger one could not be had |
 
 ### The tree
 
@@ -449,7 +449,7 @@ kept.
 | `void dgx_ui_msg_ref(dgx_ui_msg_t *msg, int what, void *data, size_t size, void (*done)(void *, size_t))` | A message by reference filled. |
 | `bool dgx_ui_take(dgx_ui_t *ui, dgx_ui_msg_t *msg)` | The message offered to every widget of the tree in its order, the hidden ones too, then to those of its popup, until one claims it. It returns `true` when one did. Nothing is released. |
 | `void dgx_ui_msg_done(dgx_ui_msg_t *msg)` | The message done with: `done()` is called, once, for data by reference. Nothing for a message by value or one a widget kept. The loop calls it once for every message. |
-| `void dgx_ui_msg_keep(dgx_ui_t *ui, dgx_ui_msg_t *copy)` | Called in a widget's `take()`: the data stays the widget's after the walk. The message is copied into `copy`, which the widget gives to `dgx_ui_msg_done()` when it is done. Keeping claims the message. A second call, or one outside a `take()`, gives a message of no data. |
+| `void dgx_ui_msg_keep(dgx_ui_t *ui, dgx_ui_msg_t *copy)` | Called in a widget's `take()`: the data stays the widget's after the walk. The message is copied into `copy`, which the widget gives to `dgx_ui_msg_done()` when it is done. Keeping claims the message. A second call, or one outside a `take()`, gives a message of no data. A message offered to a second tree after a widget of the first kept it is offered there as any other, read and not kept, and the loop's `dgx_ui_msg_done()` still does nothing. |
 | `esp_err_t dgx_ui_msg_copy(const dgx_ui_msg_t *msg, int what, void *out, size_t size)` | The data of a message of the number `what` copied out. `ESP_OK`; `ESP_ERR_NOT_FOUND` for another number; `ESP_ERR_INVALID_SIZE` for this number with data of another size, which is logged. |
 | `const void *dgx_ui_msg_data(const dgx_ui_msg_t *msg, size_t *size)` | The data of a message and its size, where they lie; valid until the message is done with. |
 | `bool dgx_ui_typed(dgx_ui_t *ui, const uint32_t *code_points, int count)` | Code points typed, to the focused field of the popup or of the tree. `true` when a field took them. |
@@ -527,6 +527,8 @@ typedef struct dgx_ui_paint_t {
     uint16_t       *lut;
     dgx_screen_t   *strip;
     size_t          buffer_used;
+    uint32_t        now_ms;
+    dgx_ui_canvases_t *canvases;
     dgx_ui_rect_t   cover_was;
 } dgx_ui_paint_t;
 ```
@@ -552,8 +554,8 @@ how many.
 | Call | What it does |
 | ---- | ------------ |
 | `bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)` | The tree laid if it has to be, then what changed drawn, in one batch, and its popup over it. The clip of the screen is given back as it was. `true` when a widget asks for more time. |
-| `void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)` | A rectangle of the tree's screen composed from the root down: the background, then every widget that meets it, whole, under a clip. Nothing is marked as drawn. Pixels may be written more than once. |
-| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures and of the strips, and the table of the indexed pictures. The struct may be used again. |
+| `void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)` | A rectangle of the tree's screen composed from the root down: the background, then every widget that meets it, whole, under a clip. Nothing is marked as drawn. Pixels may be written more than once. The looks are given the time of the last `dgx_ui_paint()` with this paint, its `now_ms`; a program that composes with a paint that `dgx_ui_paint()` never draws sets `now_ms` first. |
+| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures and of the strips, and the table of the indexed pictures. The canvases of the widgets too. The struct may be used again. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | A colour of the table; 0 past its end. |
 | `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | For a look of the program's own that holds children: an area of the widget `i`, in pixels of the tree's screen, filled with a colour everywhere but under its shown children that a look draws. In a column or a row; a widget of neither has the area filled whole. Called from a look's `draw`. |
 
@@ -584,6 +586,32 @@ library's laying of a picture; `dgx_ui_background_set()` names it, the program d
   in the buffer and sent once. Drawn straight it is written twice, and the soft edges of its letters mix with the
   colour `background`, not with the picture.
 - The recipe is [A picture under the widgets](cookbook.md#a-picture-under-the-widgets).
+
+### A canvas
+
+A widget with the flag `DGX_UI_CANVAS` has a canvas: a virtual screen of DGX of 8 bits, as large as its box, that the
+paint keeps from pass to pass, for a look that draws its picture on and on. `dgx_ui_canvases_t` is opaque: the
+canvases a paint made.
+
+| Call | What it does |
+| ---- | ------------ |
+| `dgx_screen_t *dgx_ui_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made)` | For a look: the canvas of widget `i`, made at its first need after the layout, all zeros. `made` is set: `true` when the canvas is new, or new in another size, and holds nothing. `NULL`: no canvas to be had, or the widget has no `DGX_UI_CANVAS` or no size. |
+| `void dgx_ui_canvas_put(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink)` | For a look: the canvas put on the screen at the top left of the widget's box, the rest of the box its paper. `ink` -1: the values of the canvas are indices of the painter's table, 0 the paper. `ink` an index of the table: the values are amounts of that ink over the paper, 0 none and 255 all. With no canvas, or on a screen of other than 16 bits, the box is paper. |
+
+- A look draws in the canvas what the time and the state say, so that called twice in a pass it draws the same; it
+  is called for every part of its box, and each call puts the canvas. Drawn whole with a kept canvas, it puts the
+  canvas and draws nothing again.
+- When the box changes its size a new canvas is made, then the old one freed. If no new one can be had the old one
+  is kept for good, the widget marked `DGX_UI_MARK_HARD_SIZE`, and it is put cut to the box.
+- With no canvas at all the widget is told `DGX_UI_NO_MEMORY` at the end of the next `dgx_ui_paint()`, once for
+  that size, and the canvas is tried again whenever the look asks.
+- The canvases are the paint's: a tree drawn by another paint has others. A canvas is freed when its widget leaves
+  the tree, when its tree is not drawn by the paint's `dgx_ui_paint()` (a popup closed), and by
+  `dgx_ui_paint_free()`. So one paint draws one tree and the popups over it.
+- On a drawn background a 0 of the canvas leaves the picture, and amounts of ink mix with it where the screen can
+  be read, in a strip.
+- It needs `CONFIG_DGX_ENABLE_VSCREEN`. The recipe is
+  [A picture that stays between passes](cookbook.md#a-picture-that-stays-between-passes).
 
 ### Drawing through the buffer
 

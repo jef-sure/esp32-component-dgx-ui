@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.7: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.8: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.7"
+    version: "0.0.8"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -112,6 +112,8 @@ worked by a finger and by the keys, on a board taken from
   carries only the looks it uses.
 - **A picture for the background**: a function of the program's lays it, and labels, buttons and pictures show it
   around their letters and faces; where it changes, the program says so and only that is drawn again.
+- **A canvas of a widget's own**: a picture that stays from pass to pass, for a look that only adds to it, a graph
+  or digits that morph.
 - **Popups** over the tree, one over another: modal, or closed by a finger outside.
 - **Input**: a pointer, the keys of a dialog, the buttons of a game pad with a repeat of a held one, code points
   typed; the touch of [DGX-DI](https://github.com/jef-sure/esp32-component-dgx-di) through a header, if the program
@@ -122,7 +124,7 @@ worked by a finger and by the keys, on a board taken from
 ## Not there yet
 
 - a list that scrolls;
-- a canvas of a widget, and handwritten text;
+- handwritten text;
 - a builder of interfaces on the computer.
 
 An interface of tables, graphs and long texts is a task for
@@ -141,6 +143,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | the look of several lines, when a widget names it | about 2.5 KB more |
 | drawing through the buffer for a display of 18 or 24 bits, when the program names it | about 0.6 KB more, and 5 KB of DGX |
 | a picture for the background, when the program sets one | about 0.5 KB more |
+| a canvas, when a widget has one | about 1.5 KB more, and a byte of RAM a pixel of its box |
 
 ## License
 

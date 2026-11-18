@@ -229,6 +229,41 @@ int main(int argc, char **argv)
                l.focus == after);
         dgx_ui_free(&l);
     }
+    /* a graph in a canvas: a column a value, only the new one drawn; a popup opened and closed puts it again; full, it
+       begins again */
+    {
+        static dgx_ui_node_t gn[2], pn2[1];
+        static dgx_ui_t      g, gp;
+        static const dgx_ui_widget_t gp_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN};
+        dgx_screen_t                *scr  = dgx_vscreen_init(160, 60, 16, DgxScreenRGB);
+        static uint32_t              tb[COLORS];
+        for (int k = 0; k < COLORS; ++k) tb[k] = dgx_screen_rgb(scr, (uint8_t)(30 * k), (uint8_t)(250 - 30 * k), (uint8_t)(10 + 25 * k));
+        dgx_ui_paint_t pp = {.scr = scr, .colors = tb, .color_count = COLORS, .background = PAPER};
+        dgx_ui_init(&g, gn, 2, 2);
+        const int top = dgx_ui_add(&g, -1, &col_w), graph = dgx_ui_add(&g, top, &history_w);
+        dgx_ui_paint(&g, &pp, 0);
+        const dgx_ui_node_t *n = dgx_ui_node(&g, graph);
+        history_add(&g, graph, 1000), dgx_ui_paint(&g, &pp, 1); /* 20 pixels high */
+        history_add(&g, graph, 500), dgx_ui_paint(&g, &pp, 2);  /* 10 */
+        const int bottom = n->y + n->h - 1;
+        printf("graph: its box %dx%d; column 0 is 20 high %d, column 1 is 10 high %d, column 2 paper %d\n", n->w, n->h,
+               dgx_get_pixel(scr, n->x, bottom - 19) == tb[ACCENT] && dgx_get_pixel(scr, n->x, bottom - 20) == tb[PAPER],
+               dgx_get_pixel(scr, n->x + 1, bottom - 9) == tb[ACCENT] && dgx_get_pixel(scr, n->x + 1, bottom - 10) == tb[PAPER],
+               dgx_get_pixel(scr, n->x + 2, bottom) == tb[PAPER]);
+        dgx_ui_init(&gp, pn2, 1, 1), dgx_ui_add(&gp, -1, &gp_w);
+        dgx_ui_popup_open(&g, &gp, 0, 0, 80, 60, 0), dgx_ui_paint(&g, &pp, 3);
+        const bool hidden = dgx_get_pixel(scr, n->x, bottom) != tb[ACCENT];
+        dgx_ui_popup_close(&g), dgx_ui_paint(&g, &pp, 4);
+        printf("graph: under a popup its column is hidden %d; the popup closed, the columns are there again %d\n", hidden,
+               dgx_get_pixel(scr, n->x, bottom - 19) == tb[ACCENT] && dgx_get_pixel(scr, n->x + 1, bottom - 9) == tb[ACCENT]);
+        for (int k = 2; k < HISTORY; ++k) history_add(&g, graph, 100);
+        dgx_ui_paint(&g, &pp, 5);
+        history_add(&g, graph, 2000), dgx_ui_paint(&g, &pp, 6); /* full: begun again with one column of 40 */
+        printf("graph: full and one more value: begun again, column 0 is 40 high %d, column 1 paper %d, the widget's value %d\n",
+               dgx_get_pixel(scr, n->x, bottom - 39) == tb[ACCENT], dgx_get_pixel(scr, n->x + 1, bottom) == tb[PAPER], n->state_value.value);
+        dgx_ui_paint_free(&pp), dgx_ui_free(&g), dgx_ui_free(&gp);
+        scr->destroy(&scr);
+    }
     /* a picture under the widgets: the map between the letters of a label, a frame's fill, the label changed, the map
        swapped */
     {

@@ -146,7 +146,7 @@ enum {
     DGX_UI_CHANGED,   ///< the value changed by the finger or a key
     DGX_UI_FOCUS,     ///< the focus came to it
     DGX_UI_BACK,      ///< a field's "cancel"
-    DGX_UI_NO_MEMORY, ///< its canvas could not be had; it is tried again at the next layout
+    DGX_UI_NO_MEMORY, ///< its canvas could not be had, told once for that size after the pass; tried again whenever its look asks
     DGX_UI_EDIT,      ///< a field clicked, or DGX_UI_KEY_ACTIVATE while it has the focus: the program opens its editor
 };
 

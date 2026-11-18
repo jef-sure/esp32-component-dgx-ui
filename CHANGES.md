@@ -1,5 +1,24 @@
 # Changes
 
+## 0.0.8 - 2026-11-18
+
+- A canvas of a widget of `DGX_UI_CANVAS`, `dgx_ui_canvas(paint, ui, i, &made)`: an 8-bit virtual screen as large as
+  its box, kept by the paint from pass to pass for a look that draws its picture on and on (digits that morph, a text
+  written stroke by stroke); `made` says it is new and empty. Its box of another size, a new one; none to be had, the
+  old one kept and marked `DGX_UI_MARK_HARD_SIZE`; none at all, `DGX_UI_NO_MEMORY` told once for that size after the
+  pass. Freed when its widget leaves the tree, when its tree is not drawn by the paint's pass, and by
+  `dgx_ui_paint_free()`. A program whose looks ask for no canvas does not carry it.
+- `dgx_ui_canvas_put(paint, ui, i, ink)`: the canvas on the screen at the top left of its box, the rest of the box its
+  paper: indices of the painter's table (`ink` -1, 0 the paper), or amounts of an ink over the paper, as a soft pen
+  writes them; over a drawn background mixed with it where the screen can be read.
+- A composing (`dgx_ui_paint_area()`, where a popup or the keyboard's band was, a drawn background changed) draws its
+  looks at the time of the last pass, the paint's new `now_ms`, not at 0: a text that scrolls or whose letters come
+  was composed at the wrong line, or all its letters there. A program that composes with a paint of its own alone
+  sets `now_ms`.
+- A message kept by a widget of one tree and then offered to a second tree (two displays) stays kept: before, the
+  second `dgx_ui_take()` forgot it, and the loop's `dgx_ui_msg_done()` released the data the widget still held. The
+  second tree's widgets are offered it as any message.
+
 ## 0.0.7 - 2026-11-18
 
 - A drawn background, set by `dgx_ui_background_set(paint, draw, ctx)`: a function of the program's that puts a

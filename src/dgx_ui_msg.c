@@ -86,14 +86,15 @@ static int next_past(const dgx_ui_t *ui, int i)
 
 bool dgx_ui_take(dgx_ui_t *ui, dgx_ui_msg_t *msg)
 {
-    msg->flags &= (uint8_t)~DGX_UI_MSG_KEPT;
-    dgx_ui_msg_t *const outer = ui->offered; /* a take() that offers a message of its own to the tree */
+    /* kept before, by a widget of another tree it was offered to: kept still, and no keep of this walk claims it */
+    const bool          before = msg->flags & DGX_UI_MSG_KEPT;
+    dgx_ui_msg_t *const outer  = ui->offered; /* a take() that offers a message of its own to the tree */
     ui->offered               = msg;
     bool claimed              = false;
     for (int i = dgx_ui_widget(ui, 0) ? 0 : -1; i >= 0 && !claimed;) {
         const dgx_ui_widget_t *w     = dgx_ui_widget(ui, i);
         const int              after = next_past(ui, i); /* where the walk goes on if take() removes i */
-        if (w->take) claimed = w->take(ui, i, msg) || (msg->flags & DGX_UI_MSG_KEPT);
+        if (w->take) claimed = w->take(ui, i, msg) || (!before && (msg->flags & DGX_UI_MSG_KEPT));
         i = dgx_ui_widget(ui, i) == w ? next_in_order(ui, i) : after;
         if (i >= 0 && !dgx_ui_widget(ui, i)) break; /* take() removed that one too */
     }

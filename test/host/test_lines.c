@@ -255,6 +255,42 @@ int main(void)
     }
     dgx_ui_free(&ui);
 
+    /* a text that scrolls by time, composed where a popup over its left half closed between two of its steps: at the
+       time of the pass, as a tree with no popup draws it then, not at time 0; and at the next step too */
+    {
+        static char                  ba[200], bb[200];
+        static dgx_ui_textbox_t      ta, tb;
+        static dgx_ui_widget_t       wa, wb;
+        static dgx_ui_node_t         na[2], nb[2], np[1];
+        static dgx_ui_t              ua, ub, pop;
+        static const dgx_ui_widget_t pop_w = {.kind = DGX_UI_FRAME};
+        dgx_ui_textbox_init(&ta, ba, sizeof ba, 2, &important), dgx_ui_textbox_init(&tb, bb, sizeof bb, 2, &important);
+        wa = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &ta, .look = &dgx_ui_look_lines, .want_w = 60, .at_x = 4, .at_y = 4};
+        wb = wa, wb.text = &tb;
+        dgx_ui_init(&ua, na, 2, 1), dgx_ui_init(&ub, nb, 2, 1);
+        dgx_ui_add(&ua, -1, &root_w), dgx_ui_add(&ub, -1, &root_w);
+        dgx_ui_add(&ua, 0, &wa), dgx_ui_add(&ub, 0, &wb);
+        const char *const text = "one two three four five six seven eight nine ten";
+        dgx_ui_text_set(&ua, 1, text), dgx_ui_text_set(&ub, 1, text);
+        dgx_screen_t  *sa = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB), *sb = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
+        dgx_ui_paint_t pa = {.scr = sa, .colors = colors, .color_count = 2}, pb = {.scr = sb, .colors = colors, .color_count = 2};
+        dgx_ui_paint(&ua, &pa, 1000), dgx_ui_paint(&ub, &pb, 1000);
+        dgx_ui_init(&pop, np, 1, 1);
+        dgx_ui_add(&pop, -1, &pop_w);
+        CHECK(dgx_ui_popup_open(&ua, &pop, 0, 0, 34, PANEL_H, 0));
+        dgx_ui_paint(&ua, &pa, 1150), dgx_ui_paint(&ub, &pb, 1150);
+        dgx_ui_paint(&ua, &pa, 1250), dgx_ui_paint(&ub, &pb, 1250);
+        dgx_ui_popup_close(&ua);
+        dgx_ui_paint(&ua, &pa, 1290), dgx_ui_paint(&ub, &pb, 1290);
+        const dgx_ui_node_t *n = dgx_ui_node(&ub, 1);
+        CHECK(ta.top > 0 && ta.top == tb.top && differ_box(sa, sb, n) == 0);
+        dgx_ui_paint(&ua, &pa, 1350), dgx_ui_paint(&ub, &pb, 1350);
+        CHECK(differ_box(sa, sb, n) == 0);
+        dgx_ui_paint_free(&pa), dgx_ui_paint_free(&pb);
+        dgx_ui_free(&ua), dgx_ui_free(&ub), dgx_ui_free(&pop);
+        sa->destroy(&sa), sb->destroy(&sb);
+    }
+
     v->destroy(&v), e->destroy(&e);
     free(panel);
     CHECK_DONE();

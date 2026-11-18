@@ -111,7 +111,9 @@ bool dgx_ui_take(dgx_ui_t *ui, dgx_ui_msg_t *msg);
  *
  * The message is copied into copy, and the one offered is marked so that its dgx_ui_msg_done() does nothing; the
  * widget calls dgx_ui_msg_done() on its copy when it is done with the data. Keeping claims the message, so one
- * widget keeps a message at most: called a second time, or outside a take(), it gives copy a message of no data.
+ * widget keeps a message at most: called a second time, or outside a take(), it gives copy a message of no data. A
+ * message offered to a second tree after a widget of the first kept it (two displays) is offered there as any other:
+ * read, not kept, and the loop's dgx_ui_msg_done() still does nothing.
  */
 void dgx_ui_msg_keep(dgx_ui_t *ui, dgx_ui_msg_t *copy);
 

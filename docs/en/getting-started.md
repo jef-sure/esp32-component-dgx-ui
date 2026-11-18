@@ -26,14 +26,14 @@ the program is explained where it appears.
 
 ## 1. Add the component
 
-Version 0.0.7 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
+Version 0.0.8 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
 the project:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.7"
+    version: "0.0.8"
 ```
 
 The component manager takes dgx-ui from GitHub at the next build, and DGX from the registry, as dgx-ui asks for it.
@@ -163,7 +163,7 @@ static const dgx_ui_widget_t clock_w = {.kind = DGX_UI_LABEL, .text = &clock_box
 static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &note_box};
 ```
 
-Two rules of the sizes to remember:
+Three rules of the sizes to remember:
 
 - A box has no size of its own. In a column it is as wide as the column, and its height is `want_h`.
 - A label is as high as its lines of text. It has no width of its own: in a column it takes the column's, in a row it

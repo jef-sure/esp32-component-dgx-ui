@@ -72,6 +72,9 @@ typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, in
 /** @brief The library's laying of a drawn background, named by dgx_ui_background_set(). */
 typedef struct dgx_ui_drawn_background_t dgx_ui_drawn_background_t;
 
+/** @brief The canvases a paint made for its widgets of DGX_UI_CANVAS (dgx_ui_canvas()), the painter's own. */
+typedef struct dgx_ui_canvases_t dgx_ui_canvases_t;
+
 /** @brief How a tree is drawn on a screen. Filled by the program; the members after `cover` are the painter's. */
 typedef struct dgx_ui_paint_t {
     dgx_screen_t                    *scr;             ///< where
@@ -122,6 +125,13 @@ typedef struct dgx_ui_paint_t {
     dgx_screen_t                    *strip;           ///< the strips: a virtual screen of the display's depth over the
                                                       ///< buffer, made at its first need
     size_t                           buffer_used;     ///< while a strip is drawn: its bytes at the start of the buffer
+    uint32_t                         now_ms;          ///< the time of the last dgx_ui_paint(), given to the looks of a
+                                                      ///< composing (dgx_ui_paint_area(), a popup closed, the drawn
+                                                      ///< background changed); a program that composes with a paint
+                                                      ///< dgx_ui_paint() never draws sets it before
+    dgx_ui_canvases_t               *canvases;        ///< the canvases this paint made (dgx_ui_canvas()) for the tree
+                                                      ///< it draws and the popups over it, freed by
+                                                      ///< dgx_ui_paint_free(); NULL none
     dgx_ui_rect_t                    cover_was;       ///< the keyboard's band as the last pass left it: where it goes,
                                                       ///< the tree is composed again
 } dgx_ui_paint_t;
@@ -270,7 +280,7 @@ typedef struct dgx_ui_dropdown_look_t {
  *   fill colour 2) shows its pick either way;
  * - dgx_ui_look_dropdown: DROPDOWN, its options the lines of its text box as a list's, the one chosen (value - min)
  *   on a flat face with an arrow pointing down;
- * - dgx_ui_look_picture: PICTURE and ICON of a dgx_image_t of 1 bit (4 and 8 bits: through the buffer, not yet),
+ * - dgx_ui_look_picture: PICTURE and ICON of a dgx_image_t of 1 bit (of 4 and 8 bits, dgx_ui_look_indexed below),
  *   in the middle of the box, the rest of it paper; an ICON of a value outside min..max shows none;
  * - dgx_ui_look_rgb565: PICTURE and ICON of RGB565, by a virtual screen over its pixels kept by the paint
  *   (dgx_ui_paint_free() gives it back): it needs CONFIG_DGX_ENABLE_VSCREEN and a 16-bit screen; on another the box
@@ -328,7 +338,7 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms);
 
 /**
  * @brief What the painter made for itself given back: the virtual screens of the looks of pictures and of the strips,
- * the table of the indexed pictures. The paint may be used again after.
+ * the table of the indexed pictures, the canvases of the widgets. The paint may be used again after.
  */
 void dgx_ui_paint_free(dgx_ui_paint_t *paint);
 
@@ -339,6 +349,51 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint);
  * CONFIG_DGX_ENABLE_VSCREEN: named without it, the program does not link.
  */
 extern const dgx_ui_strips_t dgx_ui_strips;
+
+/**
+ * @brief The canvas of widget i, a widget of DGX_UI_CANVAS: an 8-bit virtual screen as large as its box, kept by the
+ * paint from pass to pass, for a look that draws its picture on and on: digits that morph, a text written stroke by
+ * stroke. The look of such a clock:
+ *
+ *     bool          made;
+ *     dgx_screen_t *c = dgx_ui_canvas(paint, ui, i, &made);
+ *     if (c && made) draw_all(c);         // new, or of another size: nothing in it yet
+ *     else if (c) draw_what_moved(c);     // as the last pass left it: only what changed since
+ *     dgx_ui_canvas_put(paint, ui, i, 1); // on the screen, amounts of the ink 1 over the paper
+ *
+ * The look draws in it what the time and the state say, so that drawn twice in a pass it is the same: the painter
+ * calls a look for each part of its box and for each strip, and each call puts the canvas whole. Drawn whole (a popup
+ * closed over it), a look of a kept canvas puts it again, not draws it again.
+ *
+ * Made at its first need, after the layout, the size of the box; all zeros. Its box of another size: a new one is
+ * made, then the old one freed; none to be had, the old one is kept, the widget marked DGX_UI_MARK_HARD_SIZE, and its
+ * canvas never changes again. None at all: NULL, an error in the log, the widget told DGX_UI_NO_MEMORY at the end of
+ * the next dgx_ui_paint(), once for that size, and tried again at its next need.
+ *
+ * It is the paint's: the same tree drawn by another paint has canvases of its own, empty at first. It is freed when
+ * its widget leaves the tree, when its tree is not drawn by the paint's dgx_ui_paint() (a popup closed: made again
+ * when it opens), and by dgx_ui_paint_free(). So one paint draws one tree and the popups over it: two trees drawn in
+ * turn by one paint at every pass (a bar and a page, each its root given) free each other's canvases at every pass,
+ * right on the screen but made again each time; such a program gives each tree a paint of its own. It needs the
+ * virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN).
+ *
+ * @param made Set: true when the canvas is new and empty.
+ * @return The canvas, or NULL: no canvas to be had, or widget i is of no DGX_UI_CANVAS or of no size.
+ */
+dgx_screen_t *dgx_ui_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made);
+
+/**
+ * @brief The canvas of widget i put on the paint's screen at the top left of its box, under the painter's clip, only
+ * its rows in the clip; the rest of the box its paper, laid (a drawn background too).
+ *
+ * @param ink -1: the canvas holds indices of the painter's table, 0 the paper: on a drawn background 0 leaves the
+ *            picture. An index of the table: the canvas holds amounts of that ink over the paper, 0 none and 255 all,
+ *            as a soft pen writes them; on a drawn background they mix with the picture where the screen can be read
+ *            (a strip), else with the paper's colour, and 0 leaves the picture.
+ * On a screen of other than 16 bits (DGX sends an 8-bit screen to 16 bits only), and with no canvas, the box is paper,
+ * told once in the log.
+ */
+void dgx_ui_canvas_put(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink);
 
 /**
  * @brief A rectangle of the tree's screen composed from the root down: the background, then every widget that meets

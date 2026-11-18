@@ -45,6 +45,15 @@ static bool take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
     return i == claim_at;
 }
 
+/* a widget of a second tree: every message offered to it counted, a big one kept if it may be */
+static int  second_count;
+static bool take_second(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
+{
+    ++second_count;
+    if (msg->what == MSG_BIG) dgx_ui_msg_keep(ui, &kept2);
+    return false;
+}
+
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .take = take};
 static const dgx_ui_widget_t text_w   = {.kind = DGX_UI_LABEL, .take = take};
 static const dgx_ui_widget_t hidden_w = {.kind = DGX_UI_LABEL, .take = take, .state = {.bits = DGX_UI_HIDDEN}};
@@ -126,6 +135,27 @@ static void test_ref(void)
     dgx_ui_msg_done(&msg), dgx_ui_msg_done(&kept2), dgx_ui_msg_done(&kept);
     CHECK(done_count == 1);
     keep_twice = false;
+    /* kept in one tree, then offered to a second (two displays): read by all of the second, kept by none of it, the
+       loop's done does nothing, the first widget's copy done with once */
+    {
+        make();
+        done_count = 0, keep_at = inner;
+        static dgx_ui_node_t         nodes2[3];
+        static dgx_ui_t              ui2;
+        static const dgx_ui_widget_t second_w = {.kind = DGX_UI_LABEL, .take = take_second};
+        dgx_ui_init(&ui2, nodes2, 3, 1);
+        dgx_ui_add(&ui2, -1, &box_w);
+        dgx_ui_add(&ui2, 0, &second_w), dgx_ui_add(&ui2, 0, &second_w);
+        dgx_ui_msg_ref(&msg, MSG_BIG, big_data, sizeof big_data, big_done);
+        CHECK(dgx_ui_take(&ui, &msg));
+        second_count = 0;
+        CHECK(!dgx_ui_take(&ui2, &msg) && second_count == 2 && kept2.flags == 0 && kept2.what == 0);
+        dgx_ui_msg_done(&msg);
+        CHECK(done_count == 0);
+        dgx_ui_msg_done(&kept);
+        CHECK(done_count == 1);
+        dgx_ui_free(&ui2);
+    }
     /* keep outside a take: an empty copy */
     dgx_ui_msg_keep(&ui, &kept);
     CHECK(kept.flags == 0 && kept.what == 0);

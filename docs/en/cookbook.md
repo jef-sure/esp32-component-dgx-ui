@@ -31,6 +31,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [Large data: a message by reference](#large-data-a-message-by-reference)
 - [A message from an interrupt](#a-message-from-an-interrupt)
 - [A look of your own](#a-look-of-your-own)
+- [A picture that stays between passes](#a-picture-that-stays-between-passes)
 - [A ring scale with widgets inside](#a-ring-scale-with-widgets-inside)
 - [A display of 18 or 24 bits](#a-display-of-18-or-24-bits)
 - [Turning the screen](#turning-the-screen)
@@ -1127,6 +1128,72 @@ The rules a look keeps:
   `dgx_ui_lay_paper(paint, DGX_UI_PAPER, x, y, w, h)` and not by a fill of its own: that is the colour `paint->paper`,
   or, when `paint->on_background`, the program's picture. On the picture the look draws its letters and pictures
   with no paper of their own: no field of a text, no `DGX_FONT_FILL`, no `DGX_IMAGE_OPAQUE`.
+
+## A picture that stays between passes
+
+A look draws its widget anew at every change. A widget with the flag `DGX_UI_CANVAS` has a canvas instead: a screen
+of DGX of 8 bits, as large as its box, which the painter keeps from pass to pass. The look draws in it only what is
+new and puts it on the display. Take a graph of the last values of CO2, a column for each:
+
+1. The first value comes. The look asks for the canvas; it is new, `made` is true, and the look draws all the graph
+   has: one column. Then it puts the canvas on the display.
+2. The second value comes. The canvas is as the last pass left it, so the look draws one column more, the second,
+   and puts the canvas again.
+3. A popup opens over the graph and closes. The painter calls the look to have the graph whole on the display. The
+   look draws nothing: no column came. It puts the canvas, and the graph is there.
+
+```c
+enum { HISTORY = 120 };
+static uint8_t history_level[HISTORY]; /* the height of each column of the graph, in pixels */
+
+static bool history_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    const dgx_ui_node_t *n     = dgx_ui_node(ui, i);
+    const uint8_t       *level = n->widget->own;
+    bool                 made;
+    dgx_screen_t        *c = dgx_ui_canvas(paint, ui, i, &made);
+    if (c) {
+        /* a canvas just made, or the graph begun again: all of it; else only the columns that came since it was drawn */
+        const int count = n->state_value.value, was = n->state_drawn.value;
+        const int from  = made || count < was ? 0 : was;
+        if (from == 0) dgx_fill_rectangle(c, 0, 0, c->width, c->height, 0);
+        for (int k = from; k < count && k < c->width; ++k) dgx_fill_rectangle(c, k, c->height - level[k], 1, level[k], ACCENT);
+    }
+    dgx_ui_canvas_put(paint, ui, i, -1); /* on the screen: its values are colours of the table, 0 the paper */
+    return false;
+}
+
+static const dgx_ui_look_t   history_look = {.draw = history_draw, .fill = -1};
+static const dgx_ui_widget_t history_w    = {
+    .kind = DGX_UI_OWN, .flags = DGX_UI_CANVAS, .max = HISTORY, .want_h = 20, .own = history_level, .look = &history_look};
+
+/* a new value: one more column; the graph begins again when it is full */
+static void history_add(dgx_ui_t *ui, int graph, int ppm)
+{
+    int count = dgx_ui_node(ui, graph)->state_value.value;
+    if (count >= HISTORY) count = 0;
+    history_level[count] = (uint8_t)(ppm >= 2000 ? 40 : ppm / 50);
+    dgx_ui_set_value(ui, graph, count + 1);
+}
+```
+
+- **`dgx_ui_canvas()`** gives the canvas of the widget, made at its first need after the layout, all zeros. `made`
+  is true when it is new, or new in another size: nothing is in it, and the look draws all. Else the look draws only
+  what changed. It works that out from what it is given, here the widget's value as it is and as it was last drawn,
+  so that called twice in a pass it draws the same.
+- **`dgx_ui_canvas_put()`** puts the canvas on the screen and lays the paper in the rest of the box. With -1 the
+  values of the canvas are colours of the painter's table and 0 is the paper. With an index of the table they are
+  amounts of that ink over the paper, 0 none and 255 all, as a soft pen of DGX leaves them.
+- **What it saves** is the drawing, not the sending: the canvas goes to the display whole, once, so nothing blinks.
+- **What it costs.** A byte a pixel of the box in RAM, 9600 bytes for a graph of 240 by 40 pixels, and about 1.5 KB
+  of code for the program that has a canvas. It needs `CONFIG_DGX_ENABLE_VSCREEN=y` and a 16-bit screen; on another
+  the box is paper.
+- **No memory for it**: the box is paper, the log says so, and the widget's `on()` is told `DGX_UI_NO_MEMORY` when
+  the pass is over, once for that size. It is tried again whenever the look asks. A canvas that could not be made
+  larger stays as it was and is cut to the box.
+- **One paint, one tree.** The canvases are the paint's, for the tree it draws and the popups over it; a canvas is
+  freed when its widget leaves the tree or its tree is no longer drawn. Two trees drawn in turn on one screen each
+  take a paint of their own.
 
 ## A ring scale with widgets inside
 
