@@ -83,7 +83,8 @@ static void cut(cut_t *c, dgx_ui_rect_t r, const dgx_ui_rect_t *cover, const dgx
         if (!c->look) dgx_fill_rectangle(p->scr, r.x - p->ox, r.y - p->oy, r.w, r.h, c->color);
         else {
             p->part = (uint8_t)(c->count < p->parts ? c->count : p->parts - 1);
-            c->more |= c->look->draw(c->look, p, c->ui, c->i, c->now_ms);
+            /* through the buffer when the program named the strips and they take this part; else straight */
+            if (!p->strips || !p->strips->draw(p, c->look, c->ui, c->i, c->now_ms, r, &c->more)) c->more |= c->look->draw(c->look, p, c->ui, c->i, c->now_ms);
         }
     }
     ++c->count;
@@ -200,14 +201,16 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
 
 void *dgx_ui_buffer_free(const dgx_ui_paint_t *paint, size_t *size)
 {
-    *size = paint->buffer ? paint->buffer_size : 0;
-    return paint->buffer;
+    if (!paint->buffer || paint->buffer_used >= paint->buffer_size) return *size = 0, NULL;
+    *size = paint->buffer_size - paint->buffer_used;
+    return (uint8_t *)paint->buffer + paint->buffer_used; /* past the painter's strip while it draws one */
 }
 
 void dgx_ui_paint_free(dgx_ui_paint_t *paint)
 {
     if (paint->rgb565) dgx_screen_destroy(&paint->rgb565);
     if (paint->indexed) dgx_screen_destroy(&paint->indexed);
+    if (paint->strip) dgx_screen_destroy(&paint->strip);
     free(paint->lut);
     paint->lut = NULL;
 }

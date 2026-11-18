@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.5: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.6: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.5"
+    version: "0.0.6"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -103,7 +103,8 @@ worked by a finger and by the keys, on a board taken from
   through a queue of FreeRTOS, an interrupt too; every widget is offered a message and catches its own values.
   A ticker sends one every so many milliseconds and keeps at most one of them in the queue.
 - **A painter that writes only what changed**, in one batch of DGX, each widget under a clip of its box. A value
-  drawn again writes every pixel of its field once, so it does not blink on a display behind a bus.
+  drawn again writes every pixel of its field once, so it does not blink on a display behind a bus; on one of 18 or
+  24 bits it is drawn through a buffer of the program's for that.
 - **Texts**: one line, or several laid word by word; the font picked from a list so that the text goes in; a text
   too long cut with an ellipsis or scrolled; letters that appear one by one.
 - **Controls**: a button with a shadow and a pressed face, a switch, a slider, a list, a dropdown with its list, a
@@ -119,8 +120,8 @@ worked by a finger and by the keys, on a board taken from
 ## Not there yet
 
 - a list that scrolls;
-- text over a picture as the background, and displays of 18 and 24 bits behind a bus without a blink: both wait for
-  the next steps of the painter's buffer;
+- a picture or a function of the program's as the background, and text over it: the next step of the painter's
+  buffer;
 - a canvas of a widget, and handwritten text;
 - a builder of interfaces on the computer.
 
@@ -138,6 +139,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | a widget | 28 bytes of RAM and 52 bytes of flash |
 | a message | 20 bytes |
 | the look of several lines, when a widget names it | about 2.5 KB more |
+| drawing through the buffer for a display of 18 or 24 bits, when the program names it | about 0.6 KB more, and 5 KB of DGX |
 
 ## License
 

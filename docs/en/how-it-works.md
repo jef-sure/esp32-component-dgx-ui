@@ -189,6 +189,11 @@ pads, its gaps and what is left after the last child. So a widget hidden, shown 
 holds for a 16-bit display behind a bus. A box whose children sit where they ask may have them overlap: it is filled
 whole, and its children draw over it.
 
+**Displays of 18 and 24 bits.** Behind a bus such a display fills the field of a text before it writes the letters, so
+a text drawn straight blinks. There the program gives the painter a buffer and names `dgx_ui_strips`: every widget
+without children is drawn in the buffer and sent strip by strip, every pixel once. See
+[A display of 18 or 24 bits](cookbook.md#a-display-of-18-or-24-bits).
+
 **Covers.** Rectangles may lie over a tree: the popups open over it, and the band of DGX-DI's keyboard, which the
 program gives as `cover`. A widget partly under them is drawn in the parts that show, the clip set to each part in turn. One
 wholly under them is not drawn and keeps its marks, so a text changed under a popup is drawn right when the popup
@@ -273,8 +278,9 @@ every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_d
 | the code of the smallest program, one label fed by a message | about 7.5 KB |
 | the look of several lines, when named | about 2.5 KB |
 
-No memory is taken for pixels: everything is drawn straight on the display. The one exception is a picture of 4 or 8
-bits: it goes through a buffer the program gives the painter, a row of the picture at least.
+No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the
+program gives the painter: a picture of 4 or 8 bits, a row of the picture at least; and, when the program names the
+strips, the widgets of a display of 18 or 24 bits, a row of the widest widget at least.
 
 ## Tests on the computer
 

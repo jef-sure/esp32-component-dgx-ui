@@ -97,7 +97,8 @@ int main(void)
         for (int x = 0; x < 5; ++x) bits8[y * 5 + x] = (uint8_t)((x * y) % 4);
     panel_t *panel = panel_make();
     static uint8_t buffer[64];
-    dgx_ui_paint_t pp = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 4, .buffer = buffer, .buffer_size = sizeof buffer};
+    /* the strips named, as a program that may meet a display of 24 bits names them: on 16 bits they draw nothing */
+    dgx_ui_paint_t pp = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 4, .buffer = buffer, .buffer_size = sizeof buffer, .strips = &dgx_ui_strips};
     dgx_ui_init(&ui, nodes, 6, 1);
     dgx_ui_add(&ui, -1, &root_w);
     p4 = dgx_ui_add(&ui, 0, &w4);
@@ -266,6 +267,7 @@ int main(void)
         dgx_ui_free(&t);
     }
 
+    CHECK(pp.strip == NULL);
     dgx_ui_paint_free(&pp);
     CHECK(pp.indexed == NULL && pp.lut == NULL);
     dgx_ui_free(&ui);

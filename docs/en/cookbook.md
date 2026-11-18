@@ -30,6 +30,7 @@ in: the display, the queue and the loop of the task that owns the tree.
 - [A message from an interrupt](#a-message-from-an-interrupt)
 - [A look of your own](#a-look-of-your-own)
 - [A ring scale with widgets inside](#a-ring-scale-with-widgets-inside)
+- [A display of 18 or 24 bits](#a-display-of-18-or-24-bits)
 - [Turning the screen](#turning-the-screen)
 - [Testing an interface on the computer](#testing-an-interface-on-the-computer)
 
@@ -1042,7 +1043,9 @@ The rules a look keeps:
 - **Colours** come from `dgx_ui_color(paint, index)`. `paint->paper` is the index of the colour under the widget.
 - **Called for parts.** When a popup or the keyboard lies over a part of the widget, the look is called once for each
   part that shows, the clip set to it. It must draw the same in every call. A look that remembers what it drew stores
-  it only in the last one: when `paint->part == paint->parts - 1` and `paint->composing` is false.
+  it only in the last one: when `paint->part == paint->parts - 1` and `paint->composing` is false. On a display of
+  18 or 24 bits with the strips named it is called once for each strip of a part as well, `paint->whole` set, so it
+  draws all of its box every time; `paint->composing` is set in every strip but the last, and the same test holds.
 - **Time.** A look that animates returns `true` and is called again at the next pass. It works out where it stands
   from `now_ms`.
 - **Its fill.** `fill` is the index of the colour the look leaves under the widget's children, or -1 when it leaves
@@ -1182,6 +1185,42 @@ static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
   its steps after the first, so the other parts are drawn whole.
 - A child hidden or shown makes a ring be drawn whole with its children: only a box and a frame fill around what
   stayed.
+
+## A display of 18 or 24 bits
+
+On a 16-bit display a text goes out in one pass, the letters and the paper around them together. A display behind a
+bus of 18 or 24 bits takes it otherwise: the field is filled with the paper first, and the letters are written over
+it. Take a thermometer whose label goes from "21.5 C" to "21.6 C":
+
+1. Drawn straight, the field of the label is filled, and for a moment it is empty; then the letters come. Every pixel
+   of a letter is written twice, and the number blinks at every change.
+2. With a buffer and the strips named, the painter draws the label in the buffer, a strip of as many rows as the
+   buffer takes, and sends each strip to the display as one window. Every pixel of the display is written once, and
+   nothing blinks.
+
+```c
+/* eight rows of a display 320 pixels wide, 3 bytes a pixel; on a chip, memory its bus can send by DMA */
+static uint8_t deep_buffer[320 * 3 * 8];
+
+static void deep_paint_init(dgx_ui_paint_t *paint)
+{
+    paint->buffer      = deep_buffer;
+    paint->buffer_size = sizeof deep_buffer;
+    paint->strips      = &dgx_ui_strips; /* a widget without children goes through the buffer, strip by strip */
+}
+```
+
+- **What goes through the buffer** is every widget that holds no children: a label, a control, a picture of 1 bit. A
+  box or a frame with children is drawn straight, as it only fills around them, each pixel once at any depth.
+- **What it costs on the wire.** A widget that changed is sent whole, all of its box, where straight only its field
+  would be written.
+- **What it costs in RAM.** A row of the widest widget at least: its width in pixels times 3 bytes. More rows make
+  fewer transfers. A widget too wide for a row of the buffer is drawn straight and blinks; the log says so once.
+- **What it costs in flash.** About 0.6 KB of dgx-ui and 5 KB of DGX's transfers, for the program that names the
+  strips. A program that does not name them carries none of it, which is why they are named and not found out.
+- **A 16-bit display** draws straight whatever is named: its text is not filled first.
+- It needs `CONFIG_DGX_ENABLE_VSCREEN=y`; named without it the program does not link.
+- A picture of RGB565 and one of 4 or 8 bits are paper on such a display: their looks need a 16-bit screen.
 
 ## Turning the screen
 

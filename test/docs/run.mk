@@ -9,7 +9,7 @@ RUN_WARN := -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-unused
 run-cookbook:
 	mkdir -p $(BUILD)/docs
 	python3 ../docs/check_docs.py $(DGX) $(DGX_DI) $(BUILD)/docs
-	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) -DDGX_HOST_WINDOW -I../docs/stubs $(CPPFLAGS) $(DGX_FLAGS) -I$(DGX)/host/window \
+	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) -DDGX_HOST_WINDOW -I../docs/stubs -I. $(CPPFLAGS) $(DGX_FLAGS) -I$(DGX)/host/window \
 		-I$(DGX_DI)/include -I$(BUILD)/docs -o $(BUILD)/run_cookbook ../docs/run_cookbook.c $(PAINT) $(DGX_SRCS) -lm
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/run_cookbook $(OUT)
 

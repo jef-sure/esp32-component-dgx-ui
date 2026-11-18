@@ -2,6 +2,8 @@
 #include "docs_en_cookbook.md.c" /* written by check_docs.py into its build directory: give it with -I */
 #include <stdio.h>
 #include "dgx_vscreen.h"
+#define PANEL_BITS 24 /* the model of a display behind a bus, of test/host: it counts the writes of each pixel */
+#include "panel.h"
 
 static int saves, backs, menus, backlight = -1, wifi = -1;
 void settings_save(void) { ++saves; }
@@ -224,6 +226,34 @@ int main(int argc, char **argv)
         printf("list: NEXT on row 2: the pick %d, the focus still on the list %d; NEXT on the last row: the focus on the next widget %d\n", next1, f1 == list,
                l.focus == after);
         dgx_ui_free(&l);
+    }
+    /* a display of 24 bits: the thermometer's label from 21.5 to 21.6, straight and through the strips */
+    {
+        static dgx_ui_node_t tn[2];
+        static dgx_ui_t      t;
+        static char          temp_buf[16];
+        static dgx_ui_textbox_t temp_box;
+        static const dgx_ui_widget_t temp_w = {.kind = DGX_UI_LABEL, .text = &temp_box, .want_h = 14};
+        panel_t             *panel = panel_make();
+        static uint32_t      c24[COLORS];
+        for (int k = 0; k < COLORS; ++k) c24[k] = dgx_screen_rgb(&panel->sbus.scr, (uint8_t)(40 * k), (uint8_t)(250 - 30 * k), (uint8_t)(20 * k));
+        dgx_ui_paint_t pp = {.scr = &panel->sbus.scr, .colors = c24, .color_count = COLORS, .background = PAPER};
+        dgx_ui_textbox_init(&temp_box, temp_buf, sizeof temp_buf, 1, &st_left);
+        dgx_ui_init(&t, tn, 2, 1);
+        const int top = dgx_ui_add(&t, -1, &col_w), temp = dgx_ui_add(&t, top, &temp_w);
+        dgx_ui_text_set(&t, temp, "21.5 C"), dgx_ui_paint(&t, &pp, 0);
+        panel_count_from_now(panel);
+        dgx_ui_text_set(&t, temp, "21.6 C"), dgx_ui_paint(&t, &pp, 1);
+        const int straight = panel_twice(panel);
+        deep_paint_init(&pp);
+        dgx_ui_text_set(&t, temp, "21.5 C"), dgx_ui_paint(&t, &pp, 2);
+        panel_count_from_now(panel);
+        dgx_ui_text_set(&t, temp, "21.6 C"), dgx_ui_paint(&t, &pp, 3);
+        const dgx_ui_node_t *n = dgx_ui_node(&t, temp);
+        printf("24 bits: the label changed, drawn straight: %d pixels written twice; through the strips: %d twice, %d written, its box is %d, in %d window(s)\n",
+               straight, panel_twice(panel), panel_written(panel), n->w * n->h, panel->windows);
+        dgx_ui_paint_free(&pp), dgx_ui_free(&t);
+        free(panel);
     }
     /* the battery of 4 bits: its charge in the colour its map names, another map for the other state; no buffer, paper */
     {

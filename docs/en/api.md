@@ -15,7 +15,7 @@ Every public type, function and constant, by header. How they work together is t
 | [`dgx_ui_paint.h`](#dgx_ui_painth) | the painter, the looks and their parameters |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.5: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.6: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -508,6 +508,7 @@ typedef struct dgx_ui_paint_t {
     uint8_t         background;
     void           *buffer;
     size_t          buffer_size;
+    const dgx_ui_strips_t *strips;
     dgx_ui_rect_t   cover;
     int16_t         ox, oy;
     /* the painter's */
@@ -519,6 +520,8 @@ typedef struct dgx_ui_paint_t {
     dgx_screen_t   *rgb565;
     dgx_screen_t   *indexed;
     uint16_t       *lut;
+    dgx_screen_t   *strip;
+    size_t          buffer_used;
     dgx_ui_rect_t   cover_was;
 } dgx_ui_paint_t;
 ```
@@ -530,7 +533,8 @@ How a tree is drawn on a screen. The program fills the first members and keeps t
 | `scr` | the screen of DGX |
 | `colors`, `color_count` | the table of colours: an index of a look to a colour of the screen, as `dgx_screen_rgb()` packs it |
 | `background` | the index of the colour under the tree |
-| `buffer`, `buffer_size` | memory of the program's that the painter draws in when a look needs it: a picture of 4 or 8 bits, a strip of its rows at a time. `NULL`: none |
+| `buffer`, `buffer_size` | memory of the program's that the painter draws in: for a look that needs it, a picture of 4 or 8 bits, a strip of its rows at a time; and for the strips. Start it on a word boundary, in memory the bus sends by DMA on a chip. `NULL`: none |
+| `strips` | `&dgx_ui_strips`: the painter draws through the buffer in strips. Name it for a display behind a bus of 18 or 24 bits. `NULL`: straight |
 | `cover` | a rectangle not drawn into: the band of DGX-DI's keyboard while it is open; empty otherwise |
 | `ox`, `oy` | the pixel of the tree's screen that lies at (0, 0) of `scr`; 0, or the place of a buffer when composing |
 
@@ -543,9 +547,26 @@ how many.
 | ---- | ------------ |
 | `bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)` | The tree laid if it has to be, then what changed drawn, in one batch, and its popup over it. The clip of the screen is given back as it was. `true` when a widget asks for more time. |
 | `void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)` | A rectangle of the tree's screen composed from the root down: the background, then every widget that meets it, whole, under a clip. Nothing is marked as drawn. Pixels may be written more than once. |
-| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures, and the table of the latter. The struct may be used again. |
+| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures and of the strips, and the table of the indexed pictures. The struct may be used again. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | A colour of the table; 0 past its end. |
 | `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | For a look of the program's own that holds children: an area of the widget `i`, in pixels of the tree's screen, filled with a colour everywhere but under its shown children that a look draws. In a column or a row; a widget of neither has the area filled whole. Called from a look's `draw`. |
+
+### Drawing through the buffer
+
+`extern const dgx_ui_strips_t dgx_ui_strips;` is the painter's way of drawing through the buffer in strips; the
+program names it in `strips` of the paint. `dgx_ui_strips_t` is opaque.
+
+A display behind a bus of 18 or 24 bits fills the field of a text before it writes the letters, so a text drawn
+straight blinks there at every change. With the strips named and a buffer given, every widget without children is
+drawn whole in a virtual screen of the display's depth laid over the buffer, a strip of as many rows as the buffer
+takes, and each strip is sent once: every pixel once.
+
+- A widget that changed is sent whole, all of its box.
+- The buffer holds a row of the widget at least, its width times 3 bytes; a widget too wide for it is drawn straight,
+  told once in the log. A widget with children is drawn straight too: it fills around them.
+- A 16-bit display and a virtual screen draw straight whatever is named.
+- It needs `CONFIG_DGX_ENABLE_VSCREEN`: named without it, the program does not link. A program that does not name it
+  carries none of it.
 
 ### A look
 

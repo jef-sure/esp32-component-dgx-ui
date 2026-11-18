@@ -1,5 +1,16 @@
 # Changes
 
+## 0.0.6 - 2026-11-18
+
+- The strips, `dgx_ui_strips`, named by the program in the paint's new member `strips`: on a display behind a bus of
+  18 or 24 bits, where a field of text is filled before its letters are written and blinks, every widget without
+  children is drawn whole in strips of a virtual screen of the display's depth over the paint's buffer, each strip
+  sent once: every pixel once. A widget changed is sent whole; a widget too wide for a row of the buffer, or with
+  children, goes straight, as without the strips. They need the virtual screens of DGX; a program that does not name
+  them does not carry them (the strips about 630 bytes, and some 5 KB of DGX's transfers).
+- The build file for a PC, `host/dgx_ui_host.mk`, lists the looks of the list, the dropdown and indexed pictures,
+  the dropdown's popup and the strips: before, a program on a PC that named one did not link.
+
 ## 0.0.5 - 2026-11-18
 
 - A buffer of the program's in the paint, `buffer` and `buffer_size`, for the looks that draw through one.
