@@ -83,8 +83,13 @@ static void cut(cut_t *c, dgx_ui_rect_t r, const dgx_ui_rect_t *cover, const dgx
         if (!c->look) dgx_ui_lay_paper(p, DGX_UI_PAPER, r.x, r.y, r.w, r.h);
         else {
             p->part = (uint8_t)(c->count < p->parts ? c->count : p->parts - 1);
-            /* through the buffer when the program named the strips and they take this part; else straight */
-            if (!p->strips || !p->strips->draw(p, c->look, c->ui, c->i, c->now_ms, r, &c->more)) c->more |= c->look->draw(c->look, p, c->ui, c->i, c->now_ms);
+            /* through the buffer when the program named the strips and they take this part; else straight. A look
+               that asked for time and named no moment: the next pass */
+            bool more     = false;
+            p->wake_named = false;
+            if (!p->strips || !p->strips->draw(p, c->look, c->ui, c->i, c->now_ms, r, &more)) more = c->look->draw(c->look, p, c->ui, c->i, c->now_ms);
+            if (more && !p->wake_named) p->wake_ms = 0;
+            c->more |= more;
         }
     }
     ++c->count;
@@ -189,6 +194,7 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
     dgx_screen_clip_get(scr, &cx, &cy, &cw, &ch);
     dgx_screen_batch_begin(scr);
     paint->composing = false;
+    paint->wake_ms   = DGX_UI_WAKE_NONE; /* the moments of this walk only: the composings above name none */
     bool more        = false;
     const dgx_ui_rect_t everywhere = dgx_ui_rect(-16384, -16384, 32767, 32767);
     for (dgx_ui_t *t = ui; t; t = t->popup) {

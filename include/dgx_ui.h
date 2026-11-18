@@ -350,6 +350,21 @@ dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i);
 const dgx_ui_widget_t *dgx_ui_widget(const dgx_ui_t *ui, int i);
 
 /**
+ * @brief The tree written to the log (ESP_LOGI), and each popup over it: a line a widget, indented by its depth, of
+ * its number, kind, place and size, value, state, marks, tag and the start of its text; then how many nodes it uses.
+ *
+ *     I dgx_ui: #0 BOX 0,0 240x320 v=0 bits=- marks=- tag=0
+ *     I dgx_ui:   #1 LABEL 2,2 236x13 v=0 bits=- marks=- tag=0 "21.5 C"
+ *     I dgx_ui:   #2 LIST 2,17 236x52 v=5 bits=FOCUSED marks=- tag=0 "Jan\nFeb\nMar\nApr..."
+ *     I dgx_ui: nodes: 3 in use, 3 of the array of 8, blocks: 0
+ *
+ * A tree that outgrew its array, its nodes past it in blocks of 64 from the heap (1792 bytes each on an ESP32), is
+ * told what its array should hold: "give the array 70 nodes and no block is needed". Nothing in the tree is changed.
+ * A program that does not call it does not carry it.
+ */
+void dgx_ui_dump(const dgx_ui_t *ui);
+
+/**
  * @brief A widget added as the last child of a parent; the first one added is the root.
  *
  * The tree keeps the pointer, not a copy: the widget must live as long as it is in the tree. Give a static const

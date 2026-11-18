@@ -16,7 +16,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.9: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.10: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -353,6 +353,12 @@ static const uint8_t row_keys[8] = {
 `int dgx_ui_textbox_height(const dgx_ui_textbox_t *box)`: the height a text box asks for, its lines times the line of
 its first font. The layout calls it.
 
+`void dgx_ui_dump(const dgx_ui_t *ui)`: the tree written to the log, a line a widget, indented by its depth: its
+number, kind, place and size, value, state, marks, tag and the beginning of its text; then the popups over it; then
+how many nodes are in use, how many the program's array holds and how many blocks of 64 nodes, 1792 bytes each, were
+taken past it, with the size of an array that needs none. A file of its own: a program that does not call it does
+not carry it. It changes nothing.
+
 ## dgx_ui_text.h
 
 ### Fonts and styles
@@ -529,6 +535,8 @@ typedef struct dgx_ui_paint_t {
     dgx_screen_t   *strip;
     size_t          buffer_used;
     uint32_t        now_ms;
+    uint32_t        wake_ms;
+    bool            wake_named;
     dgx_ui_canvases_t *canvases;
     dgx_ui_rect_t   cover_was;
 } dgx_ui_paint_t;
@@ -556,6 +564,7 @@ how many.
 | ---- | ------------ |
 | `bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)` | The tree laid if it has to be, then what changed drawn, in one batch, and its popup over it. The clip of the screen is given back as it was. `true` when a widget asks for more time. |
 | `void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)` | A rectangle of the tree's screen composed from the root down: the background, then every widget that meets it, whole, under a clip. Nothing is marked as drawn. Pixels may be written more than once. The looks are given the time of the last `dgx_ui_paint()` with this paint, its `now_ms`; a program that composes with a paint that `dgx_ui_paint()` never draws sets `now_ms` first. |
+| `void dgx_ui_paint_area_to(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_screen_t *scr, const uint32_t *colors, int x, int y, int w, int h)` | The same rectangle composed onto another screen, its corner at that screen's (0, 0): a strip of a mirror of the display. `colors` is the table packed for that screen, `NULL` the paint's own. The paint's screen, colours and place are put back after; its canvases stay its own. An inline of the header. |
 | `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures and of the strips, and the table of the indexed pictures. The canvases of the widgets too. The struct may be used again. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | A colour of the table; 0 past its end. |
 | `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | For a look of the program's own that holds children: an area of the widget `i`, in pixels of the tree's screen, filled with a colour everywhere but under its shown children that a look draws. In a column or a row; a widget of neither has the area filled whole. Called from a look's `draw`. |
@@ -587,6 +596,19 @@ library's laying of a picture; `dgx_ui_background_set()` names it, the program d
   in the buffer and sent once. Drawn straight it is written twice, and the soft edges of its letters mix with the
   colour `background`, not with the picture.
 - The recipe is [A picture under the widgets](cookbook.md#a-picture-under-the-widgets).
+
+### Time, as "when"
+
+`dgx_ui_paint()` returns `true` while a widget asks for time. When the time is wanted is told beside it.
+
+| Call | What it does |
+| ---- | ------------ |
+| `void dgx_ui_wake_in(dgx_ui_paint_t *paint, uint32_t ms)` | For a look that returns `true`: it asks to be called again no sooner than in `ms`. A look that asks for time and names nothing is called at the next pass. A look names its moment again at every pass it is drawn. |
+| `uint32_t dgx_ui_wake(const dgx_ui_paint_t *paint, const dgx_ui_t *ui, uint32_t now_ms)` | For the loop: how long it may wait before the next pass, the least of the moments the looks named at the last `dgx_ui_paint()` and of the next repeat of a key held. 0: the next pass, and the loop waits a tick, not nothing. `DGX_UI_WAKE_NONE`: nobody asks, the loop waits for a message. |
+
+`wake_ms` of the paint is the least of the moments named at the last pass, from its `now_ms`; `wake_named` is the
+painter's own. Both calls are inlines of the header. The recipe is
+[A loop that sleeps till the next moment](cookbook.md#a-loop-that-sleeps-till-the-next-moment).
 
 ### A canvas
 

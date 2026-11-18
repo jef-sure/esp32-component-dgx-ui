@@ -36,6 +36,8 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A graph that sweeps](#a-graph-that-sweeps)
 - [A ring scale with widgets inside](#a-ring-scale-with-widgets-inside)
 - [A display of 18 or 24 bits](#a-display-of-18-or-24-bits)
+- [A loop that sleeps till the next moment](#a-loop-that-sleeps-till-the-next-moment)
+- [A mirror of the screen](#a-mirror-of-the-screen)
 - [Turning the screen](#turning-the-screen)
 - [Testing an interface on the computer](#testing-an-interface-on-the-computer)
 
@@ -1476,6 +1478,81 @@ static void deep_paint_init(dgx_ui_paint_t *paint)
 - It needs `CONFIG_DGX_ENABLE_VSCREEN=y`; named without it the program does not link.
 - A picture of RGB565 and one of 4 or 8 bits are paper on such a display: their looks need a 16-bit screen.
 
+## A loop that sleeps till the next moment
+
+The loop of [Getting started](getting-started.md) comes back after one tick while a widget asks for time. Take an
+important text that goes up a line every two seconds:
+
+1. With that loop the look of the text asks for time all the two seconds. The task wakes at every tick, two hundred
+   times at a tick of 10 ms, and each time the look returns at once: the line is not due yet.
+2. The look knows when the line is due, and names the moment. `dgx_ui_wake()` gives the loop the soonest of the
+   moments named: 2000, then less as the time goes. A loop that waits so long wakes once for the line.
+
+```c
+/* the loop of the task that owns the display, asleep until the next moment a look named or the next message */
+static void ui_loop_asleep(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
+{
+    TickType_t wait = 0;
+    for (;;) {
+        dgx_ui_msg_t msg;
+        while (xQueueReceive(queue, &msg, wait) == pdTRUE) {
+            wait = 0;
+            dgx_ui_take(ui, &msg);
+            dgx_ui_msg_done(&msg);
+        }
+        const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+        dgx_ui_time(ui, now);
+        dgx_ui_paint(ui, paint, now);
+        const uint32_t ms = dgx_ui_wake(paint, ui, now);
+        /* nobody asks: till a message comes; else so long, a tick at least */
+        wait = ms == DGX_UI_WAKE_NONE ? portMAX_DELAY : pdMS_TO_TICKS(ms) > 0 ? pdMS_TO_TICKS(ms) : 1;
+    }
+}
+```
+
+- **`dgx_ui_wake()`** returns how many milliseconds the loop may wait: the least of what the looks named at the last
+  pass, counted from `now`, and of the next repeat of a held key. `DGX_UI_WAKE_NONE` means nobody asks.
+- **0 means the next pass**: a look asked for time and named no moment. The wait is then a tick, never nothing: a
+  loop that does not wait at all spins.
+- **A message wakes the loop sooner**; the next pass names the moments again.
+- **A look of your own** names its moment by `dgx_ui_wake_in(paint, ms)` before it returns `true`. Without that it
+  is called at the next pass, as before.
+- The loop that asks only what `dgx_ui_paint()` and `dgx_ui_time()` return works as it did.
+
+## A mirror of the screen
+
+A display behind a bus cannot be read, so a picture of it, for a screenshot or a view on a computer, is drawn
+again. The painter composes any rectangle of the screen from the root down, and
+`dgx_ui_paint_area_to()` does it onto another screen: a strip of a few rows over a small array.
+
+```c
+void mirror_send(const uint16_t *pixels, int count); /* the program's: a strip to a computer, a file */
+
+static uint16_t mirror_rows[320 * 8]; /* eight rows of RGB565 */
+
+/* the picture of a display 320 by 240, strip by strip */
+static void mirror(dgx_ui_t *ui, dgx_ui_paint_t *paint)
+{
+    dgx_screen_t *band = dgx_vscreen_from_array(mirror_rows, 320, 8, 16, DgxScreenRGB);
+    if (!band) return;
+    for (int y = 0; y < 240; y += 8) {
+        dgx_ui_paint_area_to(ui, paint, band, NULL, 0, y, 320, 8);
+        mirror_send(mirror_rows, 320 * 8);
+    }
+    dgx_screen_destroy(&band);
+}
+```
+
+- **The same paint** is given, the one the display is drawn with: the canvases of the widgets are the paint's, and
+  the mirror shows them as they are. The call puts the paint's screen back before it returns.
+- **The popups** open over the tree are in the picture, each over the one under it.
+- **The colours** are the paint's table when the mirror has the display's depth; a mirror of another depth gives
+  its own table in place of `NULL`.
+- **What moves** is shown as the last pass drew it: the looks are given the time of the last `dgx_ui_paint()`.
+- **The keyboard and the pad of DGX-DI** draw themselves past the tree and are not in this picture. DGX-DI from
+  0.1.7 on draws them onto the same strip, the pad and then the keyboard after the tree:
+  `dgx_di_pad_draw_to()` and `dgx_di_keyboard_draw_to()`.
+
 ## Turning the screen
 
 ```c
@@ -1539,6 +1616,10 @@ static void interface_test(void)
     assert(saved == 1);
 }
 ```
+
+`dgx_ui_dump(&ui)` prints the tree a test has built: a line for each widget with its number, kind, place and
+size, value, state and the beginning of its text, then how many nodes are in use and whether a block past the
+program's array was taken.
 
 `dgx_ui.c`, `dgx_ui_text.c`, `dgx_ui_rect.c` and `dgx_ui_msg.c` are plain C and build with any compiler; the stubs of
 the few ESP-IDF headers they include come with DGX, in its `host/stubs`. The tests of the repository,

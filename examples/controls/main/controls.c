@@ -327,10 +327,7 @@ void app_main(void)
 #ifdef DGX_HOST_WINDOW
     if (getenv("CONTROLS_PLACES")) { /* where the widgets lie, for a script of DGX_HOST_SCRIPT to aim at */
         dgx_ui_screen(&ui, scr->width, scr->height, 0), dgx_ui_layout(&ui);
-        for (int i = 0; i < ui.count; ++i) {
-            const dgx_ui_node_t *n = dgx_ui_node(&ui, i);
-            printf("widget %d kind %d: %d,%d %dx%d\n", i, n->widget->kind, n->x, n->y, n->w, n->h);
-        }
+        dgx_ui_dump(&ui);
     }
 #endif
     queue = xQueueCreate(8, sizeof(dgx_ui_msg_t));

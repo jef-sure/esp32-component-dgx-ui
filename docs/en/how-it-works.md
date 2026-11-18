@@ -163,6 +163,10 @@ time it is given, not from the number of calls, so a pass missed does not stretc
 
 `dgx_ui_time()` is the time step of the logic: a held key repeats there. It returns `true` while a key is held.
 
+A look that knows when it wants its time names the moment, and `dgx_ui_wake()` gives the loop the soonest of them:
+a loop that waits so long, and not a tick, sleeps between the steps of a scrolling text. See
+[A loop that sleeps till the next moment](cookbook.md#a-loop-that-sleeps-till-the-next-moment).
+
 Slow things that change with time, a clock or the frames of an icon, are better driven by a ticker's message than by
 asking for time: then the task sleeps between them.
 

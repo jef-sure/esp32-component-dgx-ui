@@ -176,6 +176,8 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
         if (come >= all_letters) box->flags |= DGX_UI_TEXTBOX_CAME;
         if (important && st->scroll_ms && total > rows && top >= last_top) box->flags |= DGX_UI_TEXTBOX_ENDED;
     }
+    /* its next moment: the next letter, or once all came the next line up; by difference, as above */
+    if (more) dgx_ui_wake_in(paint, come < all_letters ? (uint32_t)(come + 1) * box->letter_ms - elapsed : appear_ms + (uint32_t)(top + 1) * st->scroll_ms - elapsed);
     if (timed_only && same) return more;
     const bool cut   = !important && total - top > rows; /* lines follow the last row: it ends in an ellipsis */
     const int  shown = total - top < rows ? total - top : rows;

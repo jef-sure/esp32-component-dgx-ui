@@ -129,6 +129,8 @@ typedef struct dgx_ui_paint_t {
                                                       ///< composing (dgx_ui_paint_area(), a popup closed, the drawn
                                                       ///< background changed); a program that composes with a paint
                                                       ///< dgx_ui_paint() never draws sets it before
+    uint32_t                         wake_ms;         ///< after dgx_ui_paint(): no sooner than in so many ms from its now_ms a look asks to be called again, the least they named (dgx_ui_wake_in()); 0 the next pass; DGX_UI_WAKE_NONE none asked
+    bool                             wake_named;      ///< while a look draws: it named its moment
     dgx_ui_canvases_t               *canvases;        ///< the canvases this paint made (dgx_ui_canvas()) for the tree
                                                       ///< it draws and the popups over it, freed by
                                                       ///< dgx_ui_paint_free(); NULL none
@@ -158,6 +160,45 @@ struct dgx_ui_look_t {
     const void *params; ///< the look's own type
     int16_t     fill;   ///< the index of the color it leaves under its children; -1: what lies under it
 };
+
+/** @brief No look asks for time: paint's wake_ms, dgx_ui_wake(). */
+#define DGX_UI_WAKE_NONE UINT32_MAX
+
+/**
+ * @brief Called by a look that returns true, asking for time: it is to be called again no sooner than in ms. A look
+ * that asks for time and names nothing is called at the next pass, as before. Each look that asks names its moment
+ * again at every pass it is drawn, so the least of them is never stale after the loop woke early.
+ */
+static inline void dgx_ui_wake_in(dgx_ui_paint_t *paint, uint32_t ms)
+{
+    if (ms < paint->wake_ms) paint->wake_ms = ms;
+    paint->wake_named = true;
+}
+
+/**
+ * @brief How long the loop may wait before it calls dgx_ui_paint() and dgx_ui_time() again: the least of the moments
+ * the looks named at the last pass (counted from its now_ms) and of the next repeat of a key held (ui; NULL none).
+ *
+ *     const bool     more = dgx_ui_paint(&ui, &paint, now) | dgx_ui_time(&ui, now);
+ *     const uint32_t wait = dgx_ui_wake(&paint, &ui, now);
+ *     // wait for a message at most so long: a tick at least; DGX_UI_WAKE_NONE, till a message comes
+ *
+ * 0 is "the next pass": the wait is a tick at least, a loop that waits nothing for it spins. DGX_UI_WAKE_NONE: nothing
+ * asks for time, the loop may wait for a message. A loop that asks dgx_ui_paint()'s true alone works as before.
+ */
+static inline uint32_t dgx_ui_wake(const dgx_ui_paint_t *paint, const dgx_ui_t *ui, uint32_t now_ms)
+{
+    uint32_t wait = DGX_UI_WAKE_NONE;
+    if (paint && paint->wake_ms != DGX_UI_WAKE_NONE) {
+        const uint32_t gone = now_ms - paint->now_ms; /* by difference: now_ms runs over in 49.7 days */
+        wait                = gone >= paint->wake_ms ? 0 : paint->wake_ms - gone;
+    }
+    if (ui && ui->repeat_key >= 0) {
+        const int32_t left = (int32_t)(ui->repeat_at - now_ms);
+        if ((uint32_t)(left > 0 ? left : 0) < wait) wait = (uint32_t)(left > 0 ? left : 0);
+    }
+    return wait;
+}
 
 /** @brief A color of the table, packed for the screen; 0 past its end. */
 static inline uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)
@@ -410,6 +451,32 @@ void dgx_ui_canvas_put(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink);
  * buffer for a display behind a bus where that would show.
  */
 void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h);
+
+/**
+ * @brief A rectangle of the tree's screen composed onto another screen, its corner at that screen's (0, 0): a strip of
+ * a mirror of the display, a picture of it. The paint's screen, colours and ox, oy are those for the call and given
+ * back after; its canvases, buffer and strips are its own, so a look's canvas is put as it is and not made again.
+ *
+ *     static uint16_t rows[240 * 8];                       // eight rows of RGB565
+ *     dgx_screen_t   *band = dgx_vscreen_from_array(rows, 240, 8, 16, DgxScreenRGB);
+ *     for (int y = 0; y < 320; y += 8) {
+ *         dgx_ui_paint_area_to(&ui, &paint, band, NULL, 0, y, 240, 8);
+ *         send(rows, sizeof rows);                         // the program's: to a computer, a file
+ *     }
+ *
+ * @param colors The table packed for scr, as many as paint's color_count; NULL: the paint's, of a screen of the same
+ *               depth.
+ */
+static inline void dgx_ui_paint_area_to(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_screen_t *scr, const uint32_t *colors, int x, int y, int w, int h)
+{
+    dgx_screen_t *const   was_scr = paint->scr;
+    const uint32_t *const was_colors = paint->colors;
+    const int16_t         was_ox = paint->ox, was_oy = paint->oy;
+    paint->scr = scr, paint->ox = (int16_t)x, paint->oy = (int16_t)y;
+    if (colors) paint->colors = colors;
+    dgx_ui_paint_area(ui, paint, x, y, w, h);
+    paint->scr = was_scr, paint->colors = was_colors, paint->ox = was_ox, paint->oy = was_oy;
+}
 
 /**
  * @brief The program's picture under the tree changed in a rectangle of the tree's screen (dgx_ui_background_set()): laid there now where it

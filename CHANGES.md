@@ -1,5 +1,19 @@
 # Changes
 
+## 0.0.10 - 2026-11-18
+
+- Time as "when": a look that asks for time names its moment, `dgx_ui_wake_in(paint, ms)`, and the paint's `wake_ms`
+  after a pass is the least of them (0 the next pass, for a look that names none; `DGX_UI_WAKE_NONE` when nobody
+  asks). `dgx_ui_wake(paint, ui, now_ms)` gives the loop how long it may wait, a held key's repeat counted, so a loop
+  on a battery sleeps till then; the wait is a tick at least. The look of lines names its next letter and its next
+  line up. `dgx_ui_paint()` and `dgx_ui_time()` return what they did: a loop written before works as before.
+- `dgx_ui_dump(ui)`: the tree in the log, a line a widget indented by its depth (number, kind, place, value, state,
+  marks, tag, the start of its text), each popup over it, and how many nodes it uses, with the size its array should
+  have when blocks had to be taken. In a file of its own. The example controls prints its places by it.
+- `dgx_ui_paint_area_to(ui, paint, scr, colors, x, y, w, h)`: a rectangle composed onto another screen, its corner at
+  that screen's (0, 0), for a mirror of the display in strips; the paint's screen, colours and origin given back
+  after, its canvases its own.
+
 ## 0.0.9 - 2026-11-18
 
 - A list of more rows than its box takes scrolls, as DGX-GE's list does: it shows a window of them, as many as go in

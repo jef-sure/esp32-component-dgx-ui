@@ -14,6 +14,12 @@ void menu_open(void) { ++menus; }
 static int mode = -1, modes;
 void mode_set(int m) { mode = m, ++modes; }
 static int fan_speed = -1, fans;
+static uint16_t mirror_all[320 * 240]; /* what mirror_send() was given, strip after strip */
+static int      mirror_got;
+void mirror_send(const uint16_t *pixels, int count)
+{
+    if (mirror_got + count <= 320 * 240) memcpy(mirror_all + mirror_got, pixels, (size_t)count * 2), mirror_got += count;
+}
 void fan_set(int s) { fan_speed = s, ++fans; }
 void wifi_connect(const char *password) { (void)password; }
 const uint16_t logo_pixels[64 * 32];
@@ -228,6 +234,50 @@ int main(int argc, char **argv)
         printf("list: NEXT on row 2: the pick %d, the focus still on the list %d; NEXT on the last row: the focus on the next widget %d\n", next1, f1 == list,
                l.focus == after);
         dgx_ui_free(&l);
+    }
+    /* the moment a scrolling text names, and the mirror of a screen with a popup open */
+    {
+        static dgx_ui_node_t wn[4], wp[2];
+        static dgx_ui_t      w, wpop;
+        static char          news_buf[120], ask2_buf[8];
+        static dgx_ui_textbox_t      news_box, ask2_box;
+        static dgx_ui_text_style_t   st_news;
+        static const dgx_ui_widget_t news_w = {.kind = DGX_UI_LABEL, .text = &news_box, .look = &dgx_ui_look_lines};
+        static const dgx_ui_widget_t wp_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3};
+        static const dgx_ui_widget_t ask2_w = {.kind = DGX_UI_LABEL, .text = &ask2_box, .want_h = 14};
+        dgx_screen_t                *scr    = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
+        static uint32_t              tb[COLORS];
+        for (int k = 0; k < COLORS; ++k) tb[k] = dgx_screen_rgb(scr, (uint8_t)(30 * k), (uint8_t)(250 - 30 * k), (uint8_t)(10 + 25 * k));
+        dgx_ui_paint_t pp = {.scr = scr, .colors = tb, .color_count = COLORS, .background = PAPER};
+        st_news = (dgx_ui_text_style_t){.variants = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
+        dgx_ui_textbox_init(&news_box, news_buf, sizeof news_buf, 2, &st_news);
+        dgx_ui_textbox_init(&ask2_box, ask2_buf, sizeof ask2_buf, 1, &st_left);
+        dgx_ui_init(&w, wn, 4, 2);
+        const int top = dgx_ui_add(&w, -1, &col_w), news = dgx_ui_add(&w, top, &news_w);
+        dgx_ui_text_set(&w, news, "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen "
+                                  "nineteen twenty");
+        const bool     more0 = dgx_ui_paint(&w, &pp, 0);
+        const uint32_t at0   = dgx_ui_wake(&pp, &w, 0);
+        dgx_ui_paint(&w, &pp, 500); /* a message woke the loop at 500 */
+        const uint32_t at500 = dgx_ui_wake(&pp, &w, 500);
+        printf("wake: the text asks for time %d; the loop may wait %u ms at 0 and %u at 500; ", more0, (unsigned)at0, (unsigned)at500);
+        dgx_ui_text_set(&w, news, "short");
+        dgx_ui_paint(&w, &pp, 600);
+        printf("a text that does not scroll: nobody asks %d\n", dgx_ui_wake(&pp, &w, 600) == DGX_UI_WAKE_NONE);
+        dgx_ui_init(&wpop, wp, 2, 2), dgx_ui_add(&wpop, -1, &wp_w);
+        dgx_ui_text_set(&wpop, dgx_ui_add(&wpop, 0, &ask2_w), "Sure?");
+        dgx_ui_popup_open(&w, &wpop, 60, 80, 200, 60, DGX_UI_POPUP_MODAL);
+        dgx_ui_paint(&w, &pp, 700);
+        mirror(&w, &pp);
+        dgx_screen_t *whole = dgx_vscreen_from_array(mirror_all, 320, 240, 16, DgxScreenRGB);
+        int           off   = 0;
+        for (int y = 0; y < 240; ++y)
+            for (int x = 0; x < 320; ++x) off += dgx_get_pixel(whole, x, y) != dgx_get_pixel(scr, x, y);
+        printf("mirror: %d pixels sent in strips; with a popup open it differs from the screen in %d pixels; the paint draws on its screen again %d\n", mirror_got,
+               off, pp.scr == scr);
+        dgx_screen_destroy(&whole);
+        dgx_ui_paint_free(&pp), dgx_ui_free(&w), dgx_ui_free(&wpop);
+        scr->destroy(&scr);
     }
     /* a list that scrolls: twelve months in 56 pixels are four rows at a time, the window following the pick */
     {
