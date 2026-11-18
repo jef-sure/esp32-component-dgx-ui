@@ -242,8 +242,9 @@ No table of lines is kept: the text is laid again when it is drawn.
 
 **The pointer.** The program gives `dgx_ui_pointer()` where the finger is and whether it went down or up. The deepest
 widget under the finger that answers a pointer is pressed at once and takes the focus. A slider follows the finger,
-and so does the pick of a list; a button, a switch, a row of a list and a dropdown are clicked when the finger is let
-go within `DGX_UI_CLICK_MS` and was not swiped. A disabled or hidden widget is not hit.
+and so does the pick of a list, and a list of more rows than it takes scrolls; a button, a switch, a row of a list and
+a dropdown are clicked when the finger is let go within `DGX_UI_CLICK_MS` and was not swiped. A disabled or hidden
+widget is not hit.
 
 **Keys.** `dgx_ui_key()` takes the keys of a dialog: next and previous move the focus (in a list, the rows first),
 activate presses the focused one, more and less move a slider or a switch. Back is never taken: it is the program's.

@@ -62,7 +62,7 @@ struct dgx_ui_textbox_t {
     uint8_t                    lines;     ///< the lines it shows: its height is so many lines of the first variant
     uint8_t                    variant;   ///< the variant the text was fitted in, by the painter
     const dgx_ui_text_style_t *style;
-    uint16_t                   top;       ///< the first line shown: an important text scrolls, else dgx_ui_text_scroll()
+    uint16_t                   top;       ///< the first line shown: an important text scrolls, else dgx_ui_text_scroll(); a list's first row shown, kept with its pick in view
     uint8_t                    letter_ms; ///< appearing: a letter every so many ms; 0 all at once
     uint8_t                    flags;     ///< DGX_UI_TEXTBOX_*
     uint32_t                   since_ms;  ///< when the text was first drawn: its scroll and its letters count from it
@@ -101,7 +101,11 @@ bool dgx_ui_text_set(dgx_ui_t *ui, int i, const char *text);
  */
 void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms);
 
-/** @brief The lines of a text that is not important moved by hand: so many up (down when negative), as far as there are. */
+/**
+ * @brief The lines of a text that is not important moved by hand: so many up (down when negative), as far as there
+ * are. Of a list that scrolls, its window, within its rows: the pick stays where it is, shown or not, and the next
+ * change of the value brings the window back to it.
+ */
 void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines);
 
 #ifdef __cplusplus

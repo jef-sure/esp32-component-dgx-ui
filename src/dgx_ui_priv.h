@@ -17,10 +17,17 @@
 dgx_ui_node_t *dgx_ui_at(const dgx_ui_t *ui, int i);
 
 /* the marks that say a widget itself is to be drawn: any of them, or a state that differs from the state drawn */
-#define DGX_UI_MARKS_TO_DRAW (DGX_UI_MARK_WHOLE | DGX_UI_MARK_AROUND | DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT | DGX_UI_MARK_TIME)
+#define DGX_UI_MARKS_TO_DRAW (DGX_UI_MARK_WHOLE | DGX_UI_MARK_AROUND | DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT | DGX_UI_MARK_TIME | DGX_UI_MARK_WINDOW)
 
 /*
  * Widget i is to be drawn: a mark set, or its state changed. Every widget above it is marked DGX_UI_MARK_BELOW, so the
  * painter goes down to it and skips the rest. Called by every writer of a mark or of state_value.
  */
 void dgx_ui_touched(dgx_ui_t *ui, int i);
+
+/*
+ * The rows of a list shown, the one count the core's finger and the look both go by: all of them, sharing its box,
+ * when they all go in at the larger of a line of its text and its step (points); else as many as go in, at least
+ * one, the list scrolling. *rh: the height of each; *top: the first shown, its text box's top within the rows.
+ */
+int dgx_ui_list_rows(const dgx_ui_t *ui, const dgx_ui_node_t *n, int *rh, int *top);

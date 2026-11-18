@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "dgx_ui_priv.h"
+#include "dgx_ui_text.h"
 #include "esp_log.h"
 
 static const char *TAG = "dgx_ui";
@@ -251,7 +252,43 @@ static int want_h(const dgx_ui_t *ui, const dgx_ui_widget_t *w)
     return 0;
 }
 
-/* a widget laid in a place: drawn whole when the place changed, its parent filling around it and the others */
+int dgx_ui_list_rows(const dgx_ui_t *ui, const dgx_ui_node_t *n, int *rh, int *top)
+{
+    const dgx_ui_widget_t  *w   = n->widget;
+    const dgx_ui_textbox_t *box = w->text;
+    const int               all = w->max - w->min + 1;
+    const int line  = box && box->style && box->style->count ? dgx_ui_variant_line(&box->style->variants[0]) : 0;
+    const int least = line > w->step * ui->unit ? line : w->step * ui->unit;
+    int       shown = all > 0 ? all : 0;
+    if (all > 0 && least > 0 && all * least > n->h) shown = n->h / least > 0 ? n->h / least : 1; /* it scrolls */
+    *rh   = shown > 0 ? n->h / shown : n->h;
+    int t = box && shown < all ? box->top : 0;
+    *top  = t > all - shown ? all - shown : t;
+    return shown;
+}
+
+/* a list's window brought to its pick: its text box's top moved so that the pick is shown and the window within the
+   rows; moved, every row drawn again */
+static void list_follow(dgx_ui_t *ui, int i)
+{
+    dgx_ui_node_t    *n   = NODE(ui, i);
+    dgx_ui_textbox_t *box = n->widget->text;
+    if (n->widget->kind != DGX_UI_LIST || !box || n->h <= 0) return; /* not laid yet: the layout brings it */
+    int       rh, top;
+    const int shown = dgx_ui_list_rows(ui, n, &rh, &top), all = n->widget->max - n->widget->min + 1, pick = n->state_value.value - n->widget->min;
+    if (shown >= all) top = 0;
+    else if (pick < top) top = pick;
+    else if (pick >= top + shown) top = pick - shown + 1;
+    if (top < 0) top = 0;
+    if (top == box->top) return;
+    box->top = (uint16_t)top;
+    n->marks |= DGX_UI_MARK_CHANGED;
+    dgx_ui_touched(ui, i);
+}
+
+/* a widget laid in a place: drawn whole when the place changed, its parent filling around it and the others; a list
+   of another place brings its window to its pick when its look draws it, a mark: a program of no list carries none of
+   the counting of its rows */
 static void place(dgx_ui_t *ui, int i, int x, int y, int w, int h)
 {
     dgx_ui_node_t *n = NODE(ui, i);
@@ -260,6 +297,7 @@ static void place(dgx_ui_t *ui, int i, int x, int y, int w, int h)
     n->x = (int16_t)x, n->y = (int16_t)y, n->w = (int16_t)w, n->h = (int16_t)h;
     n->marks |= DGX_UI_MARK_WHOLE;
     around(ui, n->parent);
+    if (n->widget->kind == DGX_UI_LIST) n->marks |= DGX_UI_MARK_WINDOW;
     dgx_ui_touched(ui, i);
 }
 
@@ -346,6 +384,7 @@ void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)
     dgx_ui_node_t *n = live(ui, i);
     if (!n) return;
     n->state_value.value = (int16_t)clamp_value(n->widget, value);
+    if (n->widget->kind == DGX_UI_LIST) n->marks |= DGX_UI_MARK_WINDOW; /* its window brought to the pick when drawn */
     dgx_ui_touched(ui, i);
 }
 
@@ -468,18 +507,18 @@ static void user_value(dgx_ui_t *ui, int i, int value)
     if (value == n->state_value.value) return;
     n->state_value.value = (int16_t)value;
     dgx_ui_touched(ui, i);
+    list_follow(ui, i); /* a list's pick in its window */
     tell(ui, i, DGX_UI_CHANGED);
 }
 
-static int rows_of(const dgx_ui_widget_t *w)
+/* the height of a row of a list; *top the first row shown, *scrolls whether some rows are not */
+static int row_height(const dgx_ui_t *ui, const dgx_ui_node_t *n, int *top, bool *scrolls)
 {
-    return w->max - w->min + 1;
-}
-
-static int row_height(const dgx_ui_node_t *n)
-{
-    const int rows = rows_of(n->widget);
-    return rows > 0 ? n->h / rows : n->h;
+    int       rh, t;
+    const int shown = dgx_ui_list_rows(ui, n, &rh, &t);
+    if (top) *top = t;
+    if (scrolls) *scrolls = shown < n->widget->max - n->widget->min + 1;
+    return rh;
 }
 
 /* the point of a slider or a list in its own coordinates to a value */
@@ -498,8 +537,9 @@ static void point_to_value(dgx_ui_t *ui, int i, int lx, int ly)
         v              = w->min + (v - w->min + step / 2) / step * step;
         user_value(ui, i, v);
     } else if (w->kind == DGX_UI_LIST) {
-        const int rh = row_height(n);
-        if (rh > 0) user_value(ui, i, w->min + ly / rh);
+        int       top;
+        const int rh = row_height(ui, n, &top, NULL);
+        if (rh > 0) user_value(ui, i, w->min + top + ly / rh); /* the row under the point, from the first shown */
     }
 }
 
@@ -535,10 +575,19 @@ static int list_at(dgx_ui_t *ui, int x, int y)
 }
 
 /* a point of a list (its own y) between two of its rows: the top or bottom 1/DGX_UI_ROW_GAP of a row */
-static bool between_rows(const dgx_ui_node_t *n, int ly)
+static bool between_rows(const dgx_ui_t *ui, const dgx_ui_node_t *n, int ly)
 {
-    const int rh = row_height(n), m = rh / DGX_UI_ROW_GAP, in = rh > 0 && ly >= 0 ? ly % rh : 0;
-    return n->widget->kind == DGX_UI_LIST && rh > 0 && (in < m || in >= rh - m);
+    if (n->widget->kind != DGX_UI_LIST) return false;
+    const int rh = row_height(ui, n, NULL, NULL), m = rh / DGX_UI_ROW_GAP, in = rh > 0 && ly >= 0 ? ly % rh : 0;
+    return rh > 0 && (in < m || in >= rh - m);
+}
+
+/* a list whose rows are not all shown: a finger moves its pick, as DGX-GE's, and put down it picks nothing */
+static bool list_scrolls(const dgx_ui_t *ui, const dgx_ui_node_t *n)
+{
+    bool scrolls = false;
+    if (n->widget->kind == DGX_UI_LIST) row_height(ui, n, NULL, &scrolls);
+    return scrolls;
 }
 
 /* pressed: the one under it, where, its value then; a slider or a list takes the point (a swiped slider not yet) */
@@ -547,10 +596,10 @@ static void press(dgx_ui_t *ui, int i, int x, int y)
     dgx_ui_node_t *n = NODE(ui, i);
     ui->pressed      = (int16_t)i;
     ui->press_x = ui->move_x = (int16_t)x, ui->press_y = ui->move_y = (int16_t)y, ui->dragged = false;
-    ui->between = between_rows(n, y - n->y);
+    ui->between = between_rows(ui, n, y - n->y);
     n->state_value.bits |= DGX_UI_PRESSED;
     dgx_ui_touched(ui, i);
-    if (!swiped_slider(n->widget) && !ui->between) point_to_value(ui, i, x - n->x, y - n->y);
+    if (!swiped_slider(n->widget) && !ui->between && !list_scrolls(ui, n)) point_to_value(ui, i, x - n->x, y - n->y);
     if (!live(ui, i)) { /* on(CHANGED) removed it */
         ui->pressed = -1;
         return;
@@ -661,11 +710,19 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         } else if (w->kind == DGX_UI_SLIDER) {
             point_to_value(ui, i, p->x - n->x, p->y - n->y); /* the knob follows */
         } else if (w->kind == DGX_UI_LIST) {
-            /* the row under the finger picked, as a slider's knob follows it (the rows stand, the bar moves); between
-               two rows the pick stays; once it left the row it went down on, it is dragged: let go, no click */
-            const int ly = p->y - n->y;
-            if (!between_rows(n, ly)) point_to_value(ui, i, p->x - n->x, ly);
-            if (live(ui, i) && n->state_value.value != ui->press_value) ui->dragged = true;
+            bool      scrolls;
+            const int rh = row_height(ui, n, NULL, &scrolls), ly = p->y - n->y;
+            if (scrolls) {
+                /* a list that scrolls, as DGX-GE's: up or down half a row's height, then a row along for each row's
+                   height the finger went (up: on down the list), from the pick when it went down; the window follows */
+                if (rh > 0 && 2 * ay >= rh) ui->dragged = true;
+                if (rh > 0 && ui->dragged) user_value(ui, i, ui->press_value + (dy <= 0 ? (-dy + rh / 2) / rh : -((dy + rh / 2) / rh)));
+            } else {
+                /* the row under the finger picked, as a slider's knob follows it (the rows stand, the bar moves);
+                   between two rows the pick stays; once it left the row it went down on, it is dragged: no click */
+                if (!between_rows(ui, n, ly)) point_to_value(ui, i, p->x - n->x, ly);
+                if (live(ui, i) && n->state_value.value != ui->press_value) ui->dragged = true;
+            }
         }
         if (!live(ui, i)) ui->pressed = -1; /* on(CHANGED) removed it */
         return true;                        /* pressed till it goes up, wherever it goes */
@@ -680,6 +737,9 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
             return true;
         }
         if (w->kind == DGX_UI_SWITCH) user_value(ui, i, n->state_value.value ? 0 : 1);
+        /* a list that scrolls, a click: the row it went down on, picked now */
+        if (list_scrolls(ui, n)) point_to_value(ui, i, ui->press_x - n->x, ui->press_y - n->y);
+        if (!live(ui, i)) return true; /* on(CHANGED) removed it */
         if (w->kind == DGX_UI_INPUT) tell(ui, i, DGX_UI_EDIT); /* a field clicked: to be edited */
         if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN) tell(ui, i, DGX_UI_ACTIVATED);
         return true;

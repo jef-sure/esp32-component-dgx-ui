@@ -141,11 +141,14 @@ int main(void)
     CHECK(dd.tree.root_rect.y == PANEL_H - (3 * 16 + 2) && dd.tree.root_rect.y < dn->y + dn->h);
     dgx_ui_popup_close(&ui);
 
-    /* six rows of 16 in a screen of 80: the whole height shared */
+    /* six rows of 16 in a screen of 80, the dropdown at its top: as many as the room under it takes, three, rows as
+       high as the dropdown, the list scrolling and under it, not over it */
     const int m = dgx_ui_add(&ui, 0, &many_w);
     dgx_ui_layout(&ui);
     CHECK(dgx_ui_dropdown_open(&ui, m, &dd, NULL, NULL));
-    CHECK(dd.tree.root_rect.y == 0 && dd.tree.root_rect.h == PANEL_H);
+    dgx_ui_layout(&dd.tree);
+    const dgx_ui_node_t *mn = dgx_ui_node(&ui, m);
+    CHECK(dd.tree.root_rect.y == mn->y + mn->h && dd.tree.root_rect.h == 3 * 16 + 2 && dd.list.step == 16 && dgx_ui_node(&dd.tree, 1)->h == 3 * 16);
     dgx_ui_popup_close(&ui);
     /* one dd serves the other dropdown after: opened again for the first */
     CHECK(dgx_ui_dropdown_open(&ui, d, &dd, NULL, NULL) && dd.i == d);

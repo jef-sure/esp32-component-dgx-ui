@@ -23,6 +23,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [Colours of your own, and a night mode](#colours-of-your-own-and-a-night-mode)
 - [Showing, hiding, disabling](#showing-hiding-disabling)
 - [A popup](#a-popup)
+- [Pages and "back"](#pages-and-back)
 - [Buttons of the board](#buttons-of-the-board)
 - [Touch with DGX-DI](#touch-with-dgx-di)
 - [A field and a keyboard](#a-field-and-a-keyboard)
@@ -32,6 +33,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A message from an interrupt](#a-message-from-an-interrupt)
 - [A look of your own](#a-look-of-your-own)
 - [A picture that stays between passes](#a-picture-that-stays-between-passes)
+- [A graph that sweeps](#a-graph-that-sweeps)
 - [A ring scale with widgets inside](#a-ring-scale-with-widgets-inside)
 - [A display of 18 or 24 bits](#a-display-of-18-or-24-bits)
 - [Turning the screen](#turning-the-screen)
@@ -277,14 +279,25 @@ static int mode_add(dgx_ui_t *ui, int parent)
 
 - **The rows** are the lines of the text, parted by `\n`. The first line is the value `min`, the next `min + 1`, up
   to `max`; a row past the last line is empty.
-- **The height** of the list is shared by its rows: here 56 points for four rows of 14. The list does not scroll,
-  all its rows are in its box.
-- **The finger.** Going down on a row picks it, and `on()` is told `DGX_UI_CHANGED`. Moved along the list, it takes
-  the pick with it: the row under the finger is the one picked. Let go soon, on the row it went down on, it is a
-  click: `DGX_UI_ACTIVATED`. Once it has left that row, letting go is no click. The top and the bottom twelfth of
-  a row belong to no row, and a finger there picks nothing.
-- **The keys.** Next and previous move the pick through the rows first, `DGX_UI_CHANGED` at each, and from the last
-  row the focus goes on to the next widget. The key that activates tells `DGX_UI_ACTIVATED`.
+- **The height.** When all the rows go into the list at a line of its text each, they share its height: here 56
+  points for four rows of 14. When they do not, the list shows a window of them and scrolls: as many rows at a time as
+  lines of the text go into its height. The twelve months in a list 56 pixels high, in a font of 13 pixels a line,
+  are four rows at a time, and a thin bar on the right edge shows where the window is among them. `step` of the widget is the least height of a row in points, for rows a finger hits; 0 is a line of the
+  text.
+- **The finger on a list whose rows all show.** Going down on a row picks it, and `on()` is told `DGX_UI_CHANGED`.
+  Moved along the list, it takes the pick with it: the row under the finger is the one picked. Let go soon, on the
+  row it went down on, it is a click: `DGX_UI_ACTIVATED`. Once it has left that row, letting go is no click. The
+  top and the bottom twelfth of a row belong to no row, and a finger there picks nothing.
+- **The finger on a list that scrolls.** Put down, it picks nothing. Moved up or down half a row, it moves the
+  pick, a row for each row's height it goes, up going on down the list, and the window follows the pick. Let go
+  without having moved, it is a click on the row under it: the row is picked, and `on()` is told `DGX_UI_CHANGED`
+  and `DGX_UI_ACTIVATED`.
+- **The keys.** Next and previous move the pick through the rows first, `DGX_UI_CHANGED` at each, the window
+  following it, and from the last row the focus goes on to the next widget. The key that activates tells
+  `DGX_UI_ACTIVATED`.
+- **The window** always holds the pick after the pick changed, by a key, a finger or `dgx_ui_set_value()`.
+  `dgx_ui_text_scroll(ui, list, rows)` moves the window alone, the pick staying where it is, for a scroll bar of
+  the program's own.
 - **The picked row** lies on a bar, of another colour while the list has the focus. When the pick moves, two rows
   of the display are written: the one it left and the one it came to.
 - **Colours of your own** are a `dgx_ui_list_look_t` in a look drawn by `dgx_ui_draw_list`, as in
@@ -338,8 +351,9 @@ static int fan_add(dgx_ui_t *ui, int parent)
 - **Where the list stands.** Under the dropdown and as wide as it; above it when the screen has no room below;
   else moved up so that it fits the screen, lying over the dropdown.
 - **The rows** are as high as the dropdown, and never lower than a line of the text: a dropdown sized for a finger
-  has rows a finger hits. The list does not scroll: as many options fit as rows of that height go into the height
-  of the screen, and more options than that share the height of the screen.
+  has rows a finger hits. When neither the room under the dropdown nor the room above it takes all the options,
+  the list scrolls: it stands in the larger of the two, as many rows as go into it, its window at the option
+  chosen, and never lies over the dropdown.
 - **The keys.** The key that activates, on the dropdown, tells `DGX_UI_ACTIVATED` as a click does. In the list,
   next and previous move the pick and the key that activates chooses. The list is modal, so the keys stay in it;
   "back" is the program's, which closes the list by `dgx_ui_popup_close(ui)`, the value kept.
@@ -709,6 +723,52 @@ static bool sure_open(void)
 - The finger and the keys go to the top popup first. A finger on the part of an upper popup that hangs out of the
   lower one is the upper one's.
 - `dgx_ui_popup_close(ui)` closes the popup of that tree and every popup over it.
+
+## Pages and "back"
+
+A program of several screens needs nothing new: a page is a popup as large as the screen. Take a clock with a page
+of settings and, from it, a page "about":
+
+1. The clock is the first tree. The user asks for the settings: the program opens the settings' tree over it, the
+   whole screen, modal. The clock is not drawn any more, and the finger and the keys go to the settings.
+2. A value of the sensor comes while the settings show. The message is offered to every tree, so the clock's label
+   takes it, under the page.
+3. From the settings the user opens "about": a second page over the first.
+4. "Back" closes the page on top: the settings show again. "Back" once more: the clock, with the value that came in
+   step 2.
+
+```c
+/* a page is a tree of its own, built at the start as any tree, with its own nodes */
+static dgx_ui_node_t page_settings_nodes[8], page_about_nodes[4];
+static dgx_ui_t      page_settings, page_about;
+
+/* a page opened over the one that is on top now: the whole screen, modal */
+static bool page_open(dgx_ui_t *home, dgx_ui_t *page, int screen_w, int screen_h)
+{
+    dgx_ui_t *top = home;
+    while (top->popup) top = top->popup;
+    return dgx_ui_popup_open(top, page, 0, 0, screen_w, screen_h, DGX_UI_POPUP_MODAL);
+}
+
+/* "back": the page on top closed; false when the first tree is on top, and there is nowhere to go back to */
+static bool page_back(dgx_ui_t *home)
+{
+    dgx_ui_t *under = home;
+    if (!under->popup) return false;
+    while (under->popup->popup) under = under->popup;
+    dgx_ui_popup_close(under);
+    return true;
+}
+```
+
+- **The stack** of pages is the popups one over another, up to `DGX_UI_POPUP_DEPTH`, 8, over the first tree.
+- **"Back"** is the program's: the key `DGX_UI_KEY_BACK` is never taken by a widget, and a button "back" of a page
+  calls the same `page_back()`.
+- **The pages under the top one** are fed by `dgx_ui_take()` and drawn when they show again; their canvases are
+  kept. A page that is closed costs nothing until it is opened again, and its widgets keep their values.
+- **A page's root** covers the screen with the paper, a box, or with its fill, a frame.
+- Pages of one level that replace each other, tabs, need no popup: the children of one box, all hidden but one
+  (`dgx_ui_show()`).
 
 ## Buttons of the board
 
@@ -1194,6 +1254,56 @@ static void history_add(dgx_ui_t *ui, int graph, int ppm)
 - **One paint, one tree.** The canvases are the paint's, for the tree it draws and the popups over it; a canvas is
   freed when its widget leaves the tree or its tree is no longer drawn. Two trees drawn in turn on one screen each
   take a paint of their own.
+
+## A graph that sweeps
+
+The graph of the recipe above goes to the display whole at every value, and its canvas takes a byte of RAM a pixel.
+A graph that only grows needs neither: its look writes the one new column. Take the same graph of CO2:
+
+1. A value comes. The widget's value, the number of columns, goes from 5 to 6. The look is called with the value as
+   it is and as it was drawn, and writes column 5 alone: 40 pixels of the display.
+2. A popup closes over the graph. The look is called with `paint->whole`, and writes all six columns and the paper
+   after them.
+
+```c
+enum { TRACE = 120 };
+static uint8_t trace_level[TRACE]; /* the height of each column, in pixels */
+
+static bool trace_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    const dgx_ui_node_t *n     = dgx_ui_node(ui, i);
+    const uint8_t       *level = n->widget->own;
+    const int            count = n->state_value.value < n->w ? n->state_value.value : n->w, was = n->state_drawn.value;
+    /* drawn whole, or begun again: every column and the paper after them; else only the columns that came since */
+    const bool all  = paint->whole || count < was;
+    for (int k = all ? 0 : was; k < count; ++k) {
+        const int h = level[k] < n->h ? level[k] : n->h;
+        dgx_ui_lay_paper(paint, DGX_UI_PAPER, n->x + k, n->y, 1, n->h - h);
+        if (h) dgx_fill_rectangle(paint->scr, n->x + k - paint->ox, n->y + n->h - h - paint->oy, 1, h, dgx_ui_color(paint, ACCENT));
+    }
+    if (all) dgx_ui_lay_paper(paint, DGX_UI_PAPER, n->x + count, n->y, n->w - count, n->h);
+    return false;
+}
+
+static const dgx_ui_look_t   trace_look = {.draw = trace_draw, .fill = -1};
+static const dgx_ui_widget_t trace_w    = {.kind = DGX_UI_OWN, .max = TRACE, .want_h = 20, .own = trace_level, .look = &trace_look};
+
+/* a new value: one more column; the graph begins again when it is full */
+static void trace_add(dgx_ui_t *ui, int graph, int ppm)
+{
+    int count = dgx_ui_node(ui, graph)->state_value.value;
+    if (count >= TRACE) count = 0;
+    trace_level[count] = (uint8_t)(ppm >= 2000 ? 40 : ppm / 50);
+    dgx_ui_set_value(ui, graph, count + 1);
+}
+```
+
+- **What goes to the display** at a new value is one column. The canvas of the recipe above sends 9600 pixels for
+  the same.
+- **What it keeps** is a byte a column, the program's own array. Drawn whole, the look draws from it.
+- **The rule it keeps** is that of every look: with `paint->whole` all of its box is written, each pixel once.
+- A canvas is the better way when the picture costs much to draw again or is drawn by a soft pen; this one when the
+  picture is rebuilt as cheaply as here. Graphs with axes and legends are for DGX-LVGL.
 
 ## A ring scale with widgets inside
 

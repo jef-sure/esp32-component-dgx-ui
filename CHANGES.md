@@ -1,5 +1,23 @@
 # Changes
 
+## 0.0.9 - 2026-11-18
+
+- A list of more rows than its box takes scrolls, as DGX-GE's list does: it shows a window of them, as many as go in
+  at a line of its text or at its `step` (now the least height of a row, in points, for a list), the first one shown
+  its text box's `top`; a list whose rows all go in is drawn as before, row for row. The window follows the pick: the
+  keys, the finger and `dgx_ui_set_value()` bring it to the pick (a mark, `DGX_UI_MARK_WINDOW`, for the look to do it
+  when it draws), and `dgx_ui_text_scroll()` moves it, the pick staying. Owed by the plan and lost in 0.0.4.
+- The finger on a list that scrolls, his word "как в DGX-GE": put down it picks nothing; moved up or down half a row's
+  height, it moves the pick a row for each row's height it goes, up going on down the list, the window following; let
+  go without having moved, a click picks the row it went down on. A list whose rows all show picks the row under the
+  finger as in 0.0.4.
+- The look of a list that scrolls draws a bar on its right edge, `dgx_ui_list_look_t::bar` (colour 3 by default, seen
+  on the fill of a frame too), its length the window's share of the rows and its place the window's.
+- A dropdown's list longer than the screen scrolls in place of its rows squeezed, its rows as high as the dropdown, its
+  window at the option chosen, as many rows as the larger room under it or above it takes: it never lies over the
+  dropdown. The warning of the squeeze is gone.
+- A list's text set anew keeps its window: its rows are its range, not its text.
+
 ## 0.0.8 - 2026-11-18
 
 - A canvas of a widget of `DGX_UI_CANVAS`, `dgx_ui_canvas(paint, ui, i, &made)`: an 8-bit virtual screen as large as

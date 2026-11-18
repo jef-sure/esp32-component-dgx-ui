@@ -229,6 +229,99 @@ int main(int argc, char **argv)
                l.focus == after);
         dgx_ui_free(&l);
     }
+    /* a list that scrolls: twelve months in 56 pixels are four rows at a time, the window following the pick */
+    {
+        static dgx_ui_node_t sn[2];
+        static dgx_ui_t      s;
+        static char          months_buf[64];
+        static dgx_ui_textbox_t      months_box;
+        static const dgx_ui_widget_t months_w = {.kind = DGX_UI_LIST, .text = &months_box, .max = 11, .want_h = 56, .look = &dgx_ui_look_list};
+        dgx_ui_textbox_init(&months_box, months_buf, sizeof months_buf, 1, &st_left);
+        dgx_ui_init(&s, sn, 2, 1);
+        const int top = dgx_ui_add(&s, -1, &col_w), list = dgx_ui_add(&s, top, &months_w);
+        dgx_ui_text_set(&s, list, "Jan\nFeb\nMar\nApr\nMay\nJun\nJul\nAug\nSep\nOct\nNov\nDec");
+        dgx_ui_screen(&s, 200, 100, 0), dgx_ui_layout(&s);
+        dgx_ui_focus(&s, list);
+        for (int k = 0; k < 4; ++k) dgx_ui_key(&s, DGX_UI_KEY_NEXT);
+        const int at4 = months_box.top;
+        for (int k = 0; k < 7; ++k) dgx_ui_key(&s, DGX_UI_KEY_NEXT);
+        const int at11 = months_box.top;
+        dgx_ui_text_scroll(&s, list, -8);
+        printf("scroll: the pick on the fifth row: the window from %d (rows 1..4); on the twelfth: from %d (four rows at a time); scrolled by the program: from %d, "
+               "the pick still %d\n", at4, at11, months_box.top, dgx_ui_node(&s, list)->state_value.value);
+        dgx_ui_free(&s);
+    }
+    /* pages: the settings over the clock, "about" over the settings, and back twice; the clock fed under them */
+    {
+        static dgx_ui_node_t hn[2];
+        static dgx_ui_t      home;
+        static char          home_buf[16];
+        static dgx_ui_textbox_t      home_box;
+        static const dgx_ui_widget_t home_w = {.kind = DGX_UI_LABEL, .text = &home_box, .want_h = 14};
+        dgx_screen_t                *scr    = dgx_vscreen_init(160, 60, 16, DgxScreenRGB);
+        static uint32_t              tb[COLORS];
+        for (int k = 0; k < COLORS; ++k) tb[k] = dgx_screen_rgb(scr, (uint8_t)(30 * k), (uint8_t)(250 - 30 * k), (uint8_t)(10 + 25 * k));
+        dgx_ui_paint_t pp = {.scr = scr, .colors = tb, .color_count = COLORS, .background = PAPER};
+        dgx_ui_textbox_init(&home_box, home_buf, sizeof home_buf, 1, &st_left);
+        dgx_ui_init(&home, hn, 2, 1);
+        const int top = dgx_ui_add(&home, -1, &col_w), label = dgx_ui_add(&home, top, &home_w);
+        dgx_ui_init(&page_settings, page_settings_nodes, 8, 1), dgx_ui_add(&page_settings, -1, &col_w);
+        dgx_ui_init(&page_about, page_about_nodes, 4, 1), dgx_ui_add(&page_about, -1, &col_w);
+        dgx_ui_paint(&home, &pp, 0);
+        const dgx_ui_node_t *n = dgx_ui_node(&home, label);
+        int ink0 = 0, ink1 = 0, ink2 = 0;
+        const bool o1 = page_open(&home, &page_settings, 160, 60);
+        dgx_ui_paint(&home, &pp, 1);
+        dgx_ui_text_set(&home, label, "23:59"); /* a value that came for the clock while the settings show */
+        dgx_ui_paint(&home, &pp, 2);
+        for (int y = n->y; y < n->y + n->h; ++y)
+            for (int x = n->x; x < n->x + n->w; ++x) ink0 += dgx_get_pixel(scr, x, y) == tb[INK];
+        const bool o2 = page_open(&home, &page_about, 160, 60);
+        const bool stacked = home.popup == &page_settings && page_settings.popup == &page_about;
+        const bool b1 = page_back(&home);
+        const bool settings_top = home.popup == &page_settings && !page_settings.popup;
+        dgx_ui_paint(&home, &pp, 3);
+        for (int y = n->y; y < n->y + n->h; ++y)
+            for (int x = n->x; x < n->x + n->w; ++x) ink1 += dgx_get_pixel(scr, x, y) == tb[INK];
+        const bool b2 = page_back(&home);
+        dgx_ui_paint(&home, &pp, 4);
+        for (int y = n->y; y < n->y + n->h; ++y)
+            for (int x = n->x; x < n->x + n->w; ++x) ink2 += dgx_get_pixel(scr, x, y) == tb[INK];
+        printf("pages: opened %d %d, stacked %d; under the settings the clock's new text is not drawn (ink %d, %d); back %d: the settings on top %d; back %d: "
+               "the clock drawn with it (ink %d); back once more %d\n", o1, o2, stacked, ink0, ink1, b1, settings_top, b2, ink2, page_back(&home));
+        dgx_ui_paint_free(&pp), dgx_ui_free(&home), dgx_ui_free(&page_settings), dgx_ui_free(&page_about);
+        scr->destroy(&scr);
+    }
+    /* a graph that sweeps: a column a value written alone; whole after a popup */
+    {
+        static dgx_ui_node_t tn[2], tp[1];
+        static dgx_ui_t      t, tpop;
+        static const dgx_ui_widget_t tp_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN};
+        panel_t                     *panel = panel_make();
+        static uint32_t              c24[COLORS];
+        for (int k = 0; k < COLORS; ++k) c24[k] = dgx_screen_rgb(&panel->sbus.scr, (uint8_t)(40 * k), (uint8_t)(250 - 30 * k), (uint8_t)(20 * k));
+        dgx_ui_paint_t pp = {.scr = &panel->sbus.scr, .colors = c24, .color_count = COLORS, .background = PAPER};
+        dgx_ui_init(&t, tn, 2, 1);
+        const int top = dgx_ui_add(&t, -1, &col_w), graph = dgx_ui_add(&t, top, &trace_w);
+        dgx_ui_paint(&t, &pp, 0);
+        const dgx_ui_node_t *n = dgx_ui_node(&t, graph);
+        for (int k = 0; k < 5; ++k) trace_add(&t, graph, 500), dgx_ui_paint(&t, &pp, 1 + k);
+        panel_count_from_now(panel);
+        trace_add(&t, graph, 1000), dgx_ui_paint(&t, &pp, 10);
+        const int one = panel_written(panel), tw = panel_twice(panel);
+        dgx_ui_init(&tpop, tp, 1, 1), dgx_ui_add(&tpop, -1, &tp_w);
+        dgx_ui_popup_open(&t, &tpop, 0, 0, 40, 30, 0), dgx_ui_paint(&t, &pp, 11);
+        dgx_ui_popup_close(&t), dgx_ui_paint(&t, &pp, 12);
+        int right = 1;
+        for (int k = 0; k < 8; ++k) {
+            const int h = k < 5 ? 10 : k == 5 ? 20 : 0;
+            right &= (h ? panel->mem[n->y + n->h - h][n->x + k] == c24[ACCENT] : 1) && panel->mem[n->y + n->h - h - 1][n->x + k] == c24[PAPER];
+        }
+        printf("sweep: its box %dx%d; the sixth value: %d pixels written (a column is %d), twice %d; a popup opened and closed over it: the columns right %d\n",
+               n->w, n->h, one, n->h, tw, right);
+        dgx_ui_paint_free(&pp), dgx_ui_free(&t), dgx_ui_free(&tpop);
+        free(panel);
+    }
     /* a graph in a canvas: a column a value, only the new one drawn; a popup opened and closed puts it again; full, it
        begins again */
     {

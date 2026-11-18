@@ -50,6 +50,14 @@ static size_t whole_chars(const char *s, size_t n)
 /* a text of a buffer up to this long is compared with the one before; a longer buffer is taken as changed */
 enum { COMPARED = 256 };
 
+/* a text set anew: its scroll and its letters from the start at the next pass; a list keeps its window, as its rows
+   are its range and its pick stays in view */
+static void restart(dgx_ui_textbox_t *box, const dgx_ui_widget_t *w)
+{
+    if (w->kind != DGX_UI_LIST) box->top = 0;
+    box->flags = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_COUNTED));
+}
+
 bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)
 {
     dgx_ui_node_t    *w   = dgx_ui_node(ui, i);
@@ -61,7 +69,7 @@ bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)
         else if (n >= box->size) box->buf[whole_chars(box->buf, box->size - 1)] = 0;
         w->marks |= DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT;
         dgx_ui_touched(ui, i);
-        box->top = 0, box->flags = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_COUNTED));
+        restart(box, w->widget);
         return true;
     }
     /* written beside the old one and compared: the same text changes nothing */
@@ -73,7 +81,7 @@ bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)
     strcpy(box->buf, text);
     w->marks |= DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT;
     dgx_ui_touched(ui, i);
-    box->top = 0, box->flags = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_COUNTED));
+    restart(box, w->widget);
     return true;
 }
 
@@ -107,8 +115,14 @@ void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines)
     dgx_ui_node_t    *n   = dgx_ui_node(ui, i);
     dgx_ui_textbox_t *box = n && n->widget ? n->widget->text : NULL;
     if (!box || !lines) return;
-    const int top = box->top + lines; /* bound by the painter, which knows how many lines there are */
-    box->top      = (uint16_t)(top < 0 ? 0 : top > 0xFFFF ? 0xFFFF : top);
+    int top = box->top + lines; /* a text's bound by the painter, which knows how many lines there are */
+    if (n->widget->kind == DGX_UI_LIST) {
+        /* a list's window: within its rows, its pick staying */
+        int       rh, at;
+        const int shown = dgx_ui_list_rows(ui, n, &rh, &at), last = n->widget->max - n->widget->min + 1 - shown;
+        top             = top > last ? last : top;
+    }
+    box->top = (uint16_t)(top < 0 ? 0 : top > 0xFFFF ? 0xFFFF : top);
     n->marks |= DGX_UI_MARK_CHANGED;
     dgx_ui_touched(ui, i);
 }

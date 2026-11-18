@@ -107,7 +107,7 @@ enum {
     DGX_UI_LABEL,     ///< a text box
     DGX_UI_PICTURE,  ///< one picture
     DGX_UI_ICON,     ///< a picture of an array, state_value.value picks it; outside min..max, none
-    DGX_UI_LIST,     ///< rows, one picked: the value, min the first row
+    DGX_UI_LIST,     ///< rows, one picked: the value, min the first row; more rows than its box takes, a window of them that scrolls
     DGX_UI_SWITCH,   ///< value 0 or 1
     DGX_UI_SLIDER,   ///< value min..max by step
     DGX_UI_BUTTON,   ///< pressed and let go inside: activated
@@ -138,6 +138,7 @@ enum {
     DGX_UI_MARK_AROUND    = 1u << 5, ///< a child of it moved, came or went: a box or a frame of a column or a row fills
                                      ///< around its children, who are drawn only when marked themselves
     DGX_UI_MARK_BELOW     = 1u << 6, ///< a widget under it is to be drawn: the painter goes down here, and skips the rest
+    DGX_UI_MARK_WINDOW    = 1u << 7, ///< a list's window to be brought to its pick when it is drawn next: its value set, its height changed
 };
 
 /** What a widget's on() is told: what the user did, never what the program set. */
@@ -193,7 +194,7 @@ typedef struct dgx_ui_widget_t {
     uint8_t        pad, gap;       ///< inside a box: around its children and between them, in points
     int16_t        at_x, at_y;     ///< asked: from the parent's inside edge, in points; negative from the far edge
     int16_t        want_w, want_h; ///< asked, in points; 0: the content's (a picture's size, a text's lines; a text has no width of its own, nor a box any size), or across the stacking all of the box
-    int16_t        min, max, step; ///< the range of a control; a list's first row and its last
+    int16_t        min, max, step; ///< the range of a control; a list's first row and its last, and its step the least height of a row in points (0: a line of its text)
     int16_t        tag;            ///< the program's: found by dgx_ui_find(), kept and nothing more
     dgx_ui_state_t state;          ///< the state it starts with: HIDDEN, DISABLED, the first value
     const dgx_ui_picture_t *picture; ///< PICTURE: one; ICON: an array of min..max
@@ -441,6 +442,12 @@ int dgx_ui_hit(dgx_ui_t *ui, int x, int y);
  * The widget it went down on is pressed (DGX_UI_PRESSED) till it goes up, wherever it goes; let go within
  * DGX_UI_CLICK_MS, not swiped nor dragged, it is a click: a button, a list's row, a dropdown activated, a switch
  * turned, a field told DGX_UI_EDIT. A swipe that begins on a field opens no editor.
+ *
+ * A list whose rows all show picks the row under the finger as it moves. A list that scrolls (more rows than its box
+ * takes, dgx_ui_text_scroll()) picks nothing when the finger goes down: moved up or down half a row's height, the
+ * finger moves the pick a row for each row's height it went, up going on down the list, from the pick it found, and
+ * the window follows the pick, as DGX-GE's list does; let go without having moved, a click picks the row it went
+ * down on.
  *
  * @return true when a widget took it: it went down on one, and holds it till it goes up.
  */

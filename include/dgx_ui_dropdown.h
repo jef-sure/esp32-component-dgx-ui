@@ -17,8 +17,8 @@
  *
  *  The list stands under the dropdown, as wide as it; above it when the screen has no room below; else moved up so
  *  that it fits the screen, lying over the dropdown. Its rows are as high as the dropdown, so a finger that hits the
- *  dropdown hits a row (never lower than a line of the text). The list does not scroll: the screen takes so many
- *  rows, screen height / row height; more options than that share the height of the screen, a warning in the log.
+ *  dropdown hits a row (never lower than a line of the text). More options than the screen takes rows: the list is as
+ *  high as the screen allows and scrolls, its window at the option chosen.
  *
  *  The popup is modal and closed by a finger outside it: the keys stay in the list (NEXT and PREV move the pick,
  *  ACTIVATE chooses), a finger elsewhere closes it, and BACK is the program's, which closes it by dgx_ui_popup_close().

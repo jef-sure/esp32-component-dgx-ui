@@ -273,6 +273,37 @@ int main(void)
         dgx_ui_free(&ta.ui), dgx_ui_free(&tb.ui), dgx_ui_free(&ta.pop), dgx_ui_free(&tb.pop);
     }
 
+    /* a list that scrolls, its window moved by a key: through the strips, every pixel once, as the virtual screen */
+    {
+        static char                  ba[60], bb[60];
+        static dgx_ui_textbox_t      ta, tb;
+        static dgx_ui_widget_t       wa, wb;
+        static dgx_ui_node_t         na[2], nb[2];
+        static dgx_ui_t              ua, ub;
+        static const dgx_ui_widget_t col = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2};
+        dgx_ui_textbox_init(&ta, ba, sizeof ba, 1, &style), dgx_ui_textbox_init(&tb, bb, sizeof bb, 1, &style);
+        const int line = dgx_ui_variant_line(&variant[0]);
+        wa = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .text = &ta, .max = 5, .want_h = (int16_t)(2 * line), .look = &dgx_ui_look_list};
+        wb = wa, wb.text = &tb;
+        dgx_ui_init(&ua, na, 2, 1), dgx_ui_init(&ub, nb, 2, 1);
+        dgx_ui_add(&ua, -1, &col), dgx_ui_add(&ub, -1, &col);
+        dgx_ui_add(&ua, 0, &wa), dgx_ui_add(&ub, 0, &wb);
+        dgx_ui_text_set(&ua, 1, "one\ntwo\nthree\nfour\nfive\nsix"), dgx_ui_text_set(&ub, 1, "one\ntwo\nthree\nfour\nfive\nsix");
+        pa = (dgx_ui_paint_t){.scr = &panel->sbus.scr, .colors = colors, .color_count = 4, .buffer = buffer, .buffer_size = sizeof buffer, .strips = &dgx_ui_strips};
+        pv = (dgx_ui_paint_t){.scr = v, .colors = colors, .color_count = 4};
+        dgx_ui_paint(&ua, &pa, 7000), dgx_ui_paint(&ub, &pv, 7000);
+        dgx_ui_focus(&ua, 1), dgx_ui_focus(&ub, 1);
+        dgx_ui_key(&ua, DGX_UI_KEY_NEXT), dgx_ui_key(&ub, DGX_UI_KEY_NEXT); /* the second row: the window stands */
+        dgx_ui_paint(&ua, &pa, 7001), dgx_ui_paint(&ub, &pv, 7001);
+        panel_count_from_now(panel);
+        dgx_ui_key(&ua, DGX_UI_KEY_NEXT), dgx_ui_key(&ub, DGX_UI_KEY_NEXT); /* the third: the window a row down */
+        dgx_ui_paint(&ua, &pa, 7002), dgx_ui_paint(&ub, &pv, 7002);
+        const dgx_ui_node_t *n = dgx_ui_node(&ua, 1);
+        CHECK(ta.top == 1 && panel_twice(panel) == 0 && panel_written(panel) == n->w * n->h && differ(panel, v) == 0);
+        dgx_ui_paint_free(&pa), dgx_ui_paint_free(&pv);
+        dgx_ui_free(&ua), dgx_ui_free(&ub);
+    }
+
     /* the paint given a display of the other depth (three bytes a point both): the strip made again, the label drawn */
     {
         pa = (dgx_ui_paint_t){.scr = &panel->sbus.scr, .colors = colors, .color_count = 4, .buffer = buffer, .buffer_size = sizeof buffer, .strips = &dgx_ui_strips};

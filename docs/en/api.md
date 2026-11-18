@@ -16,7 +16,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.8: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.9: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -92,7 +92,7 @@ of every member.
 | `pad`, `gap` | of a box: points from its edges to its children, and between them |
 | `at_x`, `at_y` | where it asks to be, in points from the inner edge of its parent; negative: from the far edge. In a column only `at_x` is used, in a row only `at_y` |
 | `want_w`, `want_h` | its size in points; 0: the size of its content, or across the stacking all of the box |
-| `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list; the values of an icon's pictures |
+| `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list, and in `step` the least height of its rows in points, 0 a line of its text; the values of an icon's pictures |
 | `tag` | the program's number of it, found by `dgx_ui_find()`; 0 for none |
 | `state` | the state it starts with: `DGX_UI_HIDDEN`, `DGX_UI_DISABLED`, the first value |
 | `picture` | a picture: one; an icon: an array for the values `min..max` |
@@ -112,7 +112,7 @@ of every member.
 | `DGX_UI_LABEL` | a text |
 | `DGX_UI_PICTURE` | one picture |
 | `DGX_UI_ICON` | a picture picked by the value from an array; outside `min..max`, none |
-| `DGX_UI_LIST` | rows, one picked: the value, `min` the first row. Its look is `dgx_ui_look_list` |
+| `DGX_UI_LIST` | rows, one picked: the value, `min` the first row. With more rows than it takes, it shows a window of them and scrolls. Its look is `dgx_ui_look_list` |
 | `DGX_UI_SWITCH` | value 0 or 1 |
 | `DGX_UI_SLIDER` | value `min..max` by `step` |
 | `DGX_UI_BUTTON` | clicked: activated |
@@ -196,6 +196,7 @@ A widget in a tree, 28 bytes of RAM on a 32-bit chip. The program reads it and d
 | `DGX_UI_MARK_FIT` | its text is to be fitted to its field again |
 | `DGX_UI_MARK_TIME` | its look asked for time: it is called again at the next pass |
 | `DGX_UI_MARK_BELOW` | a widget under it is to be drawn: the painter goes down only where this is set |
+| `DGX_UI_MARK_WINDOW` | a list's window is to be brought to its pick when it is drawn next: its value was set, or its height changed |
 | `DGX_UI_MARK_AROUND` | a child of it moved, came or went: a box or a frame that stacks its children fills around them, and only the children marked themselves are drawn |
 | `DGX_UI_MARK_HARD_SIZE` | its canvas keeps the size it has: a larger one could not be had |
 
@@ -416,7 +417,7 @@ line shown, and what the look of lines counts. Its flags `DGX_UI_TEXTBOX_START`,
 | `bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)` | The same with a `va_list`. |
 | `bool dgx_ui_text_set(dgx_ui_t *ui, int i, const char *text)` | The text set as it is. |
 | `void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms)` | The text appears letter by letter from the next pass, a letter every so many ms; 0: all at once. A text set later appears too. For `dgx_ui_look_lines`. |
-| `void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines)` | A text that is not important moved so many lines up, or down when negative, as far as there are lines. For `dgx_ui_look_lines`. |
+| `void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines)` | A text that is not important moved so many lines up, or down when negative, as far as there are lines. For `dgx_ui_look_lines`. Of a list that scrolls: its window moved so many rows, within its rows, the pick staying; the next change of the value brings the window back to the pick. |
 
 Setting a text draws and measures nothing: the painter fits and draws it at its next pass.
 
@@ -739,6 +740,7 @@ typedef struct dgx_ui_list_look_t {
     uint8_t pick, pick_ink; /* the bar of the row picked, and its text */
     uint8_t focused;        /* the bar while the list has the focus */
     uint8_t disabled;       /* the text of every row while the list is disabled */
+    uint8_t bar;            /* a list that scrolls: the mark on its right edge of where its window is */
 } dgx_ui_list_look_t;
 
 typedef struct dgx_ui_dropdown_look_t {
@@ -749,12 +751,19 @@ typedef struct dgx_ui_dropdown_look_t {
 ```
 
 The rows of a list and the options of a dropdown are the lines of the widget's text, parted by `\n`:
-`"Auto\nHeat\nCool"`. The first line is the value `min`, the next `min + 1`. A list's rows share the height of its
-box, each line in the middle of its row, in the first font of the style; a list does not scroll. A dropdown shows
-the line of its value; a value with no line shows an empty face.
+`"Auto\nHeat\nCool"`. The first line is the value `min`, the next `min + 1`. A dropdown shows the line of its value;
+a value with no line shows an empty face.
+
+A list whose rows all go into it, at a line of its text or its `step` each, whichever is larger, shows them all, and
+they share its height. A list of more rows shows a window of them: as many as go into its height, the first one
+kept in `top` of its text box, and a bar on its right edge, two points wide, marks where the window is. The window
+follows the pick. With all its rows shown a finger picks the row under it; on a list that scrolls a finger put
+down picks nothing, moved up or down it moves the pick a row for each row's height, up going on down the list, and
+let go without a move it clicks the row under it.
 
 By default the bar of a list is colour 3 and the text on it colour 0; while the list has the focus the bar is colour
-1, so the pick shows in a frame too, whose fill is colour 2. The rows of a disabled list are colour 2.
+1, so the pick shows in a frame too, whose fill is colour 2. The rows of a disabled list are colour 2, and the mark
+of a window, `bar`, colour 3.
 
 A field whose parameters say `secret` shows a star for each letter, a password or a PIN; the text box keeps the
 letters. The font of the field must have the star, `*`: without it the field shows nothing. A font made at build time
@@ -786,8 +795,9 @@ The program calls it when the dropdown's `on()` is told `DGX_UI_ACTIVATED`.
 
 - The list stands under the dropdown, as wide as it; above it when the screen has no room below; else moved up so
   that it fits the screen, lying over the dropdown.
-- Its rows are as high as the dropdown, never lower than a line of the text. It does not scroll: more options than
-  the screen takes share its height, with a warning in the log.
+- Its rows are as high as the dropdown, never lower than a line of the text. When neither the room under the
+  dropdown nor the room above it takes all the options the list scrolls: it stands in the larger of the two, as many
+  rows as go into it, its window at the option chosen, and does not lie over the dropdown.
 - The popup is modal and closed by a finger outside it. The keys stay in the list: next and previous move the pick,
   the key that activates chooses. "Back" is the program's, which closes the list by `dgx_ui_popup_close()`.
 - A row chosen sets the dropdown's value, tells its `on()` `DGX_UI_CHANGED` and closes the list. The option it had,

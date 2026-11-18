@@ -260,6 +260,8 @@ typedef struct dgx_ui_list_look_t {
     uint8_t pick, pick_ink; ///< the bar of the row picked and its text
     uint8_t focused;        ///< the bar while the list has the focus
     uint8_t disabled;       ///< the text of every row while the list is disabled
+    uint8_t bar;            ///< a list that scrolls: the bar on its right edge, two points wide, its length the share of
+                            ///< the rows shown and its place theirs
 } dgx_ui_list_look_t;
 
 /** Parameters of a dropdown: a flat face with the option chosen and an arrow pointing down. */
@@ -275,9 +277,11 @@ typedef struct dgx_ui_dropdown_look_t {
  * - dgx_ui_look_input: INPUT, its text in one line and, focused, a caret after it;
  * - dgx_ui_look_switch, dgx_ui_look_slider;
  * - dgx_ui_look_list: LIST, its rows the lines of its text box ("Apple\nBanana\nCherry"): row r the line r, its
- *   value min + r; the rows share the height of the box, each line in the middle of its row, the row picked on a bar
- *   of colour 3, its text of colour 0; while the list has the focus the bar is of colour 1, so a list in a frame (its
- *   fill colour 2) shows its pick either way;
+ *   value min + r; the rows shown share the height of the box, each line in the middle of its row, the row picked on
+ *   a bar of colour 3, its text of colour 0; while the list has the focus the bar is of colour 1, so a list in a frame
+ *   (its fill colour 2) shows its pick either way. More rows than the box takes at a line of the text (or the list's
+ *   step): a window of them from its text box's top, the pick kept in it, and a bar on the right edge of colour 3,
+ *   its length the window's share of the rows and its place the window's;
  * - dgx_ui_look_dropdown: DROPDOWN, its options the lines of its text box as a list's, the one chosen (value - min)
  *   on a flat face with an arrow pointing down;
  * - dgx_ui_look_picture: PICTURE and ICON of a dgx_image_t of 1 bit (of 4 and 8 bits, dgx_ui_look_indexed below),
