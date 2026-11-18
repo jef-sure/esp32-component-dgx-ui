@@ -40,7 +40,7 @@ bool dgx_ui_draw_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     const dgx_ui_picture_t      *pic = shown(n);
     const uint32_t paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper);
     if (!pic || !pic->image || pic->image->format != DGX_IMAGE_1BPP) {
-        /* none, or of 4 or 8 bits: through the buffer, not yet */
+        /* none, or of 4 or 8 bits: the look of indexed pictures draws those, through the paint's buffer */
         paper_around(paint, n, &(dgx_ui_rect_t){0, 0, 0, 0}, paper);
         return false;
     }

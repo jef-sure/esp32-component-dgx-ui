@@ -1,5 +1,14 @@
 # Changes
 
+## 0.0.5 - 2026-11-18
+
+- A buffer of the program's in the paint, `buffer` and `buffer_size`, for the looks that draw through one.
+- The look of indexed pictures, `dgx_ui_look_indexed`: a PICTURE or an ICON of a `dgx_image_t` of 4 or 8 bits, its
+  values through the picture's map indices of the painter's table, its 0 the paper. Drawn into an 8-bit virtual screen
+  over the buffer a strip of rows at a time, only the rows the clip shows, and sent through a table of the painter's
+  colours; every pixel of the box once. A picture of 1 bit as `dgx_ui_look_picture` draws it, so an icon of pictures of
+  several depths has one look. It needs the virtual screens of DGX, a buffer of a row and a 16-bit screen.
+
 ## 0.0.4 - 2026-11-18
 
 - The look of a list, `dgx_ui_look_list`: its rows the lines of its text box, row r the line r and its value min + r,

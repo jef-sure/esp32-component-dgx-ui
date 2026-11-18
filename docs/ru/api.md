@@ -15,7 +15,7 @@
 | [`dgx_ui_paint.h`](#dgx_ui_painth) | отрисовка, облики и их параметры |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | касание DGX-DI как указатель дерева |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.4:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.5:
 имена и сигнатуры ещё могут измениться.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -157,8 +157,9 @@ typedef struct dgx_ui_picture_t {
 ```
 
 Картинка DGX в `image`: её рисует `dgx_ui_look_picture`, если она в 1 бит. Или строки RGB565, старший байт первым, в
-`rgb565`, с шириной `width` и высотой `height`: их рисует `dgx_ui_look_rgb565`. `map` — для картинок в 4 и 8 бит,
-которые пока не рисуются.
+`rgb565`, с шириной `width` и высотой `height`: их рисует `dgx_ui_look_rgb565`. Картинку в 4 или 8 бит в `image`
+рисует `dgx_ui_look_indexed`: её значения идут через `map` в номера цветов таблицы отрисовки, значение 1 — это
+`map[0]`; без карты номером служит само значение; пиксель 0 — бумага.
 
 `void dgx_ui_picture_size(const dgx_ui_picture_t *p, int *w, int *h)` даёт размер и той и другой.
 
@@ -507,6 +508,8 @@ typedef struct dgx_ui_paint_t {
     const uint32_t *colors;
     uint16_t        color_count;
     uint8_t         background;
+    void           *buffer;
+    size_t          buffer_size;
     dgx_ui_rect_t   cover;
     int16_t         ox, oy;
     /* the painter's */
@@ -516,6 +519,8 @@ typedef struct dgx_ui_paint_t {
     uint8_t         part, parts;
     const dgx_ui_t *popup_over;
     dgx_screen_t   *rgb565;
+    dgx_screen_t   *indexed;
+    uint16_t       *lut;
     dgx_ui_rect_t   cover_was;
 } dgx_ui_paint_t;
 ```
@@ -527,6 +532,7 @@ typedef struct dgx_ui_paint_t {
 | `scr` | экран DGX |
 | `colors`, `color_count` | таблица цветов: номер из облика в цвет экрана, как его упаковывает `dgx_screen_rgb()` |
 | `background` | номер цвета под деревом |
+| `buffer`, `buffer_size` | память программы, в которой отрисовка рисует, когда это нужно облику: картинку в 4 или 8 бит, полосой в несколько её строк за раз. `NULL` — памяти нет |
 | `cover` | прямоугольник, в котором не рисуют: полоса клавиатуры DGX-DI, пока она открыта; иначе пустой |
 | `ox`, `oy` | пиксель экрана дерева, который лежит в точке (0, 0) экрана `scr`; 0 или место буфера при сборке прямоугольника |
 
@@ -538,7 +544,7 @@ typedef struct dgx_ui_paint_t {
 | ----- | ---------- |
 | `bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)` | Раскладывает дерево, если нужно, потом рисует то, что изменилось, одним пакетом, и поверх — его окно. Отсечение экрана возвращается таким, каким было. `true`, если какой-нибудь виджет просит ещё времени. |
 | `void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)` | Собирает прямоугольник экрана дерева от корня вниз: фон, потом каждый виджет, который его задевает, целиком, под отсечением. Ничего не помечается как нарисованное. Пиксели могут писаться больше одного раза. |
-| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | Возвращает то, что отрисовка создала для себя: объект экрана для облика RGB565. Структурой можно пользоваться дальше. |
+| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | Возвращает то, что отрисовка создала для себя: объекты экрана для обликов RGB565 и картинок с номерами цветов и таблицу последнего. Структурой можно пользоваться дальше. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | Цвет из таблицы; 0 за её концом. |
 | `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | Для собственного облика программы, у виджета которого есть дети: заливает цветом область виджета `i`, в пикселях экрана дерева, везде, кроме мест под его показанными детьми, которых рисует облик. Работает в столбце и в строке; у виджета без укладки область заливается целиком. Вызывается из `draw` облика. |
 
@@ -577,6 +583,7 @@ struct dgx_ui_look_t {
 | `dgx_ui_look_input` | поле ввода: текст в одну строку, у верхнего края или с `DGX_UI_TEXT_MIDDLE` посередине высоты, и, когда оно в фокусе, курсор после него | `dgx_ui_input_look_t` |
 | `dgx_ui_look_picture` | картинка или значок в 1 бит, посередине коробки | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_rgb565` | картинка или значок RGB565. Нужны `CONFIG_DGX_ENABLE_VSCREEN` и 16-битный экран | `dgx_ui_picture_look_t` |
+| `dgx_ui_look_indexed` | картинка или значок в 4 или 8 бит: её значения через карту — номера цветов таблицы; рисует и картинку в 1 бит. Нужны `CONFIG_DGX_ENABLE_VSCREEN`, буфер отрисовки не меньше строки картинки и 16-битный экран; без них на месте виджета бумага | `dgx_ui_picture_look_t` |
 
 Облик, который не назвал ни один виджет, в программу не попадает.
 
@@ -600,6 +607,7 @@ struct dgx_ui_look_t {
 | `dgx_ui_draw_dropdown` | `dgx_ui_look_dropdown` | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
+| `dgx_ui_draw_indexed` | `dgx_ui_look_indexed` | `dgx_ui_picture_look_t` |
 
 Облик программы с `dgx_ui_draw_box` или `dgx_ui_draw_frame` заливает место вокруг детей так же, как контейнер и
 рамка библиотеки.

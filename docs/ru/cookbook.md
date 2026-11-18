@@ -412,7 +412,52 @@ static const dgx_ui_widget_t  logo_w   = {.kind = DGX_UI_PICTURE, .picture = &lo
 - Облику RGB565 нужны `CONFIG_DGX_ENABLE_VSCREEN=y` и 16-битный экран. На другом экране вместо картинки бумага.
 - Для таких картинок отрисовка при первой надобности создаёт один небольшой объект экрана.
   `dgx_ui_paint_free(&paint)` возвращает его, когда программа перестаёт рисовать.
-- Картинки в 4 и 8 бит пока не рисуются.
+
+Картинка в несколько цветов таблицы — это `dgx_image_t` в 4 или 8 бит с обликом `dgx_ui_look_indexed`. Её значения
+— не цвета, а номера, и её карта говорит, какой цвет таблицы отрисовки стоит за каждым номером:
+
+```c
+/* a battery of 12 by 6, 4 bits a pixel: a hex digit is a pixel, 0 a hole that shows the paper */
+static const uint8_t battery_px[6 * 6] = {
+    0x11, 0x11, 0x11, 0x11, 0x11, 0x00,
+    0x12, 0x22, 0x23, 0x33, 0x31, 0x10,
+    0x12, 0x22, 0x23, 0x33, 0x31, 0x10,
+    0x12, 0x22, 0x23, 0x33, 0x31, 0x10,
+    0x12, 0x22, 0x23, 0x33, 0x31, 0x10,
+    0x11, 0x11, 0x11, 0x11, 0x11, 0x00,
+};
+static const dgx_image_t battery_im = {.width = 12, .height = 6, .format = DGX_IMAGE_4BPP, .data = battery_px};
+/* the colours of the values 1, 2, 3: the case, the charge, the rest; the same data with another map when it is low */
+static const uint8_t          battery_ok[15]  = {INK, ACCENT, FILL};
+static const uint8_t          battery_low[15] = {INK, ACCENT_DOWN, FILL};
+static const dgx_ui_picture_t battery_pics[2] = {{.image = &battery_im, .map = battery_ok}, {.image = &battery_im, .map = battery_low}};
+static const dgx_ui_widget_t  battery_w = {
+    .kind = DGX_UI_ICON, .picture = battery_pics, .min = 0, .max = 1, .want_w = 14, .want_h = 8, .look = &dgx_ui_look_indexed};
+
+/* the painter's buffer: such a picture is drawn in it a strip of its rows at a time, a byte a pixel */
+static uint8_t paint_buffer[256];
+
+static void paint_buffer_give(dgx_ui_paint_t *paint)
+{
+    paint->buffer = paint_buffer, paint->buffer_size = sizeof paint_buffer;
+}
+```
+
+- **Значения** идут через карту картинки, `map`, в номера цветов таблицы отрисовки: значение 1 — это `map[0]`,
+  значение 2 — `map[1]`. Без карты номером служит само значение. Пиксель 0 — дыра: на его месте бумага.
+- **Те же данные в других цветах** — это другая карта: батарея выше — одна картинка и две карты, значок с двумя
+  состояниями.
+- **Буфер.** Такую картинку отрисовка рисует в памяти, которую даёт программа, — `buffer` и `buffer_size` в
+  структуре отрисовки, — полосой в несколько строк картинки за раз, и каждую полосу переносит через таблицу: каждый
+  пиксель виджета пишется один раз. Хватит одной строки самой широкой картинки, по байту на пиксель; если памяти
+  больше, полосы выше и их меньше. Без буфера или с буфером меньше строки на месте виджета бумага, и об этом один
+  раз пишется в журнал.
+- Нужны `CONFIG_DGX_ENABLE_VSCREEN=y` и 16-битный экран. На дисплее в 18 или 24 бита на месте такой картинки
+  бумага.
+- Для таких картинок отрисовка с первой из них держит небольшой объект экрана и таблицу на 512 байт;
+  `dgx_ui_paint_free(&paint)` их возвращает.
+- Картинку в 1 бит этот облик тоже рисует, поэтому значок, у которого картинки разной глубины, называет его.
+  Программа, у которой картинки только в 1 бит, называет `dgx_ui_look_picture` и ничего из этого не несёт.
 
 ## Текст в несколько строк
 

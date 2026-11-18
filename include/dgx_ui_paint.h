@@ -28,6 +28,9 @@ typedef struct dgx_ui_paint_t {
     const uint32_t *colors;      ///< the table: an index of a look to a color of the screen
     uint16_t        color_count; ///< its size
     uint8_t         background;  ///< the index of the paper under the tree
+    void           *buffer;      ///< the program's memory the painter draws in when a look needs it (pictures of 4 and 8
+                                 ///< bits: a strip of their rows at a time); NULL none
+    size_t          buffer_size; ///< its bytes
     dgx_ui_rect_t   cover;       ///< the band of DGX-DI's keyboard while it is open: not drawn there; else empty
     int16_t         ox, oy;      ///< the pixel of the tree's screen at (0, 0) of scr: 0, or a buffer's place when composing
     /* the painter's */
@@ -38,6 +41,8 @@ typedef struct dgx_ui_paint_t {
     const dgx_ui_t *popup_over;  ///< while a tree is drawn: the popup over it, whose rectangle and those of the popups
                                  ///< over it are covers after the keyboard's band; NULL none
     dgx_screen_t   *rgb565;      ///< the look of RGB565: a virtual screen pointed at each picture, made at its first need
+    dgx_screen_t   *indexed;     ///< the look of indexed pictures: an 8-bit virtual screen over the buffer, made at its first need
+    uint16_t       *lut;         ///< and the RGB565 of the 256 indices, made at its first need
     dgx_ui_rect_t   cover_was;   ///< the keyboard's band as the last pass left it: where it goes, the tree is composed again
 } dgx_ui_paint_t;
 
@@ -174,10 +179,17 @@ typedef struct dgx_ui_dropdown_look_t {
  *   in the middle of the box, the rest of it paper; an ICON of a value outside min..max shows none;
  * - dgx_ui_look_rgb565: PICTURE and ICON of RGB565, by a virtual screen over its pixels kept by the paint
  *   (dgx_ui_paint_free() gives it back): it needs CONFIG_DGX_ENABLE_VSCREEN and a 16-bit screen; on another the box
- *   is paper.
+ *   is paper;
+ * - dgx_ui_look_indexed: PICTURE and ICON of a dgx_image_t of 4 or 8 bits (one of 1 bit as dgx_ui_look_picture): its
+ *   values through the picture's map are indices of the painter's table, its 0 the paper; drawn into an 8-bit virtual
+ *   screen over the paint's buffer, a strip of buffer_size / width rows at a time, and sent through a table of the
+ *   painter's colours. It needs CONFIG_DGX_ENABLE_VSCREEN, a buffer of a row at least and a 16-bit screen; without
+ *   them the box is paper, told once in the log: on a display of 18 or 24 bits such a picture stays paper, as DGX
+ *   sends a screen through a table to one of 16 bits only. Only the rows the clip shows are built. The paint keeps
+ *   that screen and the table of 512 bytes (dgx_ui_paint_free() gives them back).
  */
 extern const dgx_ui_look_t dgx_ui_look_button, dgx_ui_look_input, dgx_ui_look_switch, dgx_ui_look_slider, dgx_ui_look_list,
-    dgx_ui_look_dropdown, dgx_ui_look_picture, dgx_ui_look_rgb565;
+    dgx_ui_look_dropdown, dgx_ui_look_picture, dgx_ui_look_rgb565, dgx_ui_look_indexed;
 
 /**
  * A look of a text of several lines, named by a widget that wants it (.look = &dgx_ui_look_lines): the text laid
@@ -204,6 +216,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
 bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 
 /**
  * @brief The tree drawn on the screen, and every popup open over it one over another: laid out first if they have to

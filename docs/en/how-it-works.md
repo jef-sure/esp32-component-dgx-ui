@@ -273,7 +273,8 @@ every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_d
 | the code of the smallest program, one label fed by a message | about 7.5 KB |
 | the look of several lines, when named | about 2.5 KB |
 
-No memory is taken for pixels: everything is drawn straight on the display.
+No memory is taken for pixels: everything is drawn straight on the display. The one exception is a picture of 4 or 8
+bits: it goes through a buffer the program gives the painter, a row of the picture at least.
 
 ## Tests on the computer
 

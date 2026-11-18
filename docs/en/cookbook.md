@@ -409,7 +409,50 @@ static const dgx_ui_widget_t  logo_w   = {.kind = DGX_UI_PICTURE, .picture = &lo
   paper.
 - The painter makes one small screen object for such pictures at the first need.
   `dgx_ui_paint_free(&paint)` gives it back when the program stops painting.
-- Pictures of 4 and 8 bits are not drawn yet.
+
+A picture of several colours of the table is a `dgx_image_t` of 4 or 8 bits with the look `dgx_ui_look_indexed`.
+Its values are not colours but numbers, and its map says which colour of the painter's table each number is:
+
+```c
+/* a battery of 12 by 6, 4 bits a pixel: a hex digit is a pixel, 0 a hole that shows the paper */
+static const uint8_t battery_px[6 * 6] = {
+    0x11, 0x11, 0x11, 0x11, 0x11, 0x00,
+    0x12, 0x22, 0x23, 0x33, 0x31, 0x10,
+    0x12, 0x22, 0x23, 0x33, 0x31, 0x10,
+    0x12, 0x22, 0x23, 0x33, 0x31, 0x10,
+    0x12, 0x22, 0x23, 0x33, 0x31, 0x10,
+    0x11, 0x11, 0x11, 0x11, 0x11, 0x00,
+};
+static const dgx_image_t battery_im = {.width = 12, .height = 6, .format = DGX_IMAGE_4BPP, .data = battery_px};
+/* the colours of the values 1, 2, 3: the case, the charge, the rest; the same data with another map when it is low */
+static const uint8_t          battery_ok[15]  = {INK, ACCENT, FILL};
+static const uint8_t          battery_low[15] = {INK, ACCENT_DOWN, FILL};
+static const dgx_ui_picture_t battery_pics[2] = {{.image = &battery_im, .map = battery_ok}, {.image = &battery_im, .map = battery_low}};
+static const dgx_ui_widget_t  battery_w = {
+    .kind = DGX_UI_ICON, .picture = battery_pics, .min = 0, .max = 1, .want_w = 14, .want_h = 8, .look = &dgx_ui_look_indexed};
+
+/* the painter's buffer: such a picture is drawn in it a strip of its rows at a time, a byte a pixel */
+static uint8_t paint_buffer[256];
+
+static void paint_buffer_give(dgx_ui_paint_t *paint)
+{
+    paint->buffer = paint_buffer, paint->buffer_size = sizeof paint_buffer;
+}
+```
+
+- **The values** go through the picture's `map` to indices of the painter's table: the value 1 is `map[0]`, the
+  value 2 `map[1]`. Without a map the value itself is the index. A pixel 0 is a hole: the paper shows.
+- **The same data in other colours** is another map: the battery above is one picture and two maps, an icon of two
+  states.
+- **The buffer.** The painter draws such a picture in memory the program gives it, `buffer` and `buffer_size` of
+  the paint, a strip of the picture's rows at a time, and sends each strip through the table: every pixel of the
+  widget is written once. A row of the widest picture, a byte a pixel, is enough; with more the strips are higher
+  and fewer. With no buffer, or one smaller than a row, the widget is paper and the log says so once.
+- It needs `CONFIG_DGX_ENABLE_VSCREEN=y` and a 16-bit screen. On a display of 18 or 24 bits such a picture is paper.
+- The painter keeps a small screen object and a table of 512 bytes for such pictures from the first one on;
+  `dgx_ui_paint_free(&paint)` gives them back.
+- A picture of 1 bit is drawn by this look as well, so an icon whose pictures are of different depths names it. A
+  program that has pictures of 1 bit only names `dgx_ui_look_picture` and carries none of this.
 
 ## A text of several lines
 

@@ -9,6 +9,8 @@
  *      Author: Anton Petrusevich
  */
 
+#include <stdlib.h>
+
 #include "dgx_draw.h"
 #include "dgx_ui_paint_priv.h"
 #include "esp_log.h"
@@ -196,9 +198,18 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
     return more;
 }
 
+void *dgx_ui_buffer_free(const dgx_ui_paint_t *paint, size_t *size)
+{
+    *size = paint->buffer ? paint->buffer_size : 0;
+    return paint->buffer;
+}
+
 void dgx_ui_paint_free(dgx_ui_paint_t *paint)
 {
     if (paint->rgb565) dgx_screen_destroy(&paint->rgb565);
+    if (paint->indexed) dgx_screen_destroy(&paint->indexed);
+    free(paint->lut);
+    paint->lut = NULL;
 }
 
 /* every widget under i that meets the area drawn whole under a clip of its part of it, nothing marked */

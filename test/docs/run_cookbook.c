@@ -225,6 +225,30 @@ int main(int argc, char **argv)
                l.focus == after);
         dgx_ui_free(&l);
     }
+    /* the battery of 4 bits: its charge in the colour its map names, another map for the other state; no buffer, paper */
+    {
+        static dgx_ui_node_t bn[2];
+        static dgx_ui_t      b;
+        dgx_screen_t        *scr = dgx_vscreen_init(64, 32, 16, DgxScreenRGB);
+        static uint32_t      tb[COLORS];
+        for (int k = 0; k < COLORS; ++k) tb[k] = dgx_screen_rgb(scr, (uint8_t)(30 * k), (uint8_t)(255 - 30 * k), (uint8_t)(17 * k));
+        dgx_ui_paint_t pp = {.scr = scr, .colors = tb, .color_count = COLORS, .background = PAPER};
+        dgx_ui_init(&b, bn, 2, 1);
+        const int top = dgx_ui_add(&b, -1, &col_w), bat = dgx_ui_add(&b, top, &battery_w);
+        dgx_ui_paint(&b, &pp, 0);
+        const dgx_ui_node_t *n  = dgx_ui_node(&b, bat);
+        const int            cx = n->x + (n->w - 12) / 2 + 2, cy = n->y + (n->h - 6) / 2 + 2; /* a pixel of the charge, value 2 */
+        const bool           paper_without = dgx_get_pixel(scr, cx, cy) == tb[PAPER];
+        paint_buffer_give(&pp);
+        dgx_ui_redraw(&b, bat), dgx_ui_paint(&b, &pp, 1);
+        const bool ok = dgx_get_pixel(scr, cx, cy) == tb[ACCENT] && dgx_get_pixel(scr, cx - 2, cy) == tb[INK] && dgx_get_pixel(scr, cx + 6, cy) == tb[FILL];
+        dgx_ui_set_value(&b, bat, 1), dgx_ui_paint(&b, &pp, 2);
+        printf("battery: without a buffer paper %d; with it the case, the charge and the rest in their colours %d; the other map: the charge of the low colour %d, a "
+               "hole at the corner paper %d\n",
+               paper_without, ok, dgx_get_pixel(scr, cx, cy) == tb[ACCENT_DOWN], dgx_get_pixel(scr, n->x + (n->w - 12) / 2 + 11, n->y + (n->h - 6) / 2) == tb[PAPER]);
+        dgx_ui_paint_free(&pp), dgx_ui_free(&b);
+        scr->destroy(&scr);
+    }
     /* the dropdown: clicked, its list under it; a tap chooses and tells once; outside, the option it had, a slide and
        BACK tell nothing; the keys open it and choose */
     {

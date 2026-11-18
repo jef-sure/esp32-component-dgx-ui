@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.4: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.5: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.4"
+    version: "0.0.5"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -107,8 +107,8 @@ worked by a finger and by the keys, on a board taken from
 - **Texts**: one line, or several laid word by word; the font picked from a list so that the text goes in; a text
   too long cut with an ellipsis or scrolled; letters that appear one by one.
 - **Controls**: a button with a shadow and a pressed face, a switch, a slider, a list, a dropdown with its list, a
-  field typed into, pictures and icons of 1 bit and of RGB565. A control names its look, so a program carries only
-  the looks it uses.
+  field typed into, pictures and icons of 1, 4 and 8 bits and of RGB565. A control names its look, so a program
+  carries only the looks it uses.
 - **Popups** over the tree, one over another: modal, or closed by a finger outside.
 - **Input**: a pointer, the keys of a dialog, the buttons of a game pad with a repeat of a held one, code points
   typed; the touch of [DGX-DI](https://github.com/jef-sure/esp32-component-dgx-di) through a header, if the program
@@ -119,8 +119,8 @@ worked by a finger and by the keys, on a board taken from
 ## Not there yet
 
 - a list that scrolls;
-- pictures of 4 and 8 bits, text over a picture as the background, and displays of 18 and 24 bits behind a bus without
-  a blink: all three wait for the painter's buffer;
+- text over a picture as the background, and displays of 18 and 24 bits behind a bus without a blink: both wait for
+  the next steps of the painter's buffer;
 - a canvas of a widget, and handwritten text;
 - a builder of interfaces on the computer.
 

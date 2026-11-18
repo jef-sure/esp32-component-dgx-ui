@@ -15,7 +15,7 @@ Every public type, function and constant, by header. How they work together is t
 | [`dgx_ui_paint.h`](#dgx_ui_painth) | the painter, the looks and their parameters |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.4: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.5: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -157,8 +157,9 @@ typedef struct dgx_ui_picture_t {
 ```
 
 A picture of DGX in `image`, drawn by `dgx_ui_look_picture` when it is of 1 bit; or rows of RGB565, high byte first, in
-`rgb565` with their `width` and `height`, drawn by `dgx_ui_look_rgb565`. `map` is for pictures of 4 and 8 bits, which
-are not drawn yet.
+`rgb565` with their `width` and `height`, drawn by `dgx_ui_look_rgb565`. A picture of 4 or 8 bits in `image` is drawn
+by `dgx_ui_look_indexed`: its values go through `map` to indices of the painter's table, the value 1 the entry
+`map[0]`; without a map the value is the index; a pixel 0 is the paper.
 
 `void dgx_ui_picture_size(const dgx_ui_picture_t *p, int *w, int *h)` gives the size of either.
 
@@ -505,6 +506,8 @@ typedef struct dgx_ui_paint_t {
     const uint32_t *colors;
     uint16_t        color_count;
     uint8_t         background;
+    void           *buffer;
+    size_t          buffer_size;
     dgx_ui_rect_t   cover;
     int16_t         ox, oy;
     /* the painter's */
@@ -514,6 +517,8 @@ typedef struct dgx_ui_paint_t {
     uint8_t         part, parts;
     const dgx_ui_t *popup_over;
     dgx_screen_t   *rgb565;
+    dgx_screen_t   *indexed;
+    uint16_t       *lut;
     dgx_ui_rect_t   cover_was;
 } dgx_ui_paint_t;
 ```
@@ -525,6 +530,7 @@ How a tree is drawn on a screen. The program fills the first members and keeps t
 | `scr` | the screen of DGX |
 | `colors`, `color_count` | the table of colours: an index of a look to a colour of the screen, as `dgx_screen_rgb()` packs it |
 | `background` | the index of the colour under the tree |
+| `buffer`, `buffer_size` | memory of the program's that the painter draws in when a look needs it: a picture of 4 or 8 bits, a strip of its rows at a time. `NULL`: none |
 | `cover` | a rectangle not drawn into: the band of DGX-DI's keyboard while it is open; empty otherwise |
 | `ox`, `oy` | the pixel of the tree's screen that lies at (0, 0) of `scr`; 0, or the place of a buffer when composing |
 
@@ -537,7 +543,7 @@ how many.
 | ---- | ------------ |
 | `bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)` | The tree laid if it has to be, then what changed drawn, in one batch, and its popup over it. The clip of the screen is given back as it was. `true` when a widget asks for more time. |
 | `void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)` | A rectangle of the tree's screen composed from the root down: the background, then every widget that meets it, whole, under a clip. Nothing is marked as drawn. Pixels may be written more than once. |
-| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen object of the look of RGB565. The struct may be used again. |
+| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures, and the table of the latter. The struct may be used again. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | A colour of the table; 0 past its end. |
 | `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | For a look of the program's own that holds children: an area of the widget `i`, in pixels of the tree's screen, filled with a colour everywhere but under its shown children that a look draws. In a column or a row; a widget of neither has the area filled whole. Called from a look's `draw`. |
 
@@ -575,6 +581,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_input` | a field: its text in one line, at the top or with `DGX_UI_TEXT_MIDDLE` in the middle of its height, and, focused, a caret after it | `dgx_ui_input_look_t` |
 | `dgx_ui_look_picture` | a picture or an icon of 1 bit, in the middle of the box | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen | `dgx_ui_picture_look_t` |
+| `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table; one of 1 bit too. It needs `CONFIG_DGX_ENABLE_VSCREEN`, the paint's buffer of a row of the picture at least, and a 16-bit screen; without them the widget is paper | `dgx_ui_picture_look_t` |
 
 A look that no widget names is not linked into the program.
 
@@ -598,6 +605,7 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_dropdown` | `dgx_ui_look_dropdown` | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
+| `dgx_ui_draw_indexed` | `dgx_ui_look_indexed` | `dgx_ui_picture_look_t` |
 
 A look of the program's with `dgx_ui_draw_box` or `dgx_ui_draw_frame` fills around its children as the library's box
 and frame do.
