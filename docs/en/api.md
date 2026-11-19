@@ -15,9 +15,10 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_paint.h`](#dgx_ui_painth) | the painter, the looks and their parameters |
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_transition.h`](#dgx_ui_transitionh) | pages that change by a slide or a crossfade |
+| [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.19: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.20: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -620,6 +621,7 @@ typedef struct dgx_ui_paint_t {
     uint32_t        now_ms;
     uint32_t        wake_ms;
     bool            wake_named;
+    bool            painted;
     dgx_ui_canvases_t *canvases;
     dgx_ui_rect_t   cover_was;
 } dgx_ui_paint_t;
@@ -718,7 +720,7 @@ library's laying of a picture; `dgx_ui_background_set()` names it, the program d
 | `uint32_t dgx_ui_wake(const dgx_ui_paint_t *paint, const dgx_ui_t *ui, uint32_t now_ms)` | For the loop: how long it may wait before the next pass, the least of the moments the looks named at the last `dgx_ui_paint()` and of the next repeat of a key held. 0: the next pass, and the loop waits a tick, not nothing. `DGX_UI_WAKE_NONE`: nobody asks, the loop waits for a message. Two trees drawn in turn by one paint are painted with the same `now_ms`; asked after the last of them, it gives the least moment of all. |
 
 `wake_ms` of the paint is the least of the moments named at the last pass, from its `now_ms`; `wake_named` is the
-painter's own. Both calls are inlines of the header. The recipe is
+painter's own, and so is `painted`, set once the paint drew a pass. Both calls are inlines of the header. The recipe is
 [A loop that sleeps till the next moment](cookbook.md#a-loop-that-sleeps-till-the-next-moment).
 
 ### A canvas
@@ -758,7 +760,8 @@ drawn whole in a virtual screen of the display's depth laid over the buffer, a s
 takes, and each strip is sent once: every pixel once.
 
 - A widget that changed is sent whole, all of its box.
-- The buffer holds a row of the widget at least, its width times 3 bytes; a widget too wide for it is drawn straight,
+- The buffer holds a row of the widget at least, its width times 3 bytes on 18 and 24 bits and times 2 on 16; a
+  widget too wide for it is drawn straight,
   told once in the log. A widget with children is drawn straight too: it fills around them.
 - A 16-bit display draws straight, but for a widget on a drawn background, which goes through the strips at any
   depth. A virtual screen draws straight whatever is named.
@@ -916,21 +919,21 @@ is. One list is open at a time, so one serves every dropdown of the program.
 
 | Call | What it does |
 | ---- | ------------ |
-| `bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_ui_look_t *frame_look, const dgx_ui_look_t *list_look)` | Opens the list of dropdown `i` as a popup over its tree, which may be a popup itself. The looks are those of the popup's frame, its border one point, and of its list; `NULL` is the library's. `false`, nothing opened: `i` is no dropdown, `dd` shows a list already, the tree does not know its screen yet (the painter tells it, or `dgx_ui_screen()`), or the popup is refused. |
+| `bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_ui_look_t *frame_look, const dgx_ui_look_t *list_look)` | Opens the list of dropdown `i` as a popup over its tree, which may be a popup itself. The looks are those of the popup's frame, its border one point, and of its list; `NULL` is the library's. `false`, nothing opened: `i` is no dropdown, it has no option (`max` less than `min`), `dd` shows a list already, the tree does not know its screen yet (the painter tells it, or `dgx_ui_screen()`), a row would have no height, or the popup is refused. |
 
 The program calls it when the dropdown's `on()` is told `DGX_UI_ACTIVATED`.
 
 - The list stands under the dropdown, as wide as it; above it when the screen has no room below; else moved up so
   that it fits the screen, lying over the dropdown.
-- Its rows are as high as the dropdown, never lower than a line of the text. When neither the room under the
-  dropdown nor the room above it takes all the options the list scrolls: it stands in the larger of the two, as many
-  rows as go into it, its window at the option chosen, and does not lie over the dropdown.
+- Its rows are as high as the dropdown, never lower than a line of the text. More options than the whole screen
+  takes rows, and the list scrolls: it stands in the larger of the two rooms, under the dropdown or above it, as
+  many rows as go into it, its window at the option chosen, and does not lie over the dropdown.
 - The popup is modal and closed by a finger outside it. The keys stay in the list: next and previous move the pick,
   the key that activates chooses. The key back closes the list, the choice unchanged.
 - A row chosen sets the dropdown's value, tells its `on()` `DGX_UI_CHANGED` and closes the list. The option it had,
   chosen again, closes the list and tells nothing. Closed any other way, the value stays and nothing is told.
-- The list shows the dropdown's own text. While it is open the program does not change the options and does not
-  remove the dropdown.
+- The list shows the dropdown's own text. Options set while it is open are shown at once, its window kept. The
+  program does not remove the dropdown while its list is open.
 
 ## dgx_ui_transition.h
 
@@ -969,6 +972,71 @@ a transition takes. The rest is the module's; the program reads `running`: frame
   one that cannot be read. On a display of 24 bits it is slow.
 
 The recipe: [Pages that slide](cookbook.md#pages-that-slide).
+
+## dgx_ui_stats.h
+
+The statistics of painting: a pass measured, how long it took and what it drew, counted into a struct of the
+program's. A program that names none of it carries none of it.
+
+```c
+typedef struct dgx_ui_paint_slowest_t {
+    int8_t   level;
+    int16_t  widget;
+    uint32_t us;
+} dgx_ui_paint_slowest_t;
+
+typedef struct dgx_ui_paint_stats_t {
+    int64_t (*clock_us)(void);
+    uint32_t passes;
+    uint64_t passes_us;
+    uint32_t last_us;
+    uint32_t drawing_passes;
+    uint64_t drawing_us;
+    uint32_t last_drawing_us;
+    uint32_t longest_drawing_us;
+    uint32_t looks_last_us;
+    uint64_t looks_us;
+    uint16_t draws_last;
+    uint16_t parts_last;
+    uint32_t draws, parts;
+    uint16_t widgets;
+    uint16_t room;
+    dgx_ui_paint_slowest_t slowest_last;
+    dgx_ui_paint_slowest_t slowest;
+} dgx_ui_paint_stats_t;
+```
+
+| Member | What it holds |
+| ------ | ------------- |
+| `clock_us` | the program's clock in microseconds; `NULL`: `esp_timer_get_time()` |
+| `passes`, `passes_us`, `last_us` | the passes measured, their time in all, the time of the last |
+| `drawing_passes`, `drawing_us`, `last_drawing_us`, `longest_drawing_us` | the passes that drew, those at which a look was called for a part of a widget: how many, their time in all, the time of the last and of the longest |
+| `looks_last_us`, `looks_us` | the time spent in the looks, with what they send to the display and with the program's strips: at the last pass and in all. A pass's time less it is the core's own, the layout and the walk |
+| `draws_last`, `parts_last`, `draws`, `parts` | draws of widgets and the parts they were drawn in, at the last pass and in all. A widget partly under a popup or the keyboard's band is drawn in parts; one drawn by a composing and again by the walk of the same pass is two draws |
+| `widgets`, `room` | at the last pass, of the tree and its popups: the widgets in use and the room of their arrays and blocks of nodes, as `dgx_ui_dump()` counts them |
+| `slowest_last`, `slowest` | the slowest draw of the last pass and of all: `level` 0 is the tree measured, 1 the popup over it, and so on; `widget` is its index there, as `dgx_ui_dump()` numbers them; `us` its time |
+
+| Call | What it does |
+| ---- | ------------ |
+| `bool dgx_ui_paint_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_paint_stats_t *stats)` | `dgx_ui_paint()`, measured: the same pass, drawing the same and returning the same; its time and what it drew are counted into `stats`. |
+| `int dgx_ui_paint_stats_text(const dgx_ui_paint_stats_t *stats, const char *name, char *text, size_t size)` | The statistics in words, one line, written as `snprintf()` writes: the passes and those that drew, the mean of a pass that drew and of one that did not, the last and the longest, the looks' share, the draws and parts, the widgets, and the slowest draw of all and of the last pass. In whole microseconds. `name` is the tree's, for the reader. Returns the length of the whole line. |
+| `void dgx_ui_paint_stats_log(const dgx_ui_paint_stats_t *stats, const char *name)` | That line in the log, with the library's tag. It takes 480 bytes of the caller's stack. |
+
+- The struct is zeros to begin. `stats = (dgx_ui_paint_stats_t){.clock_us = stats.clock_us};` begins it anew and
+  keeps the clock. Until a pass drew, `draws` is 0 and there is no slowest draw.
+- A struct is one tree's, with its popups: two trees drawn in turn by one paint take a struct each. It is one
+  call's at a time, and the library keeps nothing of it between calls.
+- The passes that drew and those that did not are counted apart, each with its time. A loop that wakes for a finger
+  or a key passes often and draws seldom: the mean of a pass that drew is not thinned by the empty ones, and the mean
+  of an empty one is what the core costs when nothing changed.
+- A part with no look, where the painter lays the paper, is the core's time, and a pass that only laid paper did
+  not draw. The count of the widgets, made after the pass, is outside the time.
+- The paint's strips, when the program named them, still draw each part; their time is the looks'.
+- The measured call is not made from a look, nor from a function told by `dgx_ui_changed()`. `dgx_ui_changed()` and
+  the frames of a transition are not counted.
+- A program that names it carries about 1.5 KB more of code and words, and its struct, 80 bytes on a 32-bit chip.
+
+The recipe: [How long a pass takes](cookbook.md#how-long-a-pass-takes).
 
 ## dgx_ui_di.h
 

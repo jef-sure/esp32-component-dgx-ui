@@ -21,10 +21,12 @@
  *  high as the screen allows and scrolls, its window at the option chosen.
  *
  *  The popup is modal and closed by a finger outside it: the keys stay in the list (NEXT and PREV move the pick,
- *  ACTIVATE chooses), a finger elsewhere closes it, and BACK is the program's, which closes it by dgx_ui_popup_close().
- *  A row chosen, by a click or by ACTIVATE, sets the dropdown's value and tells it DGX_UI_CHANGED, then the list
- *  closes; the option it had, chosen again, closes it and tells nothing; closed otherwise, the value stays and nothing
- *  is told. The list shows the dropdown's own text box: the program does not change the options while it is open.
+ *  ACTIVATE chooses), a finger elsewhere closes it, and BACK closes it too (DGX_UI_POPUP_BACK): dgx_ui_key() takes it
+ *  and returns true, and the program does not get that key while the list is open. A row chosen, by a click or by
+ *  ACTIVATE, sets the dropdown's value and tells it DGX_UI_CHANGED, then the list closes; the option it had, chosen
+ *  again, closes it and tells nothing; closed otherwise, the value stays and nothing is told. The list shows the
+ *  dropdown's own text box: options set while it is open (dgx_ui_text_set() on the dropdown) are shown at once, its
+ *  window where it was.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich

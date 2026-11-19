@@ -21,8 +21,10 @@ things as code, and the [API reference](api.md) lists every call.
 The core, the text box and the messages draw nothing, so they are tested on a computer without a display.
 
 dgx-ui has no task, no queue and no lock of its own. The task, its queue, the first array of nodes and the buffers of
-the texts are the program's. The library allocates only blocks of nodes when the program's array is full, and one
-small screen object when a program shows pictures of RGB565.
+the texts are the program's. The library allocates blocks of nodes when the program's array is full, and what the
+program names: a small screen object for pictures of RGB565, one for pictures of 4 and 8 bits and one for the
+strips, each over memory the program gave; a table of 512 bytes for the colours of pictures of 4 and 8 bits and of
+canvases; a canvas for a widget with `DGX_UI_CANVAS`; and the line breaks of a text handwritten in several lines.
 
 ## One task owns the tree
 
@@ -95,8 +97,11 @@ Along the stacking it stays 0, so a box in a column needs `want_h`, and a label 
 flag `DGX_UI_REST`. The flag
 `DGX_UI_STRETCH` makes a child as wide as its column or as high as its row whatever its own size.
 
+In a box of neither flag a child with no size of its own takes the box from where it asks to the opposite edge. In a
+column `at_x` moves a child across it as well, and in a row `at_y`.
+
 A child with the flag `DGX_UI_REST` takes, along the stacking, all the box has left after the other children, the
-gaps and the pads; several such children share it equally. A row of a name and a value, or a column of a title, a
+gaps and the pads; several such children share it equally, the last taking the odd pixels. A row of a name and a value, or a column of a title, a
 content and buttons at the bottom, then needs no exact sizes and fits a screen of any width.
 
 A hidden widget takes no place. A widget is drawn and hit only within its parent's box: what of it lies outside,
@@ -119,13 +124,20 @@ The state of a widget is four bits and a value: hidden, disabled, focused, press
 keeps it twice: as it is, `state_value`, and as it was last drawn, `state_drawn`.
 
 Anybody may change the state through the calls: the pointer, a key, the program, a message.
-`dgx_ui_set_value()`, `dgx_ui_set_state()`, `dgx_ui_show()` and `dgx_ui_text_printf()` compare the new with the old and
-change nothing when they are equal.
+A value or a state set to what it was is not drawn again: the painter compares the state as it is with the state
+as last drawn (only the picked row of a list is written again by `dgx_ui_set_value()`, which brings its window to
+the pick). `dgx_ui_show()` compares by itself and changes nothing when the widget is shown or hidden already, and
+`dgx_ui_text_printf()` does for a text box of up to 256 bytes; a longer one is taken as changed every time.
 
-A widget's `on()` is told only what the user did: `DGX_UI_ACTIVATED`, `DGX_UI_CHANGED`, `DGX_UI_FOCUS`, `DGX_UI_BACK`,
-`DGX_UI_EDIT`. No call of the program tells it anything. Take a thermostat: its set point comes by a message from the
-network, and `on(DGX_UI_CHANGED)` sends the user's new set point to the network. If the message's value told `on()`
-too, the program would send it back to where it came from.
+A widget's `on()` is told what the user did: `DGX_UI_ACTIVATED`, `DGX_UI_CHANGED`, `DGX_UI_FOCUS`, `DGX_UI_BACK`,
+`DGX_UI_EDIT`. A value, a state or a text the program sets tells it nothing. Take a thermostat: its set point comes
+by a message from the network, and `on(DGX_UI_CHANGED)` sends the user's new set point to the network. If the
+message's value told `on()` too, the program would send it back to where it came from.
+
+What else comes to `on()`: `DGX_UI_FOCUS` when the program gives the widget the focus by `dgx_ui_focus()`;
+`DGX_UI_BACK` to the root of a page or a popup the program closes by `dgx_ui_page_back()` or `dgx_ui_popup_back()`;
+`DGX_UI_NO_MEMORY` from the painter, when a canvas of the widget got no memory; and what a widget of the program's
+own tells by `dgx_ui_user_value()` and `dgx_ui_tell()`, which are made for it.
 
 For the same reason a button the program set to pressed is drawn pressed and activates nothing: a hardware "OK"
 held down may show on the screen's "OK" without pressing it.
@@ -147,7 +159,8 @@ show is read and left unclaimed: `false`.
 Data by reference belongs to the message from the sending until `dgx_ui_msg_done()`, which calls the sender's `done()`
 once, in the owner's task. The loop calls `dgx_ui_msg_done()` once for every message. A widget that needs the data
 after the walk calls `dgx_ui_msg_keep()` in its `take()`: it gets a copy of the message, the loop's
-`dgx_ui_msg_done()` then does nothing, and the widget calls it on its copy when it is done.
+`dgx_ui_msg_done()` then does nothing, and the widget calls it on its copy when it is done. Keeping claims the
+message: the walk stops there, and one widget keeps a message at most.
 
 Sending never waits. When the queue is full the message is lost and the call returns `false`; for data by reference
 `done()` is not called then, and the data is still the sender's.
@@ -161,11 +174,16 @@ Nothing runs by itself. A look that animates returns `true` from its drawing, `d
 then, and the loop comes back after one tick of FreeRTOS. A look works out where its animation stands from the
 time it is given, not from the number of calls, so a pass missed does not stretch it.
 
-`dgx_ui_time()` is the time step of the logic: a held key repeats there. It returns `true` while a key is held.
+`dgx_ui_time()` is the time step of the logic: a held key repeats there. Four keys repeat: next, previous, more and
+less. It returns `true` while one of them is held.
 
 A look that knows when it wants its time names the moment, and `dgx_ui_wake()` gives the loop the soonest of them:
 a loop that waits so long, and not a tick, sleeps between the steps of a scrolling text. See
 [A loop that sleeps till the next moment](cookbook.md#a-loop-that-sleeps-till-the-next-moment).
+
+What a pass costs, the program learns by calling `dgx_ui_paint_measured()` in the place of `dgx_ui_paint()`: the
+passes, their time, the looks' share and the slowest draw are counted into a struct of its own. See
+[How long a pass takes](cookbook.md#how-long-a-pass-takes).
 
 Slow things that change with time, a clock or the frames of an icon, are better driven by a ticker's message than by
 asking for time: then the task sleeps between them.
@@ -199,7 +217,8 @@ whole, and its children draw over it.
 
 **Displays of 18 and 24 bits.** Behind a bus such a display fills the field of a text before it writes the letters, so
 a text drawn straight blinks. There the program gives the painter a buffer and names `dgx_ui_strips`: every widget
-without children is drawn in the buffer and sent strip by strip, every pixel once. See
+without children is drawn in the buffer and sent strip by strip, every pixel once. On a display of 16 bits the
+strips take a widget only where it lies on a drawn background. See
 [A display of 18 or 24 bits](cookbook.md#a-display-of-18-or-24-bits).
 
 **Covers.** Rectangles may lie over a tree: the popups open over it, and the band of DGX-DI's keyboard, which the
@@ -256,20 +275,22 @@ height the variant gives, narrowed to go in, its letters coming stroke by stroke
 the look `dgx_ui_look_hand_lines`, line after line. A text in a later variant stands on
 the base line of the first. See [A handwritten text](cookbook.md#a-handwritten-text).
 
-No table of lines is kept: the text is laid again when it is drawn.
+The look of lines keeps no table of lines: the text is laid again when it is drawn. Handwritten lines keep their
+breaks with the paint, 12 bytes and 8 a line, and are laid again when the text, its width or its variant changes.
 
 ## Input
 
 **The pointer.** The program gives `dgx_ui_pointer()` where the finger is and whether it went down or up. The deepest
 widget under the finger that answers a pointer is pressed at once and takes the focus. A slider follows the finger,
 and so does the pick of a list, and a list of more rows than it takes scrolls; a button, a switch, a row of a list and
-a dropdown are clicked when the finger is let go within `DGX_UI_CLICK_MS` and was not swiped. A disabled or hidden
-widget is not hit.
+a dropdown are clicked when the finger is let go within `DGX_UI_CLICK_MS` and was neither swiped nor dragged; a
+finger that went down between two rows of a list clicks none. A disabled or hidden widget is not hit.
 
 **Keys.** `dgx_ui_key()` takes the keys of a dialog: next and previous move the focus (in a list, the rows first),
-activate presses the focused one, more and less move a slider or a switch. Back is never taken: it is the program's.
-`dgx_ui_buttons()` takes the buttons held now, as bits of a game pad, and makes keys of them; a held one repeats after
-500 ms, every 100 ms.
+activate presses the focused one, more and less move a slider or a switch. Back no widget of the library takes: it
+closes the page or the dropdown's list on top, a popup opened with `DGX_UI_POPUP_BACK`, and is the program's
+otherwise. `dgx_ui_buttons()` takes the buttons held now, as bits of a game pad, and makes keys of them; a held
+next, previous, more or less repeats after 500 ms, every 100 ms.
 
 **Typing.** `dgx_ui_typed()` gives code points to the focused field: characters, erase, done and cancel, as the
 keyboard of DGX-DI types them.
@@ -306,16 +327,18 @@ come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide)
 | a text box | 28 bytes and the program's buffer |
 | a tree, `dgx_ui_t` | 96 bytes |
 | the code of the smallest program, one label fed by a message | about 8 KB |
-| the library's own RAM | none; 4 bytes once the loop calls `dgx_ui_time()` |
+| the library's own RAM | a pointer of 4 bytes for each of three: a text set, keys or a popup, the loop calling `dgx_ui_time()`; and a byte in a look that warns once in the log |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB |
 | the look of several lines, when named | about 2.5 KB |
 | a variant of a font | 16 bytes |
 | handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
 | handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
+| the statistics of painting, when the program names them | about 1.5 KB, and 80 bytes of the program's RAM |
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the
 program gives the painter: a picture of 4 or 8 bits, a row of the picture at least; and, when the program names the
-strips, the widgets of a display of 18 or 24 bits, a row of the widest widget at least. And a widget with the flag
+strips, the widgets of a display of 18 or 24 bits, and on 16 bits those on a drawn background: a row of the widest
+widget at least. And a widget with the flag
 `DGX_UI_CANVAS` keeps a picture of its own between passes: a byte for each pixel of its box.
 
 ## Tests on the computer

@@ -17,7 +17,7 @@ include $(ROOT)/host/dgx_ui_host.mk
 CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
 WARN     := -Wall -Wextra -Wno-unused-parameter
 
-all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks check-werror $(if $(DGX_DI),run-test_di) check-cxx
+all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats check-werror $(if $(DGX_DI),run-test_di) check-cxx
 
 run-%: $(BUILD)/%
 	$<
@@ -116,6 +116,10 @@ $(BUILD)/test_page: test_page.c check.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 $(BUILD)/test_transition: test_transition.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_transition.c $(PAINT) $(DGX_SRCS) -lm
+
+$(BUILD)/test_stats: test_stats.c check.h panel.h $(PAINT) $(ROOT)/src/dgx_ui_stats.c $(wildcard $(ROOT)/include/*.h)
+	mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -DPANEL_BITS=18 -o $@ test_stats.c $(PAINT) $(ROOT)/src/dgx_ui_stats.c $(DGX_SRCS) -lm
 
 $(BUILD)/test_tasks: test_tasks.c check.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)

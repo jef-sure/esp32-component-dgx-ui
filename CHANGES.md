@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.20 - 2026-11-19
+
+- The statistics of painting, `dgx_ui_stats.h`: `dgx_ui_paint_measured()` in the place of `dgx_ui_paint()` counts the
+  passes and those that drew, their time, the looks' share and the slowest draw; `dgx_ui_paint_stats_log()` writes them
+  in a line. A program that names none of it carries none.
+- The pages and `dgx_ui_dropdown.h` say of the dropdown's list, the setters and on() what the code does since 0.0.15
+  and 0.0.19.
+
 ## 0.0.19 - 2026-11-19
 
 - Handwriting into a canvas: a second paint of the same tree no longer takes strokes from the display's canvas, nor

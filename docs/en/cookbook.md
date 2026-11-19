@@ -42,6 +42,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A ring scale with widgets inside](#a-ring-scale-with-widgets-inside)
 - [A display of 18 or 24 bits](#a-display-of-18-or-24-bits)
 - [A loop that sleeps till the next moment](#a-loop-that-sleeps-till-the-next-moment)
+- [How long a pass takes](#how-long-a-pass-takes)
 - [A mirror of the screen](#a-mirror-of-the-screen)
 - [The tree as a layer in another compositor's strips](#the-tree-as-a-layer-in-another-compositors-strips)
 - [Turning the screen](#turning-the-screen)
@@ -307,7 +308,8 @@ static int mode_add(dgx_ui_t *ui, int parent)
   `dgx_ui_text_scroll(ui, list, rows)` moves the window alone, the pick staying where it is, for a scroll bar of
   the program's own.
 - **The picked row** lies on a bar, of another colour while the list has the focus. When the pick moves, two rows
-  of the display are written: the one it left and the one it came to.
+  of the display are written: the one it left and the one it came to. A list that scrolls is written whole when its
+  window moves after the pick.
 - **Colours of your own** are a `dgx_ui_list_look_t` in a look drawn by `dgx_ui_draw_list`, as in
   [Colours of your own](#colours-of-your-own-and-a-night-mode).
 
@@ -359,12 +361,13 @@ static int fan_add(dgx_ui_t *ui, int parent)
 - **Where the list stands.** Under the dropdown and as wide as it; above it when the screen has no room below;
   else moved up so that it fits the screen, lying over the dropdown.
 - **The rows** are as high as the dropdown, and never lower than a line of the text: a dropdown sized for a finger
-  has rows a finger hits. When neither the room under the dropdown nor the room above it takes all the options,
-  the list scrolls: it stands in the larger of the two, as many rows as go into it, its window at the option
+  has rows a finger hits. More options than the whole screen takes rows, and the list scrolls: it stands in the
+  larger of the two rooms, under the dropdown or above it, as many rows as go into it, its window at the option
   chosen, and never lies over the dropdown.
 - **The keys.** The key that activates, on the dropdown, tells `DGX_UI_ACTIVATED` as a click does. In the list,
-  next and previous move the pick and the key that activates chooses. The list is modal, so the keys stay in it;
-  "back" is the program's, which closes the list by `dgx_ui_popup_close(ui)`, the value kept.
+  next and previous move the pick and the key that activates chooses. The list is modal, so the keys stay in it.
+  The key "back" closes the list, the value kept: the library does it, `dgx_ui_key()` returns `true`, and the
+  program is not given that key while the list is open.
 - **A finger moved along the list** takes the bar with it and, let go, chooses nothing: the list stays open, and a
   tap chooses.
 - **`dgx_ui_dropdown_t`** is the popup of the list, 264 bytes of the program's RAM on a 32-bit chip, zeroed before
@@ -373,8 +376,8 @@ static int fan_add(dgx_ui_t *ui, int parent)
 - **The tree knows its screen before the first list opens**: the list is placed on the screen the tree was laid
   for. The painter tells it at the first pass, or the program by `dgx_ui_screen()`; before that
   `dgx_ui_dropdown_open()` returns `false` and opens nothing.
-- **While the list is open** the program does not change the options and does not remove the dropdown: it closes
-  the list first.
+- **While the list is open** the program may set the options, as a message may bring them: the list shows them at
+  once, its window kept. It does not remove the dropdown: it closes the list first.
 - A program that wants another list, a whole screen of choices, opens a popup of its own on `DGX_UI_ACTIVATED`
   instead.
 
@@ -910,7 +913,8 @@ static void ask_open(dgx_ui_t *ui)
 
 - The program goes on calling `dgx_ui_take()`, `dgx_ui_pointer()`, `dgx_ui_key()` and `dgx_ui_paint()` with the tree
   under the popup; they go to the popup by themselves.
-- A modal popup takes every finger and key. The key "back" is never taken, so the program may close the popup on it.
+- A modal popup takes every finger and key. The key "back" no widget takes, so the program may close the popup on
+  it; a popup opened with `DGX_UI_POPUP_BACK` is closed by that key itself, as a page is.
 - With `DGX_UI_POPUP_CLOSE_OUTSIDE` a finger that goes down outside the popup closes it: so a list of choices
   behaves.
 - When the popup closes, the painter draws the tree again where it lay.
@@ -1173,7 +1177,9 @@ static void dialog_keys(dgx_ui_t *ui, bool buttons_in_a_row)
 ## Touch with DGX-DI
 
 `dgx_ui_di.h` is for a program that has [DGX-DI](https://github.com/jef-sure/esp32-component-dgx-di). The touch is
-read in the task that owns the display, so a ticker wakes it, every 20 ms here:
+read in the task that owns the display, so a ticker wakes it: started once with `MSG_TOUCH`, as the ticker of
+[A clock, or anything once in a while](#a-clock-or-anything-once-in-a-while) is, every 20 ms here; the example
+controls reads every 15:
 
 ```c
 #include "dgx_ui_di.h"
@@ -2051,6 +2057,72 @@ static void ui_loop_asleep(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t qu
 - **A look of your own** names its moment by `dgx_ui_wake_in(paint, ms)` before it returns `true`. Without that it
   is called at the next pass, as before.
 - The loop that asks only what `dgx_ui_paint()` and `dgx_ui_time()` return works as it did.
+
+## How long a pass takes
+
+`dgx_ui_paint_measured()` is `dgx_ui_paint()` with a clock around it: the same pass, and into a struct of the
+program's how long it took and what it drew. The loop calls it in the place of `dgx_ui_paint()`.
+
+```c
+#include "dgx_ui_stats.h"
+
+static dgx_ui_paint_stats_t pass_stats; /* zeros to begin: the clock is esp_timer_get_time() */
+
+/* in the loop, in the place of dgx_ui_paint(): the same pass, measured, and every ten seconds a line of the log */
+static bool paint_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
+{
+    static uint32_t told_ms;
+    const bool      more = dgx_ui_paint_measured(ui, paint, now_ms, &pass_stats);
+    if (now_ms - told_ms >= 10000) {
+        dgx_ui_paint_stats_log(&pass_stats, "home");
+        told_ms = now_ms;
+    }
+    return more;
+}
+
+/* the same line in a label of several lines whose text box holds 400 bytes, for a board with no cable to it */
+static void stats_show(dgx_ui_t *ui, int label)
+{
+    char line[400];
+    dgx_ui_paint_stats_text(&pass_stats, "home", line, sizeof line);
+    dgx_ui_text_set(ui, label, line);
+}
+
+/* counted anew, the clock kept: before a thing to be measured by itself */
+static void stats_anew(void)
+{
+    pass_stats = (dgx_ui_paint_stats_t){.clock_us = pass_stats.clock_us};
+}
+```
+
+A line of it, for instance:
+
+```
+stats home: 3 passes, 2 drew; a pass that drew 325 us mean, 130 last, 520 longest, its looks 295 us; one that did not 10 us; 4 draws and 4 parts in all, 1 and 1 at the last pass; 3 widgets in use, room for 4; the slowest draw widget 1 of the tree, 310 us; at the last pass widget 2 of the tree, 110 us
+```
+
+How it reads:
+
+- **3 passes, 2 drew.** The loop passed three times; at two of them a look was called to draw.
+- **A pass that drew 325 us mean, 130 last, 520 longest**: the mean of those two, the last of them, the longest.
+  **Its looks 295 us**: so much of the mean was spent in the looks, with what they send to the display; the other
+  30 are the core, the layout and the walk.
+- **One that did not** is what a pass costs when nothing changed: a loop woken fifty times a second by the touch's
+  ticker pays it every time.
+- **Draws and parts.** A draw is a widget drawn; a widget partly under a popup or the keyboard's band is drawn in
+  parts.
+- **Widgets in use, room for** so many: as `dgx_ui_dump()` says.
+- **The slowest draw**, of all the passes and of the last: the widget's index as `dgx_ui_dump()` numbers them, "of
+  the tree" or "of popup 1", the popup or the page over the tree.
+
+What to know of it:
+
+- A struct is one tree's, with its pages and popups. Two trees drawn by one paint take a struct each.
+- The line is written when a pass comes: a loop that sleeps writes none while it sleeps.
+- Showing the line on the screen draws it, and that draw is counted too.
+- `dgx_ui_changed()` and the frames of a transition are not counted.
+- The measured pass reads the clock twice for every part it draws, so it is a few microseconds longer than the plain
+  one. A program that names none of this carries none; one that does, about 1.5 KB and the struct, 80 bytes.
 
 ## A mirror of the screen
 

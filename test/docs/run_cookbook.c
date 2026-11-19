@@ -51,6 +51,9 @@ const uint16_t logo_pixels[64 * 32];
 const uint16_t map_pixels[320 * 240]  = {[0 ... 320 * 240 - 1] = 0x1084}; /* two maps of one colour each */
 const uint16_t rain_pixels[320 * 240] = {[0 ... 320 * 240 - 1] = 0x1f00};
 int64_t    esp_timer_get_time(void) { return 0; }
+/* a clock for the measured pass: 10 microseconds a read */
+static int64_t runner_us;
+static int64_t runner_clock(void) { return runner_us += 10; }
 void       vTaskDelay(TickType_t t) { (void)t; }
 BaseType_t xQueueSend(QueueHandle_t q, const void *i, TickType_t w) { return pdTRUE; }
 bool dgx_ui_post(QueueHandle_t q, int what, const void *data, size_t size) { return true; }
@@ -348,6 +351,43 @@ int main(int argc, char **argv)
                (unsigned char)log_buf[kept - 1] < 0x80 || ((unsigned char)log_buf[kept - 1] & 0xC0) == 0x80, strchr(log_buf, '\n') == NULL);
         dgx_ui_paint_free(&log_paint), dgx_ui_free(&log_ui);
         dgx_screen_destroy(&log_screen);
+    }
+
+    /* how long a pass takes: three passes measured by a clock of 10 us a read, the line, the line in a label, the count begun anew */
+    {
+        static dgx_ui_node_t         stats_nodes[4];
+        static char                  stats_buf[16], stats_line_buf[400];
+        static dgx_ui_textbox_t      stats_box, stats_line_box;
+        static const dgx_ui_widget_t stats_label_w  = {.kind = DGX_UI_LABEL, .text = &stats_box, .want_h = 14};
+        static const dgx_ui_widget_t stats_slider_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .want_h = 12, .look = &dgx_ui_look_slider};
+        static const dgx_ui_widget_t stats_line_w   = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &stats_line_box, .look = &dgx_ui_look_lines};
+        dgx_screen_t                *stats_screen   = dgx_vscreen_init(200, 160, 16, DgxScreenRGB);
+        dgx_ui_paint_t               stats_paint    = {.scr = stats_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_t                     stats_ui;
+        dgx_ui_textbox_init(&stats_box, stats_buf, sizeof stats_buf, 1, &st_left);
+        dgx_ui_textbox_init(&stats_line_box, stats_line_buf, sizeof stats_line_buf, 10, &st_left);
+        dgx_ui_init(&stats_ui, stats_nodes, 4, 1);
+        dgx_ui_add(&stats_ui, -1, &col_w);
+        const int label = dgx_ui_add(&stats_ui, 0, &stats_label_w), slider = dgx_ui_add(&stats_ui, 0, &stats_slider_w);
+        const int line_label = dgx_ui_add(&stats_ui, 0, &stats_line_w);
+        dgx_ui_text_set(&stats_ui, label, "21.5 C");
+        pass_stats.clock_us = runner_clock;
+        paint_measured(&stats_ui, &stats_paint, 0);  /* the column, the label, the slider and the empty label of the line */
+        paint_measured(&stats_ui, &stats_paint, 20); /* nothing */
+        dgx_ui_set_value(&stats_ui, slider, 40);
+        paint_measured(&stats_ui, &stats_paint, 40); /* the slider */
+        char line[400];
+        const int length = dgx_ui_paint_stats_text(&pass_stats, "home", line, sizeof line);
+        printf("stats (%d letters): %s\n", length, line);
+        stats_show(&stats_ui, line_label);
+        const bool same = strcmp(stats_line_buf, line) == 0;
+        paint_measured(&stats_ui, &stats_paint, 10060); /* the line drawn, counted; ten seconds gone: the line in the log */
+        printf("stats: the line shown in a label %d; then passes %u, drew %u, the slowest of the last pass widget %d\n", same, (unsigned)pass_stats.passes,
+               (unsigned)pass_stats.drawing_passes, pass_stats.slowest_last.widget);
+        stats_anew();
+        printf("stats: begun anew: passes %u, draws %u, the clock kept %d\n", (unsigned)pass_stats.passes, (unsigned)pass_stats.draws, pass_stats.clock_us == runner_clock);
+        dgx_ui_paint_free(&stats_paint), dgx_ui_free(&stats_ui);
+        dgx_screen_destroy(&stats_screen);
     }
 
     /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */

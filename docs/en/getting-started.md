@@ -22,18 +22,18 @@ the program is explained where it appears.
 - ESP-IDF 5.2 or later.
 - A display that [DGX](https://github.com/jef-sure/esp32-component-dgx) drives, or no display at all: the same program
   runs in a window on the computer.
-- DGX 0.11.4 or later. It comes by itself with dgx-ui.
+- DGX 0.11.4 or a later 0.11. It comes by itself with dgx-ui.
 
 ## 1. Add the component
 
-Version 0.0.19 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
+Version 0.0.20 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
 the project:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.19"
+    version: "0.0.20"
 ```
 
 The component manager takes dgx-ui from GitHub at the next build, and DGX from the registry, as dgx-ui asks for it.
@@ -52,7 +52,8 @@ The other displays and buses are in
 ## 2. Write the first program
 
 The program below is `main/main.c`, piece by piece; the pieces in their order are the whole file. The example
-[thin_paint](../../examples/thin_paint/main/thin_paint.c) of the repository is a program of the same shape.
+[thin_paint](../../examples/thin_paint/main/thin_paint.c) of the repository is a program of the same shape, with its
+display upright, 240 by 320.
 
 ```c
 #include "dgx_ui_paint.h"
@@ -166,7 +167,7 @@ static const dgx_ui_widget_t note_w  = {.kind = DGX_UI_LABEL, .flags = DGX_UI_RE
 Three rules of the sizes to remember:
 
 - A box has no size of its own. In a column it is as wide as the column, and its height is `want_h`.
-- A label is as high as its lines of text. It has no width of its own: in a column it takes the column's, in a row it
+- A label with no `want_h` is as high as its lines of text; the large number above has one. It has no width of its own: in a column it takes the column's, in a row it
   needs `want_w`.
 - A child with the flag `DGX_UI_REST` takes what its row or column has left after the others. The note above is
   such a child, so the row fits a screen of any width.
@@ -280,12 +281,13 @@ idf.py build flash monitor
 On the computer, in a window of DGX, with the `linux` target of ESP-IDF. The project's `CMakeLists.txt` and
 `sdkconfig.defaults` need the few lines told in
 [The linux target of ESP-IDF](https://github.com/jef-sure/esp32-component-dgx/blob/main/docs/host-window-en.md#the-linux-target-of-esp-idf-host-esp-idf)
-of DGX; the example [thin_paint](../../examples/thin_paint/CMakeLists.txt) has them.
+of DGX; the example [thin_paint](../../examples/thin_paint/CMakeLists.txt) has them. The program built is named
+after the project, by `project()` of its `CMakeLists.txt`: `thin_paint.elf` for the example.
 
 ```sh
 idf.py --preview set-target linux
 idf.py build
-./build/main.elf
+./build/<project>.elf
 ```
 
 What you should see, on the board and in the window alike: a frame with the value in large letters, `CO2 400 ppm` at
