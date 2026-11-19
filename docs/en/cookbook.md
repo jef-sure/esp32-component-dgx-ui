@@ -20,24 +20,29 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A picture under the widgets](#a-picture-under-the-widgets)
 - [A text of several lines](#a-text-of-several-lines)
 - [A font that fits](#a-font-that-fits)
+- [A handwritten text](#a-handwritten-text)
 - [Colours of your own, and a night mode](#colours-of-your-own-and-a-night-mode)
 - [Showing, hiding, disabling](#showing-hiding-disabling)
 - [A popup](#a-popup)
 - [Pages and "back"](#pages-and-back)
+- [Pages that slide](#pages-that-slide)
 - [Buttons of the board](#buttons-of-the-board)
 - [Touch with DGX-DI](#touch-with-dgx-di)
+- [Touch woken by an interrupt](#touch-woken-by-an-interrupt)
 - [A field and a keyboard](#a-field-and-a-keyboard)
 - [A field edited in a strip over the keypad](#a-field-edited-in-a-strip-over-the-keypad)
 - [Widgets that come and go](#widgets-that-come-and-go)
 - [Large data: a message by reference](#large-data-a-message-by-reference)
 - [A message from an interrupt](#a-message-from-an-interrupt)
 - [A look of your own](#a-look-of-your-own)
+- [A widget of your own that the finger and the keys work](#a-widget-of-your-own-that-the-finger-and-the-keys-work)
 - [A picture that stays between passes](#a-picture-that-stays-between-passes)
 - [A graph that sweeps](#a-graph-that-sweeps)
 - [A ring scale with widgets inside](#a-ring-scale-with-widgets-inside)
 - [A display of 18 or 24 bits](#a-display-of-18-or-24-bits)
 - [A loop that sleeps till the next moment](#a-loop-that-sleeps-till-the-next-moment)
 - [A mirror of the screen](#a-mirror-of-the-screen)
+- [The tree as a layer in another compositor's strips](#the-tree-as-a-layer-in-another-compositors-strips)
 - [Turning the screen](#turning-the-screen)
 - [Testing an interface on the computer](#testing-an-interface-on-the-computer)
 
@@ -1143,6 +1148,97 @@ static void touch_message(dgx_ui_t *ui, dgx_di_pointer_t *pointer, dgx_di_touch_
 - [boards](https://github.com/jef-sure/esp32-component-boards) gives a program the display of its board and a
   pointer of DGX-DI already calibrated, and on the computer a window in place of the board. The example controls
   takes both from it.
+
+## Touch woken by an interrupt
+
+The ticker of the recipe above reads the touch every 20 ms for ever, a finger there or not: the task wakes fifty
+times a second to learn that nobody touches the screen. A touch chip has a line that says a finger is down. With an
+interrupt on it the task sleeps until a finger comes, and reads the touch by the ticker only while a finger is
+there. The program chooses: the ticker alone, which needs no pin, or this.
+
+```c
+#include "driver/gpio.h"
+
+enum { MSG_TOUCH_WAKE = 18 };
+
+static dgx_ui_ticker_t touch_ticker; /* sends MSG_TOUCH while a finger is down */
+static QueueHandle_t   touch_queue;
+static gpio_num_t      touch_line;
+
+/* the interrupt of the touch chip's line: one message, and the line left alone until the loop watches it again */
+static void IRAM_ATTR touch_line_isr(void *arg)
+{
+    BaseType_t woken = pdFALSE;
+    gpio_intr_disable(touch_line);
+    dgx_ui_post_from_isr(touch_queue, MSG_TOUCH_WAKE, NULL, 0, &woken);
+    if (woken) portYIELD_FROM_ISR();
+}
+
+/* at the start, in place of starting the ticker: the pin the chip pulls while a finger is down, and its level then */
+static bool touch_wake_start(QueueHandle_t queue, int pin, bool low_when_touched)
+{
+    const gpio_config_t line = {.pin_bit_mask = 1ULL << pin,
+                                .mode         = GPIO_MODE_INPUT,
+                                .intr_type    = low_when_touched ? GPIO_INTR_LOW_LEVEL : GPIO_INTR_HIGH_LEVEL};
+    touch_queue = queue, touch_line = (gpio_num_t)pin;
+    if (gpio_config(&line) != ESP_OK) return false;
+    gpio_install_isr_service(0); /* an error when the program installed it already: that is fine */
+    return gpio_isr_handler_add(touch_line, touch_line_isr, NULL) == ESP_OK;
+}
+
+/* in the loop, for MSG_TOUCH_WAKE: a finger came, and is read every 20 ms from now on */
+static void touch_wake_message(void)
+{
+    dgx_ui_ticker_start(&touch_ticker, touch_queue, MSG_TOUCH, 20);
+}
+
+/* in the loop, after touch_message() of a tick: no finger on the pointer, down or still seen, the keyboard's and the
+   pad's too, and no widget holding one: no more ticks, the line watched */
+static void touch_sleep_when_up(dgx_ui_t *ui, const dgx_di_pointer_t *pointer, const dgx_di_touch_t *touch)
+{
+    for (int finger = 0; finger < DGX_DI_FINGERS; ++finger)
+        if (pointer->fingers[finger].down || pointer->fingers[finger].sees) return;
+    if (touch->down || dgx_ui_holding(ui)) return;
+    dgx_ui_ticker_stop(&touch_ticker);
+    gpio_intr_enable(touch_line);
+}
+```
+
+What happens:
+
+1. At the start the program calls `touch_wake_start()` in place of starting the ticker of the recipe above. Nobody
+   touches the screen: no ticker runs, the loop sleeps on its queue, and the touch is not read.
+2. A finger comes down. The chip pulls its line, the interrupt posts `MSG_TOUCH_WAKE` and turns itself off, so a
+   finger that stays down sends one message.
+3. The loop wakes at once and starts the ticker: from now on `MSG_TOUCH` comes every 20 ms and `touch_message()`
+   reads the finger, as in the recipe above. After it the loop calls `touch_sleep_when_up()`.
+4. The finger goes up. At the tick after which the pointer has no finger left and no widget holds one,
+   `touch_sleep_when_up()` stops the ticker and turns the interrupt on again. The loop sleeps until the next finger.
+
+What to know of it:
+
+- **The pin and its level** are the board's: the line of the touch chip, and whether the chip pulls it low or high
+  when touched. An XPT2046 holds its `PENIRQ` low while a finger is down. A GT911 or a GSL3680 pulses its `INT` at
+  every report; give the level of the pulse.
+- **The chip must drive the line.** The driver of the XPT2046 for ESP-IDF's `esp_lcd_touch` leaves `PENIRQ` off
+  unless it is built with `CONFIG_XPT2046_INTERRUPT_MODE=y`.
+- **By the level, not the edge.** A finger that came between the last tick and the line being watched again would
+  be missed by an edge. By the level the interrupt comes at once when the line is already pulled.
+- **The pointer is asked, not the tree's touch alone.** A finger on a key of DGX-DI's keyboard, or on its pad, is
+  theirs: the tree's touch is up while it lies there. Ticks stopped by the touch alone would leave that finger's
+  going up unread until the next touch, and the key would be typed late. The pointer also takes a finger as down only
+  after it has seen it for some reads running; `sees` is set meanwhile, and the ticks go on.
+- **The board's buttons**, when the program reads them at the touch's tick as the example controls does, are not
+  read while the ticks are stopped. Give them a ticker or a line of their own, which sends the message of the recipe
+  "Buttons of the board".
+- **A wake with no finger** costs one read: the tick finds no finger and the ticker is stopped again. On an ESP32
+  the pins 36 and 39 may wake so while the ADC or Wi-Fi works.
+- **What still needs time is not lost.** A widget that animates, a held key and a look that asks for time wake the
+  loop by `dgx_ui_wake()`, as before; only the touch's ticks stop.
+- **In a window on the computer** there is no such line: the ticker stays there.
+- **Measured on a CYD** (an XPT2046, its `PENIRQ` on pin 36, low when touched): in 70 seconds with nobody touching no
+  interrupt came, and the loop was not woken once after its start. 28 touches gave 28 interrupts and 28 stops of the
+  ticker, 6 to 47 ticks a touch (the finger down for 120 to 940 ms), 13 for a usual press of a key.
 
 ## A field and a keyboard
 

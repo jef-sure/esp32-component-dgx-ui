@@ -55,8 +55,22 @@ void       vTaskDelay(TickType_t t) { (void)t; }
 BaseType_t xQueueSend(QueueHandle_t q, const void *i, TickType_t w) { return pdTRUE; }
 bool dgx_ui_post(QueueHandle_t q, int what, const void *data, size_t size) { return true; }
 bool dgx_ui_post_ref(QueueHandle_t q, int what, void *data, size_t size, void (*done)(void *, size_t)) { return true; }
-bool dgx_ui_post_from_isr(QueueHandle_t q, int what, const void *data, size_t size, BaseType_t *woken) { return true; }
-bool dgx_ui_ticker_start(dgx_ui_ticker_t *t, QueueHandle_t q, int what, uint32_t ms) { return true; }
+/* what came from an interrupt, the touch's ticker and the chip's line, as the recipe of the touch woken by an interrupt uses them */
+static int  isr_posted = -1, ticker_running, ticker_what, ticker_ms, line_pin = -1, line_level, line_watched;
+static void (*line_handler)(void *);
+bool dgx_ui_post_from_isr(QueueHandle_t q, int what, const void *data, size_t size, BaseType_t *woken) { return isr_posted = what, true; }
+bool dgx_ui_ticker_start(dgx_ui_ticker_t *t, QueueHandle_t q, int what, uint32_t ms) { return ticker_running = 1, ticker_what = what, ticker_ms = (int)ms, true; }
+void dgx_ui_ticker_stop(dgx_ui_ticker_t *t) { ticker_running = 0; }
+esp_err_t gpio_config(const gpio_config_t *config)
+{
+    for (int pin = 0; pin < 64; ++pin)
+        if (config->pin_bit_mask >> pin & 1) line_pin = pin;
+    return line_level = config->intr_type, line_watched = 1, ESP_OK;
+}
+esp_err_t gpio_install_isr_service(int flags) { return ESP_OK; }
+esp_err_t gpio_isr_handler_add(gpio_num_t pin, void (*handler)(void *), void *arg) { return line_handler = handler, ESP_OK; }
+esp_err_t gpio_intr_enable(gpio_num_t pin) { return line_watched = 1, ESP_OK; }
+esp_err_t gpio_intr_disable(gpio_num_t pin) { return line_watched = 0, ESP_OK; }
 int  dgx_di_pointer_read(dgx_di_pointer_t *p, uint32_t now) { return 0; }
 bool dgx_di_pointer_first(const dgx_di_pointer_t *p, int *x, int *y) { *x = *y = 0; return false; }
 void dgx_di_touch_take(dgx_di_touch_t *t, int x, int y, bool down, uint32_t now) {}
@@ -265,6 +279,35 @@ int main(int argc, char **argv)
         while (big_count > 0) free(big_blocks[--big_count]);
         dgx_ui_paint_free(&slide_paint_here), dgx_ui_free(&slide_home), dgx_ui_free(&page_settings);
         dgx_screen_destroy(&slide_screen), dgx_screen_destroy(&fresh);
+    }
+
+    /* the touch woken by an interrupt: the line watched, a finger, the ticks while any finger is on the pointer, the sleep after */
+    {
+        static dgx_ui_node_t    wake_nodes[2];
+        static dgx_di_pointer_t wake_pointer; /* no finger on it */
+        dgx_ui_t                wake_ui;
+        dgx_ui_init(&wake_ui, wake_nodes, 2, 1);
+        dgx_ui_add(&wake_ui, -1, &col_w);
+        const bool started = touch_wake_start((QueueHandle_t)1, 36, true);
+        printf("wake: started %d on pin %d by the low level %d; watched %d, the ticker running %d\n", started, line_pin, line_level == GPIO_INTR_LOW_LEVEL,
+               line_watched, ticker_running);
+        line_handler(NULL); /* a finger: the chip pulls its line */
+        printf("wake: the interrupt posted the wake %d and turned itself off (watched %d)\n", isr_posted == MSG_TOUCH_WAKE, line_watched);
+        touch_wake_message();
+        printf("wake: the loop started the ticker %d of the touch's message %d every %d ms\n", ticker_running, ticker_what == MSG_TOUCH, ticker_ms);
+        dgx_di_touch_t tree_touch = {.down = true};
+        touch_sleep_when_up(&wake_ui, &wake_pointer, &tree_touch);
+        printf("wake: a tick with the tree's finger down: the ticker running %d, watched %d\n", ticker_running, line_watched);
+        tree_touch.down = false, wake_pointer.fingers[1].down = true; /* a finger on a key of the keyboard: not the tree's */
+        touch_sleep_when_up(&wake_ui, &wake_pointer, &tree_touch);
+        printf("wake: a tick with a finger on the keyboard and the tree's touch up: the ticker running %d, watched %d\n", ticker_running, line_watched);
+        wake_pointer.fingers[1].down = false, wake_pointer.fingers[1].sees = true; /* seen by the device, not yet taken as down */
+        touch_sleep_when_up(&wake_ui, &wake_pointer, &tree_touch);
+        printf("wake: a tick with a finger seen and not down yet: the ticker running %d, watched %d\n", ticker_running, line_watched);
+        wake_pointer.fingers[1].sees = false;
+        touch_sleep_when_up(&wake_ui, &wake_pointer, &tree_touch);
+        printf("wake: a tick with no finger on the pointer: the ticker running %d, watched %d\n", ticker_running, line_watched);
+        dgx_ui_free(&wake_ui);
     }
 
     /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */
