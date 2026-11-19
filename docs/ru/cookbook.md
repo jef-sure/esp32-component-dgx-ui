@@ -2256,21 +2256,21 @@ static void stats_show(dgx_ui_t *ui, int label)
 /* counted anew, the clock kept: before a thing to be measured by itself */
 static void stats_anew(void)
 {
-    pass_stats = (dgx_ui_paint_stats_t){.clock_us = pass_stats.clock_us};
+    dgx_ui_paint_stats_restart(&pass_stats);
 }
 ```
 
 Его строка, например:
 
 ```
-stats home: 3 passes, 2 drew; a pass that drew 325 us mean, 130 last, 520 longest, its looks 295 us; one that did not 10 us; 4 draws and 4 parts in all, 1 and 1 at the last pass; 3 widgets in use, room for 4; the slowest draw widget 1 of the tree, 310 us; at the last pass widget 2 of the tree, 110 us
+stats home: 3 passes, 2 drew; a pass that drew 325 us mean, 130 last, 520 longest, its drawing 295 us; one that did not 10 us; 4 draws and 4 parts in all, 1 and 1 at the last pass; 3 widgets in use, room for 4; the slowest draw widget 1 of the tree, 310 us; at the last pass widget 2 of the tree, 110 us
 ```
 
 Как её читать:
 
 - **3 passes, 2 drew.** Цикл сделал три прохода; на двух из них был вызван облик, чтобы рисовать.
 - **A pass that drew 325 us mean, 130 last, 520 longest** — среднее время этих двух, время последнего из них и
-  самого долгого. **Its looks 295 us** — столько из среднего проведено в обликах, вместе с отправкой на дисплей;
+  самого долгого. **Its drawing 295 us** — столько из среднего проведено в обликах, вместе с отправкой на дисплей;
   остальные 30 — ядро: раскладка и обход.
 - **One that did not** — цена прохода, когда ничего не изменилось: цикл, который тикер касания будит пятьдесят раз
   в секунду, платит её каждый раз.
@@ -2286,10 +2286,65 @@ stats home: 3 passes, 2 drew; a pass that drew 325 us mean, 130 last, 520 longes
   структуре.
 - Строка пишется, когда приходит проход: цикл, который спит, пока спит, ничего не пишет.
 - Показ строки на экране рисует её, и эта отрисовка тоже считается.
-- `dgx_ui_changed()` и кадры перехода не считаются.
 - Измеряемый проход читает часы дважды на каждую часть, которую рисует, поэтому он на несколько микросекунд дольше
-  обычного. Программа, которая ничего из этого не назвала, ничего не несёт; та, что назвала, — около 1,5 КБ и
-  структуру, 80 байт.
+  обычного. Программа, которая ничего из этого не назвала, ничего не несёт; та, что назвала, — около 1,8 КБ и
+  структуру, 92 байта.
+
+**Каждый виджет.** Самая долгая отрисовка называет один виджет; массив программы ведёт счёт по каждому.
+
+```c
+static dgx_ui_widget_stats_t home_widgets[16]; /* an entry for a widget's index, as dgx_ui_dump() numbers them */
+
+/* once, before the passes: the widgets of the home tree counted each */
+static void stats_each_widget(dgx_ui_t *home)
+{
+    pass_stats.per_widget_tree = home, pass_stats.per_widget = home_widgets, pass_stats.per_widget_count = 16;
+}
+
+/* with the line of the whole: a line for each widget that was drawn */
+static void stats_log_widgets(void)
+{
+    dgx_ui_widget_stats_log(&pass_stats, "home");
+}
+```
+
+```
+stats home, widget 1: 2 draws, 310 us mean, 310 us longest
+```
+
+- Массив — для одного дерева, здесь главного, или для страницы, которую программа назовёт вместо него; номер записи
+  — это номер виджета в этом дереве.
+- Запись помнит свой виджет: когда виджет удалён и на его номер добавлен другой, запись начинается заново.
+- Когда названное дерево уходит — страница закрыта и освобождена, — назовите другое или поставьте `per_widget` в
+  `NULL`.
+- `stats_anew()` выше начинает заново и записи и сохраняет названный массив.
+
+**Кадры перехода** считаются в свою структуру:
+
+```c
+static dgx_ui_frame_stats_t slide_stats;
+
+/* in the loop while a transition runs, in the place of dgx_ui_transition_frame(); the line when it has run to its end */
+static bool frame_measured(dgx_ui_transition_t *transition, dgx_ui_paint_t *paint, uint32_t now_ms)
+{
+    const bool more = dgx_ui_transition_frame_measured(transition, paint, now_ms, &slide_stats);
+    if (!transition->running) dgx_ui_frame_stats_log(&slide_stats, "slide");
+    return more;
+}
+```
+
+```
+frames slide: 11 frames, transitions run to their end: 1; a frame 29700 us mean, 28700 last, 34000 longest; 25.0 frames a second shown
+```
+
+- **A frame's mean** — цена кадра; **frames a second shown** — то, что видел глаз, вместе с ожиданиями цикла между
+  кадрами. Здесь кадр стоит 30 мс, а показано 25 в секунду: цикл ждёт между кадрами тик в 10 мс. На дисплее,
+  которому нужно 30 мс на кадр, ни один цикл не покажет больше 33.
+- Частота берётся по переходам, дошедшим до конца.
+
+**Программа, дерево которой рисует её собственный компоновщик,** вызывает `dgx_ui_changed_measured()` вместо
+`dgx_ui_changed()`, со своей структурой: сообщённый прямоугольник тогда — отрисовка, а время функции, которой
+сообщают, то есть время сборки, — время рисования.
 
 ## Зеркало экрана
 

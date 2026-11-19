@@ -76,6 +76,7 @@ dgx_font_t *dgx_font_title(void)
 /* a clock for the measured pass: 10 microseconds a read */
 static int64_t runner_us;
 static int64_t runner_clock(void) { return runner_us += 10; }
+static int64_t runner_clock_still(void) { return runner_us; } /* moved by the runner's loop alone */
 void       vTaskDelay(TickType_t t) { (void)t; }
 BaseType_t xQueueSend(QueueHandle_t q, const void *i, TickType_t w) { return pdTRUE; }
 bool dgx_ui_post(QueueHandle_t q, int what, const void *data, size_t size) { return true; }
@@ -394,6 +395,7 @@ int main(int argc, char **argv)
         const int line_label = dgx_ui_add(&stats_ui, 0, &stats_line_w);
         dgx_ui_text_set(&stats_ui, label, "21.5 C");
         pass_stats.clock_us = runner_clock;
+        stats_each_widget(&stats_ui);
         paint_measured(&stats_ui, &stats_paint, 0);  /* the column, the label, the slider and the empty label of the line */
         paint_measured(&stats_ui, &stats_paint, 20); /* nothing */
         dgx_ui_set_value(&stats_ui, slider, 40);
@@ -406,8 +408,38 @@ int main(int argc, char **argv)
         paint_measured(&stats_ui, &stats_paint, 10060); /* the line drawn, counted; ten seconds gone: the line in the log */
         printf("stats: the line shown in a label %d; then passes %u, drew %u, the slowest of the last pass widget %d\n", same, (unsigned)pass_stats.passes,
                (unsigned)pass_stats.drawing_passes, pass_stats.slowest_last.widget);
+        char widget_line[96];
+        dgx_ui_widget_stats_text(&pass_stats, slider, widget_line, sizeof widget_line);
+        printf("stats: each widget: the slider's entry: %s; a line of the log for each widget drawn:\n", widget_line);
+        stats_log_widgets();
+        const uint32_t slider_draws = home_widgets[slider].draws;
         stats_anew();
-        printf("stats: begun anew: passes %u, draws %u, the clock kept %d\n", (unsigned)pass_stats.passes, (unsigned)pass_stats.draws, pass_stats.clock_us == runner_clock);
+        printf("stats: begun anew: passes %u, draws %u, the slider's entry %u draws before and %u after, the clock kept %d, the array named still %d\n",
+               (unsigned)pass_stats.passes, (unsigned)pass_stats.draws, (unsigned)slider_draws, (unsigned)home_widgets[slider].draws, pass_stats.clock_us == runner_clock,
+               pass_stats.per_widget == home_widgets && pass_stats.per_widget_tree == &stats_ui);
+        pass_stats.per_widget = NULL, pass_stats.per_widget_tree = NULL; /* the tree goes with this block */
+        /* the frames of a slide to a page: a frame costs 5 ms by the runner's own clock here and the loop waits 15 more */
+        {
+            static dgx_ui_node_t frames_page_nodes[2];
+            dgx_ui_t             frames_page;
+            dgx_ui_transition_t  frames_slide = {.from = dgx_vscreen_init(200, 160, 16, DgxScreenRGB), .to = dgx_vscreen_init(200, 160, 16, DgxScreenRGB), .ms = 200};
+            dgx_ui_init(&frames_page, frames_page_nodes, 2, 1);
+            dgx_ui_add(&frames_page, -1, &col_w);
+            slide_stats.clock_us = runner_clock_still;
+            dgx_ui_page_open_by(&stats_ui, &frames_page, &stats_paint, &frames_slide, DGX_UI_SLIDE_LEFT);
+            int      frames_loops = 0;
+            uint32_t frames_now   = 20000;
+            while (frames_slide.running && frames_loops < 100) {
+                frame_measured(&frames_slide, &stats_paint, frames_now);
+                runner_us += 20000, frames_now += 20, ++frames_loops;
+            }
+            char frames_line[240];
+            dgx_ui_frame_stats_text(&slide_stats, "slide", frames_line, sizeof frames_line);
+            printf("stats: %d frames of the loop 20 ms apart: %s\n", frames_loops, frames_line);
+            dgx_ui_page_back(&stats_ui);
+            dgx_ui_free(&frames_page);
+            dgx_screen_destroy(&frames_slide.from), dgx_screen_destroy(&frames_slide.to);
+        }
         dgx_ui_paint_free(&stats_paint), dgx_ui_free(&stats_ui);
         dgx_screen_destroy(&stats_screen);
     }

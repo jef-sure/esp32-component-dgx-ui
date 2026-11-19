@@ -333,7 +333,7 @@ come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide)
 | a variant of a font | 16 bytes |
 | handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
 | handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
-| the statistics of painting, when the program names them | about 1.5 KB, and 80 bytes of the program's RAM |
+| the statistics of painting, when the program names them | about 1.8 KB for the measured pass and its line, and 92 bytes of the program's RAM |
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the
 program gives the painter: a picture of 4 or 8 bits, a row of the picture at least; and, when the program names the

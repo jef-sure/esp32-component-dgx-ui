@@ -2231,21 +2231,21 @@ static void stats_show(dgx_ui_t *ui, int label)
 /* counted anew, the clock kept: before a thing to be measured by itself */
 static void stats_anew(void)
 {
-    pass_stats = (dgx_ui_paint_stats_t){.clock_us = pass_stats.clock_us};
+    dgx_ui_paint_stats_restart(&pass_stats);
 }
 ```
 
 A line of it, for instance:
 
 ```
-stats home: 3 passes, 2 drew; a pass that drew 325 us mean, 130 last, 520 longest, its looks 295 us; one that did not 10 us; 4 draws and 4 parts in all, 1 and 1 at the last pass; 3 widgets in use, room for 4; the slowest draw widget 1 of the tree, 310 us; at the last pass widget 2 of the tree, 110 us
+stats home: 3 passes, 2 drew; a pass that drew 325 us mean, 130 last, 520 longest, its drawing 295 us; one that did not 10 us; 4 draws and 4 parts in all, 1 and 1 at the last pass; 3 widgets in use, room for 4; the slowest draw widget 1 of the tree, 310 us; at the last pass widget 2 of the tree, 110 us
 ```
 
 How it reads:
 
 - **3 passes, 2 drew.** The loop passed three times; at two of them a look was called to draw.
 - **A pass that drew 325 us mean, 130 last, 520 longest**: the mean of those two, the last of them, the longest.
-  **Its looks 295 us**: so much of the mean was spent in the looks, with what they send to the display; the other
+  **Its drawing 295 us**: so much of the mean was spent in the looks, with what they send to the display; the other
   30 are the core, the layout and the walk.
 - **One that did not** is what a pass costs when nothing changed: a loop woken fifty times a second by the touch's
   ticker pays it every time.
@@ -2260,9 +2260,63 @@ What to know of it:
 - A struct is one tree's, with its pages and popups. Two trees drawn by one paint take a struct each.
 - The line is written when a pass comes: a loop that sleeps writes none while it sleeps.
 - Showing the line on the screen draws it, and that draw is counted too.
-- `dgx_ui_changed()` and the frames of a transition are not counted.
 - The measured pass reads the clock twice for every part it draws, so it is a few microseconds longer than the plain
-  one. A program that names none of this carries none; one that does, about 1.5 KB and the struct, 80 bytes.
+  one. A program that names none of this carries none; one that does, about 1.8 KB and the struct, 92 bytes.
+
+**Each widget.** The slowest draw names one widget; an array of the program's keeps a count for each of them.
+
+```c
+static dgx_ui_widget_stats_t home_widgets[16]; /* an entry for a widget's index, as dgx_ui_dump() numbers them */
+
+/* once, before the passes: the widgets of the home tree counted each */
+static void stats_each_widget(dgx_ui_t *home)
+{
+    pass_stats.per_widget_tree = home, pass_stats.per_widget = home_widgets, pass_stats.per_widget_count = 16;
+}
+
+/* with the line of the whole: a line for each widget that was drawn */
+static void stats_log_widgets(void)
+{
+    dgx_ui_widget_stats_log(&pass_stats, "home");
+}
+```
+
+```
+stats home, widget 1: 2 draws, 310 us mean, 310 us longest
+```
+
+- The array is for one tree, the home here or a page the program names in its place; the number of an entry is the
+  widget's index in that tree.
+- An entry remembers its widget: when a widget is removed and another added at its index, the entry begins anew.
+- When the tree named goes, a page closed and freed, name another or set `per_widget` to `NULL`.
+- `stats_anew()` above begins the entries anew too, and keeps the array named.
+
+**The frames of a transition** are counted into a struct of their own:
+
+```c
+static dgx_ui_frame_stats_t slide_stats;
+
+/* in the loop while a transition runs, in the place of dgx_ui_transition_frame(); the line when it has run to its end */
+static bool frame_measured(dgx_ui_transition_t *transition, dgx_ui_paint_t *paint, uint32_t now_ms)
+{
+    const bool more = dgx_ui_transition_frame_measured(transition, paint, now_ms, &slide_stats);
+    if (!transition->running) dgx_ui_frame_stats_log(&slide_stats, "slide");
+    return more;
+}
+```
+
+```
+frames slide: 11 frames, transitions run to their end: 1; a frame 29700 us mean, 28700 last, 34000 longest; 25.0 frames a second shown
+```
+
+- **A frame's mean** is what a frame costs; **frames a second shown** is what the eye saw, the loop's waits between
+  the frames counted. Here a frame costs 30 ms and 25 are shown a second: the loop waits a tick of 10 ms between
+  frames. On a display that takes 30 ms a frame no loop shows more than 33.
+- The rate is taken of the transitions run to their end.
+
+**A program whose own compositor draws the tree** calls `dgx_ui_changed_measured()` in the place of
+`dgx_ui_changed()`, with a struct of its own: a rectangle told is then a draw, and the time of the function told,
+the composing, is the drawing's.
 
 ## A mirror of the screen
 

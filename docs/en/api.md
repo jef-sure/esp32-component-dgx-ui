@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.20: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.21: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -976,7 +976,8 @@ The recipe: [Pages that slide](cookbook.md#pages-that-slide).
 ## dgx_ui_stats.h
 
 The statistics of painting: a pass measured, how long it took and what it drew, counted into a struct of the
-program's. A program that names none of it carries none of it.
+program's; each widget of a tree counted apart when the program gives an array for them; the frames of a transition
+in a struct of their own. A program that names none of it carries none of it, and each call only what it names.
 
 ```c
 typedef struct dgx_ui_paint_slowest_t {
@@ -984,6 +985,13 @@ typedef struct dgx_ui_paint_slowest_t {
     int16_t  widget;
     uint32_t us;
 } dgx_ui_paint_slowest_t;
+
+typedef struct dgx_ui_widget_stats_t {
+    const dgx_ui_widget_t *widget;
+    uint32_t               draws;
+    uint32_t               total_us;
+    uint32_t               longest_us;
+} dgx_ui_widget_stats_t;
 
 typedef struct dgx_ui_paint_stats_t {
     int64_t (*clock_us)(void);
@@ -1003,38 +1011,107 @@ typedef struct dgx_ui_paint_stats_t {
     uint16_t room;
     dgx_ui_paint_slowest_t slowest_last;
     dgx_ui_paint_slowest_t slowest;
+    const dgx_ui_t        *per_widget_tree;
+    dgx_ui_widget_stats_t *per_widget;
+    uint16_t               per_widget_count;
 } dgx_ui_paint_stats_t;
+
+typedef struct dgx_ui_frame_stats_t {
+    int64_t (*clock_us)(void);
+    uint32_t frames;
+    uint64_t frames_us;
+    uint32_t last_us;
+    uint32_t longest_us;
+    uint32_t transitions;
+    uint32_t shown_periods;
+    uint64_t shown_us;
+    int64_t  run_start_us;
+    uint32_t run_frames;
+    bool     run_seen;
+} dgx_ui_frame_stats_t;
 ```
+
+A pass, `dgx_ui_paint_stats_t`:
 
 | Member | What it holds |
 | ------ | ------------- |
 | `clock_us` | the program's clock in microseconds; `NULL`: `esp_timer_get_time()` |
 | `passes`, `passes_us`, `last_us` | the passes measured, their time in all, the time of the last |
 | `drawing_passes`, `drawing_us`, `last_drawing_us`, `longest_drawing_us` | the passes that drew, those at which a look was called for a part of a widget: how many, their time in all, the time of the last and of the longest |
-| `looks_last_us`, `looks_us` | the time spent in the looks, with what they send to the display and with the program's strips: at the last pass and in all. A pass's time less it is the core's own, the layout and the walk |
+| `looks_last_us`, `looks_us` | the time of the drawing, at the last pass and in all: the time spent in the looks, with what they send to the display and with the program's strips. A pass's time less it is the core's own, the layout and the walk |
 | `draws_last`, `parts_last`, `draws`, `parts` | draws of widgets and the parts they were drawn in, at the last pass and in all. A widget partly under a popup or the keyboard's band is drawn in parts; one drawn by a composing and again by the walk of the same pass is two draws |
 | `widgets`, `room` | at the last pass, of the tree and its popups: the widgets in use and the room of their arrays and blocks of nodes, as `dgx_ui_dump()` counts them |
 | `slowest_last`, `slowest` | the slowest draw of the last pass and of all: `level` 0 is the tree measured, 1 the popup over it, and so on; `widget` is its index there, as `dgx_ui_dump()` numbers them; `us` its time |
+| `per_widget_tree`, `per_widget`, `per_widget_count` | the count for each widget: the tree whose widgets are counted each, the measured one or a popup over it, such as a page; the program's array of `dgx_ui_widget_stats_t`, an entry for a node's index; how many entries. `per_widget` `NULL`: none is counted each |
+
+An entry, `dgx_ui_widget_stats_t`: `widget` is the widget counted at this index, `draws` its draws, `total_us` their
+time, so the mean is `total_us / draws`, and `longest_us` the longest of them.
+
+The frames, `dgx_ui_frame_stats_t`:
+
+| Member | What it holds |
+| ------ | ------------- |
+| `clock_us` | the program's clock in microseconds; `NULL`: `esp_timer_get_time()` |
+| `frames`, `frames_us`, `last_us`, `longest_us` | the frames measured and what they cost: their time in all, the last frame's and the longest |
+| `transitions`, `shown_periods`, `shown_us` | the transitions measured from their first frame to their end, the periods between the starts of their frames, a frame fewer each, and the time those periods took, the loop's waits between the frames in it: the rate the eye saw |
+| `run_start_us`, `run_frames`, `run_seen` | the library's own, of the transition running |
 
 | Call | What it does |
 | ---- | ------------ |
 | `bool dgx_ui_paint_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_paint_stats_t *stats)` | `dgx_ui_paint()`, measured: the same pass, drawing the same and returning the same; its time and what it drew are counted into `stats`. |
-| `int dgx_ui_paint_stats_text(const dgx_ui_paint_stats_t *stats, const char *name, char *text, size_t size)` | The statistics in words, one line, written as `snprintf()` writes: the passes and those that drew, the mean of a pass that drew and of one that did not, the last and the longest, the looks' share, the draws and parts, the widgets, and the slowest draw of all and of the last pass. In whole microseconds. `name` is the tree's, for the reader. Returns the length of the whole line. |
+| `bool dgx_ui_changed_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_changed_fn tell, void *ctx, dgx_ui_paint_stats_t *stats)` | `dgx_ui_changed()`, measured into the same kind of struct: the pass of a program whose own compositor draws the tree. A rectangle told is its draw and its part, the time of the program's function told is its drawing's time, and the slowest draw is the slowest rectangle's. With `tell` `NULL` only the call is timed. |
+| `void dgx_ui_paint_stats_restart(dgx_ui_paint_stats_t *stats)` | The counts begun anew, and the entries of the array named with them; the clock and the array named are kept. |
+| `int dgx_ui_paint_stats_text(const dgx_ui_paint_stats_t *stats, const char *name, char *text, size_t size)` | The statistics in words, one line, written as `snprintf()` writes: the passes and those that drew, the mean of a pass that drew and of one that did not, the last and the longest, the drawing's share, the draws and parts, the widgets, and the slowest draw of all and of the last pass. In whole microseconds. `name` is the tree's, for the reader. Returns the length of the whole line. |
 | `void dgx_ui_paint_stats_log(const dgx_ui_paint_stats_t *stats, const char *name)` | That line in the log, with the library's tag. It takes 480 bytes of the caller's stack. |
+| `int dgx_ui_widget_stats_text(const dgx_ui_paint_stats_t *stats, int i, char *text, size_t size)` | The entry of widget `i` in words: its draws, their mean and the longest, or that it was not drawn. Returns the length of the whole line. |
+| `void dgx_ui_widget_stats_log(const dgx_ui_paint_stats_t *stats, const char *name)` | A line of the log for each widget of the array that was drawn. |
+| `bool dgx_ui_transition_frame_measured(dgx_ui_transition_t *tr, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_frame_stats_t *stats)` | `dgx_ui_transition_frame()`, measured: the same frame and the same answer, counted into `stats`. Called while no transition runs, it counts nothing. |
+| `int dgx_ui_frame_stats_text(const dgx_ui_frame_stats_t *stats, const char *name, char *text, size_t size)` | The frames in words, one line: how many, the transitions run to their end, the mean, the last and the longest frame, and the frames a second shown. Returns the length of the whole line. |
+| `void dgx_ui_frame_stats_log(const dgx_ui_frame_stats_t *stats, const char *name)` | That line in the log. |
 
-- The struct is zeros to begin. `stats = (dgx_ui_paint_stats_t){.clock_us = stats.clock_us};` begins it anew and
-  keeps the clock. Until a pass drew, `draws` is 0 and there is no slowest draw.
-- A struct is one tree's, with its popups: two trees drawn in turn by one paint take a struct each. It is one
-  call's at a time, and the library keeps nothing of it between calls.
+Of a pass:
+
+- The struct is zeros to begin. `dgx_ui_paint_stats_restart()` begins it anew. Until a pass drew, `draws` is 0 and
+  there is no slowest draw.
+- A struct is one tree's, with its popups, and one way's: two trees drawn in turn by one paint take a struct each,
+  and so would a tree's passes by `dgx_ui_paint()` and by `dgx_ui_changed()`. It is one call's at a time, and the
+  library keeps nothing of it between calls.
 - The passes that drew and those that did not are counted apart, each with its time. A loop that wakes for a finger
   or a key passes often and draws seldom: the mean of a pass that drew is not thinned by the empty ones, and the mean
   of an empty one is what the core costs when nothing changed.
 - A part with no look, where the painter lays the paper, is the core's time, and a pass that only laid paper did
   not draw. The count of the widgets, made after the pass, is outside the time.
-- The paint's strips, when the program named them, still draw each part; their time is the looks'.
-- The measured call is not made from a look, nor from a function told by `dgx_ui_changed()`. `dgx_ui_changed()` and
-  the frames of a transition are not counted.
-- A program that names it carries about 1.5 KB more of code and words, and its struct, 80 bytes on a 32-bit chip.
+- The paint's strips, when the program named them, still draw each part; their time is the drawing's.
+- The measured calls are not made from a look, nor from a function told by `dgx_ui_changed()`.
+- In a pass by `dgx_ui_changed_measured()` the looks are called under an empty clip: their time is the core's
+  there, and no widget is counted each.
+
+Of each widget:
+
+- An entry is an index's and remembers its widget: when another widget stands at the index, added where one was
+  removed, the entry begins anew.
+- A widget at an index past the array, as in a block of nodes added later, is not counted each; `widgets` and
+  `room` tell how large to make the array.
+- The tree named is only compared by its address and never read. When it goes, a page closed and freed, name another
+  or set `per_widget` to `NULL`: a new tree at the same address would be counted.
+- An array is one struct's.
+- The sum of an entry's time is 32 bits. When it would run over, the entry's draws and its sum are both halved, and
+  the mean is kept.
+
+Of the frames:
+
+- What a frame costs and how many are shown a second are two numbers. A frame of 30 ms in a loop that waits a tick
+  of 10 ms between frames is shown 25 times a second, not 33: the line gives the frame's mean and the rate shown. If
+  the two disagree by more than the frame's own time, the loop waits too long between frames.
+- The rate is taken of the transitions run to their end. A transition begun again before its end, or one whose first
+  frame the struct did not see, begun anew by the program in the middle or first given to a transition already
+  running, is in the cost and not in the rate.
+- The start of a transition, the two screens composed by `dgx_ui_page_open_by()`, is not a frame.
+- A struct is one transition's.
+
+A program that names the measured pass and its line carries about 1.8 KB more, and its struct, 92 bytes on a 32-bit
+chip. Each of the others named adds to it: `dgx_ui_changed_measured()` about 0.2 KB, the lines of each widget about
+0.3 KB and 16 bytes of RAM a widget, the frames about 0.5 KB and their struct.
 
 The recipe: [How long a pass takes](cookbook.md#how-long-a-pass-takes).
 

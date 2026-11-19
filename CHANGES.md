@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.21 - 2026-11-20
+
+- The statistics count a pass of `dgx_ui_changed()` too (`dgx_ui_changed_measured()`), the frames of a transition with
+  the rate the eye sees (`dgx_ui_transition_frame_measured()`), and each widget of a tree the program names in an
+  array of its own (`dgx_ui_widget_stats_t`); `dgx_ui_paint_stats_restart()` begins anew. The line says "its drawing".
+
 ## 0.0.20 - 2026-11-19
 
 - The statistics of painting, `dgx_ui_stats.h`: `dgx_ui_paint_measured()` in the place of `dgx_ui_paint()` counts the

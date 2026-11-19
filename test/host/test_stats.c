@@ -83,7 +83,7 @@ int main(void)
     CHECK(stats.slowest_last.widget == other && stats.slowest_last.us == 110 && stats.slowest.widget == first && stats.slowest.us == 310);
     char text[400];
     dgx_ui_paint_stats_text(&stats, "home", text, sizeof text);
-    CHECK(strstr(text, "stats home: 3 passes, 2 drew; a pass that drew 325 us mean, 130 last, 520 longest, its looks 295 us; one that did not 10 us") &&
+    CHECK(strstr(text, "stats home: 3 passes, 2 drew; a pass that drew 325 us mean, 130 last, 520 longest, its drawing 295 us; one that did not 10 us") &&
           strstr(text, "4 draws and 4 parts in all, 1 and 1 at the last pass; 3 widgets in use, room for 4") &&
           strstr(text, "the slowest draw widget 1 of the tree, 310 us; at the last pass widget 2 of the tree, 110 us"));
 
