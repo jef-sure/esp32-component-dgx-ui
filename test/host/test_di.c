@@ -2,7 +2,11 @@
  * The touch of DGX-DI given to dgx-ui (dgx_ui_di.h), DGX-DI's own touch working out the gestures: a slider at the
  * left edge dragged owns the finger, its swipe from the edge not the program's; a button at the edge gives it, and is
  * no click; a finger on no widget gives all; a long press on a button is the button's, and no click; a short tap
- * clicks it. And a field typed into: every pixel once, the caret only while it is focused.
+ * clicks it. And a field typed into: every pixel once, the caret only while it is focused. And the pointer of DGX-DI
+ * read from a device, its first finger given by dgx_ui_di_pointer(): a tap on the button clicks it; let go off it
+ * after a short move it is still clicked, swiped off it it is not; a widget of the program's own let go is told the
+ * place dgx_di_pointer_first() gives for a lifted finger, where it was last down; a finger the device loses for less
+ * than the pointer's up stays down; a second finger is not the first.
  */
 #include <string.h>
 
@@ -43,6 +47,16 @@ static const dgx_ui_look_t       secret_look    = {.draw = dgx_ui_draw_input, .p
 static char                      pin_buf[8];
 static dgx_ui_textbox_t          pin_box;
 static const dgx_ui_widget_t     pin_w = {.kind = DGX_UI_INPUT, .text = &pin_box, .want_h = 14, .look = &secret_look};
+/* a widget of the program's own: where up() was told the finger went up, in its own pixels */
+static int                   up_x = -1, up_y = -1, up_clicked = -1;
+static void                  own_up(dgx_ui_t *u, int i, int x, int y, bool click)
+{
+    up_x = x, up_y = y, up_clicked = click;
+}
+static bool                    own_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *u, int i, uint32_t now_ms) { return false; }
+static const dgx_ui_behavior_t own_behavior = {.up = own_up};
+static const dgx_ui_look_t     own_look     = {.draw = own_draw, .fill = -1, .behavior = &own_behavior};
+static const dgx_ui_widget_t   own_w        = {.kind = DGX_UI_OWN, .want_h = 14, .look = &own_look};
 static dgx_ui_node_t         nodes[6];
 static dgx_ui_t              ui;
 static int                   sl, bt, fi, mi;
@@ -55,6 +69,30 @@ static void take(dgx_di_touch_t *touch, int x, int y, bool down, uint32_t t)
     dgx_di_touch_take(touch, x, y, down, t);
     dgx_ui_di_touch(&ui, touch, t, &g);
     all.edge |= g.edge, all.swipe |= g.swipe, all.long_press |= g.long_press, all.taken |= g.taken;
+}
+/* a device of the test: the fingers it sees now, in pixels of the display (its range is the display's) */
+typedef struct {
+    dgx_di_device_t device;
+    int             count;
+    dgx_di_point_t  points[2];
+} test_device_t;
+static int test_device_read(dgx_di_device_t *device, dgx_di_point_t *points, int max)
+{
+    const test_device_t *test = (const test_device_t *)device;
+    const int            seen = test->count < max ? test->count : max;
+    for (int k = 0; k < seen; ++k) points[k] = test->points[k];
+    return seen;
+}
+/* the device seeing count fingers, the first at x, y, the second at x2, y2; the pointer read at t and given to the
+   tree by the adapter */
+static void read_pointer(dgx_di_pointer_t *pointer, test_device_t *device, dgx_di_touch_t *touch, int count, int x, int y, int x2, int y2, uint32_t t)
+{
+    device->count     = count;
+    device->points[0] = (dgx_di_point_t){.x = (int16_t)x, .y = (int16_t)y, .id = 1};
+    device->points[1] = (dgx_di_point_t){.x = (int16_t)x2, .y = (int16_t)y2, .id = 2};
+    dgx_di_pointer_read(pointer, t);
+    dgx_ui_di_gestures_t gestures;
+    dgx_ui_di_pointer(&ui, pointer, touch, t, &gestures);
 }
 static void stroke(dgx_di_touch_t *touch, int x, int y, int x2, int y2, uint32_t t, uint32_t hold)
 {
@@ -160,6 +198,61 @@ int main(void)
         for (int x = pn->x; x < sx; ++x) off += panel->mem[y][x] != dgx_get_pixel(e, x, y);
     CHECK(off == 0);
     e->destroy(&e);
+
+    /* the pointer of DGX-DI over a device of the test, steadied as a board's may be: down after 20 ms seen, up after
+       30 ms lost */
+    test_device_t device = {.device = {.read = test_device_read, .fingers = 2, .x_min = 0, .x_max = PANEL_W - 1, .y_min = 0, .y_max = PANEL_H - 1}};
+    dgx_di_pointer_t pointer;
+    dgx_di_pointer_init(&pointer, &device.device, 0, scr);
+    dgx_di_pointer_debounce(&pointer, 20, 30);
+    const dgx_ui_node_t *button = dgx_ui_node(&ui, bt);
+    const int            bx = button->x + button->w / 2, by = button->y + button->h / 2;
+    int                  first_x, first_y;
+    /* a tap on the button through the adapter, 100 ms: a click, where the finger went up */
+    int clicks_before = clicks;
+    for (uint32_t t = 7000; t <= 7100; t += 10) read_pointer(&pointer, &device, &touch, 1, bx, by, 0, 0, t);
+    CHECK(dgx_ui_holding(&ui) && clicks == clicks_before);
+    for (uint32_t t = 7110; t <= 7160; t += 10) read_pointer(&pointer, &device, &touch, 0, 0, 0, 0, 0, t);
+    CHECK(!dgx_di_pointer_first(&pointer, &first_x, &first_y) && first_x == bx && first_y == by && clicks == clicks_before + 1);
+    /* down on the button, moved 12 pixels down (6 mm, short of a swipe) onto the field, let go there: wherever it is
+       let go, the button it went down on was meant, a click */
+    clicks_before = clicks;
+    for (uint32_t t = 8000; t <= 8120; t += 10) read_pointer(&pointer, &device, &touch, 1, bx, by + (int)(t - 8000) / 10, 0, 0, t);
+    for (uint32_t t = 8130; t <= 8180; t += 10) read_pointer(&pointer, &device, &touch, 0, 0, 0, 0, 0, t);
+    CHECK(!dgx_di_pointer_first(&pointer, &first_x, &first_y) && first_x == bx && first_y == by + 12 && clicks == clicks_before + 1);
+    /* moved 40 pixels down, 20 mm: a swipe, no click */
+    clicks_before = clicks;
+    for (uint32_t t = 8500; t <= 8600; t += 10) read_pointer(&pointer, &device, &touch, 1, bx, by + (int)(t - 8500) * 4 / 10, 0, 0, t);
+    for (uint32_t t = 8610; t <= 8660; t += 10) read_pointer(&pointer, &device, &touch, 0, 0, 0, 0, 0, t);
+    CHECK(!dgx_di_pointer_first(&pointer, &first_x, &first_y) && first_x == bx && first_y == by + 40 && clicks == clicks_before);
+    /* the widget of the program's own, under the others: down at 10 pixels in, moved 8 right, let go; up() told
+       where the finger was last down, in its own pixels, as dgx_di_pointer_first() gives it for a lifted finger */
+    const int            own = dgx_ui_add(&ui, 0, &own_w);
+    dgx_ui_paint(&ui, &pp, 8700);
+    const dgx_ui_node_t *own_node = dgx_ui_node(&ui, own);
+    for (uint32_t t = 8800; t <= 8880; t += 10) read_pointer(&pointer, &device, &touch, 1, own_node->x + 10 + (int)(t - 8800) / 10, own_node->y + 5, 0, 0, t);
+    for (uint32_t t = 8890; t <= 8940; t += 10) read_pointer(&pointer, &device, &touch, 0, 0, 0, 0, 0, t);
+    CHECK(own_node->h == 14 && up_x == 18 && up_y == 5 && up_clicked == 1);
+    /* a finger on the button lost by the device for 20 ms, shorter than up: still down, one click when it goes up */
+    clicks_before = clicks;
+    for (uint32_t t = 9000; t <= 9100; t += 10) read_pointer(&pointer, &device, &touch, t >= 9040 && t < 9060 ? 0 : 1, bx, by, 0, 0, t);
+    CHECK(dgx_di_pointer_first(&pointer, &first_x, &first_y) && clicks == clicks_before);
+    for (uint32_t t = 9110; t <= 9160; t += 10) read_pointer(&pointer, &device, &touch, 0, 0, 0, 0, 0, t);
+    CHECK(clicks == clicks_before + 1);
+    /* a second finger down on the slider while the first holds the button: not the first; the first up clicks the
+       button, and the second moved along the slider after it drags nothing */
+    clicks_before        = clicks;
+    const int slider_was = dgx_ui_node(&ui, sl)->state_value.value;
+    for (uint32_t t = 10000; t <= 10100; t += 10) read_pointer(&pointer, &device, &touch, t < 10040 ? 1 : 2, bx, by, 4, 5, t);
+    for (uint32_t t = 10110; t <= 10300; t += 10) {
+        device.count     = 1; /* the finger left, now the device's first */
+        device.points[0] = (dgx_di_point_t){.x = (int16_t)(4 + (int)(t - 10110) / 4), .y = 5, .id = 2};
+        dgx_di_pointer_read(&pointer, t);
+        dgx_ui_di_gestures_t gestures;
+        dgx_ui_di_pointer(&ui, &pointer, &touch, t, &gestures);
+    }
+    CHECK(clicks == clicks_before + 1 && dgx_ui_node(&ui, sl)->state_value.value == slider_was && !dgx_ui_holding(&ui));
+    for (uint32_t t = 10310; t <= 10360; t += 10) read_pointer(&pointer, &device, &touch, 0, 0, 0, 0, 0, t);
 
     dgx_ui_free(&ui);
     free(panel);

@@ -110,7 +110,7 @@ enum {
     DGX_UI_LIST,     ///< rows, one picked: the value, min the first row; more rows than its box takes, a window of them that scrolls
     DGX_UI_SWITCH,   ///< value 0 or 1
     DGX_UI_SLIDER,   ///< value min..max by step
-    DGX_UI_BUTTON,   ///< pressed and let go inside: activated
+    DGX_UI_BUTTON,   ///< pressed and let go within DGX_UI_CLICK_MS, not swiped: activated, wherever it is let go
     DGX_UI_INPUT,    ///< a field typed into
     DGX_UI_DROPDOWN, ///< a button showing the value picked; its list opens as a popup
     DGX_UI_OWN,      ///< drawn by a look of the program, its data in own

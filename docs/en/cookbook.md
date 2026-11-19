@@ -746,7 +746,8 @@ What to know of it:
   a pass while letters come takes 7 to 12 ms for a text of 58 letters in two lines and of 101 letters in three.
   Laid at every pass, with no memory for the line breaks, it takes 45 and 80 ms, more than the frame of 20 ms. The
   first pass after a new text, which lays the paper and the lines, takes 40 to 130 ms, and a scroll step, which
-  draws the box whole, about 80 ms.
+  draws the box whole, about 80 ms. With the code of DGX's handwritten fonts in RAM, `CONFIG_DGX_HW_FONT_IN_IRAM=y`,
+  6 KB of IRAM, a pass takes 5 to 7 ms.
 - **A soft pen** is as for one line: `&dgx_ui_handwriting_canvas` in the variant and `DGX_UI_CANVAS` on the widget.
 - **What it costs.** About 3.9 KB for the look, with the look of lines, 2.9 KB, and the paint's table, 0.7 KB, over
   what handwriting costs.
@@ -1022,9 +1023,10 @@ What to keep to:
   one that cannot be read it is mixed strip by strip in the paint's buffer, which must hold a row of the screen at
   least. On a display of 24 bits DGX mixes pixel by pixel, which is slow; a slide is two transfers on any display.
 - **How fast.** A frame is one transfer of a whole picture to the display, so the display sets the pace. On an
-  ESP32-P4 with a DSI display of 1280 by 800 at 16 bits and the pictures in PSRAM a slide runs at 12 frames a
-  second, 83 ms a frame, and a crossfade at 7.5, 133 ms a frame; the start, both screens composed, takes 53 ms. A
-  smaller display is faster in proportion to its pixels.
+  ESP32-P4 with a DSI panel of 800 by 1280 at 16 bits and the pictures in PSRAM, in the panel's own orientation, a
+  slide runs at 33 frames a second, 30 ms a frame, and a crossfade at 15.6, 64 ms a frame; the start, both screens
+  composed, takes 53 ms. The same screen turned, 1280 by 800, runs a slide at 12 frames a second and a crossfade at
+  7.5: a screen turned from the panel's own orientation pays for the turn in every transfer.
 - **What it costs.** About 1.3 KB, with the 0.6 KB of `dgx_ui_changed()` and the 0.2 KB of the pages' calls, and
   the virtual screens of DGX (`CONFIG_DGX_ENABLE_VSCREEN=y`).
 

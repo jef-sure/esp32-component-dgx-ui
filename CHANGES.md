@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.18 - 2026-11-19
+
+- `dgx_ui_look_lines`: while letters come, a pass draws only the row they came to; a text of several lines set in the
+  middle of its box was drawn whole at every pass. About 150 bytes more.
+
 ## 0.0.17 - 2026-11-19
 
 - Handwriting in lines, `dgx_ui_look_hand_lines`: a text laid word by word at a variant's height, a bitmap variant of

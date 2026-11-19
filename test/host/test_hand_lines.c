@@ -9,13 +9,16 @@
  * equal to painted. A text longer than 65.5 s: each pass writes its new strokes only. A soft pen in a canvas.
  * dgx_ui_look_lines with a handwritten variant in its style passes it over, its picture as without it. In the middle,
  * each pass writes its new strokes only, the block drawn whole once when a line comes. Built twice: with the line
- * breaks kept in the paint, and laid at every pass (DGX_UI_HAND_LINES_PLAIN), the same pictures.
+ * breaks kept in the paint, and laid at every pass (DGX_UI_HAND_LINES_PLAIN), the same pictures. And after every pass
+ * of letters coming, straight and in a canvas, left and centred, at the top and in the middle, cut or scrolled, the
+ * screen as the tree composed anew.
  */
 #include <string.h>
 
 #define PANEL_W 320
 #define PANEL_H 120
 #include "check.h"
+#include "composed.h"
 #include "dgx_draw.h"
 #include "dgx_hw_font.h"
 #include "dgx_lut.h"
@@ -462,6 +465,32 @@ int main(void)
         dgx_ui_paint_free(&paint), dgx_ui_paint_free(&expected_paint);
         dgx_ui_free(&tree.ui), dgx_ui_free(&plain.ui);
     }
+
+    /* letters coming at 40 ms, a pass every 20 ms, straight and in a canvas, left and centred, at the top and in the
+       middle, the note cut in a box of two rows or important and scrolled: after every pass the screen as the tree
+       composed anew (composed.h); the text changed while written and set again */
+    for (int k = 0; k < 16; ++k) {
+        const bool canvas = k & 1, centred = k & 2, middle = k & 4, important = k & 8;
+        style.align       = centred ? DGX_FONT_ALIGN_CENTER : DGX_FONT_ALIGN_LEFT;
+        style.flags       = (uint8_t)((middle ? DGX_UI_TEXT_MIDDLE : 0) | (important ? DGX_UI_TEXT_IMPORTANT : 0));
+        style.scroll_ms   = (uint16_t)(important ? 300 : 0);
+        variant[0].hand   = canvas ? &dgx_ui_handwriting_canvas : &dgx_ui_handwriting;
+        make(&tree, 150, 40, canvas, NOTE, NULL);
+        paint = (dgx_ui_paint_t){.scr = drawn, .colors = colors, .color_count = 4};
+        dgx_fill_rectangle(drawn, 0, 0, PANEL_W, PANEL_H, 0);
+        dgx_ui_text_appear(&tree.ui, 1, 40);
+        const uint32_t total     = (uint32_t)letters_of(NOTE, 0, (int)strlen(NOTE)) * 40;
+        int            differing = 0;
+        for (uint32_t ms = 0; ms <= 2 * total + 1500; ms += 20) {
+            if (ms == 1000) dgx_ui_text_set(&tree.ui, 1, "one line, then");
+            if (ms == 1500) dgx_ui_text_set(&tree.ui, 1, NOTE), dgx_ui_text_appear(&tree.ui, 1, 40);
+            dgx_ui_paint(&tree.ui, &paint, ms);
+            differing += differ_from_composed(&tree.ui, &paint, expected, 1) > 0;
+        }
+        CHECK(tree.box.total_lines > 2 && tree.box.flags & DGX_UI_TEXTBOX_CAME && differing == 0);
+        dgx_ui_paint_free(&paint), dgx_ui_free(&tree.ui);
+    }
+    style.align = DGX_FONT_ALIGN_LEFT, style.flags = 0, style.scroll_ms = 0, variant[0].hand = &dgx_ui_handwriting;
 
     drawn->destroy(&drawn), expected->destroy(&expected);
     CHECK_DONE();

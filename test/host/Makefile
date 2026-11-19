@@ -51,7 +51,7 @@ $(BUILD)/test_around: test_around.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_around.c $(PAINT) $(DGX_SRCS) -lm
 
-$(BUILD)/test_lines: test_lines.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
+$(BUILD)/test_lines: test_lines.c check.h panel.h composed.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_lines.c $(PAINT) $(DGX_SRCS) -lm
 
@@ -117,11 +117,11 @@ $(BUILD)/test_transition: test_transition.c check.h panel.h $(PAINT) $(wildcard 
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_transition.c $(PAINT) $(DGX_SRCS) -lm
 
-$(BUILD)/test_hand_lines: test_hand_lines.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
+$(BUILD)/test_hand_lines: test_hand_lines.c check.h panel.h composed.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_hand_lines.c $(PAINT) $(DGX_SRCS) $(DGX)/src/fonts/font0ss.c -lm
 
-$(BUILD)/test_hand_lines_plain: test_hand_lines.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
+$(BUILD)/test_hand_lines_plain: test_hand_lines.c check.h panel.h composed.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -DDGX_UI_HAND_LINES_PLAIN=1 -o $@ test_hand_lines.c $(PAINT) $(DGX_SRCS) $(DGX)/src/fonts/font0ss.c -lm
 
@@ -139,7 +139,7 @@ $(BUILD)/test_hand: test_hand.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/incl
 
 $(BUILD)/test_di: test_di.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(DGX_DI)/include -o $@ test_di.c $(PAINT) $(DGX_DI)/src/dgx_di_touch.c $(DGX_SRCS) -lm
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(DGX_DI)/include -o $@ test_di.c $(PAINT) $(DGX_DI)/src/dgx_di_touch.c $(DGX_DI)/src/dgx_di_pointer.c $(DGX_SRCS) -lm
 
 # the library's sources read with every warning an error, as a program built by host/dgx_ui_host.mk with -Werror reads
 # them: the queue's and the ticker's need FreeRTOS, which the stubs have not

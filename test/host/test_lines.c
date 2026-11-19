@@ -1,7 +1,11 @@
 /*
  * The look of lines: a text laid word by word into the rows of its box, against the lines drawn one by one by the
  * font; a text changed on the counting panel writing every pixel once, within the box; an important text scrolled
- * by time; a text not important cut; letters appearing where they will stand; the rows composed in strips.
+ * by time; a text not important cut; letters appearing where they will stand; the rows composed in strips. Letters
+ * coming at the top and in the middle: each pass writes the fields of the rows whose letters changed and no more; in
+ * the middle the block drawn whole only when the number of its rows shown changed, an important text's scroll step
+ * its rows, the passes between nothing. And after every pass of letters coming, in each align, at the top and in the
+ * middle, cut or scrolled, the screen as the tree composed anew; a cut text's last row with the dots of its ellipsis.
  */
 #include <stdio.h>
 #include <string.h>
@@ -13,6 +17,7 @@
 #include "dgx_ui_text.h"
 #include "dgx_vscreen.h"
 #include "fonts/TerminusTTFMedium12.h"
+#include "composed.h"
 #include "panel.h"
 
 static uint32_t colors[2] = {0x0000, 0xffff};
@@ -289,6 +294,110 @@ int main(void)
         dgx_ui_paint_free(&pa), dgx_ui_paint_free(&pb);
         dgx_ui_free(&ua), dgx_ui_free(&ub), dgx_ui_free(&pop);
         sa->destroy(&sa), sb->destroy(&sb);
+    }
+
+    /* letters coming on the counting panel, at the top and in the middle: after the first pass each writes the fields
+       of the rows whose letters changed and no more; in the middle a line more while they come, the block whole once; an
+       important text scrolled in the middle, a step writes its rows, the passes between nothing */
+    {
+        dgx_font_t                *font   = TerminusTTFMedium12();
+        static dgx_ui_text_style_t middle, important_middle;
+        middle                            = plain, middle.flags = DGX_UI_TEXT_MIDDLE;
+        important_middle                  = important, important_middle.flags |= DGX_UI_TEXT_MIDDLE;
+        const dgx_ui_text_style_t *styles[2] = {&plain, &middle};
+        for (int k = 0; k < 2; ++k) {
+            const int      id     = make(styles[k], 4, 90);
+            dgx_ui_paint_t pp     = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 2};
+            dgx_ui_text_set(&ui, id, "one two three four five six seven");
+            dgx_ui_paint(&ui, &pp, 0);
+            const dgx_ui_node_t *n = dgx_ui_node(&ui, id);
+            const int            field = n->w * (font->yBottomMax - font->yOffsetLowest);
+            dgx_ui_text_appear(&ui, id, 40);
+            int  most = 0, passes = 0;
+            bool more = true;
+            for (uint32_t ms = 1000; more && ms <= 4000; ms += 20, ++passes) {
+                panel_count_from_now(panel);
+                more = dgx_ui_paint(&ui, &pp, ms);
+                if (passes > 0 && panel_written(panel) > most) most = panel_written(panel);
+            }
+            CHECK(!more && passes > 20 && most > 0 && most <= 2 * field);
+            if (k == 1) {
+                /* a line more while its letters come: the block moves, whole once; the pass after writes its new
+                   letters' row only */
+                dgx_ui_text_set(&ui, id, "one");
+                dgx_ui_paint(&ui, &pp, 5000);
+                dgx_ui_text_appear(&ui, id, 40);
+                dgx_ui_paint(&ui, &pp, 5100);
+                dgx_ui_text_set(&ui, id, "one\ntwo");
+                panel_count_from_now(panel);
+                dgx_ui_paint(&ui, &pp, 5200);
+                const int moved = panel_written(panel);
+                panel_count_from_now(panel);
+                dgx_ui_paint(&ui, &pp, 5240);
+                CHECK(moved >= n->w * n->h && panel_written(panel) > 0 && panel_written(panel) <= field);
+            }
+            dgx_ui_paint_free(&pp), dgx_ui_free(&ui);
+        }
+        /* important, too long, in the middle: a step every 100 ms writes its rows; between the steps nothing */
+        const int      id = make(&important_middle, 2, 90);
+        dgx_ui_paint_t pp = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 2};
+        dgx_ui_text_set(&ui, id, "a\nb\nc\nd\ne\nf");
+        dgx_ui_paint(&ui, &pp, 0);
+        const dgx_ui_node_t *n     = dgx_ui_node(&ui, id);
+        const int            field = n->w * (font->yBottomMax - font->yOffsetLowest);
+        int                  step_least = n->w * n->h, between_most = 0;
+        for (uint32_t ms = 50; ms <= 400; ms += 50) {
+            panel_count_from_now(panel);
+            dgx_ui_paint(&ui, &pp, ms);
+            if (ms % 100 == 0) step_least = panel_written(panel) < step_least ? panel_written(panel) : step_least;
+            else between_most = panel_written(panel) > between_most ? panel_written(panel) : between_most;
+        }
+        CHECK(box.top >= 3 && step_least >= 2 * field && between_most == 0);
+        dgx_ui_paint_free(&pp), dgx_ui_free(&ui);
+    }
+
+    /* letters coming at 30 ms in a box of 88 by 56, each align, at the top and in the middle, the text cut or important
+       and scrolled: after every pass the screen as the tree composed anew (composed.h), the text changed while they
+       come and set again; at the end the cut text as drawn at once, all three dots of its ellipsis there. Two texts:
+       one whose last row seen is shortened for the dots, one whose last row takes them as it is */
+    static const char *const samples[2] = {"The quick brown fox jumps over the lazy dog and runs on and on over the hills", "one\ntwo\nthree\nfour\nfive\nsix"};
+    for (int sample = 0; sample < 2; ++sample) {
+        const char *const          quick = samples[sample];
+        static dgx_ui_text_style_t styles[12];
+        const dgx_font_align_t     aligns[3] = {DGX_FONT_ALIGN_LEFT, DGX_FONT_ALIGN_CENTER, DGX_FONT_ALIGN_RIGHT};
+        for (int k = 0; k < 12; ++k) {
+            const bool middle_k = k / 3 % 2, important_k = k / 6;
+            styles[k]           = (dgx_ui_text_style_t){.variants  = variant,
+                                                        .count     = 1,
+                                                        .align     = aligns[k % 3],
+                                                        .flags     = (uint8_t)((middle_k ? DGX_UI_TEXT_MIDDLE : 0) | (important_k ? DGX_UI_TEXT_IMPORTANT : 0)),
+                                                        .scroll_ms = (uint16_t)(important_k ? 150 : 0)};
+            int id        = make(&styles[k], 4, 88);
+            text_w.want_h = 56;
+            dgx_ui_paint_t painted = {.scr = v, .colors = colors, .color_count = 2};
+            dgx_fill_rectangle(v, 0, 0, PANEL_W, PANEL_H, 0);
+            dgx_ui_text_set(&ui, id, quick);
+            dgx_ui_text_appear(&ui, id, 30);
+            int differing = 0;
+            for (uint32_t ms = 0; ms <= 6000; ms += 20) {
+                if (ms == 1200) dgx_ui_text_set(&ui, id, "a shorter one now");
+                if (ms == 1800) dgx_ui_text_set(&ui, id, quick), dgx_ui_text_appear(&ui, id, 30);
+                dgx_ui_paint(&ui, &painted, ms);
+                differing += differ_from_composed(&ui, &painted, e, id) > 0;
+            }
+            const int lines = box.total_lines, came = box.letters_drawn == box.total_letters;
+            CHECK(lines > 4 && came && differing == 0);
+            dgx_ui_paint_free(&painted), dgx_ui_free(&ui);
+            if (important_k) continue;
+            id            = make(&styles[k], 4, 88);
+            text_w.want_h = 56;
+            dgx_ui_paint_t at_once = {.scr = e, .colors = colors, .color_count = 2};
+            dgx_fill_rectangle(e, 0, 0, PANEL_W, PANEL_H, 0);
+            dgx_ui_text_set(&ui, id, quick);
+            dgx_ui_paint(&ui, &at_once, 0);
+            CHECK(differ_box(v, e, dgx_ui_node(&ui, id)) == 0);
+            dgx_ui_paint_free(&at_once), dgx_ui_free(&ui);
+        }
     }
 
     v->destroy(&v), e->destroy(&e);

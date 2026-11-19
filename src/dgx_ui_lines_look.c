@@ -6,7 +6,7 @@
  *  its letters), the variant of the style fitted, each line shown a field of DGX under a clip of its own row, the
  *  paper between the fields only when drawn whole. An important text too long scrolls a line every scroll_ms; one
  *  that is not is cut, its last line seen ending in an ellipsis. Letters appear one by one when asked, each where it
- *  will stand. Fonts of bitmaps and dots; handwriting is dgx_ui_look_hand_lines (dgx_ui_hand_lines.c), which lays its
+ *  will stand, a pass drawing only the rows whose letters came. Fonts of bitmaps and dots; handwriting is dgx_ui_look_hand_lines (dgx_ui_hand_lines.c), which lays its
  *  lines by the same source (dgx_ui_lines_layout.h) and draws a bitmap variant of its ladder by dgx_ui_draw_lines_in().
  *
  *  Copyright (c) 2026 Anton Petrusevich
@@ -106,6 +106,12 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     /* called again for time only: drawn when the line on top moved or more letters came */
     const bool timed_only = !paint->whole && !(w->marks & (DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT)) && (w->marks & DGX_UI_MARK_TIME);
     const bool same       = top == box->top && come == box->letters_drawn;
+    /* what the last pass drew, before this one keeps its own: a row is drawn again only when its letters shown, the
+       line on top or the text changed, or the widget is drawn whole (another variant is); the block in the middle
+       moves only when the number of the rows shown changed */
+    const int  come_before  = box->letters_drawn;
+    const bool rows_anew    = (w->marks & (DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT)) || top != box->top;
+    const int  shown_before = (box->flags & DGX_UI_TEXTBOX_COUNTED) ? (box->total_lines - box->top < rows ? box->total_lines - box->top : rows) : -1;
     if (commit) {
         box->variant = (uint8_t)v, box->top = (uint16_t)top, box->letters_drawn = (uint16_t)come;
         box->total_lines = (uint16_t)total, box->total_letters = (uint16_t)(all_letters > 0xFFFF ? 0xFFFF : all_letters);
@@ -125,7 +131,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     if (st->flags & DGX_UI_TEXT_MIDDLE) {
         const int block = shown > 0 ? (shown - 1) * lh + cell : cell;
         base0           = w->y + (w->h - block) / 2 - cell_top;
-        if (rows > 1) paint->whole = true; /* the block moves with the number of its lines: the rows around it too */
+        if (rows > 1 && shown != shown_before) paint->whole = true; /* the block moved: the rows around it too */
     }
     int part[4];
     dgx_screen_clip_get(paint->scr, &part[0], &part[1], &part[2], &part[3]);
@@ -150,11 +156,20 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
             from = next, ++line;
         }
         if (line <= top + k) start = end = len; /* past the last line: an empty row */
+        /* the letters this row shows, from row_first to letters_before: its own, and the last row of a text cut its
+           ellipsis's dots as letters after them (no row follows it); the letters shown by one of the two passes, the
+           last and this, from changed_from to changed_to (the same letters returned above): none of them in this row,
+           it stands as drawn */
+        const bool cut_row   = cut && k == rows - 1;
+        const int  row_first = letters_before;
+        letters_before += letters_in(text, start, end) + (cut_row ? (int)sizeof ELLIPSIS - 1 : 0);
+        const int changed_from = come < come_before ? come : come_before, changed_to = come < come_before ? come_before : come;
+        if (!paint->whole && !rows_anew && (changed_from >= letters_before || changed_to <= row_first)) continue;
         char s[LINE + sizeof ELLIPSIS];
         int  n = end - start > LINE ? LINE : end - start;
         memcpy(s, text + start, (size_t)n);
         s[n] = 0;
-        if (cut && k == rows - 1) {
+        if (cut_row) {
             /* the last line seen of a text cut: as much of it as goes with the ellipsis */
             while (n > 0) {
                 while (n > 0 && s[n - 1] == ' ') --n;
@@ -169,7 +184,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
         int fx = x, fw = w->w;
         dgx_font_align_t align = st->align;
         if (come < all_letters) {
-            const int here = come - letters_before;
+            const int here = come - row_first;
             if (st->align != DGX_FONT_ALIGN_LEFT && here > 0) {
                 const int room = w->w - width_of(f, s, (int)strlen(s));
                 const int lead = room <= 0 ? 0 : st->align == DGX_FONT_ALIGN_CENTER ? room / 2 : room;
@@ -185,7 +200,6 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
             const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = paper, .field = fw, .align = align};
             dgx_ui_field_text(paint, &ctx, fx, base0 + k * lh - paint->oy, s, p->paper);
         }
-        letters_before += letters_in(text, start, end); /* the letters of this row came before the next row's */
     }
     dgx_screen_clip(paint->scr, part[0], part[1], part[2], part[3]);
     if (paint->whole && bottom > filled) dgx_ui_lay_paper(paint, p->paper, w->x, filled, w->w, bottom - filled);
