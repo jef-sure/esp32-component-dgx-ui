@@ -359,6 +359,7 @@ bool dgx_ui_layout(dgx_ui_t *ui)
     ui->needs_layout = false;
     if (!live(ui, 0)) return true;
     const dgx_ui_rect_t root = ui->root_given ? ui->root_rect : dgx_ui_rect(0, 0, ui->screen_w, ui->screen_h);
+    ui->root_rect            = root; /* a popup on the whole screen: where the finger finds it and the trees under it are cut */
     place(ui, 0, root.x, root.y, root.w, root.h);
     lay(ui, 0);
     if (ui->turned) {
@@ -810,14 +811,43 @@ static int next_focus(dgx_ui_t *ui, int i, int step)
 
 static bool key_in(dgx_ui_t *ui, int key);
 
-bool dgx_ui_key(dgx_ui_t *ui, int key)
+/* the popup whose root is told it goes: a call for it from that on() closes it, untold again */
+static const dgx_ui_t *leaving;
+
+/* the closing by the key back, reached from the keys only through this, named by dgx_ui_popup_open(): a program that
+   opens no popup has none to close, and carries none of it */
+static bool (*back_closing)(dgx_ui_t *ui);
+
+bool dgx_ui_popup_back(dgx_ui_t *ui)
+{
+    dgx_ui_t *popup = ui->popup;
+    if (!popup) return false;
+    const dgx_ui_t *over = popup->popup;
+    if (popup != leaving && live(popup, 0)) {
+        const dgx_ui_t *was = leaving;
+        leaving             = popup;
+        tell(popup, 0, DGX_UI_BACK); /* while it is open: its widgets may be read */
+        leaving = was;
+    }
+    /* closed unless its on() closed it, put another in its place or opened one over it: the program's then */
+    if (ui->popup == popup && popup->popup == over) dgx_ui_popup_close(ui);
+    return true;
+}
+
+/* the key to the popups over ui, the top first, then to ui: 1 taken, 0 not, -1 stopped by a modal popup that does
+   not close by back: back stays the program's, and reaches no tree under it */
+static int key_to(dgx_ui_t *ui, int key)
 {
     if (ui->popup) {
-        if (dgx_ui_key(ui->popup, key)) return true; /* the top one first */
-        if (ui->popup_flags & DGX_UI_POPUP_MODAL) return key != DGX_UI_KEY_BACK; /* BACK stays the program's: it may close it */
+        const int over = key_to(ui->popup, key);
+        if (over) return over;
+        if (key == DGX_UI_KEY_BACK && (ui->popup_flags & DGX_UI_POPUP_BACK)) return back_closing(ui); /* named: a popup is open */
+        if (ui->popup_flags & DGX_UI_POPUP_MODAL) return key == DGX_UI_KEY_BACK ? -1 : 1;
     }
     return key_in(ui, key);
 }
+
+bool dgx_ui_key(dgx_ui_t *ui, int key) { return key_to(ui, key) > 0; }
 
 static bool key_in(dgx_ui_t *ui, int key)
 {
@@ -937,7 +967,16 @@ bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h
     }
     if (ui->popup) dgx_ui_popup_close(ui);
     if (ui->pressed >= 0) unpress(ui); /* the finger on the tree under it is spent */
-    dgx_ui_set_root(popup, x, y, w, h);
+    back_closing = dgx_ui_popup_back;
+    if (flags & DGX_UI_POPUP_SCREEN) {
+        /* the tree's screen, its rectangle at once: a finger down on it before the next pass is its */
+        popup->root_given = false;
+        popup->root_rect  = dgx_ui_rect(0, 0, ui->screen_w, ui->screen_h);
+        dgx_ui_screen(popup, ui->screen_w, ui->screen_h, ui->screen_turn);
+        popup->needs_layout = true;
+    } else {
+        dgx_ui_set_root(popup, x, y, w, h);
+    }
     for (int i = 0; i < popup->count; ++i) NODE(popup, i)->marks |= DGX_UI_MARK_WHOLE;
     popup->level = (uint8_t)(ui->level + 1);
     ui->popup = popup, ui->popup_flags = (uint8_t)flags;

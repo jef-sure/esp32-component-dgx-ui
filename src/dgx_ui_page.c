@@ -1,0 +1,46 @@
+/*
+ * dgx_ui_page.c
+ *
+ *  Pages: popups of DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN, a screen of its own over the one
+ *  under it, closed by the key back (the core's) or by dgx_ui_page_back(). A program that calls neither carries none of
+ *  this.
+ *
+ *  Copyright (c) 2026 Anton Petrusevich
+ *      Author: Anton Petrusevich
+ */
+
+#include "dgx_ui.h"
+
+enum { PAGE_FLAGS = DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN };
+
+/* the popup over this tree is a page */
+static bool page_over(const dgx_ui_t *tree)
+{
+    return tree->popup && (tree->popup_flags & (DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN)) == (DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN);
+}
+
+bool dgx_ui_page_open(dgx_ui_t *home, dgx_ui_t *page)
+{
+    /* the top page, or home */
+    dgx_ui_t *base = home;
+    for (dgx_ui_t *tree = home; tree->popup; tree = tree->popup)
+        if (page_over(tree)) base = tree->popup;
+    /* over it, from the top down, the popups a finger elsewhere would close: closed, to the first that is not */
+    while (base->popup) {
+        dgx_ui_t *under_top = base;
+        while (under_top->popup->popup) under_top = under_top->popup;
+        if (!(under_top->popup_flags & DGX_UI_POPUP_CLOSE_OUTSIDE)) break;
+        dgx_ui_popup_close(under_top);
+    }
+    dgx_ui_t *top = base;
+    while (top->popup) top = top->popup;
+    return dgx_ui_popup_open(top, page, 0, 0, 0, 0, PAGE_FLAGS);
+}
+
+bool dgx_ui_page_back(dgx_ui_t *home)
+{
+    dgx_ui_t *under = NULL; /* the tree the top page lies over */
+    for (dgx_ui_t *tree = home; tree->popup; tree = tree->popup)
+        if (page_over(tree)) under = tree;
+    return under && dgx_ui_popup_back(under);
+}

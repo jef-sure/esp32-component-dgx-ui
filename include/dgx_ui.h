@@ -146,7 +146,7 @@ enum {
     DGX_UI_ACTIVATED, ///< a click of a button, a list's row, a dropdown or a widget of the program's own; a field's "done"
     DGX_UI_CHANGED,   ///< the value changed by the finger or a key
     DGX_UI_FOCUS,     ///< the focus came to it
-    DGX_UI_BACK,      ///< a field's "cancel"
+    DGX_UI_BACK,      ///< a field's "cancel"; to a popup's root, a page's or a popup's closed by the key back, told while it is still open
     DGX_UI_NO_MEMORY, ///< its canvas could not be had, told once for that size after the pass; tried again whenever its look asks
     DGX_UI_EDIT,      ///< a field clicked, or DGX_UI_KEY_ACTIVATE while it has the focus: the program opens its editor
 };
@@ -375,6 +375,8 @@ struct dgx_ui_t {
 enum {
     DGX_UI_POPUP_MODAL         = 1u << 0, ///< it takes every pointer and key that reaches it: nothing goes to the tree under it
     DGX_UI_POPUP_CLOSE_OUTSIDE = 1u << 1, ///< a finger that goes down outside it closes it (a dropdown's list)
+    DGX_UI_POPUP_BACK          = 1u << 2, ///< the key back that nothing in it took closes it, its root told DGX_UI_BACK first
+    DGX_UI_POPUP_SCREEN        = 1u << 3, ///< it lies on the whole screen of the tree, laid again when the screen turns; x, y, w, h not read
 };
 
 /** Popups stand one over another over a tree, so many at most: the painter needs no memory for their covers. */
@@ -608,8 +610,8 @@ void dgx_ui_focus(dgx_ui_t *ui, int i);
  *
  * A finger that goes down inside the popup, or inside one over it, is theirs or nobody's: a widget they hide is never
  * pressed. Its rectangle is in pixels of the screen as it stands: on a turn of the screen the program closes it or
- * opens it again in the new pixels.
- * @param flags DGX_UI_POPUP_MODAL, DGX_UI_POPUP_CLOSE_OUTSIDE.
+ * opens it again in the new pixels, unless it lies on the whole screen (DGX_UI_POPUP_SCREEN), which follows the turn.
+ * @param flags DGX_UI_POPUP_MODAL, DGX_UI_POPUP_CLOSE_OUTSIDE, DGX_UI_POPUP_BACK, DGX_UI_POPUP_SCREEN.
  * @return false, nothing opened: the popup is the tree itself, or is open as a popup already (over another tree), or
  * has a popup open over it (it lies under the tree already), or the tree has DGX_UI_POPUP_DEPTH popups under it.
  */
@@ -620,6 +622,52 @@ bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h
  * the next pass of the painter.
  */
 void dgx_ui_popup_close(dgx_ui_t *ui);
+
+/**
+ * @brief The popup of a tree closed as the key back closes one of DGX_UI_POPUP_BACK: its root told DGX_UI_BACK first,
+ * while it is open, then it and every popup over it closed, unless that on() closed it, opened another in its place
+ * or opened one over it: the program's then. That is how a page asks before it goes ("discard the changes?"): its
+ * on(DGX_UI_BACK) opens the question over itself, and the page stays under it.
+ * Called from that on() for the same popup, it closes it without telling again.
+ * @return false: no popup is open over the tree.
+ */
+bool dgx_ui_popup_back(dgx_ui_t *ui);
+
+/*
+ * A page: a popup of DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN, a screen of its own over the one
+ * under it, closed by the key back. Pages stand one over another, up to DGX_UI_POPUP_DEPTH with the popups between
+ * them. A program may open one by dgx_ui_popup_open() itself; the two calls below are the common case, in a file of
+ * their own:
+ *
+ *     static void on_settings(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+ *     {
+ *         if (what == DGX_UI_ACTIVATED) dgx_ui_page_open(&home, &settings);    // a button of the home
+ *     }
+ *     static void on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+ *     {
+ *         if (what == DGX_UI_ACTIVATED) dgx_ui_page_back(&home);             // the page's own "back"
+ *     }
+ *     static void on_settings_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+ *     {
+ *         if (what == DGX_UI_BACK) save(&settings);                           // closed: its widgets read still
+ *     }
+ *
+ * The key back closes the top page as its "back" button does; the page's root is told DGX_UI_BACK first either way.
+ */
+
+/**
+ * @brief A page opened over the top page of home, or over home: first the popups over that page that a finger
+ * elsewhere would close (DGX_UI_POPUP_CLOSE_OUTSIDE, a dropdown's list) are closed, from the top down to the first that
+ * is not; a dialog that waits for an answer stays under the new page.
+ * @return dgx_ui_popup_open()'s.
+ */
+bool dgx_ui_page_open(dgx_ui_t *home, dgx_ui_t *page);
+
+/**
+ * @brief The top page of home closed, with all over it; its root told DGX_UI_BACK first, while it is open.
+ * @return false: no page is open over home.
+ */
+bool dgx_ui_page_back(dgx_ui_t *home);
 
 #ifdef __cplusplus
 }

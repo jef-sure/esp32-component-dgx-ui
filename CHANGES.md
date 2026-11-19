@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.15 - 2026-11-19
+
+- Pages: `dgx_ui_page_open()` and `dgx_ui_page_back()`, a popup on the whole screen closed by the key back, its root
+  told `DGX_UI_BACK` first. The popup flags `DGX_UI_POPUP_BACK` and `DGX_UI_POPUP_SCREEN`, and `dgx_ui_popup_back()`.
+- With a dropdown's list open, the key back closes the list and no longer comes to the program.
+- A modal popup that back does not close keeps back the program's: it no longer reaches the trees under it.
+- A program with keys and no popup carries about 80 bytes more, one with popups and keys about 280.
+
 ## 0.0.14 - 2026-11-19
 
 - `dgx_ui_changed()`: the rectangles that changed told to a function of the program and nothing drawn, so that the

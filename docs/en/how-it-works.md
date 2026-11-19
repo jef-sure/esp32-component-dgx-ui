@@ -289,6 +289,10 @@ it. Up to `DGX_UI_POPUP_DEPTH`, 8, popups stand one over another. An upper one m
 tree is drawn around every popup over it. The finger and the keys go to the top one first. Closing a popup closes
 every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_dropdown_open()`.
 
+A page is a popup on the whole screen that the key back closes: `dgx_ui_page_open()` and `dgx_ui_page_back()` keep
+a stack of them, and a page's root is told `DGX_UI_BACK` before it goes. See
+[Pages and "back"](cookbook.md#pages-and-back).
+
 ## Memory and weight
 
 | What | Size on a 32-bit chip |

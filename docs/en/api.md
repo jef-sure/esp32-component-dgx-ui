@@ -16,7 +16,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.14: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.15: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -139,7 +139,7 @@ of every member.
 | `DGX_UI_ACTIVATED` | a button, a row of a list or a dropdown was clicked or activated by a key; "done" was typed into a field |
 | `DGX_UI_CHANGED` | the user changed the value: by the finger, a key, or a letter typed |
 | `DGX_UI_FOCUS` | the focus came to it |
-| `DGX_UI_BACK` | "cancel" was typed into a field |
+| `DGX_UI_BACK` | "cancel" was typed into a field; told to the root of a page, or of a popup the key back closes, before it is closed |
 | `DGX_UI_NO_MEMORY` | the canvas of the widget could not be had: told once for that size, after the pass; it is tried again whenever its look asks |
 | `DGX_UI_EDIT` | a field was clicked, or activated by a key while it has the focus: the program opens its editor, a keyboard |
 
@@ -272,7 +272,7 @@ and the bottom twelfth of a list's row belong to no row.
 | `DGX_UI_KEY_NEXT`, `DGX_UI_KEY_PREV` | the focus to the next or the previous widget that takes it; in a list the rows first. The walk passes the fields and opens no editor |
 | `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned, a field told `DGX_UI_EDIT`; a widget of the program's own that did not take the key told `DGX_UI_ACTIVATED` |
 | `DGX_UI_KEY_MORE`, `DGX_UI_KEY_LESS` | the focused slider a step up or down, a switch on or off |
-| `DGX_UI_KEY_BACK` | taken by no widget of the core: the program's |
+| `DGX_UI_KEY_BACK` | closes the popup on top when it has `DGX_UI_POPUP_BACK`, a page or a dropdown's list, and nothing in it took the key; else taken by no widget of the core: the program's |
 
 `DGX_UI_KEYS` is how many keys there are. A focused widget of the program's own is asked first, for every key, by
 its behaviour's `key`: [A look and a behaviour](#a-look-and-a-behaviour).
@@ -298,7 +298,7 @@ into a key by a table.
 | `DGX_UI_PAD_LEFT` | `DGX_UI_KEY_LESS` | the focused slider a step down, a switch off |
 | `DGX_UI_PAD_RIGHT` | `DGX_UI_KEY_MORE` | the focused slider a step up, a switch on |
 | `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | the focused button, row or dropdown activated, a switch turned, a field told `DGX_UI_EDIT` |
-| `DGX_UI_PAD_BACK`, `DGX_UI_PAD_B` | `DGX_UI_KEY_BACK` | nothing in a widget: the program's |
+| `DGX_UI_PAD_BACK`, `DGX_UI_PAD_B` | `DGX_UI_KEY_BACK` | a page or a dropdown's list closed; else nothing in a widget: the program's |
 | `DGX_UI_PAD_START` | none | the button is the program's |
 
 The default fits a column of settings: up and down go from one to the next, left and right change the one in focus.
@@ -387,13 +387,29 @@ Code points typed go to a `DGX_UI_INPUT` only. The widget is hit in its whole re
 | ---- | ------------ |
 | `bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags)` | A tree opened over another in a rectangle of the screen, in pixels; a popup that tree already had open is closed first. `ui` may itself be a popup: popups stand one over another. `false`, and nothing opened: the popup is the tree itself, it has a popup of its own open or is open elsewhere, or `DGX_UI_POPUP_DEPTH` popups already lie under the tree. |
 | `void dgx_ui_popup_close(dgx_ui_t *ui)` | The popup of that tree closed, with every popup over it; the trees under are drawn again there at the next pass. |
+| `bool dgx_ui_popup_back(dgx_ui_t *ui)` | The popup of that tree closed as the key back closes one: its root told `DGX_UI_BACK` first, while it is open, then it and every popup over it closed. When that `on()` closed it, put another in its place or opened one over it, nothing more is closed: a page asks before it goes by opening a question over itself. `false`: no popup is open over the tree. |
 
 | Flag | Meaning |
 | ---- | ------- |
-| `DGX_UI_POPUP_MODAL` | it takes every pointer and key; back stays the program's |
+| `DGX_UI_POPUP_MODAL` | it takes every pointer and key; back stays the program's unless the popup has `DGX_UI_POPUP_BACK`, and reaches no tree under it |
 | `DGX_UI_POPUP_CLOSE_OUTSIDE` | a finger that goes down outside it, and outside every popup over it, closes it |
+| `DGX_UI_POPUP_BACK` | the key back that nothing in it took closes it, its root told `DGX_UI_BACK` first |
+| `DGX_UI_POPUP_SCREEN` | it lies on the whole screen of the tree and is laid again when the screen turns; `x`, `y`, `w`, `h` are not read |
 
 `DGX_UI_POPUP_DEPTH` is 8: at most so many popups stand one over another over a tree.
+
+### Pages
+
+A page is a popup with `DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN`: a screen of its own over the
+one under it, closed by the key back. A program may open one by `dgx_ui_popup_open()` itself; these two calls are the
+common case, in a file of their own.
+
+| Call | What it does |
+| ---- | ------------ |
+| `bool dgx_ui_page_open(dgx_ui_t *home, dgx_ui_t *page)` | A page opened over the top page of `home`, or over `home`. First the popups over that page that a finger elsewhere would close (`DGX_UI_POPUP_CLOSE_OUTSIDE`: a dropdown's list, a hint) are closed, from the top down to the first that is not; a modal dialog that waits for an answer stays under the new page. It returns what `dgx_ui_popup_open()` does. |
+| `bool dgx_ui_page_back(dgx_ui_t *home)` | The top page of `home` closed, with all over it; its root told `DGX_UI_BACK` first, while it is open. `false`: no page is open over `home`. |
+
+The recipe: [Pages and "back"](cookbook.md#pages-and-back).
 
 ### Other
 
@@ -905,7 +921,7 @@ The program calls it when the dropdown's `on()` is told `DGX_UI_ACTIVATED`.
   dropdown nor the room above it takes all the options the list scrolls: it stands in the larger of the two, as many
   rows as go into it, its window at the option chosen, and does not lie over the dropdown.
 - The popup is modal and closed by a finger outside it. The keys stay in the list: next and previous move the pick,
-  the key that activates chooses. "Back" is the program's, which closes the list by `dgx_ui_popup_close()`.
+  the key that activates chooses. The key back closes the list, the choice unchanged.
 - A row chosen sets the dropdown's value, tells its `on()` `DGX_UI_CHANGED` and closes the list. The option it had,
   chosen again, closes the list and tells nothing. Closed any other way, the value stays and nothing is told.
 - The list shows the dropdown's own text. While it is open the program does not change the options and does not

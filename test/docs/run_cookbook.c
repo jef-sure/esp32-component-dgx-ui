@@ -511,30 +511,49 @@ int main(int argc, char **argv)
         dgx_ui_textbox_init(&home_box, home_buf, sizeof home_buf, 1, &st_left);
         dgx_ui_init(&home, hn, 2, 1);
         const int top = dgx_ui_add(&home, -1, &col_w), label = dgx_ui_add(&home, top, &home_w);
-        dgx_ui_init(&page_settings, page_settings_nodes, 8, 1), dgx_ui_add(&page_settings, -1, &col_w);
-        dgx_ui_init(&page_about, page_about_nodes, 4, 1), dgx_ui_add(&page_about, -1, &col_w);
+        /* the pages of the recipe: the settings with a "back" button and a button for "about" */
+        pages_home = &home;
+        const int saves_before = saves; /* settings_save() of the button recipe counts them */
+        dgx_ui_init(&page_settings, page_settings_nodes, 8, 1), dgx_ui_add(&page_settings, -1, &settings_root_w);
+        const int back_button = dgx_ui_add(&page_settings, 0, &settings_back_w), about_button = dgx_ui_add(&page_settings, 0, &settings_about_w);
+        dgx_ui_init(&page_about, page_about_nodes, 4, 1), dgx_ui_add(&page_about, -1, &about_root_w);
+        const bool opened_before_pass = dgx_ui_page_open(&home, &page_settings); /* before the first pass: laid at it */
         dgx_ui_paint(&home, &pp, 0);
-        const dgx_ui_node_t *n = dgx_ui_node(&home, label);
+        const dgx_ui_node_t *n = dgx_ui_node(&home, label), *settings_root = dgx_ui_node(&page_settings, 0);
+        const int            root_w = settings_root->w, root_h = settings_root->h;
+        dgx_ui_page_back(&home); /* the root told: saved once */
+        const int saved_first = saves - saves_before;
+        dgx_ui_paint(&home, &pp, 0);
         int ink0 = 0, ink1 = 0, ink2 = 0;
-        const bool o1 = page_open(&home, &page_settings, 160, 60);
+        const bool o1 = dgx_ui_page_open(&home, &page_settings);
         dgx_ui_paint(&home, &pp, 1);
         dgx_ui_text_set(&home, label, "23:59"); /* a value that came for the clock while the settings show */
         dgx_ui_paint(&home, &pp, 2);
         for (int y = n->y; y < n->y + n->h; ++y)
             for (int x = n->x; x < n->x + n->w; ++x) ink0 += dgx_get_pixel(scr, x, y) == tb[INK];
-        const bool o2 = page_open(&home, &page_about, 160, 60);
+        /* "about" by its button of the settings, focused and activated by the keys */
+        dgx_ui_focus(&page_settings, about_button);
+        const bool o2      = dgx_ui_key(&home, DGX_UI_KEY_ACTIVATE);
         const bool stacked = home.popup == &page_settings && page_settings.popup == &page_about;
-        const bool b1 = page_back(&home);
+        const bool b1      = dgx_ui_key(&home, DGX_UI_KEY_BACK); /* the key: "about" closed */
         const bool settings_top = home.popup == &page_settings && !page_settings.popup;
         dgx_ui_paint(&home, &pp, 3);
         for (int y = n->y; y < n->y + n->h; ++y)
             for (int x = n->x; x < n->x + n->w; ++x) ink1 += dgx_get_pixel(scr, x, y) == tb[INK];
-        const bool b2 = page_back(&home);
+        /* the page's own "back" button, by the finger */
+        const dgx_ui_node_t *back_node = dgx_ui_node(&page_settings, back_button);
+        const int16_t        back_x = (int16_t)(back_node->x + 3), back_y = (int16_t)(back_node->y + 3);
+        dgx_ui_pointer(&home, &(dgx_ui_pointer_t){.x = back_x, .y = back_y, .down = true, .pressed = true, .ms = 100});
+        dgx_ui_pointer(&home, &(dgx_ui_pointer_t){.x = back_x, .y = back_y, .released = true, .ms = 150});
+        const bool b2 = !home.popup;
         dgx_ui_paint(&home, &pp, 4);
         for (int y = n->y; y < n->y + n->h; ++y)
             for (int x = n->x; x < n->x + n->w; ++x) ink2 += dgx_get_pixel(scr, x, y) == tb[INK];
-        printf("pages: opened %d %d, stacked %d; under the settings the clock's new text is not drawn (ink %d, %d); back %d: the settings on top %d; back %d: "
-               "the clock drawn with it (ink %d); back once more %d\n", o1, o2, stacked, ink0, ink1, b1, settings_top, b2, ink2, page_back(&home));
+        printf("pages: a page opened before the first pass %d, laid %dx%d; opened %d, \"about\" by its button %d, stacked %d; under the settings the clock's new "
+               "text is not drawn (ink %d, %d); the key back %d: the settings on top %d; the page's button: the clock on top %d, drawn with the text (ink %d); "
+               "settings_save() called %d and %d times; back on the clock %d, dgx_ui_page_back() %d\n",
+               opened_before_pass, root_w, root_h, o1, o2, stacked, ink0, ink1, b1, settings_top, b2, ink2, saved_first, saves - saves_before,
+               dgx_ui_key(&home, DGX_UI_KEY_BACK), dgx_ui_page_back(&home));
         dgx_ui_paint_free(&pp), dgx_ui_free(&home), dgx_ui_free(&page_settings), dgx_ui_free(&page_about);
         scr->destroy(&scr);
     }

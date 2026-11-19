@@ -74,7 +74,7 @@ bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_
     dgx_ui_init(&dd->tree, dd->nodes, 2, u);
     dgx_ui_add(&dd->tree, -1, &dd->frame);
     const int li = dgx_ui_add(&dd->tree, 0, &dd->list);
-    if (!dgx_ui_popup_open(ui, &dd->tree, x, y, width, h, DGX_UI_POPUP_MODAL | DGX_UI_POPUP_CLOSE_OUTSIDE)) return false;
+    if (!dgx_ui_popup_open(ui, &dd->tree, x, y, width, h, DGX_UI_POPUP_MODAL | DGX_UI_POPUP_CLOSE_OUTSIDE | DGX_UI_POPUP_BACK)) return false;
     dd->ui = ui, dd->i = (int16_t)i;
     dgx_ui_focus(&dd->tree, li); /* the keys move the pick */
     return true;

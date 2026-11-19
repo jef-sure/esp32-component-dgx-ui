@@ -2,7 +2,7 @@
  * The list of a dropdown opened as a popup (dgx_ui_dropdown.h): under the dropdown, above it, moved up to fit, or the
  * whole height shared; its rows as high as the dropdown. A row chosen by a finger or by the keys sets the dropdown's
  * value and tells it CHANGED once; the option it had chosen again tells nothing; a finger outside closes it, the
- * value kept; a key the list does not take does not reach the tree under it. A dropdown in a popup, its list hanging
+ * value kept; a key the list does not take does not reach the tree under it; back closes it, the value kept. A dropdown in a popup, its list hanging
  * out of it; one dd for two dropdowns; a unit of 2; drawn, every pixel once.
  */
 #include <string.h>
@@ -164,8 +164,10 @@ int main(void)
     CHECK(dgx_ui_dropdown_open(&ui, d, &dd, NULL, NULL));
     dgx_ui_key(&ui, DGX_UI_KEY_MORE);
     CHECK(dgx_ui_node(&ui, sl)->state_value.value == 0 && ui.popup == &dd.tree);
-    CHECK(!dgx_ui_key(&ui, DGX_UI_KEY_BACK)); /* BACK the program's */
-    dgx_ui_popup_close(&ui);
+    /* back closes the list, the value kept; then, nothing open, back is the program's */
+    const int kept = dgx_ui_node(&ui, d)->state_value.value;
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_BACK) && ui.popup == NULL && dgx_ui_node(&ui, d)->state_value.value == kept);
+    CHECK(!dgx_ui_key(&ui, DGX_UI_KEY_BACK));
     dgx_ui_free(&ui);
 
     /* a dropdown in a popup of 100x40 at the bottom of the screen: its list above it, taller than the popup, hanging

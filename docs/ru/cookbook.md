@@ -830,44 +830,70 @@ static bool sure_open(void)
 
 ## Страницы и «назад»
 
-Программе с несколькими экранами ничего нового не нужно: страница — это всплывающее окно размером с экран. Возьмём
-часы со страницей настроек и, из неё, страницей «о программе»:
+Страница — это всплывающее окно на весь экран, которое закрывается клавишей «назад». `dgx_ui_page_open()` открывает
+страницу поверх верхней, `dgx_ui_page_back()` закрывает верхнюю. Возьмём часы со страницей настроек и, из неё,
+страницей «о программе»:
 
-1. Часы — первое дерево. Пользователь просит настройки: программа открывает дерево настроек поверх него, на весь
-   экран, модальным окном. Часы больше не рисуются, а палец и клавиши идут в настройки.
+1. Часы — первое дерево. Пользователь нажимает его кнопку: `dgx_ui_page_open()` открывает дерево настроек поверх
+   него, на весь экран, модальным окном. Часы больше не рисуются, а палец и клавиши идут в настройки.
 2. Пока показаны настройки, приходит значение датчика. Сообщение предлагается каждому дереву, поэтому надпись
    часов берёт его, под страницей.
 3. Из настроек пользователь открывает «о программе»: вторая страница поверх первой.
-4. «Назад» закрывает верхнюю страницу: снова видны настройки. Ещё раз «назад»: часы, уже со значением, которое
-   пришло на шаге 2.
+4. «Назад» — клавишей или кнопкой самой страницы — закрывает верхнюю страницу: снова видны настройки. Ещё раз
+   «назад»: корню настроек сообщается `DGX_UI_BACK`, программа сохраняет то, что на странице, и страница
+   закрывается: видны часы, уже со значением, которое пришло на шаге 2.
+5. «Назад» на часах: ничего не открыто, `dgx_ui_key()` возвращает `false`, клавиша достаётся программе.
 
 ```c
+void settings_save(void); /* the program's */
+
 /* a page is a tree of its own, built at the start as any tree, with its own nodes */
 static dgx_ui_node_t page_settings_nodes[8], page_about_nodes[4];
 static dgx_ui_t      page_settings, page_about;
+static dgx_ui_t     *pages_home; /* the first tree, under every page */
 
-/* a page opened over the one that is on top now: the whole screen, modal */
-static bool page_open(dgx_ui_t *home, dgx_ui_t *page, int screen_w, int screen_h)
+/* a button of the first tree opens the settings; a button of the settings opens "about" */
+static void on_open_settings(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    dgx_ui_t *top = home;
-    while (top->popup) top = top->popup;
-    return dgx_ui_popup_open(top, page, 0, 0, screen_w, screen_h, DGX_UI_POPUP_MODAL);
+    if (what == DGX_UI_ACTIVATED) dgx_ui_page_open(pages_home, &page_settings);
+}
+static void on_open_about(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) dgx_ui_page_open(pages_home, &page_about);
 }
 
-/* "back": the page on top closed; false when the first tree is on top, and there is nowhere to go back to */
-static bool page_back(dgx_ui_t *home)
+/* the "back" button of a page does what the key back does */
+static void on_page_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    dgx_ui_t *under = home;
-    if (!under->popup) return false;
-    while (under->popup->popup) under = under->popup;
-    dgx_ui_popup_close(under);
-    return true;
+    if (what == DGX_UI_ACTIVATED) dgx_ui_page_back(pages_home);
 }
+
+/* the root of the settings is told when the page goes, by the key or by the button, while its widgets can be read */
+static void on_settings_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_BACK) settings_save();
+}
+
+static const dgx_ui_widget_t settings_root_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .on = on_settings_root};
+static const dgx_ui_widget_t settings_back_w  = {.kind = DGX_UI_BUTTON, .want_h = 16, .look = &dgx_ui_look_button, .on = on_page_back};
+static const dgx_ui_widget_t settings_about_w = {.kind = DGX_UI_BUTTON, .want_h = 16, .look = &dgx_ui_look_button, .on = on_open_about};
+static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2};
 ```
 
-- **Стек** страниц — это окна одно над другим, до `DGX_UI_POPUP_DEPTH`, то есть 8, над первым деревом.
-- **«Назад»** — дело программы: клавишу `DGX_UI_KEY_BACK` не берёт ни один виджет, а кнопка «назад» на странице
-  вызывает ту же `page_back()`.
+- **Страница** — это окно с `DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN`. Она берёт экран дерева,
+  поэтому раскладывается правильно, даже если открыта до первого прохода, и перекладывается при повороте экрана.
+  Программа может открыть такое окно и сама, через `dgx_ui_popup_open()`.
+- **«Назад».** Клавиша `DGX_UI_KEY_BACK` закрывает верхнюю страницу, если её не взял ни один виджет страницы;
+  `dgx_ui_page_back()` делает то же для кнопки. В обоих случаях корню страницы сначала сообщается `DGX_UI_BACK`,
+  пока страница ещё открыта и её виджеты можно прочитать.
+- **Чтобы спросить перед уходом**, `on(DGX_UI_BACK)` корня открывает вопрос поверх страницы: тогда ничего не
+  закрывается, страница остаётся под вопросом.
+- **Что лежит над страницей.** «Назад» сначала закрывает список выпадающего списка, потом страницу. Когда
+  открывается новая страница, окна над верхней страницей, которые закрыл бы палец в другом месте, — список,
+  подсказка — закрываются; модальный диалог, который ждёт ответа, остаётся под новой страницей и снова виден после
+  «назад».
+- **Стек** — это окна одно над другим, до `DGX_UI_POPUP_DEPTH`, то есть 8, над первым деревом; списки и диалоги
+  между страницами тоже считаются.
 - **Страницы под верхней** получают сообщения через `dgx_ui_take()` и рисуются, когда снова становятся видны; их
   холсты сохраняются. Закрытая страница ничего не стоит, пока её не откроют снова, а её виджеты сохраняют свои
   значения.
