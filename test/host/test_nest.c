@@ -52,7 +52,8 @@ static const dgx_ui_widget_t list_bt = {.kind = DGX_UI_BUTTON, .want_h = 30, .lo
 /* the question at (40, 30, 50, 30): a slider and a field */
 static const dgx_ui_rect_t   ask_r   = {40, 30, 50, 30};
 static const dgx_ui_widget_t ask_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 1};
-static const dgx_ui_widget_t ask_sl  = {.kind = DGX_UI_SLIDER, .want_h = 10, .max = 10, .look = &dgx_ui_look_slider, .ctx = (void *)3, .take = take};
+static int32_t ask_sl_place; /* its value */
+static const dgx_ui_widget_t ask_sl  = {.kind = DGX_UI_SLIDER, .value = &ask_sl_place, .want_h = 10, .max = 10, .look = &dgx_ui_look_slider, .ctx = (void *)3, .take = take};
 static const dgx_ui_widget_t ask_in  = {.kind = DGX_UI_INPUT, .text = &field_box, .want_h = 12, .look = &dgx_ui_look_input};
 
 static dgx_ui_node_t main_n[4], dlg_n[4], list_n[3], ask_n[4];
@@ -165,7 +166,7 @@ int main(void)
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(sn->x + 5), .y = (int16_t)(sn->y + 5), .down = true, .pressed = true});
     CHECK(dgx_ui_holding(&ui) && dgx_ui_dragging(&ui) && ask.pressed == asl);
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(sn->x + 40), .y = (int16_t)(sn->y + 5), .down = true});
-    CHECK(sn->state_value.value > 0);
+    CHECK(dgx_ui_value_of(sn) > 0);
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(sn->x + 40), .y = (int16_t)(sn->y + 5), .released = true});
     CHECK(!dgx_ui_holding(&ui) && !dgx_ui_dragging(&ui));
     /* drawn whole with three open: every pixel once; then the dialog closed: all over it closed, the screen as the

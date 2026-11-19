@@ -19,12 +19,12 @@ static void on_list(dgx_ui_t *tree, int li, const dgx_ui_node_t *node, int what,
     if (what != DGX_UI_ACTIVATED) return; /* a pick moved by the keys or a finger: nothing of the dropdown yet */
     dgx_ui_dropdown_t *dd = ctx;
     dgx_ui_t          *ui = dd->ui;
-    const int          i = dd->i, value = node->state_value.value;
+    const int          i = dd->i, value = dgx_ui_value_of(node);
     dgx_ui_popup_close(ui);
     dd->ui                 = NULL;
     const dgx_ui_node_t *n = dgx_ui_node(ui, i);
     /* gone, or another widget in its place (removed while its list was open), or the option it had: nothing told */
-    if (!n || !n->widget || n->widget->kind != DGX_UI_DROPDOWN || n->widget->text != dd->list.text || n->state_value.value == value) return;
+    if (!n || !n->widget || n->widget->kind != DGX_UI_DROPDOWN || n->widget->text != dd->list.text || dgx_ui_value_of(n) == value) return;
     dgx_ui_set_value(ui, i, value);
     if (n->widget->on) n->widget->on(ui, i, n, DGX_UI_CHANGED, n->widget->ctx); /* the user chose */
 }
@@ -74,13 +74,14 @@ bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_
     if (x + width > W) x = W - width;
     if (x < 0) x = 0;
     /* the popup: a frame of a column holding the list on the dropdown's text box, its pick the value chosen */
+    dd->pick  = dgx_ui_value_of(n); /* the list's own place: the dropdown's is written when a row is chosen */
     dd->frame = (dgx_ui_widget_t){.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 1, .look = frame_look};
     dd->list  = (dgx_ui_widget_t){.kind  = DGX_UI_LIST,
                                   .flags = DGX_UI_REST | DGX_UI_STRETCH,
                                   .min   = w->min,
                                   .max   = w->max,
                                   .step  = (int16_t)step,
-                                  .state = {.value = n->state_value.value},
+                                  .value = &dd->pick,
                                   .text  = w->text,
                                   .look  = list_look ? list_look : &dgx_ui_look_list,
                                   .on    = on_list,

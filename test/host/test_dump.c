@@ -54,7 +54,8 @@ int main(void)
     static const dgx_ui_widget_t root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
     for (int k = 0; k < 6; ++k) dgx_ui_textbox_init(&boxes[k], bufs[k], sizeof bufs[k], 1, NULL);
     const dgx_ui_widget_t label_w  = {.kind = DGX_UI_LABEL, .text = &boxes[0], .want_h = 13};
-    const dgx_ui_widget_t list_w   = {.kind = DGX_UI_LIST, .text = &boxes[1], .max = 11, .want_h = 52};
+    static int32_t list_w_place; /* its value */
+    const dgx_ui_widget_t list_w   = {.kind = DGX_UI_LIST, .value = &list_w_place, .text = &boxes[1], .max = 11, .want_h = 52};
     const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .text = &boxes[2], .want_w = 60, .want_h = 20, .tag = 7};
     const dgx_ui_widget_t hidden_w = {.kind = DGX_UI_LABEL, .text = &boxes[3], .want_h = 13, .state = {.bits = DGX_UI_HIDDEN}};
     const dgx_ui_widget_t utf_w    = {.kind = DGX_UI_LABEL, .text = &boxes[4], .want_h = 13};

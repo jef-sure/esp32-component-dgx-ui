@@ -8,11 +8,12 @@
  *  list then, with one call:
  *
  *      static dgx_ui_dropdown_t dropdown; // one serves every dropdown of the program: one list is open at a time
+ *      static int32_t           fruit;    // the dropdown's value, its place: its widget names .value = &fruit
  *
  *      static void on_fruit(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
  *      {
  *          if (what == DGX_UI_ACTIVATED) dgx_ui_dropdown_open(ui, i, &dropdown, NULL, NULL);
- *          if (what == DGX_UI_CHANGED) printf("the fruit: %d\n", node->state_value.value); // the user chose
+ *          if (what == DGX_UI_CHANGED) printf("the fruit: %d\n", (int)fruit); // the user chose: its place, .value = &fruit
  *      }
  *
  *  The list stands under the dropdown, as wide as it; above it when the screen has no room below; else moved up so
@@ -28,6 +29,10 @@
  *  dropdown's own text box: options set while it is open (dgx_ui_text_set() on the dropdown) are shown at once, its
  *  window where it was.
  *
+ *  The list has a place of its own for its pick, dgx_ui_dropdown_t::pick, filled from the dropdown's when it opens. A
+ *  value the program writes into the dropdown's place while the list is open is shown on the dropdown, and not in the
+ *  list; closed with no choice, the dropdown keeps the program's value; a row chosen writes over it.
+ *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
  */
@@ -41,12 +46,13 @@ extern "C" {
 
 /**
  * @brief The popup of a dropdown's list, in the program's RAM, zeroed before its first use (a static is). The popup
- * keeps pointers to its widgets while it is open, so they live here. 264 bytes on an ESP32.
+ * keeps pointers to its widgets while it is open, so they live here. 276 bytes on an ESP32.
  */
 typedef struct dgx_ui_dropdown_t {
     dgx_ui_t        tree;     ///< the popup: a frame holding the list
     dgx_ui_node_t   nodes[2];
     dgx_ui_widget_t frame, list;
+    int32_t         pick;     ///< the place of the list's pick while it is open: the dropdown's own is written when a row is chosen
     dgx_ui_t       *ui;       ///< the tree of the dropdown whose list it shows
     int16_t         i;        ///< that dropdown
 } dgx_ui_dropdown_t;

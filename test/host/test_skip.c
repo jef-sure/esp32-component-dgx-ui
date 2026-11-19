@@ -47,6 +47,19 @@ static const dgx_ui_widget_t kinds[] = {
 };
 enum { KINDS = sizeof kinds / sizeof kinds[0] };
 
+/* a widget of a kind made at run time, with a place of its own for its value */
+static dgx_ui_widget_t made[4096];
+static int32_t         made_value[4096];
+static int             made_count;
+static const dgx_ui_widget_t *made_of(int kind)
+{
+    const int k   = made_count++ % 4096;
+    made[k]       = kinds[kind];
+    made_value[k] = 0;
+    made[k].value = &made_value[k];
+    return &made[k];
+}
+
 static const dgx_ui_widget_t pop_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2};
 static const dgx_ui_widget_t pop_bt = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button};
 
@@ -81,7 +94,7 @@ static bool answers(const dgx_ui_widget_t *w)
 static void search(const dgx_ui_t *ui, int i, int d, bool off, int x, int y, int *best, int *depth, long *area)
 {
     const dgx_ui_node_t *n = dgx_ui_node(ui, i);
-    off |= (n->state_value.bits & (DGX_UI_HIDDEN | DGX_UI_DISABLED)) != 0;
+    off |= (n->state.bits & (DGX_UI_HIDDEN | DGX_UI_DISABLED)) != 0;
     const bool in = x >= n->x && y >= n->y && x < n->x + n->w && y < n->y + n->h;
     off |= !in; /* nothing of it outside its box: nothing of those under it either */
     const long a  = (long)n->w * n->h;
@@ -124,7 +137,7 @@ static void pass(void)
             const dgx_ui_node_t *n = dgx_ui_node(&ui, j);
             if (!n->widget) continue;
             fprintf(stderr, "  %2d parent %2d kind %2d at %d,%d %dx%d bits %x/%x value %d/%d marks %x%s\n", j, n->parent, n->widget->kind, n->x, n->y, n->w, n->h,
-                    n->state_value.bits, n->state_drawn.bits, n->state_value.value, n->state_drawn.value, n->marks, dgx_ui_hidden(&ui, j) ? " hidden" : "");
+                    n->state.bits, n->state_drawn.bits, dgx_ui_value_of(n), n->state_drawn.value, n->marks, dgx_ui_hidden(&ui, j) ? " hidden" : "");
         }
     }
     differences += d != 0;
@@ -175,7 +188,7 @@ int main(void)
                     const int t = dgx_ui_insert(&ui, i, rnd(2) ? -1 : dgx_ui_node(&ui, i)->child, &label_w[l]);
                     if (t >= 0) label_used[l] = true, dgx_ui_text_printf(&ui, t, "%d", rnd(1000));
                 } else
-                    dgx_ui_add(&ui, i, &kinds[rnd(KINDS)]);
+                    dgx_ui_add(&ui, i, made_of(rnd(KINDS)));
             }
             break;
         case 2: /* one removed, with what is under it */

@@ -29,6 +29,7 @@
 - [Всплывающее окно](#всплывающее-окно)
 - [Страницы и «назад»](#страницы-и-назад)
 - [Страницы, которые сдвигаются](#страницы-которые-сдвигаются)
+- [Настройки, которые сохраняются](#настройки-которые-сохраняются)
 - [Кнопки платы](#кнопки-платы)
 - [Одна ручка](#одна-ручка)
 - [Касание с DGX-DI](#касание-с-dgx-di)
@@ -222,39 +223,48 @@ static int save_add(dgx_ui_t *ui, int parent)
 
 ## Ползунок и переключатель
 
-Значение элемента управления лежит в его узле, и `on()` получает этот узел: `node->state_value.value` — значение,
-которое выставил пользователь. Функции `on()` сообщается `DGX_UI_CHANGED`, когда значение изменил пользователь: у
-ползунка — на каждом шаге пальца, у переключателя — по нажатию.
+Значение элемента управления живёт в переменной программы, `int32_t`, которую называет виджет:
+`.value = &backlight_percent`. Туда его пишет палец пользователя, туда же может писать программа; отрисовка смотрит на
+неё при каждом проходе и рисует виджет, если в переменной не то значение, что нарисовано. Функции `on()` сообщается
+`DGX_UI_CHANGED`, когда значение изменил пользователь: у ползунка — на каждом шаге пальца, у переключателя — по
+нажатию.
 
 ```c
 void backlight_set(int percent);
 void wifi_enable(bool on);
 
+/* the values, the program's own: the slider starts at 70, the switch off */
+static int32_t backlight_percent = 70, wifi_wanted;
+
 static void backlight_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) backlight_set(node->state_value.value);
+    if (what == DGX_UI_CHANGED) backlight_set(backlight_percent);
 }
 
 static void wifi_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) wifi_enable(node->state_value.value != 0);
+    if (what == DGX_UI_CHANGED) wifi_enable(wifi_wanted != 0);
 }
 
-/* a slider of 0..100 by 5 that starts at 70, and a switch that starts off */
+/* a slider of 0..100 by 5 and a switch, each naming the place of its value */
 static const dgx_ui_widget_t backlight_w = {
-    .kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .state = {.value = 70}, .look = &dgx_ui_look_slider, .on = backlight_on};
+    .kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &backlight_percent, .look = &dgx_ui_look_slider, .on = backlight_on};
 static const dgx_ui_widget_t wifi_w = {
-    .kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .want_h = 12, .look = &dgx_ui_look_switch, .on = wifi_on};
+    .kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .want_h = 12, .value = &wifi_wanted, .look = &dgx_ui_look_switch, .on = wifi_on};
 
-/* the value came from elsewhere: shown, and on() is not told */
-static void backlight_show(dgx_ui_t *ui, int slider, int percent)
+/* the value came from elsewhere, in the task that owns the tree: written, and the next pass shows it; on() is not told */
+static void backlight_show(int percent)
 {
-    dgx_ui_set_value(ui, slider, percent);
+    backlight_percent = percent;
 }
 ```
 
-- `dgx_ui_set_value()` держит значение в пределах `min..max` и `on()` не вызывает: свои собственные изменения
-  программа обратно не слышит.
+- Значение, которое записала программа, показывается на следующем проходе и `on()` не вызывает: свои собственные
+  изменения программа обратно не слышит. Пишет его задача, владеющая деревом; другая задача шлёт сообщение.
+- Значение вне `min..max`, каким оно может прийти из флеша, показывается в этих пределах, а сама переменная остаётся
+  как есть, пока виджет не изменит пользователь. `dgx_ui_set_value()` пишет сразу в пределах.
+- Элемент управления без `.value` показывает 0, и ничто его не меняет; его облик сообщает об этом в журнале.
+- Одну переменную могут называть несколько виджетов, ползунок и число рядом с ним: все они идут за ней.
 - С флагом `DGX_UI_SWIPE` ползунок двигается на столько, на сколько ушёл палец от места касания, а не туда, где
   палец: получается широкая полоса, в которую легко попасть.
 - Клавиши «больше» и «меньше» двигают ползунок на его шаг и ставят переключатель.
@@ -272,14 +282,16 @@ void mode_set(int mode);
 static char             mode_buf[32];
 static dgx_ui_textbox_t mode_box;
 
+static int32_t          mode_picked; /* the row picked */
+
 static void mode_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) mode_set(node->state_value.value); /* a row clicked, or activated by a key */
+    if (what == DGX_UI_ACTIVATED) mode_set(mode_picked); /* a row clicked, or activated by a key */
 }
 
 /* four rows of 14 points each: the rows share the height of the list */
 static const dgx_ui_widget_t mode_w = {
-    .kind = DGX_UI_LIST, .text = &mode_box, .min = 0, .max = 3, .want_h = 56, .look = &dgx_ui_look_list, .on = mode_on};
+    .kind = DGX_UI_LIST, .text = &mode_box, .min = 0, .max = 3, .want_h = 56, .value = &mode_picked, .look = &dgx_ui_look_list, .on = mode_on};
 
 static int mode_add(dgx_ui_t *ui, int parent)
 {
@@ -345,15 +357,16 @@ void fan_set(int speed);
 static char              fan_buf[32];
 static dgx_ui_textbox_t  fan_box;
 static dgx_ui_dropdown_t fan_list; /* the popup of the list: one serves every dropdown of the program */
+static int32_t           fan_choice; /* the option chosen */
 
 static void fan_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_ACTIVATED) dgx_ui_dropdown_open(ui, i, &fan_list, NULL, NULL); /* clicked: its list opens */
-    if (what == DGX_UI_CHANGED) fan_set(node->state_value.value);                     /* the user chose an option */
+    if (what == DGX_UI_CHANGED) fan_set(fan_choice);                                  /* the user chose an option */
 }
 
 static const dgx_ui_widget_t fan_w = {
-    .kind = DGX_UI_DROPDOWN, .text = &fan_box, .min = 0, .max = 2, .want_h = 16, .look = &dgx_ui_look_dropdown, .on = fan_on};
+    .kind = DGX_UI_DROPDOWN, .text = &fan_box, .min = 0, .max = 2, .want_h = 16, .value = &fan_choice, .look = &dgx_ui_look_dropdown, .on = fan_on};
 
 static int fan_add(dgx_ui_t *ui, int parent)
 {
@@ -376,7 +389,7 @@ static int fan_add(dgx_ui_t *ui, int parent)
   возвращает `true`, и программе эта клавиша, пока список открыт, не достаётся.
 - **Палец, который ведут по списку,** ведёт за собой полосу, а отпущенный ничего не выбирает: список остаётся
   открытым, выбирает нажатие.
-- **`dgx_ui_dropdown_t`** — это всплывающее окно списка, 264 байта ОЗУ программы на 32-битном чипе, обнулённые
+- **`dgx_ui_dropdown_t`** — это всплывающее окно списка, 276 байт ОЗУ программы на 32-битном чипе, обнулённые
   перед первым открытием, как любая `static`-переменная. Открыт бывает только один список, поэтому одной структуры
   хватает на все выпадающие списки.
 - **Облики** окна — два последних аргумента, рамка и список; `NULL` значит облик библиотеки.
@@ -414,16 +427,18 @@ typedef struct {
 } signal_t;
 DGX_UI_MESSAGE(signal, MSG_SIGNAL, signal_t)
 
+static int32_t signal_bars; /* the icon's value: which picture */
+
 static bool signal_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 {
     signal_t s;
-    if (msg_decode_signal(msg, &s) == ESP_OK) dgx_ui_set_value(ui, i, s.bars);
+    if (msg_decode_signal(msg, &s) == ESP_OK) signal_bars = s.bars; /* written: the pass after this message shows it */
     return false;
 }
 
 /* the pictures of the values 1..4; 0 is outside and shows none */
 static const dgx_ui_widget_t signal_w = {
-    .kind = DGX_UI_ICON, .picture = signal_pic, .min = 1, .max = 4, .look = &dgx_ui_look_picture, .take = signal_take};
+    .kind = DGX_UI_ICON, .picture = signal_pic, .min = 1, .max = 4, .value = &signal_bars, .look = &dgx_ui_look_picture, .take = signal_take};
 ```
 
 Размер виджета — размер первой картинки. Картинка рисуется непрозрачной: пишутся и её чернила, и её бумага, поэтому
@@ -463,8 +478,9 @@ static const dgx_image_t battery_im = {.width = 12, .height = 6, .format = DGX_I
 static const uint8_t          battery_ok[15]  = {INK, ACCENT, FILL};
 static const uint8_t          battery_low[15] = {INK, ACCENT_DOWN, FILL};
 static const dgx_ui_picture_t battery_pics[2] = {{.image = &battery_im, .map = battery_ok}, {.image = &battery_im, .map = battery_low}};
+static int32_t                battery_low_now; /* 0: charged, the first map; 1: low, the second */
 static const dgx_ui_widget_t  battery_w = {
-    .kind = DGX_UI_ICON, .picture = battery_pics, .min = 0, .max = 1, .want_w = 14, .want_h = 8, .look = &dgx_ui_look_indexed};
+    .kind = DGX_UI_ICON, .picture = battery_pics, .min = 0, .max = 1, .want_w = 14, .want_h = 8, .value = &battery_low_now, .look = &dgx_ui_look_indexed};
 
 /* the painter's buffer: such a picture is drawn in it a strip of its rows at a time, a byte a pixel */
 static uint8_t paint_buffer[256];
@@ -1157,6 +1173,89 @@ static bool slide_show(dgx_ui_t *home, dgx_ui_paint_t *paint, const dgx_ui_point
 - **Чего это стоит.** Около 1,3 КБ, вместе с 0,6 КБ `dgx_ui_changed()` и 0,2 КБ вызовов страниц, и виртуальные
   экраны DGX (`CONFIG_DGX_ENABLE_VSCREEN=y`).
 
+## Настройки, которые сохраняются
+
+Значения элементов управления живут в памяти программы, поэтому хранить их — её собственное дело: массив настроек,
+который читается из флеша при запуске и записывается, когда пользователь сохраняет. Сама библиотека никуда не пишет.
+
+```c
+#include "nvs.h"
+
+enum { PREF_BACKLIGHT, PREF_VOLUME, PREF_NIGHT, PREFS };
+
+/* the settings as the program uses them, with the values of a first start; and the copy a page edits */
+static int32_t prefs[PREFS] = {70, 40, 0};
+static int32_t prefs_edited[PREFS];
+
+/* at the start, after nvs_flash_init() and before the first pass: what was kept, in the place of the first values */
+static void prefs_load(void)
+{
+    nvs_handle_t storage;
+    int32_t      kept[PREFS];
+    size_t       size = sizeof kept;
+    if (nvs_open("prefs", NVS_READONLY, &storage) != ESP_OK) return; /* nothing kept yet */
+    if (nvs_get_blob(storage, "values", kept, &size) == ESP_OK && size == sizeof kept) memcpy(prefs, kept, sizeof prefs);
+    nvs_close(storage);
+}
+
+/* the settings written out, one blob */
+static bool prefs_keep(void)
+{
+    nvs_handle_t storage;
+    if (nvs_open("prefs", NVS_READWRITE, &storage) != ESP_OK) return false;
+    const bool kept = nvs_set_blob(storage, "values", prefs, sizeof prefs) == ESP_OK && nvs_commit(storage) == ESP_OK;
+    nvs_close(storage);
+    return kept;
+}
+
+/* the widgets of the settings page name the places of the copy */
+static const dgx_ui_widget_t pref_backlight_w = {
+    .kind = DGX_UI_SLIDER, .min = 5, .max = 100, .step = 5, .want_h = 12, .value = &prefs_edited[PREF_BACKLIGHT], .look = &dgx_ui_look_slider};
+static const dgx_ui_widget_t pref_volume_w = {
+    .kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &prefs_edited[PREF_VOLUME], .look = &dgx_ui_look_slider};
+static const dgx_ui_widget_t pref_night_w = {
+    .kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .want_h = 12, .value = &prefs_edited[PREF_NIGHT], .look = &dgx_ui_look_switch};
+
+/* the page opens: the copy filled. No widget is told: the next pass shows what the copy holds */
+static void prefs_edit_begin(void)
+{
+    memcpy(prefs_edited, prefs, sizeof prefs_edited);
+}
+
+/* its button "Save" */
+static bool prefs_edit_save(void)
+{
+    memcpy(prefs, prefs_edited, sizeof prefs);
+    return prefs_keep();
+}
+
+/* its button "Undo": the copy as the settings are again, and the sliders go back at the next pass */
+static void prefs_edit_undo(void)
+{
+    memcpy(prefs_edited, prefs, sizeof prefs_edited);
+}
+
+/* when the page is left: is there something to ask "discard the changes?" about */
+static bool prefs_edit_changed(void)
+{
+    return memcmp(prefs_edited, prefs, sizeof prefs) != 0;
+}
+```
+
+- **Загрузить — значит заполнить массив до первого прохода.** Ни одному виджету ничего не сообщается и ничего не
+  вызывается: отрисовка смотрит на места и рисует то, что в них лежит.
+- **Страница, которая правит копию,** даёт «Сохранить», «Отменить» и вопрос «отбросить изменения?» тремя
+  копированиями памяти. Остальная программа читает `prefs` и никогда не видит наполовину изменённую настройку.
+- **Страница без кнопки «Сохранить»** называет места самого `prefs`, а программа вызывает `prefs_keep()`, когда со
+  страницы уходят, а не на каждом шаге ползунка: флеш изнашивается.
+- **Блок другого размера**, сохранённый более старой программой с другим набором настроек, не берётся: остаются
+  первые значения.
+- **Значение вне сегодняшних пределов**, сохранённое, когда пределы были другими, показывается в пределах, а сама
+  переменная остаётся прежней, пока пользователь не сдвинет элемент управления. Там, где программа пользуется
+  переменной сама, она сама и ограничивает её либо читает `dgx_ui_value()` виджета.
+- **`nvs_flash_init()`** вызывается один раз при запуске, как в любой программе, которая что-то хранит в NVS.
+- **На компьютере** NVS нет: программа, собранная для окна, хранит свой массив в файле или не хранит вовсе.
+
 ## Кнопки платы
 
 Тот, кто читает кнопки, шлёт, какие из них удерживаются сейчас, битами геймпада; цикл передаёт их дереву.
@@ -1259,7 +1358,7 @@ static const dgx_ui_look_t        dial_look_changed   = {.draw = dgx_ui_draw_sli
 
 static bool dial_slider_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
-    const bool changed = dgx_ui_node(ui, i)->state_value.bits & DGX_UI_PRESSED;
+    const bool changed = dgx_ui_node(ui, i)->state.bits & DGX_UI_PRESSED;
     return dgx_ui_draw_slider(changed ? &dial_look_changed : &dial_look_plain, paint, ui, i, now_ms);
 }
 
@@ -1279,7 +1378,7 @@ static void dial_tidy(dgx_ui_t *ui)
     bool      open = ui == dial_tree;
     while (top->popup) top = top->popup, open |= top == dial_tree;
     const bool there = open && dgx_ui_widget(dial_tree, dial_slider) == dial_widget;
-    const bool held  = there && (dgx_ui_node(dial_tree, dial_slider)->state_value.bits & DGX_UI_PRESSED);
+    const bool held  = there && (dgx_ui_node(dial_tree, dial_slider)->state.bits & DGX_UI_PRESSED);
     if (held && top == dial_tree && top->focus == dial_slider) return; /* still the dial's */
     if (held) dgx_ui_set_state(dial_tree, dial_slider, DGX_UI_PRESSED, false);
     dial_slider = -1;
@@ -1730,7 +1829,7 @@ static bool level_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const dgx_ui_widget_t *w    = n->widget;
     const level_look_t    *p    = look->params;
     const int              span = w->max > w->min ? w->max - w->min : 1;
-    const int              full = n->w * (n->state_value.value - w->min) / span;
+    const int              full = n->w * (dgx_ui_value_of(n) - w->min) / span;
     const int              x = n->x - paint->ox, y = n->y - paint->oy;
     if (full > 0) dgx_fill_rectangle(paint->scr, x, y, full, n->h, dgx_ui_color(paint, p->bar));
     if (full < n->w) dgx_fill_rectangle(paint->scr, x + full, y, n->w - full, n->h, dgx_ui_color(paint, p->rest));
@@ -1739,7 +1838,8 @@ static bool level_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 
 static const level_look_t    level_colors = {.bar = ACCENT, .rest = FILL};
 static const dgx_ui_look_t   level_look   = {.draw = level_draw, .params = &level_colors, .fill = -1};
-static const dgx_ui_widget_t level_w      = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .look = &level_look};
+static int32_t               level_percent; /* what the bar shows */
+static const dgx_ui_widget_t level_w      = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level_percent, .look = &level_look};
 ```
 
 Правила, которых держится облик:
@@ -1791,8 +1891,8 @@ static bool xy_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *
     const dgx_ui_node_t *n = dgx_ui_node(ui, i);
     const xy_data_t     *d = n->widget->own;
     const int            x = n->x - paint->ox, y = n->y - paint->oy;
-    const int            kx = (n->w - XY_KNOB) * n->state_value.value / 100, ky = (n->h - XY_KNOB) * d->y / 100;
-    const bool           lit   = n->state_value.bits & (DGX_UI_PRESSED | DGX_UI_FOCUSED);
+    const int            kx = (n->w - XY_KNOB) * dgx_ui_value_of(n) / 100, ky = (n->h - XY_KNOB) * d->y / 100;
+    const bool           lit   = n->state.bits & (DGX_UI_PRESSED | DGX_UI_FOCUSED);
     const uint32_t       field = dgx_ui_color(paint, FILL), knob = dgx_ui_color(paint, lit ? ACCENT : INK);
     /* the field in four rectangles round the knob, then the knob: every pixel once */
     if (ky > 0) dgx_fill_rectangle(paint->scr, x, y, n->w, ky, field);
@@ -1827,7 +1927,7 @@ static bool xy_move(dgx_ui_t *ui, int i, int x, int y)
 static bool xy_key(dgx_ui_t *ui, int i, int key)
 {
     if (key != DGX_UI_KEY_MORE && key != DGX_UI_KEY_LESS) return false; /* the rest is the core's */
-    dgx_ui_user_value(ui, i, dgx_ui_node(ui, i)->state_value.value + (key == DGX_UI_KEY_MORE ? 5 : -5));
+    dgx_ui_user_value(ui, i, dgx_ui_value(ui, i) + (key == DGX_UI_KEY_MORE ? 5 : -5));
     return true;
 }
 
@@ -1835,12 +1935,13 @@ static const dgx_ui_behavior_t xy_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .d
 static const dgx_ui_look_t     xy_look     = {.draw = xy_draw, .fill = -1, .behavior = &xy_behavior};
 
 static xy_data_t xy_data;
+static int32_t   xy_x; /* the pad's value: where the knob is along x; its y is in xy_data */
 static void      on_xy(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) point_set(node->state_value.value, xy_data.y);
+    if (what == DGX_UI_CHANGED) point_set(xy_x, xy_data.y);
 }
 static const dgx_ui_widget_t xy_w = {
-    .kind = DGX_UI_OWN, .min = 0, .max = 100, .want_w = 40, .want_h = 40, .look = &xy_look, .own = &xy_data, .on = on_xy};
+    .kind = DGX_UI_OWN, .min = 0, .max = 100, .want_w = 40, .want_h = 40, .value = &xy_x, .look = &xy_look, .own = &xy_data, .on = on_xy};
 ```
 
 Что происходит по шагам на площадке 40 на 40 пикселей:
@@ -1884,7 +1985,7 @@ static const dgx_ui_widget_t xy_w = {
 /* the level bar of the recipe above, tapped: pressed and clicked, the focus left where it is */
 static const dgx_ui_behavior_t tap_behavior = {0};
 static const dgx_ui_look_t     tap_look     = {.draw = level_draw, .params = &level_colors, .fill = -1, .behavior = &tap_behavior};
-static const dgx_ui_widget_t   tap_w        = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .look = &tap_look};
+static const dgx_ui_widget_t   tap_w        = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level_percent, .look = &tap_look};
 ```
 
 ## Картинка, которая живёт между проходами
@@ -1912,7 +2013,7 @@ static bool history_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     dgx_screen_t        *c = dgx_ui_canvas(paint, ui, i, &made);
     if (c) {
         /* a canvas just made, or the graph begun again: all of it; else only the columns that came since it was drawn */
-        const int count = n->state_value.value, was = n->state_drawn.value;
+        const int count = dgx_ui_value_of(n), was = n->state_drawn.value;
         const int from  = made || count < was ? 0 : was;
         if (from == 0) dgx_fill_rectangle(c, 0, 0, c->width, c->height, 0);
         for (int k = from; k < count && k < c->width; ++k) dgx_fill_rectangle(c, k, c->height - level[k], 1, level[k], ACCENT);
@@ -1921,17 +2022,17 @@ static bool history_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     return false;
 }
 
+static int32_t               history_count; /* the graph's value: how many columns it has */
 static const dgx_ui_look_t   history_look = {.draw = history_draw, .fill = -1};
 static const dgx_ui_widget_t history_w    = {
-    .kind = DGX_UI_OWN, .flags = DGX_UI_CANVAS, .max = HISTORY, .want_h = 20, .own = history_level, .look = &history_look};
+    .kind = DGX_UI_OWN, .flags = DGX_UI_CANVAS, .max = HISTORY, .want_h = 20, .value = &history_count, .own = history_level, .look = &history_look};
 
-/* a new value: one more column; the graph begins again when it is full */
-static void history_add(dgx_ui_t *ui, int graph, int ppm)
+/* a new value: one more column; the graph begins again when it is full. Written, and the next pass draws it */
+static void history_add(int ppm)
 {
-    int count = dgx_ui_node(ui, graph)->state_value.value;
-    if (count >= HISTORY) count = 0;
-    history_level[count] = (uint8_t)(ppm >= 2000 ? 40 : ppm / 50);
-    dgx_ui_set_value(ui, graph, count + 1);
+    if (history_count >= HISTORY) history_count = 0;
+    history_level[history_count] = (uint8_t)(ppm >= 2000 ? 40 : ppm / 50);
+    ++history_count;
 }
 ```
 
@@ -1973,7 +2074,7 @@ static bool trace_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 {
     const dgx_ui_node_t *n     = dgx_ui_node(ui, i);
     const uint8_t       *level = n->widget->own;
-    const int            count = n->state_value.value < n->w ? n->state_value.value : n->w, was = n->state_drawn.value;
+    const int            count = dgx_ui_value_of(n) < n->w ? dgx_ui_value_of(n) : n->w, was = n->state_drawn.value;
     /* drawn whole, or begun again: every column and the paper after them; else only the columns that came since */
     const bool all  = paint->whole || count < was;
     for (int k = all ? 0 : was; k < count; ++k) {
@@ -1985,16 +2086,16 @@ static bool trace_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     return false;
 }
 
+static int32_t               trace_count; /* the graph's value: how many columns it has */
 static const dgx_ui_look_t   trace_look = {.draw = trace_draw, .fill = -1};
-static const dgx_ui_widget_t trace_w    = {.kind = DGX_UI_OWN, .max = TRACE, .want_h = 20, .own = trace_level, .look = &trace_look};
+static const dgx_ui_widget_t trace_w    = {.kind = DGX_UI_OWN, .max = TRACE, .want_h = 20, .value = &trace_count, .own = trace_level, .look = &trace_look};
 
-/* a new value: one more column; the graph begins again when it is full */
-static void trace_add(dgx_ui_t *ui, int graph, int ppm)
+/* a new value: one more column; the graph begins again when it is full. Written, and the next pass draws it */
+static void trace_add(int ppm)
 {
-    int count = dgx_ui_node(ui, graph)->state_value.value;
-    if (count >= TRACE) count = 0;
-    trace_level[count] = (uint8_t)(ppm >= 2000 ? 40 : ppm / 50);
-    dgx_ui_set_value(ui, graph, count + 1);
+    if (trace_count >= TRACE) trace_count = 0;
+    trace_level[trace_count] = (uint8_t)(ppm >= 2000 ? 40 : ppm / 50);
+    ++trace_count;
 }
 ```
 
@@ -2052,10 +2153,10 @@ static bool ring_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         dgx_ui_fill_around(paint, ui, i, dgx_ui_rect(n->x, n->y, n->w, n->h), dgx_ui_color(paint, paint->paper));
         dgx_gauge_init(&fresh, paint->scr, n->x + n->w / 2 - paint->ox, n->y + n->h / 2 - paint->oy, outer - thick, thick, 225.0f, 270,
                        w->min, w->max, ring_off, ring_color);
-        dgx_gauge_set_value(&fresh, n->state_value.value);
+        dgx_gauge_set_value(&fresh, dgx_ui_value_of(n));
         if (!paint->composing) r->gauge = fresh, r->made = true; /* remembered only by the painter's own pass */
     } else if (paint->part == 0) {
-        dgx_gauge_set_value(&r->gauge, n->state_value.value); /* only the steps that changed */
+        dgx_gauge_set_value(&r->gauge, dgx_ui_value_of(n)); /* only the steps that changed */
     } else {
         dgx_gauge_redraw(&r->gauge); /* another part of it, beside a popup: all of the ring there */
     }
@@ -2073,10 +2174,12 @@ typedef struct {
 } ppm_t;
 DGX_UI_MESSAGE(ppm, MSG_PPM, ppm_t)
 
+static int32_t ring_ppm; /* the ring's value */
+
 static bool ring_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 {
     ppm_t v;
-    if (msg_decode_ppm(msg, &v) == ESP_OK) dgx_ui_set_value(ui, i, v.ppm);
+    if (msg_decode_ppm(msg, &v) == ESP_OK) ring_ppm = v.ppm; /* shown within 400..2000 by the pass after this message */
     return false; /* the number inside reads the same message */
 }
 
@@ -2096,7 +2199,7 @@ static const dgx_ui_look_t ring_look   = {.draw = ring_draw, .params = &ring_par
 
 /* the ring is a column: its pad keeps its children inside the circle */
 static const dgx_ui_widget_t ring_w = {
-    .kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 47, .gap = 2, .min = 400, .max = 2000,
+    .kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 47, .gap = 2, .min = 400, .max = 2000, .value = &ring_ppm,
     .look = &ring_look, .own = &ring_data, .take = ring_take};
 static const dgx_ui_widget_t ppm_w       = {.kind = DGX_UI_LABEL, .text = &ppm_box, .want_h = 44, .take = ppm_take};
 static const dgx_ui_widget_t ppm_unit_w  = {.kind = DGX_UI_LABEL, .text = &ppm_unit_box};

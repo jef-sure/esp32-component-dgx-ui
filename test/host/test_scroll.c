@@ -21,6 +21,16 @@
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
 
+/* a place for the value of a widget made at run time, a new one each time, 0 in it */
+static int32_t  place_pool[256];
+static int      place_next;
+static int32_t *new_place(void)
+{
+    int32_t *place = &place_pool[place_next++ % 256];
+    *place         = 0;
+    return place;
+}
+
 static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800}; /* paper, ink, a fill, the accent: the pick and the bar */
 
 static const char *const months[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
@@ -61,7 +71,7 @@ static void make(tree_t *t, const char *text, int min, int max, int want_w, int 
 {
     memset(t, 0, sizeof *t);
     dgx_ui_textbox_init(&t->box, t->buf, sizeof t->buf, 1, &style);
-    t->w = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .text = &t->box, .min = (int16_t)min, .max = (int16_t)max, .want_w = (int16_t)want_w,
+    t->w = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .value = new_place(), .text = &t->box, .min = (int16_t)min, .max = (int16_t)max, .want_w = (int16_t)want_w,
                              .want_h = (int16_t)want_h, .look = &dgx_ui_look_list, .on = on_list};
     dgx_ui_init(&t->ui, t->nodes, 4, 1);
     dgx_ui_add(&t->ui, -1, &root_w);
@@ -130,7 +140,7 @@ int main(void)
         CHECK(dgx_ui_key(&s.ui, DGX_UI_KEY_NEXT));
         dgx_ui_paint(&s.ui, &ps, (uint32_t)k);
         const int top = k < 4 ? 0 : k - 3;
-        CHECK(n->state_value.value == k && s.box.top == top);
+        CHECK(dgx_ui_value_of(n) == k && s.box.top == top);
         if (k >= 4) CHECK(panel_twice(panel) == 0 && panel_written(panel) == n->w * n->h);
         dgx_ui_text_set(&r.ui, r.i, lines(top, 4)), dgx_ui_set_value(&r.ui, r.i, k - top);
         dgx_ui_paint(&r.ui, &pr, (uint32_t)k);
@@ -144,22 +154,22 @@ int main(void)
     told_n = 0;
     const int fx = n->x + 5, fy = n->y + rh + rh / 2, half = (rh + 1) / 2; /* half a row, rounded up: DGX-GE's 2 * ay >= rh */
     finger(&s.ui, fx, fy, true, false, 100);
-    CHECK(n->state_value.value == 5 && told_n == 0);
+    CHECK(dgx_ui_value_of(n) == 5 && told_n == 0);
     finger(&s.ui, fx, fy - half + 1, false, false, 110); /* short of half a row: nothing yet */
-    CHECK(n->state_value.value == 5);
+    CHECK(dgx_ui_value_of(n) == 5);
     finger(&s.ui, fx, fy - half, false, false, 120);
-    CHECK(n->state_value.value == 6 && s.box.top == 3);
+    CHECK(dgx_ui_value_of(n) == 6 && s.box.top == 3);
     finger(&s.ui, fx, fy - 2 * rh, false, false, 140);
-    CHECK(n->state_value.value == 7 && s.box.top == 4);
+    CHECK(dgx_ui_value_of(n) == 7 && s.box.top == 4);
     finger(&s.ui, fx, fy + rh, false, false, 160); /* back down past where it went down: back up the list */
-    CHECK(n->state_value.value == 4 && s.box.top == 4);
+    CHECK(dgx_ui_value_of(n) == 4 && s.box.top == 4);
     finger(&s.ui, fx, fy + rh, false, true, 180);
     CHECK(told_n == 3 && told[0] == DGX_UI_CHANGED && told[2] == DGX_UI_CHANGED);
     /* a tap on the third row shown: picked, and activated */
     told_n = 0;
     finger(&s.ui, fx, n->y + 2 * rh + rh / 2, true, false, 1000);
     finger(&s.ui, fx, n->y + 2 * rh + rh / 2, false, true, 1100);
-    CHECK(n->state_value.value == 6 && told_n == 2 && told[0] == DGX_UI_CHANGED && told[1] == DGX_UI_ACTIVATED);
+    CHECK(dgx_ui_value_of(n) == 6 && told_n == 2 && told[0] == DGX_UI_CHANGED && told[1] == DGX_UI_ACTIVATED);
     dgx_ui_focus(&s.ui, -1); /* the finger brought the focus: the reference has none */
     dgx_ui_paint(&s.ui, &ps, 11);
 
@@ -194,7 +204,7 @@ int main(void)
         int picked = 0;
         for (int y = n->y; y < n->y + n->h; ++y)
             for (int x = n->x; x < n->x + rw; ++x) picked += panel->mem[y][x] == colors[3];
-        CHECK(s.box.top == 3 && n->state_value.value == 11 && picked == 0);
+        CHECK(s.box.top == 3 && dgx_ui_value_of(n) == 11 && picked == 0);
     }
     dgx_ui_text_scroll(&s.ui, s.i, 100);
     CHECK(s.box.top == 8);
@@ -214,12 +224,12 @@ int main(void)
     dgx_ui_paint(&s.ui, &ps, 15);
     finger(&s.ui, fx, fy, true, false, 2000);
     finger(&s.ui, fx, fy - rh, false, false, 2020);
-    CHECK(n->state_value.value == 3);
+    CHECK(dgx_ui_value_of(n) == 3);
     dgx_ui_set_value(&s.ui, s.i, 10);
     dgx_ui_paint(&s.ui, &ps, 2030); /* the window brought to it when drawn */
     CHECK(s.box.top == 7);
     finger(&s.ui, fx, fy - 2 * rh, false, false, 2040);
-    CHECK(n->state_value.value == 4 && s.box.top == 4);
+    CHECK(dgx_ui_value_of(n) == 4 && s.box.top == 4);
     finger(&s.ui, fx, fy - 2 * rh, false, true, 2060);
     dgx_ui_paint(&s.ui, &ps, 16);
     dgx_ui_paint_free(&ps), dgx_ui_paint_free(&pr);
@@ -252,7 +262,7 @@ int main(void)
         static const dgx_ui_widget_t rest_root = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
         memset(&grow, 0, sizeof grow);
         dgx_ui_textbox_init(&grow.box, grow.buf, sizeof grow.buf, 1, &style);
-        grow.w = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .flags = DGX_UI_REST, .text = &grow.box, .max = 11, .look = &dgx_ui_look_list, .on = on_list};
+        grow.w = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .value = new_place(), .flags = DGX_UI_REST, .text = &grow.box, .max = 11, .look = &dgx_ui_look_list, .on = on_list};
         dgx_ui_init(&grow.ui, grow.nodes, 4, 1);
         dgx_ui_add(&grow.ui, -1, &rest_root);
         grow.i = dgx_ui_add(&grow.ui, 0, &grow.w);
@@ -265,7 +275,7 @@ int main(void)
         dgx_ui_paint(&grow.ui, &pv, 1);
         const dgx_ui_node_t *gn = dgx_ui_node(&grow.ui, grow.i);
         finger(&grow.ui, gn->x + 5, gn->y + line / 2, true, false, 3000), finger(&grow.ui, gn->x + 5, gn->y + line / 2, false, true, 3050);
-        CHECK(gn->h == 6 * line && gn->state_value.value == 6);
+        CHECK(gn->h == 6 * line && dgx_ui_value_of(gn) == 6);
         dgx_ui_free(&big.ui), dgx_ui_free(&grow.ui);
         /* in a frame: the bar of the colour 3 seen on its fill 2 */
         static tree_t f;
@@ -288,7 +298,8 @@ int main(void)
         static dgx_ui_dropdown_t     dd;
         static const dgx_ui_widget_t col = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
         dgx_ui_textbox_init(&box, buf, sizeof buf, 1, &style);
-        const dgx_ui_widget_t drop = {.kind = DGX_UI_DROPDOWN, .text = &box, .min = 0, .max = 19, .want_h = 12, .state = {.value = 15},
+        static int32_t drop_place = 15; /* its value */
+        const dgx_ui_widget_t drop = {.kind = DGX_UI_DROPDOWN, .value = &drop_place, .text = &box, .min = 0, .max = 19, .want_h = 12,
                                       .look = &dgx_ui_look_dropdown};
         dgx_ui_init(&ui, nodes, 2, 1);
         dgx_ui_add(&ui, -1, &col);
@@ -301,7 +312,7 @@ int main(void)
         dgx_ui_paint_t pv = {.scr = v, .colors = colors, .color_count = 4};
         dgx_ui_paint(&ui, &pv, 0); /* the list drawn: its window brought to the option chosen */
         const dgx_ui_node_t *ln = dgx_ui_node(&dd.tree, 1);
-        CHECK(dd.tree.root_rect.y == 12 && ln->h == 3 * line && box.top == 13 && dgx_ui_node(&dd.tree, 1)->state_value.value == 15);
+        CHECK(dd.tree.root_rect.y == 12 && ln->h == 3 * line && box.top == 13 && dgx_ui_value_of(dgx_ui_node(&dd.tree, 1)) == 15);
         dgx_ui_popup_close(&ui);
         dgx_ui_paint_free(&pv);
         dgx_ui_free(&ui);

@@ -19,6 +19,16 @@
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
 
+/* a place for the value of a widget made at run time, a new one each time, 0 in it */
+static int32_t  place_pool[256];
+static int      place_next;
+static int32_t *new_place(void)
+{
+    int32_t *place = &place_pool[place_next++ % 256];
+    *place         = 0;
+    return place;
+}
+
 _Static_assert(PANEL_BITS == 18 || PANEL_BITS == 24, "built with -DPANEL_BITS=18 or 24");
 
 static uint32_t colors[4] = {0x101820, 0xf0f0e8, 0x2c3c54, 0xf0a03c}; /* paper, ink, a fill, the accent: of 18 bits too, its bytes' low two bits clear */
@@ -47,7 +57,7 @@ static void make(tree_t *t)
     t->label = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t->t[0], .want_h = 12};
     t->inner = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t->t[1], .want_h = 12};
     t->field = (dgx_ui_widget_t){.kind = DGX_UI_INPUT, .text = &t->t[2], .want_h = 12, .look = &dgx_ui_look_input};
-    t->drop  = (dgx_ui_widget_t){.kind = DGX_UI_DROPDOWN, .text = &t->t[3], .max = 2, .want_w = 40, .want_h = 10, .look = &dgx_ui_look_dropdown};
+    t->drop  = (dgx_ui_widget_t){.kind = DGX_UI_DROPDOWN, .value = new_place(), .text = &t->t[3], .max = 2, .want_w = 40, .want_h = 10, .look = &dgx_ui_look_dropdown};
     t->lines = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t->t[4], .want_h = 22, .look = &dgx_ui_look_lines};
     dgx_ui_init(&t->ui, t->nodes, 10, 1);
     dgx_ui_add(&t->ui, -1, &root_w);
@@ -109,7 +119,7 @@ static void make_ticks(ticks_t *t)
 {
     memset(t, 0, sizeof *t);
     t->look = (dgx_ui_look_t){.draw = draw_tick, .params = t, .fill = -1};
-    t->tick = (dgx_ui_widget_t){.kind = DGX_UI_BOX, .max = 1000, .want_h = 16, .look = &t->look};
+    t->tick = (dgx_ui_widget_t){.kind = DGX_UI_BOX, .value = new_place(), .max = 1000, .want_h = 16, .look = &t->look};
     dgx_ui_init(&t->ui, t->nodes, 2, 1);
     dgx_ui_add(&t->ui, -1, &tick_root_w);
     dgx_ui_add(&t->ui, 0, &t->tick);
@@ -283,8 +293,8 @@ int main(void)
         static const dgx_ui_widget_t col = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2};
         dgx_ui_textbox_init(&ta, ba, sizeof ba, 1, &style), dgx_ui_textbox_init(&tb, bb, sizeof bb, 1, &style);
         const int line = dgx_ui_variant_line(&variant[0]);
-        wa = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .text = &ta, .max = 5, .want_h = (int16_t)(2 * line), .look = &dgx_ui_look_list};
-        wb = wa, wb.text = &tb;
+        wa = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .value = new_place(), .text = &ta, .max = 5, .want_h = (int16_t)(2 * line), .look = &dgx_ui_look_list};
+        wb = wa, wb.text = &tb, wb.value = new_place(); /* a copy shares the place otherwise */
         dgx_ui_init(&ua, na, 2, 1), dgx_ui_init(&ub, nb, 2, 1);
         dgx_ui_add(&ua, -1, &col), dgx_ui_add(&ub, -1, &col);
         dgx_ui_add(&ua, 0, &wa), dgx_ui_add(&ub, 0, &wb);

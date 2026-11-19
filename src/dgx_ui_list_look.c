@@ -77,6 +77,8 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     const dgx_ui_node_t      *n = dgx_ui_node(ui, i);
     const dgx_ui_widget_t    *w = n->widget;
     const dgx_ui_list_look_t *p = look->params;
+    static bool               told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
+    dgx_ui_tell_no_place(i, w, "a list", &told);
     dgx_ui_textbox_t         *box   = w->text;
     dgx_font_t               *f     = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
     const int                 all   = w->max - w->min + 1;
@@ -87,13 +89,13 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         return false;
     }
     const char    *text = box->buf ? box->buf : "";
-    const bool     focused = n->state_value.bits & DGX_UI_FOCUSED, off = n->state_value.bits & DGX_UI_DISABLED;
+    const bool     focused = n->state.bits & DGX_UI_FOCUSED, off = n->state.bits & DGX_UI_DISABLED;
     const uint8_t  bar = focused ? p->focused : p->pick;
     const uint32_t ink = dgx_ui_color(paint, off ? p->disabled : p->ink);
     const uint32_t bar_ink = dgx_ui_color(paint, off ? p->disabled : p->pick_ink);
     /* the window brought to the pick, its value set or its height changed (DGX_UI_MARK_WINDOW); stored, as what a look
        remembers, by the last part of the painter's own pass, the parts before it finding the same */
-    const int pick = n->state_value.value - w->min;
+    const int pick = dgx_ui_value_of(n) - w->min;
     if ((n->marks & DGX_UI_MARK_WINDOW) && rows < all) top = pick < top ? pick : pick >= top + rows ? pick - rows + 1 : top;
     const bool moved = top != box->top;
     if (moved && !paint->composing && paint->part + 1 >= paint->parts) box->top = (uint16_t)top;
@@ -103,7 +105,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     /* only the pick or the focus changed: the row picked before and the row picked now; disabled, or the window
        moved (CHANGED), all of them */
     const bool whole = paint->whole || moved || (n->marks & (DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT)) ||
-                       ((n->state_value.bits ^ n->state_drawn.bits) & DGX_UI_DISABLED);
+                       ((n->state.bits ^ n->state_drawn.bits) & DGX_UI_DISABLED);
     for (int r = 0; r < rows; ++r) {
         if (!whole && r != picked && r != was) continue;
         draw_row(paint, n, f, box->style->align, r, rows, rh, rw, top + r, text, r == picked ? bar : p->paper, r == picked ? bar_ink : ink);

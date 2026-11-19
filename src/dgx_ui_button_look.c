@@ -24,7 +24,7 @@ bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 {
     const dgx_ui_node_t        *n = dgx_ui_node(ui, i);
     const dgx_ui_button_look_t *p = look->params;
-    const unsigned              bits = n->state_value.bits;
+    const unsigned              bits = n->state.bits;
     const bool                  pressed = bits & DGX_UI_PRESSED, off = bits & DGX_UI_DISABLED;
     const uint32_t shadow = dgx_ui_color(paint, p->shadow);
     const uint32_t face   = dgx_ui_color(paint, off ? p->disabled : pressed ? p->pressed : (bits & DGX_UI_FOCUSED) ? p->focused : p->face);

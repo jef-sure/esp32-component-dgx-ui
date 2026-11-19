@@ -72,9 +72,11 @@ typedef struct {
    the lines, a button, a canvas */
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 1, .gap = 1};
 static const dgx_ui_widget_t frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .want_h = 30};
-static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .want_h = 6, .look = &dgx_ui_look_slider};
+static int32_t slider_w_place; /* its value */
+static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &slider_w_place, .max = 100, .want_h = 6, .look = &dgx_ui_look_slider};
 static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .want_h = 4, .look = &dgx_ui_look_button};
-static const dgx_ui_widget_t canvas_w = {.kind = DGX_UI_OWN, .flags = DGX_UI_CANVAS, .want_h = 3, .look = &canvas_look};
+static int32_t canvas_w_place; /* its value */
+static const dgx_ui_widget_t canvas_w = {.kind = DGX_UI_OWN, .value = &canvas_w_place, .flags = DGX_UI_CANVAS, .want_h = 3, .look = &canvas_look};
 
 static void make(tree_t *tree)
 {

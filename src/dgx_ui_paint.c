@@ -47,14 +47,21 @@ static bool fills_around(const dgx_ui_t *ui, const dgx_ui_node_t *n, const dgx_u
     if (!look || !(n->widget->flags & (DGX_UI_COLUMN | DGX_UI_ROW)) || (look->draw != dgx_ui_draw_box && look->draw != dgx_ui_draw_frame)) return false;
     for (int c = n->child; c >= 0; c = dgx_ui_at(ui, c)->next) {
         const dgx_ui_node_t *k = dgx_ui_at(ui, c);
-        if (!(k->state_value.bits & DGX_UI_HIDDEN) && k->child >= 0 && !dgx_ui_look_of(k->widget)) return false;
+        if (!(k->state.bits & DGX_UI_HIDDEN) && k->child >= 0 && !dgx_ui_look_of(k->widget)) return false;
     }
     return true;
 }
 
-static bool differs(const dgx_ui_state_t *a, const dgx_ui_state_t *b)
+/* its bits, or its value read from its place, are not what was drawn */
+static bool differs(const dgx_ui_node_t *n)
 {
-    return a->bits != b->bits || a->value != b->value;
+    return n->state.bits != n->state_drawn.bits || dgx_ui_value_of(n) != n->state_drawn.value;
+}
+
+/* drawn as it is now: its bits, and its value as its place holds it */
+static void drawn_now(dgx_ui_node_t *n)
+{
+    n->state_drawn.bits = n->state.bits, n->state_drawn.value = dgx_ui_value_of(n);
 }
 
 /* a rectangle cut by the covers: its parts counted, or drawn by a look, or laid with the paper, under a clip of each */
@@ -130,15 +137,15 @@ static dgx_ui_rect_t hull(dgx_ui_rect_t a, dgx_ui_rect_t b)
 static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool on_bg, bool whole, uint32_t now_ms, bool *time, const dgx_ui_rect_t *clip)
 {
     dgx_ui_node_t *w = dgx_ui_at(ui, i);
-    if (w->state_value.bits & DGX_UI_HIDDEN) return false; /* drawn whole when shown: what is under it waits */
+    if (w->state.bits & DGX_UI_HIDDEN) return false; /* drawn whole when shown: what is under it waits */
     whole |= (w->marks & DGX_UI_MARK_WHOLE) != 0;
-    const bool itself = whole || (w->marks & DGX_UI_MARKS_TO_DRAW) || differs(&w->state_value, &w->state_drawn);
+    const bool itself = whole || (w->marks & DGX_UI_MARKS_TO_DRAW) || differs(w);
     if (!itself && !(w->marks & DGX_UI_MARK_BELOW)) return false; /* nothing here, nor under it */
     /* what of it may be seen: its box within its parent's, and so on up; none, nothing of it or under it is drawn */
     dgx_ui_rect_t seen;
     if (!dgx_ui_rect_intersect(&(dgx_ui_rect_t){w->x, w->y, w->w, w->h}, clip, &seen)) {
         w->marks &= (uint8_t)~(DGX_UI_MARKS_TO_DRAW | DGX_UI_MARK_BELOW);
-        w->state_drawn = w->state_value;
+        drawn_now(w);
         return false;
     }
     const dgx_ui_look_t *look = look_told(ui, i);
@@ -156,7 +163,7 @@ static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool
     if (!unseen) {
         w->marks &= (uint8_t)~DGX_UI_MARKS_TO_DRAW;
         if (more) w->marks |= DGX_UI_MARK_TIME; /* the look is called again, and it alone knows whether time changed it */
-        w->state_drawn = w->state_value;
+        drawn_now(w);
     }
     /* else wholly under a cover: no part drawn, so its marks and its state as drawn stay, for the pass that sees it */
     *time |= more;
@@ -167,7 +174,7 @@ static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool
         for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) below |= walk(paint, ui, c, in, on_bg && !fills, whole, now_ms, time, &seen);
         w->marks = (uint8_t)(below ? w->marks | DGX_UI_MARK_BELOW : w->marks & ~DGX_UI_MARK_BELOW);
     }
-    return (w->marks & (DGX_UI_MARKS_TO_DRAW | DGX_UI_MARK_BELOW)) || differs(&w->state_value, &w->state_drawn);
+    return (w->marks & (DGX_UI_MARKS_TO_DRAW | DGX_UI_MARK_BELOW)) || differs(w);
 }
 
 bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
@@ -180,6 +187,7 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
         /* every tree, the popups' too, laid for the screen as it stands */
         dgx_ui_screen(t, scr->width, scr->height, turn);
         dgx_ui_layout(t);
+        dgx_ui_places(t); /* what the program wrote into the places since the last pass */
     }
     /* the keyboard's band gone or moved: the place it leaves composed again, the new band left alone */
     const dgx_ui_rect_t was = paint->cover_was, now = paint->cover;
@@ -234,7 +242,7 @@ static void walk_area(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper,
 {
     const dgx_ui_node_t *w = dgx_ui_at(ui, i);
     dgx_ui_rect_t        seen; /* its box within the area and its parent's: its children lie within it, or are cut */
-    if ((w->state_value.bits & DGX_UI_HIDDEN) || !dgx_ui_rect_intersect(&(dgx_ui_rect_t){w->x, w->y, w->w, w->h}, area, &seen)) return;
+    if ((w->state.bits & DGX_UI_HIDDEN) || !dgx_ui_rect_intersect(&(dgx_ui_rect_t){w->x, w->y, w->w, w->h}, area, &seen)) return;
     const dgx_ui_look_t *look  = look_told(ui, i);
     const bool           fills = look && look->fill >= 0;
     if (background && fills) return;

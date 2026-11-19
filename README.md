@@ -4,7 +4,7 @@
 
 dgx-ui is a light layer of widgets on [DGX](https://github.com/jef-sure/esp32-component-dgx), the display library for
 ESP32. Widgets stand in rows and columns, their values come as messages from other tasks, and the display is written
-only where something changed. It needs no memory for pixels: a widget is 28 bytes of RAM and 52 bytes of flash, and it
+only where something changed. It needs no memory for pixels: a widget is 28 bytes of RAM and 56 bytes of flash, and it
 draws straight on the display.
 
 ![A value in a frame, a clock and a note under it](docs/images/first.png)
@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.21: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.22: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -73,7 +73,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.21"
+    version: "0.0.22"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or a later 0.11; DGX comes by itself, from the registry. Start with
@@ -145,7 +145,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | --- | --- |
 | code of dgx-ui in the program | about 8 KB |
 | RAM of dgx-ui itself | none; 4 bytes once the program's loop calls `dgx_ui_time()` |
-| a widget | 28 bytes of RAM and 52 bytes of flash |
+| a widget | 28 bytes of RAM and 56 bytes of flash |
 | a message | 20 bytes |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB more |
 | the look of several lines, when a widget names it | about 2.5 KB more |

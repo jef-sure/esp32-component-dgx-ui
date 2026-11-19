@@ -91,11 +91,13 @@ static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COL
 static const dgx_ui_widget_t title_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_TITLE]};
 static const dgx_ui_widget_t row_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 10, .want_h = 28};
 static const dgx_ui_widget_t popup_w  = {.kind = DGX_UI_BUTTON, .text = &text_box[T_POPUP], .want_w = 90, .flags = DGX_UI_STRETCH, .look = &dgx_ui_look_button, .on = on_popup_button};
-static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 44, .want_h = 20, .at_y = 4, .look = &dgx_ui_look_switch, .on = on_switch};
+/* the program's values: where the switch, the dropdown and the slider keep theirs, written by the user, read here */
+static int32_t switch_on, mode_chosen, slider_percent;
+static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .value = &switch_on, .want_w = 44, .want_h = 20, .at_y = 4, .look = &dgx_ui_look_switch, .on = on_switch};
 /* a dropdown of four modes: its options the lines of its text box, its list opened by dgx_ui_dropdown_open() */
-static const dgx_ui_widget_t mode_w = {.kind = DGX_UI_DROPDOWN, .text = &text_box[T_MODE], .min = 0, .max = 3, .flags = DGX_UI_REST | DGX_UI_STRETCH,
+static const dgx_ui_widget_t mode_w = {.kind = DGX_UI_DROPDOWN, .text = &text_box[T_MODE], .min = 0, .max = 3, .value = &mode_chosen, .flags = DGX_UI_REST | DGX_UI_STRETCH,
                                        .look = &dgx_ui_look_dropdown, .on = on_mode};
-static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .step = 1, .want_h = 22, .look = &dgx_ui_look_slider, .on = on_slider};
+static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .step = 1, .value = &slider_percent, .want_h = 22, .look = &dgx_ui_look_slider, .on = on_slider};
 static const dgx_ui_widget_t value_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_SLIDER]};
 /* the fields, each on a paper of its own so that it shows empty: looks of the program's colours, constants in flash;
    the PIN's a secret one, a star for each digit */
@@ -151,7 +153,7 @@ static void on_answer(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, v
 static void on_switch(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what != DGX_UI_CHANGED) return;
-    dgx_ui_text_printf(t, status, "the switch turned %s", node->state_value.value ? "on" : "off");
+    dgx_ui_text_printf(t, status, "the switch turned %s", switch_on ? "on" : "off");
 }
 
 /* the dropdown: clicked, its list opened; an option chosen, told by CHANGED */
@@ -160,14 +162,14 @@ static void on_mode(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, voi
     if (what == DGX_UI_ACTIVATED) dgx_ui_dropdown_open(t, i, &dropdown, NULL, NULL);
     if (what == DGX_UI_CHANGED) {
         static const char *const modes[] = {"Auto", "Heat", "Cool", "Off"};
-        dgx_ui_text_printf(t, status, "the mode: %s", modes[node->state_value.value & 3]);
+        dgx_ui_text_printf(t, status, "the mode: %s", modes[mode_chosen & 3]);
     }
 }
 
 static void on_slider(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what != DGX_UI_CHANGED) return;
-    dgx_ui_text_printf(t, value, "%d %%", node->state_value.value);
+    dgx_ui_text_printf(t, value, "%d %%", (int)slider_percent);
 }
 
 /* the keypad of this program: rows of 7.5 mm, so that on the 2.8" glass of a CYD a strip is left above it; its last

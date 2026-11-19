@@ -88,14 +88,19 @@ enum {
 };
 
 /**
- * @brief The state of a widget: its bits and its value.
+ * @brief The bits of a widget's state: as it starts (a widget's .state) and as it is (a node's state).
  *
- * A widget keeps it twice: as it is (state_value) and as it was last drawn (state_drawn). Its look draws what
- * differs between the two.
+ * A widget's value is not here. It lives in the program's memory, where the widget's `value` points; a node keeps
+ * only the value it last drew (state_drawn), and a look draws what differs between that and the memory.
  */
+typedef struct dgx_ui_bits_t {
+    uint8_t bits; ///< DGX_UI_HIDDEN, DGX_UI_DISABLED, DGX_UI_FOCUSED, DGX_UI_PRESSED
+} dgx_ui_bits_t;
+
+/** @brief The state of a widget as it was last drawn: its bits and its value. */
 typedef struct dgx_ui_state_t {
     uint8_t bits;  ///< DGX_UI_HIDDEN, DGX_UI_DISABLED, DGX_UI_FOCUSED, DGX_UI_PRESSED
-    int16_t value; ///< the value of a control, within its min and max
+    int32_t value; ///< the value of a control as it was last drawn
 } dgx_ui_state_t;
 
 /*
@@ -108,7 +113,7 @@ enum {
     DGX_UI_FRAME,    ///< a box with a fill and a border
     DGX_UI_LABEL,     ///< a text box
     DGX_UI_PICTURE,  ///< one picture
-    DGX_UI_ICON,     ///< a picture of an array, state_value.value picks it; outside min..max, none
+    DGX_UI_ICON,     ///< a picture of an array, its value picks it; outside min..max, none
     DGX_UI_LIST,     ///< rows, one picked: the value, min the first row; more rows than its box takes, a window of them that scrolls
     DGX_UI_SWITCH,   ///< value 0 or 1
     DGX_UI_SLIDER,   ///< value min..max by step
@@ -248,13 +253,14 @@ typedef struct dgx_ui_widget_t {
     int16_t        want_w, want_h; ///< asked, in points; 0: the content's (a picture's size, a text's lines; a text has no width of its own, nor a box any size), or across the stacking all of the box
     int16_t        min, max, step; ///< the range of a control; a list's first row and its last, and its step the least height of a row in points (0: a line of its text)
     int16_t        tag;            ///< the program's: found by dgx_ui_find(), kept and nothing more
-    dgx_ui_state_t state;          ///< the state it starts with: HIDDEN, DISABLED, the first value
+    dgx_ui_bits_t  state;          ///< the state it starts with: HIDDEN, DISABLED
+    int32_t       *value;          ///< where its value lives, the program's memory; NULL: it has none (shows 0, nothing changes it)
     const dgx_ui_picture_t *picture; ///< PICTURE: one; ICON: an array of min..max
     dgx_ui_textbox_t       *text;    ///< LABEL, BUTTON, LIST, INPUT, DROPDOWN: the text box, in RAM
     const dgx_ui_look_t    *look;    ///< how it is drawn; NULL: the look of its kind
     bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg); ///< a message offered; true: claimed
     /** told what the user did, DGX_UI_ACTIVATED ...; node: the widget's node as it is now, its value set by the finger
-        or a key in node->state_value.value (a slider moved, a list's row taken); valid while the widget is in the tree */
+        or a key in the widget's place, dgx_ui_value_of(node) (a slider moved, a list's row taken); valid while the widget is in the tree */
     void (*on)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
     void *ctx;                     ///< for on()
     void *own;                     ///< OWN: its data
@@ -268,20 +274,41 @@ struct dgx_ui_node_t {
     int16_t                parent;        ///< -1 for the root
     int16_t                child, next;   ///< the first child and the next sibling, -1 none
     int16_t                x, y, w, h;    ///< laid: pixels of the screen
-    dgx_ui_state_t         state_value;   ///< the state as it is
-    dgx_ui_state_t         state_drawn;   ///< the state as it was last drawn: the painter's
+    dgx_ui_bits_t          state;   ///< its bits as they are; its value lives where the widget says
     uint8_t                marks;         ///< the library's: DGX_UI_MARK_*
+    dgx_ui_state_t         state_drawn;   ///< the bits and the value as they were last drawn: the painter's
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 #ifdef __cplusplus
-static_assert(sizeof(dgx_ui_widget_t) == 52, "the constant part of a widget is 52 bytes on a 32-bit chip");
+static_assert(sizeof(dgx_ui_widget_t) == 56, "the constant part of a widget is 56 bytes on a 32-bit chip");
 static_assert(sizeof(dgx_ui_node_t) == 28, "the node of a widget is 28 bytes of RAM on a 32-bit chip");
 #else
-_Static_assert(sizeof(dgx_ui_widget_t) == 52, "the constant part of a widget is 52 bytes on a 32-bit chip");
+_Static_assert(sizeof(dgx_ui_widget_t) == 56, "the constant part of a widget is 56 bytes on a 32-bit chip");
 _Static_assert(sizeof(dgx_ui_node_t) == 28, "the node of a widget is 28 bytes of RAM on a 32-bit chip");
 #endif
 #endif
+
+/**
+ * @brief The value of a widget's node: read from the place its widget names, and kept within min and max when
+ * min < max (an ICON's is not bound). 0 for a widget of no place. The memory itself is the program's and is not
+ * corrected: it may have come from flash.
+ *
+ * The place is written by the program, by the user through the core, or by dgx_ui_set_value(), all in the task that
+ * owns the tree: a constant with a place belongs to the trees of one task, and another task sends a message, as for
+ * any value. The painter looks at every place at the start of a pass and draws the widgets whose place holds other
+ * than they drew. A place written after a pass asks for no pass of its own: the task that writes it wakes its own
+ * loop (the message that made it write does), and the next pass draws it. A control of no place shows 0 and nothing
+ * changes it; its look tells it in the log, once a look.
+ */
+static inline int32_t dgx_ui_value_of(const dgx_ui_node_t *node)
+{
+    const dgx_ui_widget_t *w = node->widget;
+    if (!w || !w->value) return 0;
+    const int32_t value = *w->value;
+    if (w->max <= w->min || w->kind == DGX_UI_ICON) return value;
+    return value < w->min ? w->min : value > w->max ? w->max : value;
+}
 
 /** Widgets past the program's array come in blocks of so many. */
 enum { DGX_UI_BLOCK = 64 };
@@ -355,7 +382,8 @@ struct dgx_ui_t {
     bool              turned;             ///< the screen changed since the last layout: all to be drawn whole
     int16_t           focus;       ///< the focused widget, -1 none
     int16_t           pressed;     ///< the widget the pointer went down on, -1 none
-    int16_t           press_x, press_y, press_value, move_x, move_y;
+    int16_t           press_x, press_y, move_x, move_y;
+    int32_t           press_value;
     uint32_t          press_ms;    ///< when it went down
     bool              dragged;     ///< moved since it went down: no click when let go
     bool              swiped;      ///< swiped since it went down: no click when let go
@@ -401,6 +429,9 @@ void dgx_ui_free(dgx_ui_t *ui);
 
 /** @brief The node of a number, free or not; NULL past the tree. */
 dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i);
+
+/** @brief The value of widget i, as dgx_ui_value_of() reads it; 0 for a number that holds no widget. */
+int32_t dgx_ui_value(const dgx_ui_t *ui, int i);
 
 /** @brief The widget of a number: what the program said of it; NULL for a number that holds none. */
 const dgx_ui_widget_t *dgx_ui_widget(const dgx_ui_t *ui, int i);
@@ -478,7 +509,11 @@ bool dgx_ui_layout(dgx_ui_t *ui);
  * The state, changed by the program. None of these calls on(): it tells only what the user did.
  */
 
-/** @brief The value of a control set, within its min and max when min < max; an ICON's is not bound: outside its range it shows none. */
+/**
+ * @brief The value of a control written into its place, within its min and max when min < max; an ICON's is not
+ * bound: outside its range it shows none. A widget of no place: nothing. The program may as well write its memory
+ * itself, in the task that owns the tree: the painter looks at every place at the start of a pass.
+ */
 void dgx_ui_set_value(dgx_ui_t *ui, int i, int value);
 
 /**

@@ -21,6 +21,16 @@
 #include "dgx_vscreen.h"
 #include "fonts/TerminusTTFMedium12.h"
 
+/* a place for the value of a widget made at run time, a new one each time, 0 in it */
+static int32_t  place_pool[256];
+static int      place_next;
+static int32_t *new_place(void)
+{
+    int32_t *place = &place_pool[place_next++ % 256];
+    *place         = 0;
+    return place;
+}
+
 static uint32_t              colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 static dgx_ui_font_variant_t variant[1];
 static dgx_ui_text_style_t   style;
@@ -47,7 +57,7 @@ static void on_any(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, voi
     if (tag == BACK && what == DGX_UI_ACTIVATED) CHECK(dgx_ui_page_back(&home)); /* the page's own "back" */
     if (tag == SETTINGS_ROOT && what == DGX_UI_BACK) {
         open_when_told = settings.level > 0;
-        slider_seen    = dgx_ui_node(&settings, slider)->state_value.value;
+        slider_seen    = dgx_ui_value_of(dgx_ui_node(&settings, slider));
         if (back_mode == CLOSE_ITSELF) dgx_ui_popup_close(&home);
         if (back_mode == OPEN_ANOTHER) dgx_ui_page_open(&home, &third);
         if (back_mode == BACK_AGAIN) CHECK(dgx_ui_page_back(&home));
@@ -76,8 +86,10 @@ static void make_trees(void)
     static const dgx_ui_widget_t open_w        = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = OPEN, .on = on_any};
     static const dgx_ui_widget_t settings_w    = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = SETTINGS_ROOT, .on = on_any};
     static const dgx_ui_widget_t back_w        = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = BACK, .on = on_any};
-    static const dgx_ui_widget_t slider_w      = {.kind = DGX_UI_SLIDER, .max = 100, .want_h = 8, .tag = SLIDER, .on = on_any};
-    static const dgx_ui_widget_t own_w         = {.kind = DGX_UI_OWN, .want_h = 4, .look = &own_look, .tag = OWN, .on = on_any};
+    static int32_t slider_w_place; /* its value */
+    static const dgx_ui_widget_t slider_w      = {.kind = DGX_UI_SLIDER, .value = &slider_w_place, .max = 100, .want_h = 8, .tag = SLIDER, .on = on_any};
+    static int32_t own_w_place; /* its value */
+    static const dgx_ui_widget_t own_w         = {.kind = DGX_UI_OWN, .value = &own_w_place, .want_h = 4, .look = &own_look, .tag = OWN, .on = on_any};
     static const dgx_ui_widget_t second_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = SECOND_ROOT, .on = on_any};
     static const dgx_ui_widget_t third_w       = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = THIRD_ROOT, .on = on_any};
     static const dgx_ui_widget_t small_w       = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .on = on_any};
@@ -86,7 +98,7 @@ static void make_trees(void)
     static dgx_ui_widget_t       dropdown_w, reading_w;
     dgx_ui_textbox_init(&dropdown_box, dropdown_buf, sizeof dropdown_buf, 1, &style);
     dgx_ui_textbox_init(&reading_box, reading_buf, sizeof reading_buf, 1, &style);
-    dropdown_w = (dgx_ui_widget_t){.kind = DGX_UI_DROPDOWN, .text = &dropdown_box, .max = 2, .want_h = 12, .look = &dgx_ui_look_dropdown, .tag = DROPDOWN, .on = on_any};
+    dropdown_w = (dgx_ui_widget_t){.kind = DGX_UI_DROPDOWN, .value = new_place(), .text = &dropdown_box, .max = 2, .want_h = 12, .look = &dgx_ui_look_dropdown, .tag = DROPDOWN, .on = on_any};
     reading_w  = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &reading_box, .want_h = 6, .tag = READING, .take = take_reading};
     strcpy(dropdown_buf, "a\nb\nc");
     dgx_ui_init(&home, home_nodes, 3, 1);
@@ -182,11 +194,11 @@ int main(void)
     dgx_ui_paint(&home, &paint, 600);
     CHECK(dgx_ui_dropdown_open(&settings, dropdown, &dd, NULL, NULL) && settings.popup == &dd.tree);
     CHECK(dgx_ui_key(&home, DGX_UI_KEY_BACK) && settings.popup == NULL && home.popup == &settings);
-    CHECK(dgx_ui_node(&settings, dropdown)->state_value.value == 1);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&settings, dropdown)) == 1);
     /* a page opened over a list: the list closed, the pick kept, the new page on top; back shows the page, no list */
     CHECK(dgx_ui_dropdown_open(&settings, dropdown, &dd, NULL, NULL));
     CHECK(dgx_ui_page_open(&home, &second) && settings.popup == &second && dd.tree.level == 0);
-    CHECK(dgx_ui_page_back(&home) && home.popup == &settings && settings.popup == NULL && dgx_ui_node(&settings, dropdown)->state_value.value == 1);
+    CHECK(dgx_ui_page_back(&home) && home.popup == &settings && settings.popup == NULL && dgx_ui_value_of(dgx_ui_node(&settings, dropdown)) == 1);
     /* a modal dialog that is not closed outside: under the new page, and there again after back */
     CHECK(dgx_ui_popup_open(&settings, &dialog, 10, 10, 40, 20, DGX_UI_POPUP_MODAL));
     CHECK(dgx_ui_page_open(&home, &second) && settings.popup == &dialog && dialog.popup == &second);

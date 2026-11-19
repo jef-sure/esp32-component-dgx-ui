@@ -43,8 +43,10 @@ static const dgx_ui_widget_t w4     = {.kind = DGX_UI_PICTURE, .picture = &pic4,
 static const dgx_ui_widget_t w8     = {.kind = DGX_UI_PICTURE, .picture = &pic8, .want_w = 9, .want_h = 6, .look = &dgx_ui_look_indexed};
 static const dgx_ui_widget_t w1     = {.kind = DGX_UI_PICTURE, .picture = &pic1, .want_h = 10, .look = &dgx_ui_look_indexed};
 static const dgx_ui_widget_t w1_old = {.kind = DGX_UI_PICTURE, .picture = &pic1, .want_h = 10, .look = &dgx_ui_look_picture};
-static const dgx_ui_widget_t icon_w = {.kind = DGX_UI_ICON, .picture = two, .min = 0, .max = 1, .want_w = 10, .want_h = 7, .look = &dgx_ui_look_indexed};
-static const dgx_ui_widget_t far_w  = {.kind = DGX_UI_ICON, .picture = far_pics, .min = 0, .max = 1, .want_w = 8, .want_h = 6, .look = &dgx_ui_look_indexed};
+static int32_t icon_w_place; /* its value */
+static const dgx_ui_widget_t icon_w = {.kind = DGX_UI_ICON, .value = &icon_w_place, .picture = two, .min = 0, .max = 1, .want_w = 10, .want_h = 7, .look = &dgx_ui_look_indexed};
+static int32_t far_w_place; /* its value */
+static const dgx_ui_widget_t far_w  = {.kind = DGX_UI_ICON, .value = &far_w_place, .picture = far_pics, .min = 0, .max = 1, .want_w = 8, .want_h = 6, .look = &dgx_ui_look_indexed};
 static const dgx_ui_widget_t thin_w = {.kind = DGX_UI_PICTURE, .picture = &pic4, .want_w = 4, .want_h = 5, .look = &dgx_ui_look_indexed};
 static const dgx_ui_widget_t pop_w  = {.kind = DGX_UI_FRAME};
 

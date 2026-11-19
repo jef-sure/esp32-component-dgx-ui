@@ -27,7 +27,7 @@ static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 static int  changed, last_value, activated;
 static void on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) ++changed, last_value = node->state_value.value;
+    if (what == DGX_UI_CHANGED) ++changed, last_value = dgx_ui_value_of(node);
     if (what == DGX_UI_ACTIVATED) ++activated;
 }
 
@@ -40,7 +40,8 @@ static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .pad = 0}; /* child
 static const dgx_ui_widget_t column_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2};
 /* three options numbered 1..3, a dropdown 16 high: placed by at_y */
 static dgx_ui_widget_t       top_w, bottom_w, middle_w;
-static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 10, .want_w = 30, .want_h = 6, .at_x = 60, .at_y = 2};
+static int32_t slider_w_place; /* its value */
+static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &slider_w_place, .max = 10, .want_w = 30, .want_h = 6, .at_x = 60, .at_y = 2};
 static dgx_ui_widget_t       many_w; /* 6 options: 6 rows of 16 do not go into 80 */
 
 static dgx_ui_dropdown_t dd;
@@ -83,13 +84,15 @@ int main(void)
     dgx_ui_textbox_init(&opt_box, opt_buf, sizeof opt_buf, 1, &style);
     dgx_ui_textbox_init(&many_box, many_buf, sizeof many_buf, 1, &style);
     strcpy(opt_buf, "Apple\nBanana\nCherry"), strcpy(many_buf, "1\n2\n3\n4\n5\n6");
-    const dgx_ui_widget_t base = {.kind = DGX_UI_DROPDOWN, .text = &opt_box, .min = 1, .max = 3, .want_w = 40, .want_h = 16, .state = {.value = 1},
+    static int32_t base_place = 1; /* its value */
+    static int32_t copy_place[5] = {1, 1, 1, 1, 1}; /* a copy of a widget shares its place otherwise */
+    const dgx_ui_widget_t base = {.kind = DGX_UI_DROPDOWN, .value = &base_place, .text = &opt_box, .min = 1, .max = 3, .want_w = 40, .want_h = 16,
                                   .look = &dgx_ui_look_dropdown, .on = on};
-    top_w = base, top_w.at_y = 0;
-    bottom_w = base, bottom_w.at_y = -0; /* from the far edge: at the bottom */
+    top_w = base, top_w.at_y = 0, top_w.value = &copy_place[0];
+    bottom_w = base, bottom_w.at_y = -0, bottom_w.value = &copy_place[1]; /* from the far edge: at the bottom */
     bottom_w.at_y = -1, bottom_w.at_x = 0;
-    middle_w = base, middle_w.at_y = 24;
-    many_w = base, many_w.text = &many_box, many_w.max = 6, many_w.at_x = 50;
+    middle_w = base, middle_w.at_y = 24, middle_w.value = &copy_place[2];
+    many_w = base, many_w.value = &copy_place[3], many_w.text = &many_box, many_w.max = 6, many_w.at_x = 50;
 
     /* under it: rows of 16, a frame of 1 around: 3 * 16 + 2 high, at the dropdown's bottom */
     make();
@@ -102,10 +105,10 @@ int main(void)
     /* a finger on the third row: Cherry chosen, told once, the list closed */
     const dgx_ui_rect_t r = dd.tree.root_rect;
     tap(&ui, r.x + 5, r.y + 1 + 2 * 16 + 8);
-    CHECK(ui.popup == NULL && changed == 1 && last_value == 3 && dgx_ui_node(&ui, d)->state_value.value == 3);
+    CHECK(ui.popup == NULL && changed == 1 && last_value == 3 && dgx_ui_value_of(dgx_ui_node(&ui, d)) == 3);
     /* the keys: open, PREV moves the pick and tells the dropdown nothing, ACTIVATE chooses */
     CHECK(dgx_ui_dropdown_open(&ui, d, &dd, NULL, NULL));
-    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_PREV) && changed == 1 && dgx_ui_node(&ui, d)->state_value.value == 3);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_PREV) && changed == 1 && dgx_ui_value_of(dgx_ui_node(&ui, d)) == 3);
     CHECK(dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE) && ui.popup == NULL && changed == 2 && last_value == 2);
     /* the option it had chosen again: closed, nothing told */
     CHECK(dgx_ui_dropdown_open(&ui, d, &dd, NULL, NULL));
@@ -113,7 +116,7 @@ int main(void)
     /* a finger outside: closed, the value kept, nothing told */
     CHECK(dgx_ui_dropdown_open(&ui, d, &dd, NULL, NULL));
     tap(&ui, PANEL_W - 2, PANEL_H - 2);
-    CHECK(ui.popup == NULL && changed == 2 && dgx_ui_node(&ui, d)->state_value.value == 2);
+    CHECK(ui.popup == NULL && changed == 2 && dgx_ui_value_of(dgx_ui_node(&ui, d)) == 2);
     /* the dropdown removed while its list is open, a slider added in its number: a row tapped closes the list and sets
        nothing of the slider */
     {
@@ -124,7 +127,7 @@ int main(void)
         CHECK(s2 == d);
         changed = 0;
         tap(&ui, lr.x + 5, lr.y + 1 + 2 * 16 + 8);
-        CHECK(ui.popup == NULL && changed == 0 && dgx_ui_node(&ui, s2)->state_value.value == 0);
+        CHECK(ui.popup == NULL && changed == 0 && dgx_ui_value_of(dgx_ui_node(&ui, s2)) == 0);
         dgx_ui_remove(&ui, s2);
         d  = dgx_ui_add(&ui, 0, &top_w);
         dn = dgx_ui_node(&ui, d);
@@ -177,10 +180,10 @@ int main(void)
     dgx_ui_focus(&ui, sl);
     CHECK(dgx_ui_dropdown_open(&ui, d, &dd, NULL, NULL));
     dgx_ui_key(&ui, DGX_UI_KEY_MORE);
-    CHECK(dgx_ui_node(&ui, sl)->state_value.value == 0 && ui.popup == &dd.tree);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&ui, sl)) == 0 && ui.popup == &dd.tree);
     /* back closes the list, the value kept; then, nothing open, back is the program's */
-    const int kept = dgx_ui_node(&ui, d)->state_value.value;
-    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_BACK) && ui.popup == NULL && dgx_ui_node(&ui, d)->state_value.value == kept);
+    const int kept = dgx_ui_value_of(dgx_ui_node(&ui, d));
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_BACK) && ui.popup == NULL && dgx_ui_value_of(dgx_ui_node(&ui, d)) == kept);
     CHECK(!dgx_ui_key(&ui, DGX_UI_KEY_BACK));
     dgx_ui_free(&ui);
 
@@ -191,6 +194,7 @@ int main(void)
         static dgx_ui_t              pop;
         static const dgx_ui_widget_t pop_w = {.kind = DGX_UI_FRAME, .pad = 1};
         dgx_ui_widget_t              in_pop = base;
+        in_pop.value = &copy_place[4];
         in_pop.at_y = 2, in_pop.at_x = 2;
         make();
         dgx_ui_init(&pop, pn, 2, 1);
@@ -204,7 +208,7 @@ int main(void)
         const dgx_ui_rect_t lr = dd.tree.root_rect;
         CHECK(lr.y + lr.h == pdn->y && lr.y < PANEL_H - 24);
         tap(&ui, lr.x + 5, lr.y + 1 + 8); /* the first row, above the popup */
-        CHECK(pop.popup == NULL && ui.popup == &pop && changed == 0 && dgx_ui_node(&pop, pd)->state_value.value == 1); /* Apple, as it was */
+        CHECK(pop.popup == NULL && ui.popup == &pop && changed == 0 && dgx_ui_value_of(dgx_ui_node(&pop, pd)) == 1); /* Apple, as it was */
         CHECK(dgx_ui_dropdown_open(&pop, pd, &dd, NULL, NULL));
         tap(&ui, lr.x + 5, lr.y + 1 + 16 + 8); /* the second row */
         CHECK(pop.popup == NULL && changed == 1 && last_value == 2);
@@ -275,7 +279,7 @@ int main(void)
         int off = 0;
         for (int y = 0; y < PANEL_H; ++y)
             for (int x = 0; x < PANEL_W; ++x) off += dgx_get_pixel(shown, x, y) != dgx_get_pixel(fresh, x, y);
-        CHECK(top > 0 && rows < 6 && many_box.top == top && off == 0 && face->state_value.value == 6 &&
+        CHECK(top > 0 && rows < 6 && many_box.top == top && off == 0 && dgx_ui_value(&ui, d) == 6 &&
               text_on_row(shown, dgx_ui_node(&dd.tree, 1), rows, 4 - 1 - top) > 0);
         /* two options now, the list's pick the fourth, the dropdown's value the sixth */
         dgx_ui_text_set(&ui, d, "one\ntwo");
@@ -287,7 +291,7 @@ int main(void)
         for (int y = 0; y < PANEL_H; ++y)
             for (int x = 0; x < PANEL_W; ++x) off += dgx_get_pixel(shown, x, y) != dgx_get_pixel(fresh, x, y);
         const dgx_ui_node_t *list = dgx_ui_node(&dd.tree, 1);
-        CHECK(off == 0 && face->state_value.value == 6 && list->state_value.value == 4 && many_box.top == top &&
+        CHECK(off == 0 && dgx_ui_value(&ui, d) == 6 && dgx_ui_value(&dd.tree, 1) == 4 && many_box.top == top &&
               text_on_row(shown, list, rows, 4 - 1 - many_box.top) == 0);
         dgx_ui_popup_close(&ui);
         dgx_ui_paint(&ui, &pp, 40);

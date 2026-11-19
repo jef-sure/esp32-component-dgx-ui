@@ -34,7 +34,7 @@ static bool dial_key(dgx_ui_t *ui, int i, int key)
 {
     if (key != DGX_UI_KEY_MORE && key != DGX_UI_KEY_LESS) return false;
     const dgx_ui_node_t *n = dgx_ui_node(ui, i);
-    dgx_ui_user_value(ui, i, n->state_value.value + (key == DGX_UI_KEY_MORE ? 5 : -5));
+    dgx_ui_user_value(ui, i, dgx_ui_value_of(n) + (key == DGX_UI_KEY_MORE ? 5 : -5));
     return true;
 }
 static int  ups, up_click = -1;
@@ -85,7 +85,7 @@ static int  told[32], told_n, told_value[32], remove_at = -1;
 static void on_any(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == DGX_UI_FOCUS) return;
-    if (told_n < 32) told_value[told_n] = node->state_value.value, told[told_n++] = what;
+    if (told_n < 32) told_value[told_n] = dgx_ui_value_of(node), told[told_n++] = what;
     if (remove_at == i && what == DGX_UI_CHANGED) dgx_ui_remove(ui, i), remove_at = -1;
 }
 
@@ -98,10 +98,14 @@ int main(void)
 {
     static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 0, .gap = 0};
     static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .want_w = 20, .want_h = 41, .on = on_any};
-    const dgx_ui_widget_t        dial_w   = {.kind = DGX_UI_OWN, .max = 99, .want_w = 41, .want_h = 41, .look = &dial_look, .on = on_any};
-    const dgx_ui_widget_t        pad_w    = {.kind = DGX_UI_OWN, .max = 100, .want_w = 101, .want_h = 41, .look = &pad_look, .on = on_any, .own = &pad_y};
-    const dgx_ui_widget_t        press_w  = {.kind = DGX_UI_OWN, .max = 100, .want_w = 20, .want_h = 41, .look = &press_look, .on = on_any};
-    const dgx_ui_widget_t        plain_w  = {.kind = DGX_UI_OWN, .want_w = 20, .want_h = 41, .look = &plain_look, .on = on_any};
+    static int32_t dial_w_place; /* its value */
+    const dgx_ui_widget_t        dial_w   = {.kind = DGX_UI_OWN, .value = &dial_w_place, .max = 99, .want_w = 41, .want_h = 41, .look = &dial_look, .on = on_any};
+    static int32_t pad_w_place; /* its value */
+    const dgx_ui_widget_t        pad_w    = {.kind = DGX_UI_OWN, .value = &pad_w_place, .max = 100, .want_w = 101, .want_h = 41, .look = &pad_look, .on = on_any, .own = &pad_y};
+    static int32_t press_w_place; /* its value */
+    const dgx_ui_widget_t        press_w  = {.kind = DGX_UI_OWN, .value = &press_w_place, .max = 100, .want_w = 20, .want_h = 41, .look = &press_look, .on = on_any};
+    static int32_t plain_w_place; /* its value */
+    const dgx_ui_widget_t        plain_w  = {.kind = DGX_UI_OWN, .value = &plain_w_place, .want_w = 20, .want_h = 41, .look = &plain_look, .on = on_any};
     static dgx_ui_node_t         nodes[8];
     static dgx_ui_t              ui;
     dgx_ui_init(&ui, nodes, 8, 1);
@@ -121,19 +125,19 @@ int main(void)
        up() with no click, no ACTIVATED; the finger owned while dragged */
     told_n = 0;
     finger(&ui, cx, cy + 15, true, false, 1000);
-    CHECK(dn->state_value.value == 25 && (dn->state_value.bits & (DGX_UI_PRESSED | DGX_UI_FOCUSED)) == (DGX_UI_PRESSED | DGX_UI_FOCUSED));
+    CHECK(dgx_ui_value_of(dn) == 25 && (dn->state.bits & (DGX_UI_PRESSED | DGX_UI_FOCUSED)) == (DGX_UI_PRESSED | DGX_UI_FOCUSED));
     CHECK(!dgx_ui_dragging(&ui));
     finger(&ui, cx - 15, cy, false, false, 1050);
-    CHECK(dn->state_value.value == 50 && dgx_ui_dragging(&ui));
+    CHECK(dgx_ui_value_of(dn) == 50 && dgx_ui_dragging(&ui));
     finger(&ui, cx, cy - 15, false, false, 1100);
-    CHECK(dn->state_value.value == 75);
+    CHECK(dgx_ui_value_of(dn) == 75);
     ups = 0;
     finger(&ui, cx, cy - 15, false, true, 1150);
-    CHECK(ups == 1 && up_click == 0 && !(dn->state_value.bits & DGX_UI_PRESSED) && told_n == 3);
+    CHECK(ups == 1 && up_click == 0 && !(dn->state.bits & DGX_UI_PRESSED) && told_n == 3);
     for (int k = 0; k < told_n; ++k) CHECK(told[k] == DGX_UI_CHANGED);
     /* the keys: MORE taken by it, five on; NEXT past it to the next that takes the focus, past the pad */
     told_n = 0;
-    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_MORE) && dn->state_value.value == 80 && told_n == 1);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_MORE) && dgx_ui_value_of(dn) == 80 && told_n == 1);
     CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && ui.focus == pr);
     CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && ui.focus == bt);
     CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && ui.focus == d);
@@ -142,9 +146,9 @@ int main(void)
     /* the pad: the finger alone, the focus left on the button; x the value, y its own, told CHANGED for each */
     told_n = 0;
     finger(&ui, pn->x + 50, pn->y + 10, true, false, 2000);
-    CHECK(ui.focus == bt && pn->state_value.value == 50 && pad_y == 25 && told_n == 2);
+    CHECK(ui.focus == bt && dgx_ui_value_of(pn) == 50 && pad_y == 25 && told_n == 2);
     finger(&ui, pn->x + 100, pn->y + 40, false, false, 2050);
-    CHECK(pn->state_value.value == 100 && pad_y == 100 && dgx_ui_dragging(&ui));
+    CHECK(dgx_ui_value_of(pn) == 100 && pad_y == 100 && dgx_ui_dragging(&ui));
     finger(&ui, pn->x + 100, pn->y + 40, false, true, 2100);
 
     /* of no move(): pressed and clicked as a button, up() first, the value it set heard of with the click */
@@ -168,7 +172,8 @@ int main(void)
     /* a click whose up() puts another widget in its slot: the new one told nothing */
     {
         static const dgx_ui_widget_t newcomer_w = {.kind = DGX_UI_BUTTON, .want_w = 20, .want_h = 20, .on = on_any};
-        const dgx_ui_widget_t        swap_w     = {.kind = DGX_UI_OWN, .want_w = 20, .want_h = 41, .look = &swap_look, .on = on_any};
+        static int32_t swap_w_place; /* its value */
+        const dgx_ui_widget_t        swap_w     = {.kind = DGX_UI_OWN, .value = &swap_w_place, .want_w = 20, .want_h = 41, .look = &swap_look, .on = on_any};
         swap_in                                 = &newcomer_w;
         const int sw                            = dgx_ui_add(&ui, 0, &swap_w);
         dgx_ui_layout(&ui);
@@ -210,14 +215,15 @@ int main(void)
         told_n = 0, ups = 0;
         finger(&ui, on->x + 5, on->y + 5, true, false, 6000);
         finger(&ui, on->x + 5, on->y + 5, false, true, 6050);
-        CHECK(ups == 0 && on->state_value.value == 0 && told_n == 1 && told[0] == DGX_UI_ACTIVATED);
+        CHECK(ups == 0 && dgx_ui_value_of(on) == 0 && told_n == 1 && told[0] == DGX_UI_ACTIVATED);
     }
 
     /* keys pressed, no buttons ever read: no key is held, dgx_ui_time() has nothing to step and calls nothing */
     CHECK(!dgx_ui_time(&ui, 5000) && !dgx_ui_time(&ui, 0));
     /* dgx_ui_user_value() on a slider, as the user: CHANGED once; the same value, nothing */
     {
-        static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 10, .want_w = 40, .want_h = 10, .on = on_any};
+        static int32_t slider_w_place; /* its value */
+        static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &slider_w_place, .max = 10, .want_w = 40, .want_h = 10, .on = on_any};
         const int                    s        = dgx_ui_add(&ui, 0, &slider_w);
         told_n                                = 0;
         dgx_ui_user_value(&ui, s, 7);

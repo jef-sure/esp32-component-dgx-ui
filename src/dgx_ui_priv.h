@@ -21,9 +21,12 @@ dgx_ui_node_t *dgx_ui_at(const dgx_ui_t *ui, int i);
 
 /*
  * Widget i is to be drawn: a mark set, or its state changed. Every widget above it is marked DGX_UI_MARK_BELOW, so the
- * painter goes down to it and skips the rest. Called by every writer of a mark or of state_value.
+ * painter goes down to it and skips the rest. Called by every writer of a mark or of state.
  */
 void dgx_ui_touched(dgx_ui_t *ui, int i);
+
+/* every widget whose place holds other than what was drawn marked: called by the painter before a pass */
+void dgx_ui_places(dgx_ui_t *ui);
 
 /*
  * The rows of a list shown, the one count the core's finger and the look both go by: all of them, sharing its box,

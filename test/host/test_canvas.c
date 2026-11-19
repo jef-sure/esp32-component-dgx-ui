@@ -18,6 +18,16 @@
 #include "dgx_vscreen.h"
 #include "panel.h"
 
+/* a place for the value of a widget made at run time, a new one each time, 0 in it */
+static int32_t  place_pool[256];
+static int      place_next;
+static int32_t *new_place(void)
+{
+    int32_t *place = &place_pool[place_next++ % 256];
+    *place         = 0;
+    return place;
+}
+
 static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800}; /* the paper, ink, a fill, the accent */
 
 /* DGX's allocator of virtual screens, failing for 8 bits while asked: no memory for a canvas */
@@ -60,7 +70,7 @@ static bool draw_bars(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     bool                 made;
     dgx_screen_t        *c = dgx_ui_canvas(paint, ui, i, &made);
     if (c && made) b->drawn[s] = 0, ++b->made;
-    for (; c && b->drawn[s] < n->state_value.value; ++b->drawn[s], ++b->bars)
+    for (; c && b->drawn[s] < dgx_ui_value_of(n); ++b->drawn[s], ++b->bars)
         dgx_fill_rectangle(c, 3 * b->drawn[s], 0, 2, c->height, (uint32_t)(1 + b->drawn[s] % 3));
     dgx_ui_canvas_put(paint, ui, i, -1);
     return false;
@@ -107,7 +117,7 @@ typedef struct {
 static void make(tree_t *t, const dgx_ui_look_t *look, const dgx_ui_widget_t *root)
 {
     memset(t, 0, sizeof *t);
-    t->w = (dgx_ui_widget_t){.kind = DGX_UI_OWN, .flags = DGX_UI_CANVAS, .want_h = 20, .max = 30, .look = look, .own = &t->own, .on = on_canvas};
+    t->w = (dgx_ui_widget_t){.kind = DGX_UI_OWN, .value = new_place(), .flags = DGX_UI_CANVAS, .want_h = 20, .max = 30, .look = look, .own = &t->own, .on = on_canvas};
     dgx_ui_init(&t->ui, t->nodes, 4, 1);
     dgx_ui_add(&t->ui, -1, root);
     t->i = dgx_ui_add(&t->ui, 0, &t->w);
@@ -230,6 +240,7 @@ int main(void)
         make(&t, &bars_look, &root_w);
         t.w.on              = on_remove;
         dgx_ui_widget_t two = t.w;
+        two.value = new_place();
         two.on = on_canvas, two.own = &own2;
         remove_i = dgx_ui_add(&t.ui, 0, &two);
         dgx_ui_add(&t.ui, 0, &after);
@@ -265,6 +276,7 @@ int main(void)
         static dgx_ui_t      pop;
         static bars_t        own;
         dgx_ui_widget_t      w = a.w;
+        w.value = new_place();
         w.own                  = &own;
         dgx_ui_init(&pop, pnodes, 2, 1);
         dgx_ui_add(&pop, -1, &pop_w);

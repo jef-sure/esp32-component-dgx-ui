@@ -91,12 +91,13 @@ int main(void)
     dgx_ui_textbox_init(&lines_box, lines_text, sizeof lines_text, 2, &style);
     dgx_ui_textbox_init(&choice_box, choice_text, sizeof choice_text, 1, &style);
     dgx_ui_textbox_init(&field_box, field_text, sizeof field_text, 1, &style);
+    static int32_t               list_pick, choice_pick; /* the places of the list's and the dropdown's values */
     static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
     static const dgx_ui_widget_t label_w  = {.kind = DGX_UI_LABEL, .text = &label_box};
     static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .text = &button_box, .want_h = 14, .look = &dgx_ui_look_button};
-    static const dgx_ui_widget_t list_w   = {.kind = DGX_UI_LIST, .min = 0, .max = 1, .text = &list_box, .want_h = 20, .look = &dgx_ui_look_list};
+    static const dgx_ui_widget_t list_w   = {.kind = DGX_UI_LIST, .min = 0, .max = 1, .value = &list_pick, .text = &list_box, .want_h = 20, .look = &dgx_ui_look_list};
     static const dgx_ui_widget_t lines_w  = {.kind = DGX_UI_LABEL, .text = &lines_box, .look = &dgx_ui_look_lines};
-    static const dgx_ui_widget_t choice_w = {.kind = DGX_UI_DROPDOWN, .min = 0, .max = 1, .text = &choice_box, .want_h = 14, .look = &dgx_ui_look_dropdown};
+    static const dgx_ui_widget_t choice_w = {.kind = DGX_UI_DROPDOWN, .min = 0, .max = 1, .value = &choice_pick, .text = &choice_box, .want_h = 14, .look = &dgx_ui_look_dropdown};
     static const dgx_ui_widget_t field_w  = {.kind = DGX_UI_INPUT, .text = &field_box, .want_h = 12, .look = &dgx_ui_look_input};
     static dgx_ui_node_t         nodes[8];
     static dgx_ui_t              ui;

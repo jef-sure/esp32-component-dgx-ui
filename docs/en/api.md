@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.21: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.22: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -48,9 +48,13 @@ A rectangle of a screen in pixels. One of no width or no height is empty.
 ### The state
 
 ```c
+typedef struct dgx_ui_bits_t {
+    uint8_t bits;
+} dgx_ui_bits_t;
+
 typedef struct dgx_ui_state_t {
     uint8_t bits;
-    int16_t value;
+    int32_t value;
 } dgx_ui_state_t;
 ```
 
@@ -61,7 +65,25 @@ typedef struct dgx_ui_state_t {
 | `DGX_UI_FOCUSED` | the keys go to it |
 | `DGX_UI_PRESSED` | pressed, by a finger on it or by the program |
 
-`value` is the value of a control, the row of a list, the picture of an icon.
+`dgx_ui_bits_t` is the bits of a state: as a widget starts, its `state`, and as it is, the `state` of its node.
+`dgx_ui_state_t` is a state as it was last drawn, the bits and the value: the node's `state_drawn`.
+
+**The value** of a control, the row picked in a list, the picture of an icon, is not in the tree. It lives in an
+`int32_t` of the program's, its place, which the widget names by `value`.
+
+- The place is written by the program, by the user through the core, or by `dgx_ui_set_value()`, all in the task
+  that owns the tree. A constant with a place belongs to the trees of one task; another task sends a message.
+- The painter looks at every place at the start of a pass and draws the widgets whose place holds another value
+  than they drew. So filling the variables before the first pass is loading the settings, and writing them out is
+  saving them.
+- A place written after a pass asks for no pass of its own: the task that writes it is awake, by the message that
+  made it write, and its next pass draws it.
+- Read by `dgx_ui_value()` or `dgx_ui_value_of()`, a value is kept within `min..max` when `min < max`; an icon's is
+  not. The memory itself is left as it is, since it may have come from flash; the user's next change writes it
+  within the bounds.
+- Several widgets may name one place, and all of them follow it. A constant added twice, or to two trees, shares its
+  value.
+- A control with no place shows 0 and nothing changes it; its look says so in the log, once a look.
 
 ### A widget
 
@@ -74,7 +96,8 @@ typedef struct dgx_ui_widget_t {
     int16_t        want_w, want_h;
     int16_t        min, max, step;
     int16_t        tag;
-    dgx_ui_state_t state;
+    dgx_ui_bits_t  state;
+    int32_t       *value;
     const dgx_ui_picture_t *picture;
     dgx_ui_textbox_t       *text;
     const dgx_ui_look_t    *look;
@@ -85,7 +108,7 @@ typedef struct dgx_ui_widget_t {
 } dgx_ui_widget_t;
 ```
 
-What the program says of a widget. The library never writes it; it is 52 bytes on a 32-bit chip. Zero is the default
+What the program says of a widget. The library never writes it; it is 56 bytes on a 32-bit chip. Zero is the default
 of every member.
 
 | Member | Meaning |
@@ -97,12 +120,13 @@ of every member.
 | `want_w`, `want_h` | its size in points; 0: the size of its content, or across the stacking all of the box |
 | `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list, and in `step` the least height of its rows in points, 0 a line of its text; the values of an icon's pictures |
 | `tag` | the program's number of it, found by `dgx_ui_find()`; 0 for none |
-| `state` | the state it starts with: `DGX_UI_HIDDEN`, `DGX_UI_DISABLED`, the first value |
+| `state` | the state it starts with: `.state = {.bits = DGX_UI_HIDDEN}`, or `DGX_UI_DISABLED` |
+| `value` | where its value lives, an `int32_t` of the program's: `.value = &volume`; `NULL`: it has none. See the value above |
 | `picture` | a picture: one; an icon: an array for the values `min..max` |
 | `text` | its text box, in RAM |
 | `look` | how it is drawn; `NULL`: the look of its kind, which a box, a frame and a label have. Any other widget with no look is not drawn, and the painter logs it once |
 | `take` | called with every message offered to the tree; `true` claims the message |
-| `on` | told what the user did to it: see the events below. It gets the widget's node as it is now: `node->state_value.value` is the value the user set |
+| `on` | told what the user did to it: see the events below. It gets the widget's node as it is now; the value the user set is in the widget's place, the program's own variable, and `dgx_ui_value_of(node)` reads it too |
 | `ctx` | given to `on()` |
 | `own` | the data of a widget of the program's own kind |
 
@@ -175,9 +199,9 @@ typedef struct dgx_ui_node_t {
     int16_t                parent;
     int16_t                child, next;
     int16_t                x, y, w, h;
-    dgx_ui_state_t         state_value;
-    dgx_ui_state_t         state_drawn;
+    dgx_ui_bits_t          state;
     uint8_t                marks;
+    dgx_ui_state_t         state_drawn;
 } dgx_ui_node_t;
 ```
 
@@ -188,8 +212,8 @@ A widget in a tree, 28 bytes of RAM on a 32-bit chip. The program reads it and d
 | `widget` | what the program said of it; `NULL`: a free slot |
 | `parent`, `child`, `next` | the numbers of its parent, its first child and its next sibling; -1 for none |
 | `x`, `y`, `w`, `h` | where it was laid, in pixels of the screen |
-| `state_value` | its state as it is: `state_value.value` is the value of a control |
-| `state_drawn` | its state as it was last drawn: the painter's |
+| `state` | its bits as they are: `state.bits`. Its value lives where its widget says |
+| `state_drawn` | its bits and its value as they were last drawn: the painter's |
 | `marks` | the library's: see below |
 
 | Mark | Meaning |
@@ -238,7 +262,9 @@ None of these tells `on()`.
 
 | Call | What it does |
 | ---- | ------------ |
-| `void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)` | The value set, kept within `min..max` when `min < max`. An icon's is not bound: outside its range it shows no picture. |
+| `int32_t dgx_ui_value(const dgx_ui_t *ui, int i)` | The value of widget `i`, read from its place and kept within `min..max` when `min < max`; an icon's is not bound. 0 for a widget of no place and for a number that holds no widget. |
+| `int32_t dgx_ui_value_of(const dgx_ui_node_t *node)` | The same of a node, for an `on()` and a look, which are given the node. An inline of the header. |
+| `void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)` | The value written into the widget's place, within `min..max` when `min < max`. An icon's is not bound: outside its range it shows no picture. A widget of no place: nothing. The program may as well write its variable itself. |
 | `void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)` | `DGX_UI_DISABLED` or `DGX_UI_PRESSED` set or cleared. Disabled, a widget loses the focus, and a press of the finger on it ends. |
 | `void dgx_ui_show(dgx_ui_t *ui, int i, bool shown)` | Shown or hidden; its row or column is laid again. Hidden, it loses the focus and a press of the finger. |
 | `void dgx_ui_redraw(dgx_ui_t *ui, int i)` | Drawn whole at the next pass, with everything under it. |
@@ -909,12 +935,13 @@ typedef struct dgx_ui_dropdown_t {
     dgx_ui_t        tree;     /* the popup: a frame holding the list */
     dgx_ui_node_t   nodes[2];
     dgx_ui_widget_t frame, list;
+    int32_t         pick;     /* the place of the list's pick while it is open */
     dgx_ui_t       *ui;       /* the tree of the dropdown whose list it shows */
     int16_t         i;        /* that dropdown */
 } dgx_ui_dropdown_t;
 ```
 
-The popup of a list, in the program's RAM: 264 bytes on a 32-bit chip, zeroed before its first use, as a `static`
+The popup of a list, in the program's RAM: 276 bytes on a 32-bit chip, zeroed before its first use, as a `static`
 is. One list is open at a time, so one serves every dropdown of the program.
 
 | Call | What it does |
@@ -934,6 +961,9 @@ The program calls it when the dropdown's `on()` is told `DGX_UI_ACTIVATED`.
   chosen again, closes the list and tells nothing. Closed any other way, the value stays and nothing is told.
 - The list shows the dropdown's own text. Options set while it is open are shown at once, its window kept. The
   program does not remove the dropdown while its list is open.
+- The list has a place of its own for its pick, `pick`, filled from the dropdown's when it opens. A value the
+  program writes into the dropdown's place while the list is open is shown on the dropdown and not in the list;
+  closed with no choice, the dropdown keeps the program's value; a row chosen writes over it.
 
 ## dgx_ui_transition.h
 

@@ -24,7 +24,8 @@ static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 
 /* a column on a display of 96x64 pixels, 48x32 mm: a slider and a button from the left edge, paper under them */
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
-static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .want_h = 10, .max = 100, .look = &dgx_ui_look_slider};
+static int32_t slider_w_place; /* its value */
+static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &slider_w_place, .want_h = 10, .max = 100, .look = &dgx_ui_look_slider};
 static int                   clicks;
 static void                  on_button(dgx_ui_t *u, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
@@ -124,7 +125,7 @@ int main(void)
 
     /* the slider at the left edge, dragged right 40 pixels: it owns the finger, no swipe from the edge */
     stroke(&touch, 2, 5, 42, 5, 1000, 0);
-    CHECK(all.taken && all.edge == 0 && dgx_ui_node(&ui, sl)->state_value.value > 0);
+    CHECK(all.taken && all.edge == 0 && dgx_ui_value_of(dgx_ui_node(&ui, sl)) > 0);
     /* the button at the left edge, the same way, in 180 ms: the swipe from the edge is the program's, no plain
        swipe; the button pressed till the finger went up, no click */
     stroke(&touch, 2, 15, 42, 15, 2000, 0);
@@ -242,7 +243,7 @@ int main(void)
     /* a second finger down on the slider while the first holds the button: not the first; the first up clicks the
        button, and the second moved along the slider after it drags nothing */
     clicks_before        = clicks;
-    const int slider_was = dgx_ui_node(&ui, sl)->state_value.value;
+    const int slider_was = dgx_ui_value(&ui, sl);
     for (uint32_t t = 10000; t <= 10100; t += 10) read_pointer(&pointer, &device, &touch, t < 10040 ? 1 : 2, bx, by, 4, 5, t);
     for (uint32_t t = 10110; t <= 10300; t += 10) {
         device.count     = 1; /* the finger left, now the device's first */
@@ -251,7 +252,7 @@ int main(void)
         dgx_ui_di_gestures_t gestures;
         dgx_ui_di_pointer(&ui, &pointer, &touch, t, &gestures);
     }
-    CHECK(clicks == clicks_before + 1 && dgx_ui_node(&ui, sl)->state_value.value == slider_was && !dgx_ui_holding(&ui));
+    CHECK(clicks == clicks_before + 1 && dgx_ui_value(&ui, sl) == slider_was && !dgx_ui_holding(&ui));
     for (uint32_t t = 10310; t <= 10360; t += 10) read_pointer(&pointer, &device, &touch, 0, 0, 0, 0, 0, t);
 
     dgx_ui_free(&ui);

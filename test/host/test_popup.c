@@ -224,7 +224,8 @@ int main(void)
     dgx_ui_free(&ui), dgx_ui_free(&pop);
     /* 3: a slider of a popup held: the tree tells it is dragged */
     {
-        static const dgx_ui_widget_t pslider = {.kind = DGX_UI_SLIDER, .want_h = 10, .max = 10, .look = &dgx_ui_look_slider};
+        static int32_t pslider_place; /* its value */
+        static const dgx_ui_widget_t pslider = {.kind = DGX_UI_SLIDER, .value = &pslider_place, .want_h = 10, .max = 10, .look = &dgx_ui_look_slider};
         static dgx_ui_node_t         tn[2], pn2[3];
         dgx_ui_t                     tree, p2;
         dgx_ui_init(&tree, tn, 2, 1), dgx_ui_add(&tree, -1, &root_w);
@@ -252,7 +253,7 @@ int main(void)
         dgx_ui_layout(&tree);
         const dgx_ui_node_t *fn = dgx_ui_node(&tree, f);
         CHECK(dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(fn->x + 2), .y = (int16_t)(fn->y + 2), .down = true, .pressed = true}));
-        CHECK(tree.popup == &editor && tree.pressed == -1 && !(fn->state_value.bits & DGX_UI_PRESSED));
+        CHECK(tree.popup == &editor && tree.pressed == -1 && !(fn->state.bits & DGX_UI_PRESSED));
         dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(fn->x + 2), .y = (int16_t)(fn->y + 2), .released = true});
         CHECK(tree.pressed == -1 && !dgx_ui_holding(&tree));
         dgx_ui_popup_close(&tree);

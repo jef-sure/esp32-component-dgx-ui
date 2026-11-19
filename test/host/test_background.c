@@ -24,6 +24,16 @@
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
 
+/* a place for the value of a widget made at run time, a new one each time, 0 in it */
+static int32_t  place_pool[256];
+static int      place_next;
+static int32_t *new_place(void)
+{
+    int32_t *place = &place_pool[place_next++ % 256];
+    *place         = 0;
+    return place;
+}
+
 static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800}; /* the background's colour, ink, a fill, the accent */
 
 /* the map: no pixel of it one of the table's colours (its blue never under 16, its green never 63) */
@@ -93,11 +103,13 @@ static const dgx_ui_look_t own_look = {.draw = draw_own, .fill = -1};
 
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 static const dgx_ui_widget_t frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .want_h = 18};
-static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 10, .want_h = 8, .look = &dgx_ui_look_slider};
+static int32_t slider_w_place; /* its value */
+static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &slider_w_place, .max = 10, .want_h = 8, .look = &dgx_ui_look_slider};
 static const dgx_ui_widget_t row_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
 static const dgx_ui_widget_t p1_w     = {.kind = DGX_UI_PICTURE, .picture = &pic1, .want_w = 12, .look = &dgx_ui_look_picture};
 static const dgx_ui_widget_t p4_w     = {.kind = DGX_UI_PICTURE, .picture = &pic4, .want_w = 12, .look = &dgx_ui_look_indexed};
-static const dgx_ui_widget_t none_w   = {.kind = DGX_UI_ICON, .want_w = 12, .look = &dgx_ui_look_picture};
+static int32_t none_w_place; /* its value */
+static const dgx_ui_widget_t none_w   = {.kind = DGX_UI_ICON, .value = &none_w_place, .want_w = 12, .look = &dgx_ui_look_picture};
 static const dgx_ui_widget_t own_w    = {.kind = DGX_UI_BOX, .want_w = 20, .look = &own_look};
 static const dgx_ui_widget_t p565_w   = {.kind = DGX_UI_PICTURE, .picture = &pic565, .want_w = 12, .look = &dgx_ui_look_rgb565};
 
@@ -124,7 +136,7 @@ static void make(tree_t *t)
     t->button = (dgx_ui_widget_t){.kind = DGX_UI_BUTTON, .text = &t->t[2], .want_h = 14, .look = &dgx_ui_look_button};
     t->input  = (dgx_ui_widget_t){.kind = DGX_UI_INPUT, .text = &t->t[3], .want_h = 12, .look = &dgx_ui_look_input};
     t->lines  = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t->t[4], .want_h = 24, .look = &dgx_ui_look_lines};
-    t->list   = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .text = &t->t[5], .max = 1, .want_h = 26, .look = &dgx_ui_look_list};
+    t->list   = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .value = new_place(), .text = &t->t[5], .max = 1, .want_h = 26, .look = &dgx_ui_look_list};
     dgx_ui_init(&t->ui, t->nodes, 18, 1);
     dgx_ui_add(&t->ui, -1, &root_w);
     t->l  = dgx_ui_add(&t->ui, 0, &t->label);

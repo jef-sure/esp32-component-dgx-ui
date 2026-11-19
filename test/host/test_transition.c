@@ -23,6 +23,16 @@
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
 
+/* a place for the value of a widget made at run time, a new one each time, 0 in it */
+static int32_t  place_pool[256];
+static int      place_next;
+static int32_t *new_place(void)
+{
+    int32_t *place = &place_pool[place_next++ % 256];
+    *place         = 0;
+    return place;
+}
+
 static uint32_t              colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 static dgx_ui_font_variant_t variant[1];
 static dgx_ui_text_style_t   style;
@@ -93,17 +103,19 @@ static void make_trees(void)
 {
     static const dgx_ui_widget_t home_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
     static const dgx_ui_widget_t open_w      = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = OPEN, .on = on_any};
-    static const dgx_ui_widget_t counter_w   = {.kind = DGX_UI_OWN, .want_h = 2, .look = &counter_look};
+    static int32_t counter_w_place; /* its value */
+    static const dgx_ui_widget_t counter_w   = {.kind = DGX_UI_OWN, .value = &counter_w_place, .want_h = 2, .look = &counter_look};
     static const dgx_ui_widget_t root_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = SETTINGS_ROOT, .on = on_any};
     static const dgx_ui_widget_t back_w      = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = BACK, .on = on_any};
-    static const dgx_ui_widget_t passes_w    = {.kind = DGX_UI_OWN, .want_h = 2, .look = &passes_look};
+    static int32_t passes_w_place; /* its value */
+    static const dgx_ui_widget_t passes_w    = {.kind = DGX_UI_OWN, .value = &passes_w_place, .want_h = 2, .look = &passes_look};
     static dgx_ui_widget_t       clock_w, label_w, list_w;
     dgx_ui_textbox_init(&clock_box, clock_buf, sizeof clock_buf, 1, &style);
     dgx_ui_textbox_init(&label_box, label_buf, sizeof label_buf, 1, &style);
     dgx_ui_textbox_init(&list_box, list_buf, sizeof list_buf, 1, &style);
     clock_w = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &clock_box, .want_h = 13, .take = take_time};
     label_w = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &label_box, .want_h = 13};
-    list_w  = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .text = &list_box, .max = 11, .want_h = 26, .look = &dgx_ui_look_list};
+    list_w  = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .value = new_place(), .text = &list_box, .max = 11, .want_h = 26, .look = &dgx_ui_look_list};
     dgx_ui_init(&home, home_nodes, 4, 1);
     dgx_ui_add(&home, -1, &home_root_w);
     clock_label = dgx_ui_add(&home, 0, &clock_w);

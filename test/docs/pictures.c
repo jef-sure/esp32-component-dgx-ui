@@ -142,12 +142,13 @@ static const dgx_ui_widget_t set_root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_
 static const dgx_ui_widget_t title_w     = {.kind = DGX_UI_LABEL, .text = &title_box, .want_h = 18};
 static const dgx_ui_widget_t line_w      = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 12, .gap = 4};
 static const dgx_ui_widget_t light_lbl_w = {.kind = DGX_UI_LABEL, .text = &light_box, .want_w = 50, .at_y = 2};
-static const dgx_ui_widget_t light_w     = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_w = 94, .tag = TAG_LIGHT, .state = {.value = 70}, .look = &look_slider};
+static int32_t               light_value = 70, wifi_value = 1, signal_value = 3, sound_value; /* the places of the controls' values */
+static const dgx_ui_widget_t light_w     = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_w = 94, .tag = TAG_LIGHT, .value = &light_value, .look = &look_slider};
 static const dgx_ui_widget_t wifi_lbl_w  = {.kind = DGX_UI_LABEL, .text = &wifi_box, .want_w = 50, .at_y = 2};
-static const dgx_ui_widget_t wifi_w      = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .tag = TAG_WIFI, .state = {.value = 1}, .look = &look_switch};
-static const dgx_ui_widget_t signal_w    = {.kind = DGX_UI_ICON, .picture = signal_pic, .min = 1, .max = 4, .want_w = 12, .tag = TAG_SIGNAL, .state = {.value = 3}, .look = &dgx_ui_look_picture};
+static const dgx_ui_widget_t wifi_w      = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .tag = TAG_WIFI, .value = &wifi_value, .look = &look_switch};
+static const dgx_ui_widget_t signal_w    = {.kind = DGX_UI_ICON, .picture = signal_pic, .min = 1, .max = 4, .want_w = 12, .tag = TAG_SIGNAL, .value = &signal_value, .look = &dgx_ui_look_picture};
 static const dgx_ui_widget_t sound_lbl_w = {.kind = DGX_UI_LABEL, .text = &sound_box, .want_w = 50, .at_y = 2};
-static const dgx_ui_widget_t sound_w     = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .tag = TAG_SOUND, .look = &look_switch};
+static const dgx_ui_widget_t sound_w     = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .tag = TAG_SOUND, .value = &sound_value, .look = &look_switch};
 static const dgx_ui_widget_t buttons_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 18, .gap = 6};
 static const dgx_ui_widget_t ok_w        = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &ok_box, .want_w = 60, .tag = TAG_OK, .look = &look_button, .on = on_ok};
 static const dgx_ui_widget_t cancel_w    = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &cancel_box, .want_w = 60, .tag = TAG_CANCEL, .state = {.bits = DGX_UI_DISABLED}, .look = &look_button};
@@ -265,8 +266,9 @@ static const dgx_ui_widget_t pick_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_
 static const dgx_ui_widget_t pick_col_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .gap = 3, .want_w = 66};
 static const dgx_ui_widget_t mode_l_w    = {.kind = DGX_UI_LABEL, .text = &mode_l_box};
 static const dgx_ui_widget_t fan_l_w     = {.kind = DGX_UI_LABEL, .text = &fan_l_box};
-static const dgx_ui_widget_t mode_w = {.kind = DGX_UI_LIST, .text = &mode_box, .min = 0, .max = 3, .want_h = 56, .look = &dgx_ui_look_list};
-static const dgx_ui_widget_t fan_w  = {.kind = DGX_UI_DROPDOWN, .text = &fan_box, .min = 0, .max = 2, .want_h = 16, .look = &dgx_ui_look_dropdown};
+static int32_t               mode_value, fan_value;
+static const dgx_ui_widget_t mode_w = {.kind = DGX_UI_LIST, .text = &mode_box, .min = 0, .max = 3, .want_h = 56, .value = &mode_value, .look = &dgx_ui_look_list};
+static const dgx_ui_widget_t fan_w  = {.kind = DGX_UI_DROPDOWN, .text = &fan_box, .min = 0, .max = 2, .want_h = 16, .value = &fan_value, .look = &dgx_ui_look_dropdown};
 
 static void scene_pick(dgx_screen_t *scr, const char *out_list, const char *out_dropdown)
 {

@@ -29,7 +29,7 @@ static const dgx_ui_picture_t *shown(const dgx_ui_node_t *n)
     const dgx_ui_widget_t *w = n->widget;
     if (!w->picture) return NULL;
     if (w->kind != DGX_UI_ICON) return w->picture;
-    const int v = n->state_value.value;
+    const int v = dgx_ui_value_of(n);
     return v >= w->min && v <= w->max ? &w->picture[v - w->min] : NULL;
 }
 

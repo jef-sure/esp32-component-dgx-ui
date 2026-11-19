@@ -48,7 +48,7 @@ static void around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t a, 
     for (int c = n->child; c >= 0; c = dgx_ui_at(ui, c)->next) {
         const dgx_ui_node_t *k = dgx_ui_at(ui, c);
         dgx_ui_rect_t        r;
-        if ((k->state_value.bits & DGX_UI_HIDDEN) || !dgx_ui_look_of(k->widget)) continue; /* covers nothing */
+        if ((k->state.bits & DGX_UI_HIDDEN) || !dgx_ui_look_of(k->widget)) continue; /* covers nothing */
         if (!dgx_ui_rect_intersect(&(dgx_ui_rect_t){k->x, k->y, k->w, k->h}, &a, &r)) continue;
         if (column) {
             if (r.y < at) r.h -= at - r.y, r.y = at; /* over the one before: what is left of it */

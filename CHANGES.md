@@ -1,5 +1,19 @@
 # Changes
 
+## 0.0.22 - 2026-11-20
+
+- A widget's value lives in the program's memory: the widget names its place, `.value = &variable` (an `int32_t`), and
+  the painter looks at every place at the start of a pass. The program writes its variable and calls nothing; saving
+  settings is writing its own array. `dgx_ui_value()` and `dgx_ui_value_of()` read a value within the bounds, the
+  memory left as it is.
+- A program of 0.0.21 changes three things:
+  - a first value, `.state = {.value = 5}`, becomes a variable of 5 and `.value = &variable`;
+  - a handler's `node->state_value.value` becomes its own variable, or `dgx_ui_value(ui, i)`;
+  - `state_value.bits` becomes `state.bits`.
+- A slider, switch, list or dropdown with no place shows 0, nothing changes it, and its look says so in the log.
+- A widget is 56 bytes of flash, was 52; the smallest program about 180 bytes of code more, a program of controls about
+  650.
+
 ## 0.0.21 - 2026-11-20
 
 - The statistics count a pass of `dgx_ui_changed()` too (`dgx_ui_changed_measured()`), the frames of a transition with

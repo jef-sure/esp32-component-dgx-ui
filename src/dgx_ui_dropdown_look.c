@@ -10,7 +10,7 @@
  */
 
 #include "dgx_draw.h"
-#include "dgx_ui_paint.h"
+#include "dgx_ui_paint_priv.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_text_priv.h"
 
@@ -46,7 +46,9 @@ bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
     const dgx_ui_node_t          *n = dgx_ui_node(ui, i);
     const dgx_ui_widget_t        *w = n->widget;
     const dgx_ui_dropdown_look_t *p = look->params;
-    const unsigned                bits = n->state_value.bits;
+    static bool                   told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
+    dgx_ui_tell_no_place(i, w, "a dropdown", &told);
+    const unsigned                bits = n->state.bits;
     const bool                    off  = bits & DGX_UI_DISABLED;
     const uint32_t face = dgx_ui_color(paint, off ? p->disabled : (bits & DGX_UI_PRESSED) ? p->pressed : (bits & DGX_UI_FOCUSED) ? p->focused : p->face);
     const uint32_t ink = dgx_ui_color(paint, off ? p->text_disabled : p->text), arrow = dgx_ui_color(paint, off ? p->text_disabled : p->arrow);
@@ -66,7 +68,7 @@ bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
         fill(paint, n->x, bottom, tw, n->y + n->h - bottom, face);
         const int pad = cell / 4; /* the text away from the left edge */
         char      line[DGX_UI_LINE + 1];
-        line_of(box->buf ? box->buf : "", n->state_value.value - w->min, line);
+        line_of(box->buf ? box->buf : "", dgx_ui_value_of(n) - w->min, line);
         const int y0 = (top > n->y ? top : n->y) - paint->oy, y1 = (bottom < n->y + n->h ? bottom : n->y + n->h) - paint->oy;
         const int cy0 = y0 > py ? y0 : py, cy1 = y1 < py + ph ? y1 : py + ph;
         if (cy1 > cy0) {

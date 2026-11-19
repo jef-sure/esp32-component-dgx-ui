@@ -55,7 +55,7 @@ void owner_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 ## A widget is two parts
 
 What the program says of a widget is a `dgx_ui_widget_t`: its kind, its sizes, its range, its text box and picture,
-its look, its two functions. The library never writes it. It is 52 bytes on a 32-bit chip and lies in flash when it is
+its look, its two functions. The library never writes it. It is 56 bytes on a 32-bit chip and lies in flash when it is
 `static const`.
 
 What changes while the program runs is a `dgx_ui_node_t`, 28 bytes of RAM: a pointer to the widget, the links to its
@@ -120,8 +120,12 @@ children that stayed where they were are not drawn again. After a turn of the sc
 
 ## State and events
 
-The state of a widget is four bits and a value: hidden, disabled, focused, pressed, and the value of a control. A node
-keeps it twice: as it is, `state_value`, and as it was last drawn, `state_drawn`.
+The state of a widget is four bits: hidden, disabled, focused, pressed. The value of a control is not in the tree:
+it lives in a variable of the program's that the widget names, `.value = &volume`. A node keeps the bits as they are,
+`state`, and the bits and the value as they were last drawn, `state_drawn`. At the start of every pass the painter
+looks at the variables, and it draws a widget when what it drew differs from what is there. So the program writes a
+value into its own memory and the next pass shows it; filling the variables at the start is loading the settings, and
+writing them out is saving them. Only the task that owns the tree writes them; another task sends a message.
 
 Anybody may change the state through the calls: the pointer, a key, the program, a message.
 A value or a state set to what it was is not drawn again: the painter compares the state as it is with the state
@@ -320,8 +324,9 @@ come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide)
 
 | What | Size on a 32-bit chip |
 | ---- | --------------------- |
-| a widget, constant | 52 bytes of flash |
+| a widget, constant | 56 bytes of flash |
 | its node | 28 bytes of RAM |
+| the value of a control | an `int32_t` of the program's, 4 bytes of RAM |
 | a block of 64 nodes, when the program's array is full | 1792 bytes |
 | a message | 20 bytes |
 | a text box | 28 bytes and the program's buffer |

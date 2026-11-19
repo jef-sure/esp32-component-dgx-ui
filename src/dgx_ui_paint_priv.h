@@ -65,3 +65,8 @@ void dgx_ui_field_text(dgx_ui_paint_t *paint, const dgx_font_context_t *ctx, int
 /* a rectangle of the tree's screen composed, as dgx_ui_paint_area() does it; background: only where the drawn
    background shows (dgx_ui_background_changed()), nothing within a widget whose look fills */
 void dgx_ui_compose(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area, bool background);
+
+/* a control drawn with no place for its value (its widget's .value NULL), told in the log by the look that draws it,
+   once a look: its number, its tag and its kind in words (dgx_ui_control_looks.c). A program of no control carries
+   none of the words */
+void dgx_ui_tell_no_place(int i, const dgx_ui_widget_t *w, const char *kind, bool *told);

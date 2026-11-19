@@ -33,9 +33,12 @@ static dgx_ui_textbox_t      ok_box;
 
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 1, .gap = 1};
 static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .text = &ok_box, .want_h = 16, .look = &dgx_ui_look_button};
-static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .want_h = 8, .want_w = 20, .max = 1, .look = &dgx_ui_look_switch};
-static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .want_h = 8, .max = 10, .step = 1, .look = &dgx_ui_look_slider};
-static const dgx_ui_widget_t icon_w   = {.kind = DGX_UI_ICON, .picture = icons, .min = 0, .max = 1, .want_h = 10, .look = &dgx_ui_look_picture};
+static int32_t switch_w_place; /* its value */
+static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .value = &switch_w_place, .want_h = 8, .want_w = 20, .max = 1, .look = &dgx_ui_look_switch};
+static int32_t slider_w_place; /* its value */
+static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &slider_w_place, .want_h = 8, .max = 10, .step = 1, .look = &dgx_ui_look_slider};
+static int32_t icon_w_place; /* its value */
+static const dgx_ui_widget_t icon_w   = {.kind = DGX_UI_ICON, .value = &icon_w_place, .picture = icons, .min = 0, .max = 1, .want_h = 10, .look = &dgx_ui_look_picture};
 static const dgx_ui_widget_t rgb_w    = {.kind = DGX_UI_PICTURE, .picture = &rgb_pic, .want_h = 5, .look = &dgx_ui_look_rgb565};
 
 static dgx_ui_node_t nodes[8];

@@ -42,8 +42,10 @@ static const dgx_ui_look_t   own_box   = {.draw = dgx_ui_draw_box, .fill = -1};
 static const dgx_ui_widget_t own_box_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .look = &own_box};
 static const dgx_ui_widget_t frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .gap = 2, .want_h = 56};
 static const dgx_ui_widget_t free_w  = {.kind = DGX_UI_BOX};
-static const dgx_ui_widget_t icon_w  = {.kind = DGX_UI_ICON, .picture = icons, .want_w = 20, .want_h = 10, .at_x = 4, .at_y = 4, .look = &dgx_ui_look_picture};
-static const dgx_ui_widget_t extra_w = {.kind = DGX_UI_ICON, .picture = icons, .want_w = 8, .want_h = 8, .look = &dgx_ui_look_picture};
+static int32_t icon_w_place; /* its value */
+static const dgx_ui_widget_t icon_w  = {.kind = DGX_UI_ICON, .value = &icon_w_place, .picture = icons, .want_w = 20, .want_h = 10, .at_x = 4, .at_y = 4, .look = &dgx_ui_look_picture};
+static int32_t extra_w_place; /* its value */
+static const dgx_ui_widget_t extra_w = {.kind = DGX_UI_ICON, .value = &extra_w_place, .picture = icons, .want_w = 8, .want_h = 8, .look = &dgx_ui_look_picture};
 
 /* a look of the program's for a widget that holds children: a ring's scale, say, drawn over what it fills */
 static bool ring_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
@@ -53,7 +55,8 @@ static bool ring_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     return false;
 }
 static const dgx_ui_look_t   ring_look = {.draw = ring_draw, .fill = 2};
-static const dgx_ui_widget_t ring_w    = {.kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 3, .gap = 2, .look = &ring_look};
+static int32_t ring_w_place; /* its value */
+static const dgx_ui_widget_t ring_w    = {.kind = DGX_UI_OWN, .value = &ring_w_place, .flags = DGX_UI_COLUMN, .pad = 3, .gap = 2, .look = &ring_look};
 
 static void make_tree(tree_t *t, const dgx_ui_widget_t *root, bool in_frame)
 {
@@ -203,7 +206,8 @@ int main(void)
         /* hidden it is not met: a tree of a hidden one is not told */
         static tree_t c;
         make_tree(&c, &box_w, false);
-        static const dgx_ui_widget_t own = {.kind = DGX_UI_OWN, .want_h = 6, .state = {.bits = DGX_UI_HIDDEN}};
+        static int32_t own_place; /* its value */
+        static const dgx_ui_widget_t own = {.kind = DGX_UI_OWN, .value = &own_place, .want_h = 6, .state = {.bits = DGX_UI_HIDDEN}};
         const int                    o   = dgx_ui_add(&c.ui, 0, &own);
         dgx_ui_paint(&c.ui, &pa, 0);
         CHECK(!c.ui.told_look);

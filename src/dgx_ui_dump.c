@@ -62,13 +62,13 @@ static void line_of(const dgx_ui_t *ui, int i, int depth)
     const dgx_ui_widget_t *w = n->widget;
     char                   bits[48], marks[96], text[40];
     const char            *kind = w->kind < sizeof kinds / sizeof *kinds ? kinds[w->kind] : "?";
-    names_of(n->state_value.bits, bit_names, 4, bits, sizeof bits);
+    names_of(n->state.bits, bit_names, 4, bits, sizeof bits);
     names_of(n->marks, mark_names, 8, marks, sizeof marks);
     if (w->text && w->text->buf)
         SAY("%*s#%d %s %d,%d %dx%d v=%d bits=%s marks=%s tag=%d \"%s\"", 2 * depth, "", i, kind, n->x, n->y, n->w, n->h,
-                 n->state_value.value, bits, marks, w->tag, start_of(w->text->buf, text));
+                 dgx_ui_value_of(n), bits, marks, w->tag, start_of(w->text->buf, text));
     else
-        SAY("%*s#%d %s %d,%d %dx%d v=%d bits=%s marks=%s tag=%d", 2 * depth, "", i, kind, n->x, n->y, n->w, n->h, n->state_value.value,
+        SAY("%*s#%d %s %d,%d %dx%d v=%d bits=%s marks=%s tag=%d", 2 * depth, "", i, kind, n->x, n->y, n->w, n->h, dgx_ui_value_of(n),
                  bits, marks, w->tag);
     for (int c = n->child; c >= 0; c = dgx_ui_node(ui, c)->next) line_of(ui, c, depth + 1);
 }

@@ -24,12 +24,14 @@ static dgx_ui_textbox_t      fruit_box;
 
 static const dgx_ui_widget_t root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 /* three rows of 14 pixels, numbered 5, 6, 7 */
-static const dgx_ui_widget_t list_w = {.kind = DGX_UI_LIST, .text = &fruit_box, .min = 5, .max = 7, .want_h = 42, .look = &dgx_ui_look_list};
+static int32_t list_w_place; /* its value */
+static const dgx_ui_widget_t list_w = {.kind = DGX_UI_LIST, .value = &list_w_place, .text = &fruit_box, .min = 5, .max = 7, .want_h = 42, .look = &dgx_ui_look_list};
 
 /* a dropdown of the same options, numbered 1, 2, 3 */
 static char                  dd_buf[40];
 static dgx_ui_textbox_t      dd_box;
-static const dgx_ui_widget_t dd_w = {.kind = DGX_UI_DROPDOWN, .text = &dd_box, .min = 1, .max = 3, .want_h = 16, .state = {.value = 1}, .look = &dgx_ui_look_dropdown};
+static int32_t dd_w_place = 1; /* its value */
+static const dgx_ui_widget_t dd_w = {.kind = DGX_UI_DROPDOWN, .value = &dd_w_place, .text = &dd_box, .min = 1, .max = 3, .want_h = 16, .look = &dgx_ui_look_dropdown};
 
 static dgx_ui_node_t nodes[4];
 static dgx_ui_t      ui;
@@ -130,7 +132,7 @@ int main(void)
     CHECK(panel_twice(panel) == 0 && out == 0 && in == n->w * 14 && row_end(panel, n, 2) == colors[1]);
 
     /* the keys move the pick: PREV to Banana, the bar of the focus with it */
-    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_PREV) && dgx_ui_node(&ui, li)->state_value.value == 6);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_PREV) && dgx_ui_value_of(dgx_ui_node(&ui, li)) == 6);
     dgx_ui_paint(&ui, &pp, 3);
     CHECK(row_end(panel, n, 1) == colors[1] && row_end(panel, n, 2) == colors[0]);
 
@@ -165,7 +167,7 @@ int main(void)
     /* a finger on the third row picks 7 */
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(n->x + 5), .y = (int16_t)(n->y + 35), .down = true, .pressed = true});
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(n->x + 5), .y = (int16_t)(n->y + 35), .released = true});
-    CHECK(dgx_ui_node(&ui, li)->state_value.value == 7);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&ui, li)) == 7);
     dgx_ui_paint(&ui, &pp, 5);
 
     /* the dropdown: Apple on its face, the arrow at the right; every state and every option written once in its box */

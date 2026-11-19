@@ -117,7 +117,8 @@ int main(void)
         dgx_ui_textbox_init(&qt, qb, sizeof qb, 1, &important);
         const dgx_ui_widget_t qtext = {.kind = DGX_UI_LABEL, .text = &qt, .look = &dgx_ui_look_lines};
         dgx_ui_text_set(&q, dgx_ui_add(&q, 0, &qtext), "one two three four five six seven eight nine ten eleven");
-        const dgx_ui_widget_t ask_w = {.kind = DGX_UI_OWN, .want_h = 10, .look = &asking_look};
+        static int32_t ask_w_place; /* its value */
+        const dgx_ui_widget_t ask_w = {.kind = DGX_UI_OWN, .value = &ask_w_place, .want_h = 10, .look = &asking_look};
         dgx_ui_add(&q, 0, &ask_w);
         CHECK(dgx_ui_paint(&q, &pq, 1) && pq.wake_ms == 0);
         dgx_ui_remove(&q, 2);
@@ -157,7 +158,8 @@ int main(void)
         static dgx_ui_textbox_t mt;
         dgx_ui_textbox_init(&mt, mb, sizeof mb, 1, &plain);
         const dgx_ui_widget_t text_w   = {.kind = DGX_UI_LABEL, .text = &mt, .want_h = 13};
-        const dgx_ui_widget_t canvas_w = {.kind = DGX_UI_OWN, .flags = DGX_UI_CANVAS, .want_h = 20, .look = &canvas_look};
+        static int32_t canvas_w_place; /* its value */
+        const dgx_ui_widget_t canvas_w = {.kind = DGX_UI_OWN, .value = &canvas_w_place, .flags = DGX_UI_CANVAS, .want_h = 20, .look = &canvas_look};
         static dgx_ui_node_t mn[4];
         static dgx_ui_t      m;
         dgx_ui_init(&m, mn, 4, 1);

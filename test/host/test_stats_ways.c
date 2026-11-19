@@ -7,7 +7,8 @@
  * clock at 1000 s, a struct begun anew in the middle of a run and a run whose first frames were not measured, in the
  * cost only. A count
  * for each widget: a draw by a composing and by the walk of one pass, the entries' sums the whole's, a widget replaced
- * at its index, an array smaller than the tree, a page named, closed and freed, a sum near 32 bits halved, begun anew.
+ * at its index, an array smaller than the tree, a page named, closed and freed, a sum near 32 bits halved, begun anew,
+ * a widget drawn because the program wrote its place.
  */
 #include <string.h>
 
@@ -278,6 +279,26 @@ int main(void)
         dgx_ui_paint_stats_restart(&stats);
         CHECK(stats.passes == 0 && stats.draws == 0 && entries[1].draws == 0 && entries[1].widget == NULL && stats.clock_us == fake_clock &&
               stats.per_widget == entries && stats.per_widget_tree == &home && stats.per_widget_count == 3);
+        dgx_ui_paint_free(&paint), dgx_ui_free(&home);
+    }
+
+    /* a widget drawn because the program wrote its place: a draw in its entry, as any */
+    {
+        static int32_t               volume;
+        static const dgx_ui_widget_t volume_w = {.kind = DGX_UI_SLIDER, .value = &volume, .max = 10, .want_h = 10, .look = &dgx_ui_look_slider};
+        static dgx_ui_node_t         nodes[2];
+        static dgx_ui_t              home;
+        static dgx_ui_widget_stats_t entries[2];
+        dgx_ui_init(&home, nodes, 2, 1), dgx_ui_add(&home, -1, &root_w);
+        const int            slider = dgx_ui_add(&home, 0, &volume_w);
+        dgx_ui_paint_t       paint  = {.scr = screens[0], .colors = colors, .color_count = 4};
+        dgx_ui_paint_stats_t stats  = {.clock_us = fake_clock, .per_widget_tree = &home, .per_widget = entries, .per_widget_count = 2};
+        dgx_ui_paint_measured(&home, &paint, 0, &stats);
+        dgx_ui_paint_measured(&home, &paint, 100, &stats);
+        CHECK(entries[slider].draws == 1 && stats.draws_last == 0);
+        volume = 7; /* the program writes its memory, and calls nothing */
+        dgx_ui_paint_measured(&home, &paint, 200, &stats);
+        CHECK(entries[slider].draws == 2 && entries[slider].widget == &volume_w && stats.draws_last == 1 && stats.slowest_last.widget == slider);
         dgx_ui_paint_free(&paint), dgx_ui_free(&home);
     }
 
