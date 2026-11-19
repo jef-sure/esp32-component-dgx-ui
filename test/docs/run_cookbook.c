@@ -310,6 +310,46 @@ int main(int argc, char **argv)
         dgx_ui_free(&wake_ui);
     }
 
+    /* the log of the last lines: 60 lines added, every seventh wider than the box; the last rows shown after each, a row back by hand, a line too long */
+    {
+        dgx_screen_t                *log_screen = dgx_vscreen_init(200, 100, 16, DgxScreenRGB);
+        dgx_ui_paint_t               log_paint  = {.scr = log_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        static const dgx_ui_widget_t log_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
+        static dgx_ui_node_t         log_nodes[3];
+        dgx_ui_t                     log_ui;
+        dgx_ui_init(&log_ui, log_nodes, 3, 1);
+        dgx_ui_add(&log_ui, -1, &log_root_w);
+        const int log = log_make(&log_ui, 0);
+        dgx_ui_screen(&log_ui, 200, 100, 0);
+        int wrong = 0, longest = 0;
+        for (int count = 1; count <= 60; ++count) {
+            char line[80];
+            if (count % 7 == 0) snprintf(line, sizeof line, "%d: the pump of the second floor does not answer, tried again", count);
+            else snprintf(line, sizeof line, "%d: sensor %d ok", count, count * 3 % 11);
+            log_add(&log_ui, log, line);
+            dgx_ui_paint(&log_ui, &log_paint, (uint32_t)count * 100);
+            const char *last_line = strrchr(log_buf, '\n');
+            const int   rows = log_box.total_lines, first_shown = log_box.top;
+            wrong += strcmp(last_line ? last_line + 1 : log_buf, line) != 0 || first_shown != (rows > LOG_ROWS ? rows - LOG_ROWS : 0);
+            if ((int)strlen(log_buf) > longest) longest = (int)strlen(log_buf);
+        }
+        printf("log: 60 lines added, the last rows not shown or the new line not last %d times; the text %d bytes at most of %d; it begins \"%.14s\"\n", wrong, longest,
+               (int)sizeof log_buf, log_buf);
+        const int at_end = log_box.top;
+        dgx_ui_text_scroll(&log_ui, log, -1), dgx_ui_paint(&log_ui, &log_paint, 6100);
+        const int row_back = log_box.top;
+        log_add(&log_ui, log, "61: back at the end"), dgx_ui_paint(&log_ui, &log_paint, 6200);
+        printf("log: the first row shown %d at the end, %d a row back by hand, %d of %d rows after the next line\n", at_end, row_back, log_box.top, log_box.total_lines);
+        char long_line[700] = "";
+        for (int letter = 0; letter < 170; ++letter) strcat(long_line, letter % 9 == 8 ? " " : "\xd0\xb6"); /* a letter of two bytes */
+        log_add(&log_ui, log, long_line), dgx_ui_paint(&log_ui, &log_paint, 6300);
+        const size_t kept = strlen(log_buf);
+        printf("log: a line of %d bytes: %d kept, cut on a whole letter %d, alone in the log %d\n", (int)strlen(long_line), (int)kept,
+               (unsigned char)log_buf[kept - 1] < 0x80 || ((unsigned char)log_buf[kept - 1] & 0xC0) == 0x80, strchr(log_buf, '\n') == NULL);
+        dgx_ui_paint_free(&log_paint), dgx_ui_free(&log_ui);
+        dgx_screen_destroy(&log_screen);
+    }
+
     /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */
     {
         dgx_screen_t                *hand_screen = dgx_vscreen_init(200, 80, 16, DgxScreenRGB); /* a column 200 pixels wide */

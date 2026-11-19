@@ -20,6 +20,7 @@
 - [Картинка из флеша](#картинка-из-флеша)
 - [Картинка под виджетами](#картинка-под-виджетами)
 - [Текст в несколько строк](#текст-в-несколько-строк)
+- [Журнал последних строк](#журнал-последних-строк)
 - [Шрифт по размеру текста](#шрифт-по-размеру-текста)
 - [Рукописный текст](#рукописный-текст)
 - [Свои цвета и ночной режим](#свои-цвета-и-ночной-режим)
@@ -594,6 +595,62 @@ static void texts_add(dgx_ui_t *ui, int parent)
 - Слово шире строки режется по буквам; `\n` заканчивает строку.
 - Программа, которая называет этот облик, несёт примерно на 2,5 КБ кода больше; программа с однострочными
   надписями — нет.
+
+## Журнал последних строк
+
+Журнал показывает последние пришедшие строки: новая добавляется снизу, а когда места нет, самые старые уходят.
+Окно рисует облик строк, сами строки хранит программа.
+
+```c
+#include <string.h>
+
+enum { LOG_ROWS = 5 };
+
+static char             log_lines[240]; /* the last lines of the log, "\n" between them */
+static char             log_buf[sizeof log_lines];
+static dgx_ui_textbox_t log_box;
+
+static const dgx_ui_widget_t log_w = {.kind = DGX_UI_LABEL, .text = &log_box, .look = &dgx_ui_look_lines};
+
+static int log_make(dgx_ui_t *ui, int parent)
+{
+    dgx_ui_textbox_init(&log_box, log_buf, sizeof log_buf, LOG_ROWS, &st_left);
+    return dgx_ui_add(ui, parent, &log_w);
+}
+
+/* a line added at the end of the log; the oldest lines go when the new one has no room */
+static void log_add(dgx_ui_t *ui, int log, const char *line)
+{
+    const size_t room = sizeof log_lines - 1;
+    size_t       have = strlen(log_lines), length = strlen(line);
+    if (length > room) { /* longer than the whole log: its beginning, cut on a whole letter of UTF-8 */
+        length = room;
+        while (length > 0 && ((unsigned char)line[length] & 0xC0) == 0x80) --length;
+    }
+    while (have > 0 && have + 1 + length > room) { /* the oldest line goes, with its "\n" */
+        const char  *line_end = strchr(log_lines, '\n');
+        const size_t gone     = line_end ? (size_t)(line_end + 1 - log_lines) : have;
+        memmove(log_lines, log_lines + gone, have - gone + 1);
+        have -= gone;
+    }
+    if (have > 0) log_lines[have++] = '\n';
+    memcpy(log_lines + have, line, length);
+    log_lines[have + length] = 0;
+    dgx_ui_text_set(ui, log, log_lines);
+    dgx_ui_text_scroll(ui, log, 0x7fff); /* down to the last lines: the painter stops at the last window */
+}
+```
+
+- `dgx_ui_text_set()` начинает текст с первой строки. `dgx_ui_text_scroll()` с числом, которое заведомо больше
+  числа строк, сдвигает его затем вниз до конца, поэтому видны последние `LOG_ROWS` строк, сколько бы строк ни заняла
+  длинная строка после переноса.
+- Чтобы посмотреть назад, `dgx_ui_text_scroll(ui, log, -1)` показывает строку старше, пока хватает сохранённых.
+  Следующая добавленная строка возвращает конец.
+- Строки хранятся дважды: в `log_lines` и в буфере текстового поля. `dgx_ui_text_set()` копирует данный ей текст в
+  буфер, поэтому хранить строки в самом буфере нельзя. В 240 байт помещается около десяти строк по 20 знаков.
+- Строка длиннее всего журнала обрезается по целой букве и остаётся в нём одна.
+- `log_add()` вызывает задача, владеющая деревом. Другая задача шлёт свою строку сообщением, как в рецепте
+  [Большие данные: сообщение по ссылке](#большие-данные-сообщение-по-ссылке).
 
 ## Шрифт по размеру текста
 

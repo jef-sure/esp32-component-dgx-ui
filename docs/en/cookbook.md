@@ -19,6 +19,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A picture from flash](#a-picture-from-flash)
 - [A picture under the widgets](#a-picture-under-the-widgets)
 - [A text of several lines](#a-text-of-several-lines)
+- [A log of the last lines](#a-log-of-the-last-lines)
 - [A font that fits](#a-font-that-fits)
 - [A handwritten text](#a-handwritten-text)
 - [Colours of your own, and a night mode](#colours-of-your-own-and-a-night-mode)
@@ -585,6 +586,63 @@ static void texts_add(dgx_ui_t *ui, int parent)
 - `dgx_ui_text_scroll(ui, i, 1)` moves a text that is not important a line up by hand, `-1` a line down.
 - A word wider than the line is cut by its letters; `\n` ends a line.
 - A program that names this look carries about 2.5 KB more code; a program of one-line labels does not.
+
+## A log of the last lines
+
+A log shows the last lines that came: a new line is added at the bottom, and when there is no room the oldest go.
+The look of lines draws the window; the program keeps the lines.
+
+```c
+#include <string.h>
+
+enum { LOG_ROWS = 5 };
+
+static char             log_lines[240]; /* the last lines of the log, "\n" between them */
+static char             log_buf[sizeof log_lines];
+static dgx_ui_textbox_t log_box;
+
+static const dgx_ui_widget_t log_w = {.kind = DGX_UI_LABEL, .text = &log_box, .look = &dgx_ui_look_lines};
+
+static int log_make(dgx_ui_t *ui, int parent)
+{
+    dgx_ui_textbox_init(&log_box, log_buf, sizeof log_buf, LOG_ROWS, &st_left);
+    return dgx_ui_add(ui, parent, &log_w);
+}
+
+/* a line added at the end of the log; the oldest lines go when the new one has no room */
+static void log_add(dgx_ui_t *ui, int log, const char *line)
+{
+    const size_t room = sizeof log_lines - 1;
+    size_t       have = strlen(log_lines), length = strlen(line);
+    if (length > room) { /* longer than the whole log: its beginning, cut on a whole letter of UTF-8 */
+        length = room;
+        while (length > 0 && ((unsigned char)line[length] & 0xC0) == 0x80) --length;
+    }
+    while (have > 0 && have + 1 + length > room) { /* the oldest line goes, with its "\n" */
+        const char  *line_end = strchr(log_lines, '\n');
+        const size_t gone     = line_end ? (size_t)(line_end + 1 - log_lines) : have;
+        memmove(log_lines, log_lines + gone, have - gone + 1);
+        have -= gone;
+    }
+    if (have > 0) log_lines[have++] = '\n';
+    memcpy(log_lines + have, line, length);
+    log_lines[have + length] = 0;
+    dgx_ui_text_set(ui, log, log_lines);
+    dgx_ui_text_scroll(ui, log, 0x7fff); /* down to the last lines: the painter stops at the last window */
+}
+```
+
+- `dgx_ui_text_set()` begins a text from its first line. `dgx_ui_text_scroll()` with a number larger than any count
+  of rows then moves it down as far as there are rows, so the last `LOG_ROWS` rows are shown, however many rows a
+  long line took when it was laid into the box.
+- To look back, `dgx_ui_text_scroll(ui, log, -1)` shows a row older, as far as the lines kept go. The next line
+  added brings the end back.
+- The lines are kept twice, in `log_lines` and in the buffer of the text box: `dgx_ui_text_set()` copies the text it
+  is given into the buffer, so the lines cannot be kept in the buffer itself. 240 bytes hold about ten lines of 20
+  letters.
+- A line longer than the whole log is cut on a whole letter and stands alone in it.
+- `log_add()` is called by the task that owns the tree. Another task sends its line as a message, as in
+  [Large data: a message by reference](#large-data-a-message-by-reference).
 
 ## A font that fits
 
