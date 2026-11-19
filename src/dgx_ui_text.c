@@ -50,12 +50,27 @@ static size_t whole_chars(const char *s, size_t n)
 /* a text of a buffer up to this long is compared with the one before; a longer buffer is taken as changed */
 enum { COMPARED = 256 };
 
+/* the lists in the popups over a tree that show the box of a widget of it, told its text changed (dgx_ui_priv.h).
+   Shared by the trees of every task, and harmless: each call writes it with the one value it can have, and a pointer
+   is read whole */
+void (*dgx_ui_text_shown_over)(dgx_ui_t *ui, const dgx_ui_textbox_t *box);
+
 /* a text set anew: its scroll and its letters from the start at the next pass; a list keeps its window, as its rows
-   are its range and its pick stays in view */
+   are its range and its pick stays in view, and a dropdown keeps its list's */
 static void restart(dgx_ui_textbox_t *box, const dgx_ui_widget_t *w)
 {
-    if (w->kind != DGX_UI_LIST) box->top = 0;
+    if (w->kind != DGX_UI_LIST && w->kind != DGX_UI_DROPDOWN) box->top = 0;
     box->flags = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_COUNTED));
+}
+
+/* the text of widget i set: drawn and fitted again, begun anew, and the lists over its tree that show its box told */
+static bool text_changed(dgx_ui_t *ui, int i, dgx_ui_node_t *w, dgx_ui_textbox_t *box)
+{
+    w->marks |= DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT;
+    dgx_ui_touched(ui, i);
+    restart(box, w->widget);
+    if (dgx_ui_text_shown_over) dgx_ui_text_shown_over(ui, box);
+    return true;
 }
 
 bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)
@@ -67,10 +82,7 @@ bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)
         const int n = vsnprintf(box->buf, box->size, format, args);
         if (n < 0) box->buf[0] = 0;
         else if (n >= box->size) box->buf[whole_chars(box->buf, box->size - 1)] = 0;
-        w->marks |= DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT;
-        dgx_ui_touched(ui, i);
-        restart(box, w->widget);
-        return true;
+        return text_changed(ui, i, w, box);
     }
     /* written beside the old one and compared: the same text changes nothing */
     char      text[COMPARED];
@@ -79,10 +91,7 @@ bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)
     else if (n >= box->size) text[whole_chars(text, box->size - 1)] = 0;
     if (strcmp(text, box->buf) == 0) return false;
     strcpy(box->buf, text);
-    w->marks |= DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT;
-    dgx_ui_touched(ui, i);
-    restart(box, w->widget);
-    return true;
+    return text_changed(ui, i, w, box);
 }
 
 bool dgx_ui_text_printf(dgx_ui_t *ui, int i, const char *format, ...)

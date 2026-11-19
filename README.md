@@ -42,24 +42,26 @@ void sensor_task(void *queue)
 /* the task that owns the display: asleep while nothing changes */
 void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 {
-    for (bool busy = false;;) {
+    for (TickType_t wait = 0;;) {
         dgx_ui_msg_t msg;
-        TickType_t   wait = busy ? 1 : portMAX_DELAY;
         while (xQueueReceive(queue, &msg, wait) == pdTRUE) {
             wait = 0;
             dgx_ui_take(ui, &msg); /* every widget is offered the message */
             dgx_ui_msg_done(&msg);
         }
         const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-        busy               = dgx_ui_time(ui, now);
-        busy |= dgx_ui_paint(ui, paint, now); /* draws only what changed */
+        dgx_ui_time(ui, now);
+        dgx_ui_paint(ui, paint, now); /* draws only what changed */
+        /* till a message comes, or till the moment a widget asks for: a tick at least */
+        const uint32_t ms = dgx_ui_wake(paint, ui, now);
+        wait              = ms == DGX_UI_WAKE_NONE ? portMAX_DELAY : pdMS_TO_TICKS(ms) > 0 ? pdMS_TO_TICKS(ms) : 1;
     }
 }
 ```
 
 ## Status
 
-Version 0.0.18: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.19: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +73,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.18"
+    version: "0.0.19"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with

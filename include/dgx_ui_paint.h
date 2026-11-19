@@ -131,6 +131,7 @@ struct dgx_ui_paint_t {
                                                       ///< dgx_ui_paint() never draws sets it before
     uint32_t                         wake_ms;         ///< after dgx_ui_paint(): no sooner than in so many ms from its now_ms a look asks to be called again, the least they named (dgx_ui_wake_in()); 0 the next pass; DGX_UI_WAKE_NONE none asked
     bool                             wake_named;      ///< while a look draws: it named its moment
+    bool                             painted;         ///< it drew a pass: now_ms and wake_ms are those of its last
     dgx_ui_canvases_t               *canvases;        ///< the canvases this paint made (dgx_ui_canvas()) for the tree
                                                       ///< it draws and the popups over it, freed by
                                                       ///< dgx_ui_paint_free(); NULL none
@@ -180,6 +181,10 @@ static inline void dgx_ui_wake_in(dgx_ui_paint_t *paint, uint32_t ms)
  *
  * 0 is "the next pass": the wait is a tick at least, a loop that waits nothing for it spins. DGX_UI_WAKE_NONE: nothing
  * asks for time, the loop may wait for a message. A loop that asks dgx_ui_paint()'s true alone works as before.
+ *
+ * Two trees drawn in turn by one paint (a bar and a page, each its root given) are painted with the same now_ms:
+ * dgx_ui_wake() after the last of them gives the least of what all of them asked. A program that takes the time anew
+ * for each tree has only the last tree's moments.
  */
 static inline uint32_t dgx_ui_wake(const dgx_ui_paint_t *paint, const dgx_ui_t *ui, uint32_t now_ms)
 {

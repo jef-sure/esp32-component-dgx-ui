@@ -121,10 +121,9 @@ void app_main(void)
     dgx_ui_ticker_start(&second, queue, MSG_SECOND, 1000);
 
     dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = 4, .background = 0};
-    bool           busy  = false;
+    TickType_t     wait  = 0;
     for (;;) {
         dgx_ui_msg_t msg;
-        TickType_t   wait = busy ? 1 : portMAX_DELAY; /* asleep while there is nothing to do */
         while (xQueueReceive(queue, &msg, wait) == pdTRUE) {
             wait = 0;
             if (!dgx_ui_take(&ui, &msg)) {
@@ -133,7 +132,10 @@ void app_main(void)
             dgx_ui_msg_done(&msg); /* once, whatever handled it: the ticker may send the next */
         }
         const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-        busy               = dgx_ui_time(&ui, now);
-        busy |= dgx_ui_paint(&ui, &paint, now);
+        dgx_ui_time(&ui, now);
+        dgx_ui_paint(&ui, &paint, now);
+        /* asleep until a message comes, or until the moment a widget or a held key asks for: a tick at least */
+        const uint32_t ms = dgx_ui_wake(&paint, &ui, now);
+        wait              = ms == DGX_UI_WAKE_NONE ? portMAX_DELAY : pdMS_TO_TICKS(ms) > 0 ? pdMS_TO_TICKS(ms) : 1;
     }
 }

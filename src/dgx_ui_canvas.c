@@ -5,7 +5,8 @@
  *  table of its own from pass to pass, and put on the paint's screen through a table of its colours. The painter
  *  reaches the table through two pointers it holds, so a program whose looks ask for no canvas carries none of this.
  *  It needs the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN). The same table keeps the memory a look keeps for
- *  a widget (dgx_ui_kept()), freed as a canvas is; that needs no virtual screen.
+ *  a widget (dgx_ui_kept()), freed as a canvas is, which needs no virtual screen; and with each canvas sixteen bytes
+ *  of its look's (dgx_ui_canvas_noted()), what it wrote there, zeros with a new canvas.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -32,6 +33,7 @@ typedef struct {
     dgx_screen_t          *scr;            /* NULL: none to be had */
     void                  *kept;           /* the memory its look keeps, kept_size bytes; NULL none */
     size_t                 kept_size;
+    uint32_t               note[DGX_UI_CANVAS_NOTE / 4]; /* the look's own about what its canvas holds; zeros with a new one */
 } entry_t;
 
 typedef struct {
@@ -62,25 +64,27 @@ static entry_t *entry_of(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_u
     return e;
 }
 
-dgx_screen_t *dgx_ui_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made)
+dgx_screen_t *dgx_ui_canvas_noted(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made, void **note)
 {
     dgx_ui_node_t *n = dgx_ui_node(ui, i);
-    *made            = false;
+    *made = false, *note = NULL;
     if (!n || !n->widget || !(n->widget->flags & DGX_UI_CANVAS) || n->w <= 0 || n->h <= 0) return NULL;
     entry_t *e = entry_of(paint, ui, i, n->widget, true);
     if (!e) {
-        static bool told;
+        static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
         if (!told) ESP_LOGE(TAG, "widget %d: no memory for the paint's table of canvases", i);
         told = true;
         return NULL;
     }
+    *note = e->note; /* the canvas's own, when there is one */
     if (e->scr && ((e->scr->width == n->w && e->scr->height == n->h) || (n->marks & DGX_UI_MARK_HARD_SIZE))) return e->scr;
     /* of another size, or none yet: a new one first, then the old one freed */
     dgx_screen_t *c = dgx_vscreen_init(n->w, n->h, 8, DgxScreenRGB);
     if (c) {
         if (e->scr) dgx_screen_destroy(&e->scr);
         e->scr = c, e->none_w = e->none_h = 0;
-        *made  = true;
+        memset(e->note, 0, sizeof e->note);
+        *made = true;
         return c;
     }
     if (e->scr) {
@@ -91,7 +95,14 @@ dgx_screen_t *dgx_ui_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *ma
         ESP_LOGE(TAG, "widget %d: no memory for its canvas of %dx%d", i, n->w, n->h);
         e->none_w = n->w, e->none_h = n->h, e->tell = true;
     }
+    *note = NULL;
     return NULL;
+}
+
+dgx_screen_t *dgx_ui_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made)
+{
+    void *note;
+    return dgx_ui_canvas_noted(paint, ui, i, made, &note);
 }
 
 void *dgx_ui_kept(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, size_t size, bool *made)
@@ -132,7 +143,7 @@ void dgx_ui_canvas_put(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink)
     const dgx_ui_rect_t  none = dgx_ui_rect(0, 0, 0, 0);
     if (!n) return;
     if (c && paint->scr->color_bits != 16) {
-        static bool told;
+        static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
         if (!told) ESP_LOGW(TAG, "widget %d: a canvas goes to a screen of 16 bits only: its box is paper", i);
         told = true;
         c    = NULL;

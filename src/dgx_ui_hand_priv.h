@@ -17,11 +17,34 @@ struct dgx_ui_hand_line_t {
     dgx_hw_context_t ctx;          /* its font, scales, pen and joining; the screen and the ink set where it is written */
     int              x, base;      /* the start of its base line on the tree's screen */
     uint32_t         total_ms;     /* how long the whole text takes to come; 0: it is there at once */
+    uint32_t         since_ms;     /* when its letters began to come */
     uint32_t         elapsed_ms;   /* how long it has been coming, at most total_ms */
     float            effort, to;   /* the effort of the whole text and the effort written to by this pass */
     bool             anew;         /* begun again: written from nothing */
     bool             came;         /* all of it written */
 };
+
+/*
+ * What a canvas of handwriting holds, in the sixteen bytes the paint keeps with the canvas (dgx_ui_canvas_noted()): a
+ * call writes into the canvas from nothing when this is not what it writes now, else from written_ms on. Kept with the
+ * canvas, not in the text box: another paint of the same tree has canvases of its own, written at moments of its own.
+ */
+typedef struct {
+    uint32_t text_hash;  /* the text's, dgx_ui_hand_hash() */
+    uint32_t since_ms;   /* when its letters began to come */
+    uint32_t written_ms; /* how far the pen got, in ms of their time */
+    uint16_t top;        /* the line on top */
+    uint8_t  variant;    /* the variant of the style */
+    uint8_t  written;    /* 0, as all the bytes of a new canvas: nothing in it */
+} dgx_ui_hand_held_t;
+
+/* a text's hash, FNV-1a of its len bytes */
+static inline uint32_t dgx_ui_hand_hash(const char *text, int len)
+{
+    uint32_t hash = 2166136261u;
+    for (int k = 0; k < len; ++k) hash = (hash ^ (uint8_t)text[k]) * 16777619u;
+    return hash;
+}
 
 /* the width of the pen in pixels, 1 for 0 */
 static inline int dgx_ui_hand_pen(const dgx_ui_font_variant_t *variant)

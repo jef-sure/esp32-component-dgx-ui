@@ -57,8 +57,9 @@ static bool tell_part(dgx_ui_paint_t *paint, const dgx_ui_look_t *look, dgx_ui_t
 
 bool dgx_ui_changed(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_changed_fn tell, void *ctx)
 {
-    teller_t teller = {.hook = {.draw = tell_part}, .tell = tell, .ctx = ctx};
-    paint->now_ms   = now_ms; /* the time of a composing the function makes of what it is told */
+    teller_t       teller  = {.hook = {.draw = tell_part}, .tell = tell, .ctx = ctx};
+    const uint32_t last_ms = paint->now_ms;
+    paint->now_ms          = now_ms; /* the time of a composing the function makes of what it is told */
     /* the band gone or moved, popups closed: their places told and cleared, so that the pass composes none */
     const dgx_ui_rect_t band_was = paint->cover_was, band = paint->cover;
     if (band_was.x != band.x || band_was.y != band.y || band_was.w != band.w || band_was.h != band.h) {
@@ -68,6 +69,7 @@ bool dgx_ui_changed(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui
     for (dgx_ui_t *tree = ui; tree; tree = tree->popup) tell_once(&teller, paint, tree->popup_was), tree->popup_was = dgx_ui_rect(0, 0, 0, 0);
     const dgx_ui_strips_t *strips = paint->strips;
     paint->strips                 = &teller.hook;
+    paint->now_ms                 = last_ms; /* the pass sees whether it is another tree of the same turn */
     const bool more               = dgx_ui_paint(ui, paint, now_ms);
     paint->strips                 = strips;
     return more;

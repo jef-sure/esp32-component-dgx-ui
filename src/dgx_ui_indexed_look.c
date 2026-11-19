@@ -59,7 +59,7 @@ bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
         return false;
     }
     if (!buffer || rows < 1 || paint->scr->color_bits != 16) {
-        static bool told;
+        static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
         if (!told) ESP_LOGW(TAG, "widget %d: a picture of %d bits needs a buffer of a row at least (%d bytes) and a 16-bit screen", i, im->format, im->width);
         told = true;
         paper_around(paint, n, &none, p->paper);

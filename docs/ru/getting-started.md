@@ -27,13 +27,13 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 
 ## 1. Подключите компонент
 
-Версия 0.0.18 — это тег в репозитории, в реестре компонентов ESP её пока нет. В `main/idf_component.yml` проекта:
+Версия 0.0.19 — это тег в репозитории, в реестре компонентов ESP её пока нет. В `main/idf_component.yml` проекта:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.18"
+    version: "0.0.19"
 ```
 
 При следующей сборке менеджер компонентов возьмёт dgx-ui с GitHub, а DGX — из реестра, потому что dgx-ui её
@@ -238,10 +238,9 @@ void app_main(void)
     dgx_ui_ticker_start(&second, queue, MSG_SECOND, 1000);
 
     dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = 4, .background = 0};
-    bool           busy  = false;
+    TickType_t     wait  = 0;
     for (;;) {
         dgx_ui_msg_t msg;
-        TickType_t   wait = busy ? 1 : portMAX_DELAY; /* asleep while there is nothing to do */
         while (xQueueReceive(queue, &msg, wait) == pdTRUE) {
             wait = 0;
             if (!dgx_ui_take(&ui, &msg)) {
@@ -250,8 +249,11 @@ void app_main(void)
             dgx_ui_msg_done(&msg); /* once, whatever handled it: the ticker may send the next */
         }
         const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-        busy               = dgx_ui_time(&ui, now);
-        busy |= dgx_ui_paint(&ui, &paint, now);
+        dgx_ui_time(&ui, now);
+        dgx_ui_paint(&ui, &paint, now);
+        /* asleep until a message comes, or until the moment a widget or a held key asks for: a tick at least */
+        const uint32_t ms = dgx_ui_wake(&paint, &ui, now);
+        wait              = ms == DGX_UI_WAKE_NONE ? portMAX_DELAY : pdMS_TO_TICKS(ms) > 0 ? pdMS_TO_TICKS(ms) : 1;
     }
 }
 ```
@@ -263,9 +265,10 @@ void app_main(void)
    только когда предыдущий выброшен, поэтому тики в очереди не копятся.
 3. `dgx_ui_paint()` раскладывает дерево, если нужно, и рисует то, что изменилось с прошлого прохода. Здесь это поле
    значения пять раз в секунду и поле часов раз в секунду. Рамка, подпись и фон рисуются один раз.
-4. Если виджет показывает анимацию, `dgx_ui_paint()` возвращает `true`; если удерживается клавиша, `true` возвращает
-   `dgx_ui_time()`. Тогда цикл ждёт один тик FreeRTOS, а не бесконечно. В этой программе времени никто не просит, и
-   задача спит.
+4. `dgx_ui_wake()` говорит, сколько времени делать нечего. Виджет с анимацией называет момент, когда его надо
+   нарисовать снова, удерживаемая клавиша — момент своего повтора: цикл ждёт сообщения не дольше этого. Если никто
+   не просит, `DGX_UI_WAKE_NONE`, он ждёт сообщения бесконечно. В этой программе времени никто не просит, и задача
+   спит.
 
 ## 3. Соберите и запустите
 

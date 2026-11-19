@@ -3,13 +3,17 @@
  * whole height shared; its rows as high as the dropdown. A row chosen by a finger or by the keys sets the dropdown's
  * value and tells it CHANGED once; the option it had chosen again tells nothing; a finger outside closes it, the
  * value kept; a key the list does not take does not reach the tree under it; back closes it, the value kept. A dropdown in a popup, its list hanging
- * out of it; one dd for two dropdowns; a unit of 2; drawn, every pixel once.
+ * out of it; one dd for two dropdowns; a unit of 2; drawn, every pixel once. Its options set anew while the list is
+ * open and scrolled: shown at once, the window kept, the screen as a fresh paint composes it; fewer options than the
+ * pick: the value kept, the row of the pick and the face with no text.
  */
 #include <string.h>
 
 #include "check.h"
+#include "dgx_draw.h"
 #include "dgx_ui_dropdown.h"
 #include "dgx_ui_paint.h"
+#include "dgx_vscreen.h"
 #include "dgx_ui_text.h"
 #include "fonts/TerminusTTFMedium12.h"
 /* a screen of 96x80: a list of three rows of 16 goes under a dropdown at its top, above one at its bottom, and in
@@ -54,6 +58,16 @@ static void make_of(const dgx_ui_widget_t *root)
 static void make(void)
 {
     make_of(&root_w);
+}
+
+/* the pixels of ink 0, the text's on the bar of the pick, on row k of an open list as the window shows it */
+static int text_on_row(dgx_screen_t *shown, const dgx_ui_node_t *list, int rows, int k)
+{
+    int       ink = 0;
+    const int row_y = list->y + k * (list->h / rows);
+    for (int y = row_y; y < row_y + list->h / rows; ++y)
+        for (int x = list->x; x < list->x + list->w; ++x) ink += dgx_get_pixel(shown, x, y) == colors[0];
+    return ink;
 }
 
 static void tap(dgx_ui_t *t, int x, int y)
@@ -228,6 +242,61 @@ int main(void)
         dgx_ui_popup_close(&ui);
         dgx_ui_free(&ui);
         free(panel);
+    }
+
+    /* the options of an open dropdown set anew while its list scrolls, as a message may set them: the list shows them
+       at once, its window kept at the pick, the screen as a fresh paint composes it. Then fewer options than the pick:
+       the value stays where it is, within min..max as always; the list's row of the pick and the dropdown's face show
+       no text, as for an option that is empty */
+    {
+        dgx_screen_t  *shown = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB), *fresh = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
+        dgx_ui_paint_t pp    = {.scr = shown, .colors = colors, .color_count = 4};
+        make();
+        strcpy(many_buf, "1\n2\n3\n4\n5\n6");
+        d = dgx_ui_add(&ui, 0, &many_w);
+        dgx_ui_set_value(&ui, d, 6);
+        dgx_fill_rectangle(shown, 0, 0, PANEL_W, PANEL_H, 0);
+        dgx_ui_paint(&ui, &pp, 0);
+        const dgx_ui_node_t *face = dgx_ui_node(&ui, d);
+        int                  face_ink = 0; /* the ink of the text in the left half of the face, the arrow on the right */
+        for (int y = face->y; y < face->y + face->h; ++y)
+            for (int x = face->x; x < face->x + face->w / 2; ++x) face_ink += dgx_get_pixel(shown, x, y) == colors[1];
+        CHECK(face_ink > 0 && dgx_ui_dropdown_open(&ui, d, &dd, NULL, NULL));
+        dgx_ui_paint(&ui, &pp, 10);
+        dgx_ui_key(&dd.tree, DGX_UI_KEY_PREV), dgx_ui_key(&dd.tree, DGX_UI_KEY_PREV); /* the list's pick 4, inside the window; the
+                                                                                         dropdown's value 6 till one is chosen */
+        dgx_ui_paint(&ui, &pp, 15);
+        const int top = many_box.top, rows = dgx_ui_node(&dd.tree, 1)->h / 16;
+        dgx_ui_text_set(&ui, d, "one\ntwo\nthree\nfour\nfive\nsix");
+        dgx_ui_paint(&ui, &pp, 20);
+        dgx_ui_paint_t fresh_paint = {.scr = fresh, .colors = colors, .color_count = 4, .now_ms = 20};
+        dgx_fill_rectangle(fresh, 0, 0, PANEL_W, PANEL_H, 0);
+        dgx_ui_paint_area_to(&ui, &fresh_paint, fresh, NULL, 0, 0, PANEL_W, PANEL_H);
+        int off = 0;
+        for (int y = 0; y < PANEL_H; ++y)
+            for (int x = 0; x < PANEL_W; ++x) off += dgx_get_pixel(shown, x, y) != dgx_get_pixel(fresh, x, y);
+        CHECK(top > 0 && rows < 6 && many_box.top == top && off == 0 && face->state_value.value == 6 &&
+              text_on_row(shown, dgx_ui_node(&dd.tree, 1), rows, 4 - 1 - top) > 0);
+        /* two options now, the list's pick the fourth, the dropdown's value the sixth */
+        dgx_ui_text_set(&ui, d, "one\ntwo");
+        dgx_ui_paint(&ui, &pp, 30);
+        fresh_paint.now_ms = 30;
+        dgx_fill_rectangle(fresh, 0, 0, PANEL_W, PANEL_H, 0);
+        dgx_ui_paint_area_to(&ui, &fresh_paint, fresh, NULL, 0, 0, PANEL_W, PANEL_H);
+        off = 0;
+        for (int y = 0; y < PANEL_H; ++y)
+            for (int x = 0; x < PANEL_W; ++x) off += dgx_get_pixel(shown, x, y) != dgx_get_pixel(fresh, x, y);
+        const dgx_ui_node_t *list = dgx_ui_node(&dd.tree, 1);
+        CHECK(off == 0 && face->state_value.value == 6 && list->state_value.value == 4 && many_box.top == top &&
+              text_on_row(shown, list, rows, 4 - 1 - many_box.top) == 0);
+        dgx_ui_popup_close(&ui);
+        dgx_ui_paint(&ui, &pp, 40);
+        face_ink = 0;
+        for (int y = face->y; y < face->y + face->h; ++y)
+            for (int x = face->x; x < face->x + face->w / 2; ++x) face_ink += dgx_get_pixel(shown, x, y) == colors[1];
+        CHECK(face_ink == 0);
+        dgx_ui_paint_free(&pp), dgx_ui_paint_free(&fresh_paint), dgx_ui_free(&ui);
+        dgx_screen_destroy(&shown), dgx_screen_destroy(&fresh);
     }
     CHECK_DONE();
 }

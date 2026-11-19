@@ -26,14 +26,14 @@ the program is explained where it appears.
 
 ## 1. Add the component
 
-Version 0.0.18 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
+Version 0.0.19 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
 the project:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.18"
+    version: "0.0.19"
 ```
 
 The component manager takes dgx-ui from GitHub at the next build, and DGX from the registry, as dgx-ui asks for it.
@@ -236,10 +236,9 @@ void app_main(void)
     dgx_ui_ticker_start(&second, queue, MSG_SECOND, 1000);
 
     dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = 4, .background = 0};
-    bool           busy  = false;
+    TickType_t     wait  = 0;
     for (;;) {
         dgx_ui_msg_t msg;
-        TickType_t   wait = busy ? 1 : portMAX_DELAY; /* asleep while there is nothing to do */
         while (xQueueReceive(queue, &msg, wait) == pdTRUE) {
             wait = 0;
             if (!dgx_ui_take(&ui, &msg)) {
@@ -248,8 +247,11 @@ void app_main(void)
             dgx_ui_msg_done(&msg); /* once, whatever handled it: the ticker may send the next */
         }
         const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-        busy               = dgx_ui_time(&ui, now);
-        busy |= dgx_ui_paint(&ui, &paint, now);
+        dgx_ui_time(&ui, now);
+        dgx_ui_paint(&ui, &paint, now);
+        /* asleep until a message comes, or until the moment a widget or a held key asks for: a tick at least */
+        const uint32_t ms = dgx_ui_wake(&paint, &ui, now);
+        wait              = ms == DGX_UI_WAKE_NONE ? portMAX_DELAY : pdMS_TO_TICKS(ms) > 0 ? pdMS_TO_TICKS(ms) : 1;
     }
 }
 ```
@@ -262,8 +264,9 @@ What the loop does:
 3. `dgx_ui_paint()` lays the tree out if it has to, and draws what changed since the last pass. Here that is the
    field of the value five times a second and the field of the clock once a second; the frame, the note and the
    paper are drawn once.
-4. A widget that animates makes `dgx_ui_paint()` return `true`, and a held key makes `dgx_ui_time()` do so. Then the
-   loop waits a tick of FreeRTOS, not for ever. In this program nothing asks for time, and the task sleeps.
+4. `dgx_ui_wake()` tells how long nothing is due. A widget that animates names the moment it wants to be drawn
+   again, and a held key the moment of its repeat: the loop waits for a message at most so long. When nobody asks,
+   `DGX_UI_WAKE_NONE`, it waits for a message for ever. In this program nothing asks for time, and the task sleeps.
 
 ## 3. Build and run
 

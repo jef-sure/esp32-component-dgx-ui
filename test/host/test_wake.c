@@ -12,6 +12,7 @@
 #include "dgx_draw.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_text.h"
+#include "freertos/FreeRTOS.h"
 #include "dgx_vscreen.h"
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
@@ -186,6 +187,45 @@ int main(void)
         dgx_ui_free(&m);
         free(panel);
     }
+    /* two trees drawn in turn by one paint, a bar and a page, each its root given, at the same now_ms: the bar's
+       letters ask for 40 ms, the page for nothing; after the page, as the loop of the pages asks, the bar's 40 ms, not
+       for ever; the same through dgx_ui_changed(); a page painted at a moment of its own forgets the bar's */
+    {
+        static char             bar_buf[40], page_buf[16];
+        static dgx_ui_textbox_t bar_box, page_box;
+        static dgx_ui_node_t    bar_nodes[2], page_nodes[2];
+        static dgx_ui_t         bar, page;
+        dgx_ui_textbox_init(&bar_box, bar_buf, sizeof bar_buf, 1, &plain), dgx_ui_textbox_init(&page_box, page_buf, sizeof page_buf, 1, &plain);
+        const dgx_ui_widget_t bar_w  = {.kind = DGX_UI_LABEL, .text = &bar_box, .look = &dgx_ui_look_lines, .want_h = 13};
+        const dgx_ui_widget_t page_w = {.kind = DGX_UI_LABEL, .text = &page_box, .want_h = 13};
+        dgx_ui_init(&bar, bar_nodes, 2, 1), dgx_ui_init(&page, page_nodes, 2, 1);
+        dgx_ui_add(&bar, -1, &root_w), dgx_ui_add(&page, -1, &root_w);
+        dgx_ui_add(&bar, 0, &bar_w), dgx_ui_add(&page, 0, &page_w);
+        dgx_ui_set_root(&bar, 0, 0, PANEL_W, 20), dgx_ui_set_root(&page, 0, 20, PANEL_W, PANEL_H - 20);
+        dgx_ui_text_set(&bar, 1, "letters coming"), dgx_ui_text_set(&page, 1, "page");
+        dgx_ui_text_appear(&bar, 1, 40);
+        dgx_ui_paint_t two = {.scr = v, .colors = colors, .color_count = 4};
+        dgx_ui_paint(&bar, &two, 1000), dgx_ui_paint(&page, &two, 1000);
+        for (uint32_t now = 1020; now <= 1100; now += 20) {
+            dgx_ui_paint(&bar, &two, now);
+            dgx_ui_paint(&page, &two, now);
+            const uint32_t   ms   = dgx_ui_wake(&two, &page, now);
+            const TickType_t wait = ms == DGX_UI_WAKE_NONE ? portMAX_DELAY : pdMS_TO_TICKS(ms) > 0 ? pdMS_TO_TICKS(ms) : 1;
+            CHECK(ms != DGX_UI_WAKE_NONE && ms <= 40 && wait != portMAX_DELAY);
+        }
+        /* through dgx_ui_changed(), nobody told; and once all the letters came, a moment later, none asked */
+        dgx_ui_changed(&bar, &two, 1120, NULL, NULL), dgx_ui_changed(&page, &two, 1120, NULL, NULL);
+        CHECK(dgx_ui_wake(&two, &page, 1120) <= 40);
+        dgx_ui_changed(&bar, &two, 9000, NULL, NULL), dgx_ui_changed(&page, &two, 9000, NULL, NULL);
+        dgx_ui_changed(&bar, &two, 9020, NULL, NULL), dgx_ui_changed(&page, &two, 9020, NULL, NULL);
+        CHECK(dgx_ui_wake(&two, &page, 9020) == DGX_UI_WAKE_NONE);
+        dgx_ui_text_appear(&bar, 1, 40);
+        /* the page at a moment of its own: its moments only */
+        dgx_ui_paint(&bar, &two, 1140), dgx_ui_paint(&page, &two, 1141);
+        CHECK(dgx_ui_wake(&two, &page, 1141) == DGX_UI_WAKE_NONE);
+        dgx_ui_paint_free(&two), dgx_ui_free(&bar), dgx_ui_free(&page);
+    }
+
     v->destroy(&v);
     CHECK_DONE();
 }

@@ -44,6 +44,12 @@ struct dgx_ui_canvases_t {
    none to be had, the look does without */
 void *dgx_ui_kept(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, size_t size, bool *made);
 
+/* the canvas of widget i as dgx_ui_canvas() gives it, and in *note sixteen bytes a look keeps with it (dgx_ui_canvas.c),
+   the paint's as the canvas is: zeros when the canvas is made or made again, gone with it; what they mean is the
+   look's. NULL in *note with no canvas */
+enum { DGX_UI_CANVAS_NOTE = 16 };
+dgx_screen_t *dgx_ui_canvas_noted(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made, void **note);
+
 /* a look's paper, an index or DGX_UI_PAPER, is the program's drawn background here: laid by dgx_ui_lay_paper(), and
    the letters and pictures over it drawn without paper */
 static inline bool dgx_ui_paper_drawn(const dgx_ui_paint_t *paint, uint8_t paper)

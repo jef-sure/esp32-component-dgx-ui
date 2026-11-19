@@ -10,31 +10,44 @@
  *      Author: Anton Petrusevich
  */
 
+#include <string.h>
+
 #include "dgx_ui_hand_priv.h"
 #include "dgx_ui_paint_priv.h"
 
-/* what the canvas holds is kept with it from pass to pass: written from nothing when made or begun again, else the
-   new strokes only */
+_Static_assert(sizeof(dgx_ui_hand_held_t) <= DGX_UI_CANVAS_NOTE, "what a canvas of handwriting holds goes into its note");
+
+/* what the canvas holds is kept with it from pass to pass (dgx_ui_hand_held_t): written from nothing when made, begun
+   again, or holding another text, another start of its letters, another variant or a later moment; else the new
+   strokes only. Written so by any call, a composing too: the canvas holds what was written into it */
 static bool into_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui_font_variant_t *variant, const char *text,
                         const struct dgx_ui_hand_line_t *line, int ink)
 {
-    dgx_ui_node_t    *node = dgx_ui_node(ui, i);
-    dgx_ui_textbox_t *box  = node->widget->text;
-    bool              made;
-    dgx_screen_t     *canvas = dgx_ui_canvas(paint, ui, i, &made);
+    const dgx_ui_node_t    *node = dgx_ui_node(ui, i);
+    const dgx_ui_textbox_t *box  = node->widget->text;
+    bool                    made;
+    void                   *note;
+    dgx_screen_t           *canvas = dgx_ui_canvas_noted(paint, ui, i, &made, &note);
     if (!canvas) return false;
-    const bool     anew   = made || line->anew;
-    const uint32_t had_ms = anew ? 0 : box->letters_drawn;
+    dgx_ui_hand_held_t      *held = note;
+    const dgx_ui_hand_held_t now  = {.text_hash  = dgx_ui_hand_hash(text, (int)strlen(text)),
+                                     .since_ms   = line->since_ms,
+                                     .written_ms = line->elapsed_ms,
+                                     .variant    = (uint8_t)(variant - box->style->variants),
+                                     .written    = 1};
+    const bool anew = made || line->anew || !held || !held->written || held->text_hash != now.text_hash || held->since_ms != now.since_ms ||
+                      held->variant != now.variant || now.written_ms < held->written_ms;
+    const uint32_t had_ms = anew ? 0 : held->written_ms;
     if (anew) dgx_fill_rectangle(canvas, 0, 0, canvas->width, canvas->height, 0);
     if (anew || line->elapsed_ms > had_ms) {
         dgx_hw_context_t pen = line->ctx;
         pen.scr = canvas, pen.color = 255, pen.width = dgx_ui_hand_pen(variant) | (int)(variant->pen & DGX_PEN_SOFT); /* soft as asked */
         dgx_ui_hand_write(&pen, line->x - node->x, line->base - node->y, text, dgx_ui_hand_effort_at(line, had_ms), line->to, !line->total_ms);
-        box->letters_drawn = (uint16_t)(line->elapsed_ms > 0xFFFF ? 0xFFFF : line->elapsed_ms);
+        if (held) *held = now;
     }
     dgx_ui_canvas_put(paint, ui, i, ink);
     return true;
 }
 
-static const struct dgx_ui_hand_canvas_t canvas_ways = {.line = into_canvas, .of = dgx_ui_canvas, .put = dgx_ui_canvas_put};
+static const struct dgx_ui_hand_canvas_t canvas_ways = {.line = into_canvas, .of = dgx_ui_canvas_noted, .put = dgx_ui_canvas_put};
 const dgx_ui_hand_t dgx_ui_handwriting_canvas = {.width = dgx_ui_hand_width, .draw = dgx_ui_hand_draw, .base_rows = dgx_ui_hand_base_rows, .canvas = &canvas_ways};

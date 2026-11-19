@@ -811,11 +811,9 @@ static int next_focus(dgx_ui_t *ui, int i, int step)
 
 static bool key_in(dgx_ui_t *ui, int key);
 
-/* the popup whose root is told it goes: a call for it from that on() closes it, untold again */
-static const dgx_ui_t *leaving;
-
 /* the closing by the key back, reached from the keys only through this, named by dgx_ui_popup_open(): a program that
-   opens no popup has none to close, and carries none of it */
+   opens no popup has none to close, and carries none of it. Shared by the trees of every task, and harmless: each
+   call writes it with the one value it can have, and a pointer is read whole */
 static bool (*back_closing)(dgx_ui_t *ui);
 
 bool dgx_ui_popup_back(dgx_ui_t *ui)
@@ -823,11 +821,12 @@ bool dgx_ui_popup_back(dgx_ui_t *ui)
     dgx_ui_t *popup = ui->popup;
     if (!popup) return false;
     const dgx_ui_t *over = popup->popup;
-    if (popup != leaving && live(popup, 0)) {
-        const dgx_ui_t *was = leaving;
-        leaving             = popup;
-        tell(popup, 0, DGX_UI_BACK); /* while it is open: its widgets may be read */
-        leaving = was;
+    if (!popup->leaving && live(popup, 0)) {
+        /* while it is open: its widgets may be read; a back for it from that on() closes it, untold again. The mark is
+           the popup's own, as a tree is its task's: a tree of another task is told meanwhile as it should be */
+        popup->leaving = true;
+        tell(popup, 0, DGX_UI_BACK);
+        popup->leaving = false;
     }
     /* closed unless its on() closed it, put another in its place or opened one over it: the program's then */
     if (ui->popup == popup && popup->popup == over) dgx_ui_popup_close(ui);
@@ -917,7 +916,8 @@ static bool repeat(dgx_ui_t *ui, uint32_t now_ms)
 }
 
 /* reached by dgx_ui_time() only through this, named by dgx_ui_buttons(), the one call that holds a key: a program that
-   reads no buttons carries no keys. One for all trees: it is the same function for each */
+   reads no buttons carries no keys. Shared by the trees of every task, and harmless: each call writes it with the one
+   value it can have, and a pointer is read whole */
 static bool (*repeat_step)(dgx_ui_t *ui, uint32_t now_ms);
 
 void dgx_ui_button_keys(dgx_ui_t *ui, const uint8_t *keys)

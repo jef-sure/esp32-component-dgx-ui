@@ -144,6 +144,7 @@ bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     const bool     start = box->flags & DGX_UI_TEXTBOX_START;
     const uint32_t since = start ? now_ms : box->since_ms;
     line.total_ms        = box->letter_ms ? (uint32_t)letters_of(text) * box->letter_ms : 0;
+    line.since_ms        = since;
     line.elapsed_ms      = now_ms - since;
     if (line.elapsed_ms > line.total_ms) line.elapsed_ms = line.total_ms;
     line.came   = line.elapsed_ms >= line.total_ms;
@@ -157,7 +158,7 @@ bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         return !line.came;
     /* straight on the screen: the box laid and all of it written when it is anew or whole; else the new strokes only */
     if (variant->pen & DGX_PEN_SOFT) {
-        static bool told;
+        static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
         if (!told) ESP_LOGW(TAG, "widget %d: a soft pen is soft in a canvas (dgx_ui_handwriting_canvas); straight, a hard one", i);
         told = true;
     }

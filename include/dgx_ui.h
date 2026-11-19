@@ -7,7 +7,9 @@
  *
  *  The core: the tree of widgets, its layout, the state of each widget, the pointer, the keys and the focus. It
  *  draws nothing and calls no function of DGX, so it runs in host tests without a display; drawing is
- *  dgx_ui_paint.h. One task owns a tree, as one task owns a screen of DGX: no call here may come from another.
+ *  dgx_ui_paint.h. One task owns a tree, as one task owns a screen of DGX: no call here may come from another. The
+ *  library keeps nothing of a tree outside the tree and its paint, so two tasks, each with its own trees and paints,
+ *  do not meet.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -365,6 +367,8 @@ struct dgx_ui_t {
     dgx_ui_msg_t     *offered;     ///< the message dgx_ui_take() offers now, for dgx_ui_msg_keep(); NULL between
     bool              told_width;  ///< the warning of a text laid with no width given once
     bool              told_look;   ///< the warning of a widget shown with no look given once
+    bool              leaving;     ///< a popup whose root is told DGX_UI_BACK now: a back for it from that on() closes it, untold again
+    bool              backing;     ///< a back by a transition is being made over it (dgx_ui_page_back_by()): one asked meanwhile is that one
     dgx_ui_t         *popup;       ///< the popup open over the tree, a tree of its own, maybe with its own; NULL none
     uint8_t           level;       ///< how many popups lie under it: 0 for a tree that is no popup
     uint8_t           popup_flags; ///< DGX_UI_POPUP_*

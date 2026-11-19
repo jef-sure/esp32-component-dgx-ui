@@ -53,8 +53,9 @@ struct dgx_ui_hand_canvas_t {
     /* a line of the one-line look; false: no canvas to be had, written straight */
     bool (*line)(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui_font_variant_t *v, const char *text,
                  const struct dgx_ui_hand_line_t *line, int ink);
-    /* a widget's canvas and its putting, dgx_ui_canvas() and dgx_ui_canvas_put(), for the handwritten lines */
-    dgx_screen_t *(*of)(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made);
+    /* a widget's canvas with the sixteen bytes kept with it, what the handwriting wrote into it
+       (dgx_ui_canvas_noted()), and its putting, dgx_ui_canvas_put(), for the handwritten lines */
+    dgx_screen_t *(*of)(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made, void **note);
     void (*put)(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink);
 };
 

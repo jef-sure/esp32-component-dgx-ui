@@ -37,7 +37,7 @@ static bool draw(dgx_ui_paint_t *p, const dgx_ui_look_t *look, dgx_ui_t *ui, int
     const int    fit    = buffer && row ? (int)(room / row) : 0;
     const int    rows   = fit < r.h ? fit : r.h; /* no more than the part: the rest of the room is a look's own */
     if (rows < 1) {
-        static bool told;
+        static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
         if (!told) ESP_LOGW(TAG, "widget %d: drawn straight, and blinks: the paint's buffer takes no row of it (%u bytes)", i, (unsigned)row);
         told = true;
         return false;

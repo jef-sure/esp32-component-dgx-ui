@@ -17,11 +17,12 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_transition.h`](#dgx_ui_transitionh) | pages that change by a slide or a crossfade |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.18: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.19: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
-call.
+call. The library keeps nothing of a tree outside the tree and its paint, so two tasks, each with its own trees and
+paints, do not meet.
 
 ## dgx_ui.h
 
@@ -495,7 +496,8 @@ struct dgx_ui_textbox_t {
 The string of a widget and how it is laid, 28 bytes. The program gives `buf`, `size`, `lines` and `style` through
 `dgx_ui_textbox_init()` and may read `buf`. The rest is the library's: the variant the text was fitted in, the first
 line shown, and what the look of lines and the handwriting count. Its flags `DGX_UI_TEXTBOX_START`, `DGX_UI_TEXTBOX_CAME`,
-`DGX_UI_TEXTBOX_ENDED` and `DGX_UI_TEXTBOX_COUNTED` are the library's too.
+`DGX_UI_TEXTBOX_ENDED` and `DGX_UI_TEXTBOX_COUNTED` are the library's too. A text box is one widget's: a second widget
+that shows the same text has a box of its own.
 
 | Call | What it does |
 | ---- | ------------ |
@@ -713,7 +715,7 @@ library's laying of a picture; `dgx_ui_background_set()` names it, the program d
 | Call | What it does |
 | ---- | ------------ |
 | `void dgx_ui_wake_in(dgx_ui_paint_t *paint, uint32_t ms)` | For a look that returns `true`: it asks to be called again no sooner than in `ms`. A look that asks for time and names nothing is called at the next pass. A look names its moment again at every pass it is drawn. |
-| `uint32_t dgx_ui_wake(const dgx_ui_paint_t *paint, const dgx_ui_t *ui, uint32_t now_ms)` | For the loop: how long it may wait before the next pass, the least of the moments the looks named at the last `dgx_ui_paint()` and of the next repeat of a key held. 0: the next pass, and the loop waits a tick, not nothing. `DGX_UI_WAKE_NONE`: nobody asks, the loop waits for a message. |
+| `uint32_t dgx_ui_wake(const dgx_ui_paint_t *paint, const dgx_ui_t *ui, uint32_t now_ms)` | For the loop: how long it may wait before the next pass, the least of the moments the looks named at the last `dgx_ui_paint()` and of the next repeat of a key held. 0: the next pass, and the loop waits a tick, not nothing. `DGX_UI_WAKE_NONE`: nobody asks, the loop waits for a message. Two trees drawn in turn by one paint are painted with the same `now_ms`; asked after the last of them, it gives the least moment of all. |
 
 `wake_ms` of the paint is the least of the moments named at the last pass, from its `now_ms`; `wake_named` is the
 painter's own. Both calls are inlines of the header. The recipe is

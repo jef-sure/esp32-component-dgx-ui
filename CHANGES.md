@@ -1,5 +1,15 @@
 # Changes
 
+## 0.0.19 - 2026-11-19
+
+- Handwriting into a canvas: a second paint of the same tree no longer takes strokes from the display's canvas, nor
+  keeps an old text's strokes in its own.
+- A dropdown's options set while its list is open: the list shows them at once and keeps its window.
+- Two trees drawn in turn by one paint with the same `now_ms`: `dgx_ui_wake()` after the last of them gives the least
+  moment of all; it gave only the last tree's.
+- Two trees of two tasks: the key back and `dgx_ui_page_back_by()` on one no longer disturb the other.
+- The examples sleep by `dgx_ui_wake()`. Every program about 100 bytes more; handwriting into a canvas about 190 more.
+
 ## 0.0.18 - 2026-11-19
 
 - `dgx_ui_look_lines`: while letters come, a pass draws only the row they came to; a text of several lines set in the

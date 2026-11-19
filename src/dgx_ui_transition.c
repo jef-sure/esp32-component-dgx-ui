@@ -19,10 +19,6 @@
 
 static const char *TAG = "dgx_ui";
 
-/* the transition of a back that is being made: a call of dgx_ui_page_back_by() from the page's root's on(), within
-   it, leaves the closing and the frames to it */
-static const dgx_ui_transition_t *backing;
-
 /* the two pictures can make this transition on this screen; else the page changed at once, and why told in the log
    unless the program gave no pictures or no time: that is its choice, the same code on a board without the memory */
 static bool ready(const dgx_ui_transition_t *tr, const dgx_ui_paint_t *paint, int kind)
@@ -66,12 +62,14 @@ bool dgx_ui_page_open_by(dgx_ui_t *home, dgx_ui_t *page, dgx_ui_paint_t *paint, 
 
 bool dgx_ui_page_back_by(dgx_ui_t *home, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind)
 {
-    if (backing) return true; /* from the root's on() within a back by a transition: that one closes and runs */
+    /* from the root's on() within a back by a transition over this tree: that one closes and runs. The mark is the
+       tree's own: a back over a tree of another task is made meanwhile */
+    if (home->backing) return true;
     if (!ready(tr, paint, kind)) return dgx_ui_page_back(home);
     compose_whole(home, paint, tr->from); /* the top page still open */
-    backing           = tr;
+    home->backing     = true;
     const bool closed = dgx_ui_page_back(home);
-    backing           = NULL;
+    home->backing     = false;
     if (closed) begin(home, paint, tr, kind);
     return closed;
 }

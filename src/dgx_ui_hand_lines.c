@@ -54,13 +54,6 @@ typedef struct {
     } line[];
 } laid_t;
 
-static uint32_t hash_of(const char *text, int len)
-{
-    uint32_t hash = 2166136261u; /* FNV-1a */
-    for (int k = 0; k < len; ++k) hash = (hash ^ (uint8_t)text[k]) * 16777619u;
-    return hash;
-}
-
 /* the lines of the text as kept for the widget, laid again when its key changed; NULL: none kept (no memory, or the
    plain way asked for a timing), the rows laid at every pass */
 static laid_t *laid_lines(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui_font_variant_t *variant, int v, const char *text, int len, int width, int total)
@@ -70,7 +63,7 @@ static laid_t *laid_lines(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_
 #endif
     bool      made;
     laid_t   *laid = dgx_ui_kept(paint, ui, i, sizeof(laid_t) + (size_t)total * sizeof laid->line[0], &made);
-    const uint32_t hash = hash_of(text, len);
+    const uint32_t hash = dgx_ui_hand_hash(text, len);
     if (!laid) return NULL;
     if (!made && laid->hash == hash && laid->width == width && laid->variant == v && laid->count == total) return laid;
     laid->hash = hash, laid->width = (int16_t)width, laid->variant = (uint8_t)v, laid->count = 0;
@@ -163,7 +156,8 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 
     /* where: into the widget's canvas when its handwriting writes into one, else straight */
     bool          made   = false;
-    dgx_screen_t *canvas = (node->widget->flags & DGX_UI_CANVAS) && variant->hand->canvas ? variant->hand->canvas->of(paint, ui, i, &made) : NULL;
+    void         *note   = NULL;
+    dgx_screen_t *canvas = (node->widget->flags & DGX_UI_CANVAS) && variant->hand->canvas ? variant->hand->canvas->of(paint, ui, i, &made, &note) : NULL;
     bool          fresh  = canvas ? made || anew : anew || paint->whole;
     const bool    cut    = !important && total - top > rows;
     const int     shown  = total - top < rows ? total - top : rows;
@@ -182,7 +176,19 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
         const int first = dgx_ui_first_base(style);
         base0           = node->y + (first >= 0 ? first : own);
     }
-    const uint32_t had_ms = fresh ? 0 : (uint32_t)box->letters_drawn * unit_ms;
+    /* a canvas: what it holds against what this call writes (dgx_ui_hand_held_t), kept with it; straight, how far the
+       pen got on the screen, kept in the box by the painter's own pass */
+    dgx_ui_hand_held_t      *held = canvas ? note : NULL;
+    const dgx_ui_hand_held_t now  = {.text_hash  = canvas ? dgx_ui_hand_hash(text, len) : 0,
+                                     .since_ms   = since,
+                                     .written_ms = written_ms,
+                                     .top        = (uint16_t)top,
+                                     .variant    = (uint8_t)v,
+                                     .written    = 1};
+    if (canvas)
+        fresh |= !held || !held->written || held->text_hash != now.text_hash || held->since_ms != now.since_ms || held->variant != now.variant ||
+                 held->top != now.top || now.written_ms < held->written_ms;
+    const uint32_t had_ms = fresh ? 0 : canvas ? held->written_ms : (uint32_t)box->letters_drawn * unit_ms;
     if (commit) {
         box->variant = (uint8_t)v, box->top = (uint16_t)top, box->total_lines = (uint16_t)total;
         box->total_letters = (uint16_t)(all_letters > 0xFFFF ? 0xFFFF : all_letters);
@@ -197,7 +203,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
         return more; /* nothing new to write */
     }
     if (!canvas && (variant->pen & DGX_PEN_SOFT)) {
-        static bool told;
+        static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
         if (!told) ESP_LOGW(TAG, "widget %d: a soft pen is soft in a canvas (dgx_ui_handwriting_canvas); straight, a hard one", i);
         told = true;
     }
@@ -265,7 +271,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     }
     dgx_screen_clip(paint->scr, part[0], part[1], part[2], part[3]);
     if (canvas) {
-        box->letters_drawn = (uint16_t)(written_ms / unit_ms); /* the canvas holds what was written */
+        if (held) *held = now; /* the canvas holds what was written */
         variant->hand->canvas->put(paint, ui, i, params->ink);
     }
     return more;

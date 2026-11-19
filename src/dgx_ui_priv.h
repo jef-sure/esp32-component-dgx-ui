@@ -31,3 +31,7 @@ void dgx_ui_touched(dgx_ui_t *ui, int i);
  * one, the list scrolling. *rh: the height of each; *top: the first shown, its text box's top within the rows.
  */
 int dgx_ui_list_rows(const dgx_ui_t *ui, const dgx_ui_node_t *n, int *rh, int *top);
+
+/* a text set on a widget of the tree told to the widgets of the popups over it that show the same box (a dropdown's
+   list): named by dgx_ui_dropdown_open(), so that a program of no dropdown carries none of it; NULL none */
+extern void (*dgx_ui_text_shown_over)(dgx_ui_t *ui, const dgx_ui_textbox_t *box);

@@ -86,7 +86,8 @@ enum {
 
 /**
  * @brief A text box: the program's buffer of the string, its style and the lines it shows. The text is laid into
- * lines, word by word, each time it is drawn: no table of lines is kept.
+ * lines, word by word, each time it is drawn: no table of lines is kept. A text box is one widget's; a second widget
+ * showing the same text has a box of its own.
  */
 struct dgx_ui_textbox_t {
     char                      *buf;       ///< the program's: the string, cut to the size

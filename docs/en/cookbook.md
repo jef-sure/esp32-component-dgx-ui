@@ -1858,10 +1858,11 @@ static void deep_paint_init(dgx_ui_paint_t *paint)
 
 ## A loop that sleeps till the next moment
 
-The loop of [Getting started](getting-started.md) comes back after one tick while a widget asks for time. Take an
-important text that goes up a line every two seconds:
+The loop of [Getting started](getting-started.md) asks `dgx_ui_wake()` how long it may sleep. This is why. A
+simpler loop asks only what `dgx_ui_paint()` and `dgx_ui_time()` return, and comes back after one tick while a
+widget asks for time. Take an important text that goes up a line every two seconds:
 
-1. With that loop the look of the text asks for time all the two seconds. The task wakes at every tick, two hundred
+1. With the simpler loop the look of the text asks for time all the two seconds. The task wakes at every tick, two hundred
    times at a tick of 10 ms, and each time the look returns at once: the line is not due yet.
 2. The look knows when the line is due, and names the moment. `dgx_ui_wake()` gives the loop the soonest of the
    moments named: 2000, then less as the time goes. A loop that waits so long wakes once for the line.

@@ -10,6 +10,7 @@
  */
 
 #include "dgx_ui_dropdown.h"
+#include "dgx_ui_priv.h"
 #include "dgx_ui_text.h"
 
 /* the list's row chosen: the dropdown's value, told when it changed; the list closed either way */
@@ -26,6 +27,19 @@ static void on_list(dgx_ui_t *tree, int li, const dgx_ui_node_t *node, int what,
     if (!n || !n->widget || n->widget->kind != DGX_UI_DROPDOWN || n->widget->text != dd->list.text || n->state_value.value == value) return;
     dgx_ui_set_value(ui, i, value);
     if (n->widget->on) n->widget->on(ui, i, n, DGX_UI_CHANGED, n->widget->ctx); /* the user chose */
+}
+
+/* the text of a widget of ui set: the lists in the popups over it that show the same box (a dropdown's open list)
+   drawn again; their pick is as it was, and their window with it */
+static void lists_told(dgx_ui_t *ui, const dgx_ui_textbox_t *box)
+{
+    for (dgx_ui_t *tree = ui->popup; tree; tree = tree->popup)
+        for (int k = 0; k < tree->count; ++k) {
+            dgx_ui_node_t *node = dgx_ui_node(tree, k);
+            if (!node || !node->widget || node->widget->kind != DGX_UI_LIST || node->widget->text != box) continue;
+            node->marks |= DGX_UI_MARK_CHANGED;
+            dgx_ui_touched(tree, k);
+        }
 }
 
 bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_ui_look_t *frame_look, const dgx_ui_look_t *list_look)
@@ -75,6 +89,7 @@ bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_
     dgx_ui_add(&dd->tree, -1, &dd->frame);
     const int li = dgx_ui_add(&dd->tree, 0, &dd->list);
     if (!dgx_ui_popup_open(ui, &dd->tree, x, y, width, h, DGX_UI_POPUP_MODAL | DGX_UI_POPUP_CLOSE_OUTSIDE | DGX_UI_POPUP_BACK)) return false;
+    dgx_ui_text_shown_over = lists_told; /* its options set while the list is open: the list hears of it */
     dd->ui = ui, dd->i = (int16_t)i;
     dgx_ui_focus(&dd->tree, li); /* the keys move the pick */
     return true;
