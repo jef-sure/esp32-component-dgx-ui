@@ -21,6 +21,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A text of several lines](#a-text-of-several-lines)
 - [A log of the last lines](#a-log-of-the-last-lines)
 - [A font that fits](#a-font-that-fits)
+- [Letters with soft edges](#letters-with-soft-edges)
 - [A handwritten text](#a-handwritten-text)
 - [Colours of your own, and a night mode](#colours-of-your-own-and-a-night-mode)
 - [Showing, hiding, disabling](#showing-hiding-disabling)
@@ -670,6 +671,52 @@ static void city_style_init(void)
   height.
 - The fonts are those of DGX, of bitmaps and of dots. Such a font is not scaled. A handwritten font is written at
   any height: the next recipe.
+
+## Letters with soft edges
+
+A font of 4 or 2 bits a pixel of DGX keeps how much of each pixel a letter covers, so its letters have no steps.
+The looks draw it as any font: the program gives it to a variant, and nothing else changes.
+
+```cmake
+# main/CMakeLists.txt: DejaVu Sans of 16 pixels and 4 bits a pixel, with the letters of the texts in strings.txt
+dgx_font_need(title POSTSCRIPT DejaVuSans SIZE 16px BITS 4 TEXTS strings.txt)
+```
+
+```c
+dgx_font_t *dgx_font_title(void); /* of dgx_fonts.h, which DGX makes at build time: the font of the need "title" */
+
+static dgx_ui_font_variant_t soft[1];
+static dgx_ui_text_style_t   st_soft;
+static char                  heading_buf[24];
+static dgx_ui_textbox_t      heading_box;
+
+static const dgx_ui_widget_t heading_w = {.kind = DGX_UI_LABEL, .text = &heading_box};
+
+static int heading_add(dgx_ui_t *ui, int parent)
+{
+    soft[0] = (dgx_ui_font_variant_t){.font = dgx_font_title()};
+    st_soft = (dgx_ui_text_style_t){.variants = soft, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    dgx_ui_textbox_init(&heading_box, heading_buf, sizeof heading_buf, 1, &st_soft);
+    const int heading = dgx_ui_add(ui, parent, &heading_w);
+    dgx_ui_text_set(ui, heading, "Living room");
+    return heading;
+}
+```
+
+- **The font is made by DGX at build time**, from a need of the program with `BITS 4` or `BITS 2`: see
+  [Soft edges](https://github.com/jef-sure/esp32-component-dgx/blob/main/docs/fonts-en.md#soft-edges) of DGX. The
+  fonts DGX ships are of one bit.
+- **The edge of a letter is its ink mixed with the paper of its look**: a label's paper, a button's face, the bar
+  of the picked row of a list. The look knows that colour and the display is not read, so the edges are soft on a
+  display behind a bus too, and on 16 bits every pixel of the text is still written once.
+- **Over a picture under the widgets** name the strips, and the edges mix with the picture; drawn straight on a
+  display that cannot be read they mix with the colour `background`. See
+  [A picture under the widgets](#a-picture-under-the-widgets).
+- A font of one bit and a font of 4 bits may be variants of one style, as in [A font that fits](#a-font-that-fits).
+- **What it costs** is flash for the letters: for DejaVu Sans of 16 pixels with the ASCII and Russian letters, 2.5 KB
+  of bitmaps at one bit, 4.4 KB at 2 bits and 8.5 KB at 4. No code is added and no RAM taken.
+- A handwritten font is another thing: its strokes are soft only in a widget's canvas, by a soft pen, as the next
+  recipe shows.
 
 ## A handwritten text
 

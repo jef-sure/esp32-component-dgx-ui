@@ -22,6 +22,7 @@
 - [Текст в несколько строк](#текст-в-несколько-строк)
 - [Журнал последних строк](#журнал-последних-строк)
 - [Шрифт по размеру текста](#шрифт-по-размеру-текста)
+- [Сглаженные буквы](#сглаженные-буквы)
 - [Рукописный текст](#рукописный-текст)
 - [Свои цвета и ночной режим](#свои-цвета-и-ночной-режим)
 - [Показать скрыть отключить](#показать-скрыть-отключить)
@@ -676,6 +677,53 @@ static void city_style_init(void)
 - Меньший шрифт стоит на базовой линии первого. С флагом `DGX_UI_TEXT_MIDDLE` он стоит посередине высоты.
 - Шрифты — из DGX, матричные и точечные. Такой шрифт не масштабируется. Рукописный шрифт пишется на любой
   высоте: следующий рецепт.
+
+## Сглаженные буквы
+
+Шрифт DGX в 4 или 2 бита на пиксель хранит, какую долю каждого пикселя закрывает буква, поэтому у его букв нет
+ступенек. Облики рисуют его как любой шрифт: программа даёт его варианту, и больше ничего не меняется.
+
+```cmake
+# main/CMakeLists.txt: DejaVu Sans of 16 pixels and 4 bits a pixel, with the letters of the texts in strings.txt
+dgx_font_need(title POSTSCRIPT DejaVuSans SIZE 16px BITS 4 TEXTS strings.txt)
+```
+
+```c
+dgx_font_t *dgx_font_title(void); /* of dgx_fonts.h, which DGX makes at build time: the font of the need "title" */
+
+static dgx_ui_font_variant_t soft[1];
+static dgx_ui_text_style_t   st_soft;
+static char                  heading_buf[24];
+static dgx_ui_textbox_t      heading_box;
+
+static const dgx_ui_widget_t heading_w = {.kind = DGX_UI_LABEL, .text = &heading_box};
+
+static int heading_add(dgx_ui_t *ui, int parent)
+{
+    soft[0] = (dgx_ui_font_variant_t){.font = dgx_font_title()};
+    st_soft = (dgx_ui_text_style_t){.variants = soft, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    dgx_ui_textbox_init(&heading_box, heading_buf, sizeof heading_buf, 1, &st_soft);
+    const int heading = dgx_ui_add(ui, parent, &heading_w);
+    dgx_ui_text_set(ui, heading, "Living room");
+    return heading;
+}
+```
+
+- **Шрифт делает DGX во время сборки** по заявке программы с `BITS 4` или `BITS 2`: см. раздел
+  [Soft edges](https://github.com/jef-sure/esp32-component-dgx/blob/main/docs/fonts-en.md#soft-edges) у DGX. Шрифты,
+  которые идут вместе с DGX, — в один бит.
+- **Край буквы — это её чернила, смешанные с бумагой облика**: бумагой надписи, лицом кнопки, полосой выбранной
+  строки списка. Этот цвет облик знает, дисплей не читается, поэтому края сглажены и на дисплее за шиной, а на 16
+  битах каждый пиксель текста по-прежнему пишется один раз.
+- **Над картинкой под виджетами** назовите полосы, и края смешаются с картинкой; нарисованные прямо на дисплей,
+  который нельзя прочитать, они смешиваются с цветом `background`. См.
+  [Картинка под виджетами](#картинка-под-виджетами).
+- Шрифт в один бит и шрифт в 4 бита могут быть вариантами одного стиля, как в рецепте
+  [Шрифт по размеру текста](#шрифт-по-размеру-текста).
+- **Цена** — флеш под буквы: у DejaVu Sans в 16 пикселей с латинскими и русскими буквами 2,5 КБ битовых карт в один
+  бит, 4,4 КБ в 2 бита и 8,5 КБ в 4. Кода не прибавляется, ОЗУ не занимается.
+- Рукописный шрифт — другое дело: его штрихи сглажены только в холсте виджета, мягким пером, как показывает
+  следующий рецепт.
 
 ## Рукописный текст
 

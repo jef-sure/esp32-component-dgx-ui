@@ -51,6 +51,28 @@ const uint16_t logo_pixels[64 * 32];
 const uint16_t map_pixels[320 * 240]  = {[0 ... 320 * 240 - 1] = 0x1084}; /* two maps of one colour each */
 const uint16_t rain_pixels[320 * 240] = {[0 ... 320 * 240 - 1] = 0x1f00};
 int64_t    esp_timer_get_time(void) { return 0; }
+/* the font of the need "title" of the recipe of soft letters: two letters, A and B, of 4 bits a pixel with levels of every kind */
+enum { SOFT_A_W = 5, SOFT_A_H = 4, SOFT_B_W = 6, SOFT_B_H = 5 };
+dgx_font_t *dgx_font_title(void)
+{
+    static const uint8_t levels_a[SOFT_A_H][SOFT_A_W] = {{0, 3, 15, 3, 0}, {2, 15, 0, 15, 2}, {15, 15, 15, 15, 15}, {15, 7, 0, 6, 15}};
+    static const uint8_t levels_b[SOFT_B_H][SOFT_B_W] = {{1, 0, 0, 0, 0, 14}, {0, 8, 15, 15, 8, 0}, {0, 15, 0, 0, 15, 0}, {0, 8, 15, 15, 8, 0}, {14, 0, 0, 0, 0, 1}};
+    static uint8_t       bits[2][64];
+    static glyph_t       glyphs[2];
+    static glyph_array_t ranges[1];
+    static dgx_font_t    font;
+    if (font.glyph_ranges) return &font;
+    for (int letter = 0; letter < 2; ++letter) {
+        const int width = letter ? SOFT_B_W : SOFT_A_W, height = letter ? SOFT_B_H : SOFT_A_H, pitch = (width * 4 + 7) / 8;
+        for (int y = 0; y < height; ++y)
+            for (int x = 0; x < width; ++x) bits[letter][y * pitch + x / 2] |= (uint8_t)((letter ? levels_b[y][x] : levels_a[y][x]) << (x % 2 ? 0 : 4));
+        glyphs[letter] = (glyph_t){.bitmap = bits[letter], .width = (int16_t)width, .height = (int16_t)height, .xAdvance = 7, .yOffset = (int16_t)(letter ? -5 : -4)};
+    }
+    ranges[0] = (glyph_array_t){.first = 'A', .number = 2, .glyphs = glyphs};
+    font      = (dgx_font_t){.glyph_ranges = ranges, .yAdvance = 8, .yOffsetLowest = -5, .xWidest = SOFT_B_W, .xWidthAverage = 6,
+                             .f_type = DGX_FONT_BITMAP_DEPTH4, .yBottomMax = 1, .xRightMax = 6, .number_of_ranges = 1};
+    return &font;
+}
 /* a clock for the measured pass: 10 microseconds a read */
 static int64_t runner_us;
 static int64_t runner_clock(void) { return runner_us += 10; }
@@ -388,6 +410,32 @@ int main(int argc, char **argv)
         printf("stats: begun anew: passes %u, draws %u, the clock kept %d\n", (unsigned)pass_stats.passes, (unsigned)pass_stats.draws, pass_stats.clock_us == runner_clock);
         dgx_ui_paint_free(&stats_paint), dgx_ui_free(&stats_ui);
         dgx_screen_destroy(&stats_screen);
+    }
+
+    /* letters with soft edges: a heading in a font of 4 bits a pixel: the colours between the paper and the ink in its box */
+    {
+        static dgx_ui_node_t soft_nodes[2];
+        dgx_screen_t        *soft_screen = dgx_vscreen_init(120, 30, 16, DgxScreenRGB);
+        dgx_ui_paint_t       soft_paint  = {.scr = soft_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_t             soft_ui;
+        dgx_ui_init(&soft_ui, soft_nodes, 2, 1);
+        dgx_ui_add(&soft_ui, -1, &col_w);
+        const int heading = heading_add(&soft_ui, 0);
+        dgx_ui_text_set(&soft_ui, heading, "ABBA"); /* the two letters the runner's font has */
+        dgx_ui_paint(&soft_ui, &soft_paint, 0);
+        const dgx_ui_node_t *heading_node = dgx_ui_node(&soft_ui, heading);
+        uint32_t             seen[32];
+        int                  colours = 0;
+        for (int y = heading_node->y; y < heading_node->y + heading_node->h; ++y)
+            for (int x = heading_node->x; x < heading_node->x + heading_node->w; ++x) {
+                const uint32_t pixel = dgx_get_pixel(soft_screen, x, y);
+                int            known = 0;
+                for (int k = 0; k < colours; ++k) known |= seen[k] == pixel;
+                if (!known && colours < 32) seen[colours++] = pixel;
+            }
+        printf("soft: the heading's box holds %d colours: the paper, the ink and %d between\n", colours, colours - 2);
+        dgx_ui_paint_free(&soft_paint), dgx_ui_free(&soft_ui);
+        dgx_screen_destroy(&soft_screen);
     }
 
     /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */
