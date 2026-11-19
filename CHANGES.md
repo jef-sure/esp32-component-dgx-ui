@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.13 - 2026-11-19
+
+- Handwriting in the one-line look of a text: a variant of a handwritten font names `&dgx_ui_handwriting` (straight,
+  a hard pen) or `&dgx_ui_handwriting_canvas` (into a widget's canvas, a soft pen too); the variant's new members
+  `joined`, `pen` and `hand`, so every variant is 16 bytes, was 8. Letters coming are written stroke by stroke at the
+  pace of a pen, a frame every `DGX_UI_HAND_FRAME_MS`.
+- A program that names no handwriting carries none of it: about 100 bytes more in the text look.
+
 ## 0.0.12 - 2026-11-18
 
 - A program that reads no buttons no longer carries the keys: about 1.4 KB less.

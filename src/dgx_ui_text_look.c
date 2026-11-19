@@ -32,12 +32,19 @@ static int cut_for(dgx_font_t *font, const char *text, int field, int *letters)
 }
 
 /* the first variant the text goes into whole; else the one that shows the most letters, the earlier of equals; -1
-   when there is none the look can draw */
+   when there is none the look can draw. A handwritten one that does not go in even narrowed is cut by the box: it
+   counts as showing none, taken only when nothing else can draw */
 static int fit(const dgx_ui_text_style_t *st, const char *text, int field)
 {
     int best = -1, most = -1;
     for (int v = 0; v < st->count; ++v) {
-        dgx_font_t *f = st->variants[v].font;
+        const dgx_ui_font_variant_t *candidate = &st->variants[v];
+        dgx_font_t                  *f         = candidate->font;
+        if (candidate->hand) {
+            if (candidate->hand->width(candidate, text, field) <= field) return v;
+            if (most < 0) best = v, most = 0;
+            continue;
+        }
         if (!dgx_ui_variant_usable(f)) continue;
         if (dgx_ui_width_of(f, text, (int)strlen(text)) <= field && strlen(text) <= DGX_UI_LINE) return v;
         int letters;
@@ -64,17 +71,19 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
        that a composing does not hide from it that the variant, and with it the rows around the field, changed */
     int v = box->variant;
     if (w->marks & DGX_UI_MARK_FIT) v = fit(st, text, w->w);
-    if (v < 0 || v >= st->count || !dgx_ui_variant_usable(st->variants[v].font)) {
+    if (v < 0 || v >= st->count || !(st->variants[v].hand || dgx_ui_variant_usable(st->variants[v].font))) {
         if (paint->whole) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, w->h);
         return false;
     }
     if (v != box->variant) paint->whole = true; /* another height: around it too */
     if (!paint->composing && paint->part + 1 >= paint->parts) box->variant = (uint8_t)v; /* stored by the last part only */
-    dgx_font_t *f = st->variants[v].font, *f0 = st->variants[0].font;
-    if (!dgx_ui_variant_usable(f0)) f0 = f;
+    if (st->variants[v].hand) return st->variants[v].hand->draw(look, paint, ui, i, now_ms, &st->variants[v]); /* the library's handwriting */
+    dgx_font_t *f = st->variants[v].font;
+    /* the base line: the first variant's, its own when the first cannot be drawn; or the middle of the box */
+    const int first_rows = dgx_ui_first_base(st);
     /* the base line: the first variant's, or the middle of the box for a smaller one */
     const int cell = f->yBottomMax - f->yOffsetLowest;
-    const int base = (st->flags & DGX_UI_TEXT_MIDDLE) ? w->y + (w->h - cell) / 2 - f->yOffsetLowest : w->y - f0->yOffsetLowest;
+    const int base = (st->flags & DGX_UI_TEXT_MIDDLE) ? w->y + (w->h - cell) / 2 - f->yOffsetLowest : w->y + (first_rows >= 0 ? first_rows : -f->yOffsetLowest);
     const int top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
     if (paint->whole) {
         /* the rows of the box above and below the field: the field writes its own */

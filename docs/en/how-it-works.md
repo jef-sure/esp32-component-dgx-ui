@@ -246,6 +246,10 @@ A label draws one line: the text in a field as wide as the widget, a text too lo
 when its style says it is important, scrolls a line up every `scroll_ms`. Letters may appear one by one, each where it
 will stand.
 
+A variant of a handwritten font of DGX that names the library's handwriting is written by a pen in a label: at the
+height the variant gives, narrowed to go in, its letters coming stroke by stroke. A text in a later variant stands on
+the base line of the first. See [A handwritten text](cookbook.md#a-handwritten-text).
+
 No table of lines is kept: the text is laid again when it is drawn.
 
 ## Input
@@ -294,6 +298,8 @@ every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_d
 | the library's own RAM | none; 4 bytes once the loop calls `dgx_ui_time()` |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB |
 | the look of several lines, when named | about 2.5 KB |
+| a variant of a font | 16 bytes |
+| handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the
 program gives the painter: a picture of 4 or 8 bits, a row of the picture at least; and, when the program names the

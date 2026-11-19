@@ -144,6 +144,69 @@ int main(int argc, char **argv)
     printf("level look: box %d,%d %dx%d; a pixel at 20%% is the bar %d, at 80%% the rest %d\n", n->x, n->y, n->w, n->h,
            dgx_get_pixel(scr, n->x + n->w / 5, n->y + 1) == table[ACCENT], dgx_get_pixel(scr, n->x + n->w * 4 / 5, n->y + 1) == table[FILL]);
 
+    /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */
+    {
+        dgx_screen_t                *hand_screen = dgx_vscreen_init(200, 80, 16, DgxScreenRGB); /* a column 200 pixels wide */
+        dgx_ui_paint_t               hand_paint  = {.scr = hand_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        static const dgx_ui_widget_t hand_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
+        static dgx_ui_node_t         hand_nodes[4];
+        dgx_ui_t                     hand_ui;
+        greeting_init(), signature_init();
+        dgx_ui_init(&hand_ui, hand_nodes, 4, 1);
+        dgx_ui_add(&hand_ui, -1, &hand_root_w);
+        const int greeting = dgx_ui_add(&hand_ui, 0, &greeting_w), signature = dgx_ui_add(&hand_ui, 0, &signature_w);
+        static const char *const said[] = {"Hello", "Good afternoon to you", "Good afternoon, dear guests of the house",
+                                           "Good afternoon, dear guests of the house on the hill"};
+        for (unsigned k = 0; k < sizeof said / sizeof *said; ++k) {
+            dgx_ui_text_set(&hand_ui, greeting, said[k]);
+            dgx_ui_paint(&hand_ui, &hand_paint, 0);
+            const dgx_ui_node_t *label = dgx_ui_node(&hand_ui, greeting);
+            /* the lowest row of ink in the columns of the first letter, which has nothing under its base line: G or H */
+            int base_row = -1, last_column = -1;
+            for (int row = label->y; row < label->y + label->h; ++row)
+                for (int column = label->x; column < label->x + label->w; ++column)
+                    if (dgx_get_pixel(hand_screen, column, row) != table[PAPER]) {
+                        if (column < label->x + 8 && row > base_row) base_row = row;
+                        if (column > last_column) last_column = column;
+                    }
+            printf("hand: '%s': variant %d in a label %dx%d, ink to column %d, the first letter's foot on row %d\n", said[k], greeting_box.variant, label->w,
+                   label->h, last_column, base_row);
+        }
+        greeting_say(&hand_ui, greeting, "Hello");
+        int passes = 0, frame = -1;
+        uint32_t written_ms = 0;
+        for (uint32_t now = 1000; now < 3000; now += DGX_UI_HAND_FRAME_MS) {
+            const bool more = dgx_ui_paint(&hand_ui, &hand_paint, now);
+            ++passes;
+            if (!more) {
+                written_ms = now - 1000;
+                break;
+            }
+            frame = (int)hand_paint.wake_ms;
+        }
+        printf("hand: 'Hello' at 60 ms a letter: written in %u ms, %d passes, the look asking for a pass every %d ms; none asked after %d\n", written_ms, passes,
+               frame, hand_paint.wake_ms == DGX_UI_WAKE_NONE);
+        /* the signature by a soft pen in its canvas: more shades than ink and paper */
+        dgx_ui_text_set(&hand_ui, signature, "Soft");
+        dgx_ui_paint(&hand_ui, &hand_paint, 4000);
+        const dgx_ui_node_t *signature_node = dgx_ui_node(&hand_ui, signature);
+        int shades = 0, inked = 0;
+        uint32_t seen[8];
+        for (int row = signature_node->y; row < signature_node->y + signature_node->h; ++row)
+            for (int column = signature_node->x; column < signature_node->x + signature_node->w; ++column) {
+                const uint32_t pixel = dgx_get_pixel(hand_screen, column, row);
+                if (pixel == table[PAPER]) continue;
+                ++inked;
+                int known = 0;
+                for (int k = 0; k < shades; ++k) known |= seen[k] == pixel;
+                if (!known && shades < 8) seen[shades++] = pixel;
+            }
+        printf("hand: the signature by a soft pen in a canvas %dx%d: %d pixels of ink in %d shades\n", signature_node->w, signature_node->h, inked, shades);
+        dgx_ui_free(&hand_ui);
+        dgx_ui_paint_free(&hand_paint);
+        dgx_screen_destroy(&hand_screen);
+    }
+
     /* a widget of the program's own worked by the finger and the keys: the pad of two axes, and the bar that is tapped */
     {
         dgx_screen_t                *xs = dgx_vscreen_init(40, 64, 16, DgxScreenRGB); /* a column 40 pixels wide */

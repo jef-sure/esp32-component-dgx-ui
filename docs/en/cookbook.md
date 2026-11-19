@@ -602,7 +602,101 @@ static void city_style_init(void)
 - The height of a label is the line of its first font, so the label keeps its size whichever font is taken.
 - A smaller font stands on the base line of the first one. With `DGX_UI_TEXT_MIDDLE` it stands in the middle of the
   height.
-- The fonts are those of DGX, of bitmaps and of dots. A font is not scaled.
+- The fonts are those of DGX, of bitmaps and of dots. Such a font is not scaled. A handwritten font is written at
+  any height: the next recipe.
+
+## A handwritten text
+
+DGX has handwritten fonts: their letters are strokes, written by a pen at any height. A variant of such a font names
+the library's handwriting, `&dgx_ui_handwriting`, and the one-line look of a text writes it. A program that names
+none carries none of it.
+
+Here a greeting in DGX's `font0ss`: 32 pixels high when it goes in, narrowed when it nearly does, 20 pixels high when
+it is long, and in a bitmap font when it is longer still.
+
+```c
+#include "dgx_hw_font.h"
+#include "fonts/font0ss.h"
+
+static dgx_ui_font_variant_t greeting_fonts[3];
+static dgx_ui_text_style_t   greeting_style;
+static char                  greeting_text[64];
+static dgx_ui_textbox_t      greeting_box;
+
+static void greeting_init(void)
+{
+    /* DGX's handwritten face at two heights, then a bitmap font for a text too long even so */
+    greeting_fonts[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 32, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+    greeting_fonts[1] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 20, .narrow = 70, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
+    greeting_fonts[2] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    greeting_style    = (dgx_ui_text_style_t){.variants = greeting_fonts, .count = 3, .align = DGX_FONT_ALIGN_LEFT};
+    dgx_ui_textbox_init(&greeting_box, greeting_text, sizeof greeting_text, 1, &greeting_style);
+}
+
+static const dgx_ui_widget_t greeting_w = {.kind = DGX_UI_LABEL, .text = &greeting_box};
+
+/* a new text, written by the pen: all of it in as long as its letters at 60 ms each */
+static void greeting_say(dgx_ui_t *ui, int greeting, const char *text)
+{
+    dgx_ui_text_set(ui, greeting, text);
+    dgx_ui_text_appear(ui, greeting, 60);
+}
+```
+
+What happens in a label 200 pixels wide:
+
+1. `"Hello"` is 50 pixels wide at the height of 32: the first variant, as it is.
+2. `"Good afternoon to you"` is 213 pixels: too wide. `narrow = 70` lets the letters be narrowed across down to 70%
+   of their width. The narrowing goes in whole percents, and the widest that goes in is taken. The height stays, and
+   the pen keeps its width.
+3. `"Good afternoon, dear guests of the house"` is 390 pixels, too wide even at 70%: the second variant, 20 pixels
+   high. It stands on the base line of the first, so the text does not jump beside its neighbours.
+4. `"Good afternoon, dear guests of the house on the hill"` does not go in at 20 pixels either: the bitmap font, cut
+   with an ellipsis, on the same base line. Without that last variant the handwriting would be taken and cut by the
+   label's rectangle at its end, with no ellipsis.
+5. `greeting_say(ui, greeting, "Hello")`: the text is written stroke by stroke, all of it in as long as its five
+   letters at 60 ms each, 300 ms. While it is written the look asks for a pass every `DGX_UI_HAND_FRAME_MS`, 20 ms,
+   and the loop sleeps between them (`dgx_ui_wake()`). A pass writes only the strokes that are new. A pass that comes
+   sooner, for another widget, writes on to its own time. A text set while another is being written is begun again.
+
+What the variant says:
+
+- **`height`** is the line in pixels, and the height of the label when the variant is the first of its style.
+- **`narrow`** is how far across the letters may be narrowed, in percent; 0: never.
+- **`joined`**: the letters joined, as in handwriting.
+- **`pen`** is the width of the pen in pixels; 0 is a hairline.
+- **Only the one-line look** writes handwriting, that is a label. In a button, a field, a list and a text of several
+  lines a handwritten variant is passed over.
+- **What it costs.** Named by a variant: about 31 KB, of which the font `font0ss` is 17.8 KB, DGX's pen 10 KB and
+  dgx-ui 1.6 KB. Not named: about 100 bytes. A variant is 16 bytes, handwritten or not.
+- **The time of a pass.** The pen keeps nothing between passes: each pass goes over the strokes already written
+  without drawing them, then writes the new ones. On an ESP32 at 240 MHz with a display of 320 by 240 on SPI a pass
+  takes 5 to 9 ms while a line of 12 to 30 letters is written at 24 pixels, under 3 ms of it for the strokes gone
+  over. All of the label drawn again would take 23 to 41 ms.
+
+A soft pen has edges that fade, and needs a place that keeps the amounts of its ink: the canvas of a widget. The
+variant names `&dgx_ui_handwriting_canvas`, and the label has the flag `DGX_UI_CANVAS`:
+
+```c
+static dgx_ui_font_variant_t signature_fonts[1];
+static dgx_ui_text_style_t   signature_style;
+static char                  signature_text[24];
+static dgx_ui_textbox_t      signature_box;
+
+static void signature_init(void)
+{
+    signature_fonts[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 32, .pen = 3 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting_canvas};
+    signature_style    = (dgx_ui_text_style_t){.variants = signature_fonts, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    dgx_ui_textbox_init(&signature_box, signature_text, sizeof signature_text, 1, &signature_style);
+}
+
+/* the canvas of the label holds the amounts of ink: a byte of RAM for each of its pixels */
+static const dgx_ui_widget_t signature_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_CANVAS, .text = &signature_box, .want_w = 120};
+```
+
+The canvas needs `CONFIG_DGX_ENABLE_VSCREEN=y` and a display of 16 bits. Written straight, by `&dgx_ui_handwriting`, a
+soft pen is the hard pen of its width, and the log says so once. A program that names only `&dgx_ui_handwriting`
+carries no canvas.
 
 ## Colours of your own, and a night mode
 

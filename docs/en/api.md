@@ -16,7 +16,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.12: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.13: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -412,9 +412,12 @@ not carry it. It changes nothing.
 
 ```c
 typedef struct dgx_ui_font_variant_t {
-    dgx_font_t *font;
-    int16_t     height;
-    uint8_t     narrow;
+    dgx_font_t          *font;
+    int16_t              height;
+    uint8_t              narrow;
+    bool                 joined;
+    uint32_t             pen;
+    const dgx_ui_hand_t *hand;
 } dgx_ui_font_variant_t;
 
 typedef struct dgx_ui_text_style_t {
@@ -426,8 +429,22 @@ typedef struct dgx_ui_text_style_t {
 } dgx_ui_text_style_t;
 ```
 
-A variant is a font a text may be drawn in: a font of DGX of bitmaps or of dots. `height` and `narrow` are for
-handwritten fonts, which are not drawn yet; leave them 0.
+A variant is a font a text may be drawn in, 16 bytes: a font of DGX of bitmaps or of dots, or a handwritten one. For
+a font of bitmaps or of dots the other members stay 0. For a handwritten font (`DGX_FONT_HW` of DGX):
+
+| Member | Meaning |
+| ------ | ------- |
+| `height` | the height of a line in pixels |
+| `narrow` | the letters may be narrowed across down to so many percent to go in, in whole percents, the widest that goes in taken; 0: never |
+| `joined` | the letters joined |
+| `pen` | the width of the pen in pixels, 0 a hairline; `DGX_PEN_SOFT` of DGX added for a soft pen |
+| `hand` | `&dgx_ui_handwriting`: written straight on the screen, by a hard pen. `&dgx_ui_handwriting_canvas`: the same, and on a widget of `DGX_UI_CANVAS` into its canvas, where a soft pen is soft; it needs the virtual screens of DGX. `NULL`: the variant is passed over |
+
+`dgx_ui_hand_t` is the library's own type behind the two constants. Handwriting is written by the one-line look of
+a text only; the other looks pass a handwritten variant over. A text too wide even narrowed is cut by the widget's
+rectangle at its end. Letters coming (`dgx_ui_text_appear()`) are written stroke by stroke, the whole text in as
+long as its letters at `letter_ms` each, the look asking for a pass every `DGX_UI_HAND_FRAME_MS`, 20 ms. The recipe:
+[A handwritten text](cookbook.md#a-handwritten-text).
 
 A style lists the variants, the best first, with their `count`. `align` is `DGX_FONT_ALIGN_LEFT`, `_CENTER` or
 `_RIGHT` of DGX. `scroll_ms` is how long an important text shows a line before it scrolls up; 0: it is scrolled by
@@ -435,7 +452,7 @@ hand.
 
 | Flag | Meaning |
 | ---- | ------- |
-| `DGX_UI_TEXT_MIDDLE` | a text in a smaller variant stands in the middle of the height, not on the base line of the first variant |
+| `DGX_UI_TEXT_MIDDLE` | a text in a later variant stands in the middle of the height, not on the base line of the first variant, handwritten or not |
 | `DGX_UI_TEXT_IMPORTANT` | a text too long for its lines scrolls rather than being cut; for `dgx_ui_look_lines` |
 
 `int dgx_ui_variant_line(const dgx_ui_font_variant_t *v)`: the height of a line of a variant.
@@ -460,7 +477,7 @@ struct dgx_ui_textbox_t {
 
 The string of a widget and how it is laid, 28 bytes. The program gives `buf`, `size`, `lines` and `style` through
 `dgx_ui_textbox_init()` and may read `buf`. The rest is the library's: the variant the text was fitted in, the first
-line shown, and what the look of lines counts. Its flags `DGX_UI_TEXTBOX_START`, `DGX_UI_TEXTBOX_CAME`,
+line shown, and what the look of lines and the handwriting count. Its flags `DGX_UI_TEXTBOX_START`, `DGX_UI_TEXTBOX_CAME`,
 `DGX_UI_TEXTBOX_ENDED` and `DGX_UI_TEXTBOX_COUNTED` are the library's too.
 
 | Call | What it does |

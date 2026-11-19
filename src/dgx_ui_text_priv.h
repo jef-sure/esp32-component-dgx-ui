@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "dgx_font.h"
+#include "dgx_ui_text.h"
 
 /* bytes of a text measured at once, and of a line drawn */
 enum { DGX_UI_LINE = 256 };
@@ -36,8 +37,32 @@ static inline int dgx_ui_width_of(dgx_font_t *font, const char *s, int n)
     return dgx_font_bounds(&ctx, line, NULL, NULL);
 }
 
+/* the handwriting a variant names (dgx_ui_hand.c): the width a text takes in it at its height, narrowed as far as the
+   variant allows to go into field, INT_MAX for a variant it cannot write (no handwritten font, no height); and the
+   one-line look's drawing of it */
+struct dgx_ui_hand_line_t; /* a line placed and timed for a pass: dgx_ui_hand_priv.h */
+struct dgx_ui_hand_t {
+    int (*width)(const dgx_ui_font_variant_t *v, const char *text, int field);
+    bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, const dgx_ui_font_variant_t *v);
+    /* the rows of a variant's base line under the top of its line; -1 for a variant it cannot write */
+    int (*base_rows)(const dgx_ui_font_variant_t *v);
+    /* into the canvas of a widget of DGX_UI_CANVAS (dgx_ui_hand_canvas.c); NULL: always straight. false: no canvas
+       to be had, written straight */
+    bool (*canvas)(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui_font_variant_t *v, const char *text,
+                   const struct dgx_ui_hand_line_t *line, int ink);
+};
+
 /* a variant the looks can draw: a font of bitmaps or dots with an advance; handwriting not yet */
 static inline bool dgx_ui_variant_usable(dgx_font_t *font)
 {
     return font && font->f_type != DGX_FONT_HW && font->yAdvance > 0;
+}
+
+/* the base line of a style's first variant, in rows under the box's top: a text in a smaller variant stands on it.
+   -1 when the first variant cannot be drawn: the text stands on its own */
+static inline int dgx_ui_first_base(const dgx_ui_text_style_t *style)
+{
+    const dgx_ui_font_variant_t *first = &style->variants[0];
+    if (first->hand) return first->hand->base_rows(first);
+    return dgx_ui_variant_usable(first->font) ? -first->font->yOffsetLowest : -1;
 }

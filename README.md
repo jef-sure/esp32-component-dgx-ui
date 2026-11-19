@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.12: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.13: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.12"
+    version: "0.0.13"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -83,7 +83,7 @@ It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from
 | ---- | ------------- |
 | [Getting started](docs/en/getting-started.md) | adding the component, the first program piece by piece, building for a chip and for the computer |
 | [How it works](docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
-| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a popup, keys, touch, a field and a keyboard, a look of your own, a control of your own |
+| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a handwritten text, a popup, keys, touch, a field and a keyboard, a look of your own, a control of your own |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
 
 Examples, each for a CYD board and for a window on the computer: [thin_paint](examples/thin_paint/main/thin_paint.c),
@@ -106,7 +106,8 @@ worked by a finger and by the keys, on a board taken from
   drawn again writes every pixel of its field once, so it does not blink on a display behind a bus; on one of 18 or
   24 bits it is drawn through a buffer of the program's for that.
 - **Texts**: one line, or several laid word by word; the font picked from a list so that the text goes in; a text
-  too long cut with an ellipsis or scrolled; letters that appear one by one.
+  too long cut with an ellipsis or scrolled; letters that appear one by one. A label in a handwritten font of DGX,
+  written by a pen stroke by stroke.
 - **Controls**: a button with a shadow and a pressed face, a switch, a slider, a list, a dropdown with its list, a
   field typed into, pictures and icons of 1, 4 and 8 bits and of RGB565. A control names its look, so a program
   carries only the looks it uses.
@@ -126,7 +127,7 @@ worked by a finger and by the keys, on a board taken from
 
 ## Not there yet
 
-- handwritten text;
+- handwritten text of several lines;
 - a builder of interfaces on the computer.
 
 An interface of tables, graphs and long texts is a task for
@@ -144,6 +145,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | a message | 20 bytes |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB more |
 | the look of several lines, when a widget names it | about 2.5 KB more |
+| handwriting, when a variant of a font names it | about 1.6 KB more, and 28 KB of DGX with its font |
 | drawing through the buffer for a display of 18 or 24 bits, when the program names it | about 0.6 KB more, and 5 KB of DGX |
 | a picture for the background, when the program sets one | about 0.5 KB more |
 | a canvas, when a widget has one | about 1.5 KB more, and a byte of RAM a pixel of its box |

@@ -610,7 +610,101 @@ static void city_style_init(void)
 
 - Высота надписи — строка её первого шрифта, поэтому размер надписи не зависит от того, какой шрифт выбран.
 - Меньший шрифт стоит на базовой линии первого. С флагом `DGX_UI_TEXT_MIDDLE` он стоит посередине высоты.
-- Шрифты — из DGX, матричные и точечные. Шрифт не масштабируется.
+- Шрифты — из DGX, матричные и точечные. Такой шрифт не масштабируется. Рукописный шрифт пишется на любой
+  высоте: следующий рецепт.
+
+## Рукописный текст
+
+В DGX есть рукописные шрифты: их буквы — штрихи, которые перо пишет на любой высоте. Вариант такого шрифта называет
+рукописный текст библиотеки, `&dgx_ui_handwriting`, и однострочный облик текста его пишет. Программа, которая его не
+называет, ничего из него не несёт.
+
+Пример — приветствие шрифтом `font0ss` из DGX: высотой 32 пикселя, когда помещается, суженное, когда почти
+помещается, высотой 20 пикселей, когда оно длинное, и матричным шрифтом, когда оно ещё длиннее.
+
+```c
+#include "dgx_hw_font.h"
+#include "fonts/font0ss.h"
+
+static dgx_ui_font_variant_t greeting_fonts[3];
+static dgx_ui_text_style_t   greeting_style;
+static char                  greeting_text[64];
+static dgx_ui_textbox_t      greeting_box;
+
+static void greeting_init(void)
+{
+    /* DGX's handwritten face at two heights, then a bitmap font for a text too long even so */
+    greeting_fonts[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 32, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+    greeting_fonts[1] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 20, .narrow = 70, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
+    greeting_fonts[2] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    greeting_style    = (dgx_ui_text_style_t){.variants = greeting_fonts, .count = 3, .align = DGX_FONT_ALIGN_LEFT};
+    dgx_ui_textbox_init(&greeting_box, greeting_text, sizeof greeting_text, 1, &greeting_style);
+}
+
+static const dgx_ui_widget_t greeting_w = {.kind = DGX_UI_LABEL, .text = &greeting_box};
+
+/* a new text, written by the pen: all of it in as long as its letters at 60 ms each */
+static void greeting_say(dgx_ui_t *ui, int greeting, const char *text)
+{
+    dgx_ui_text_set(ui, greeting, text);
+    dgx_ui_text_appear(ui, greeting, 60);
+}
+```
+
+Что происходит в надписи шириной 200 пикселей:
+
+1. `"Hello"` при высоте 32 занимает 50 пикселей: первый вариант, как есть.
+2. `"Good afternoon to you"` — 213 пикселей: не помещается. `narrow = 70` разрешает сузить буквы по ширине до 70%.
+   Сужение идёт целыми процентами, берётся самое широкое, что помещается. Высота остаётся, перо своей ширины не
+   меняет.
+3. `"Good afternoon, dear guests of the house"` — 390 пикселей, не помещается и при 70%: второй вариант, высотой 20
+   пикселей. Он стоит на базовой линии первого, поэтому текст не прыгает рядом с соседями.
+4. `"Good afternoon, dear guests of the house on the hill"` не помещается и при высоте 20: матричный шрифт, с
+   многоточием, на той же базовой линии. Без этого последнего варианта был бы взят рукописный, и текст обрезался
+   бы по прямоугольнику надписи в конце, без многоточия.
+5. `greeting_say(ui, greeting, "Hello")`: текст пишется штрих за штрихом, весь — за то время, что заняли бы его пять
+   букв по 60 мс, то есть за 300 мс. Пока он пишется, облик просит проход каждые `DGX_UI_HAND_FRAME_MS`, 20 мс, а
+   между проходами цикл спит (`dgx_ui_wake()`). Проход пишет только новые штрихи. Проход, который пришёл раньше, из-за
+   другого виджета, дописывает до своего времени. Текст, заданный, пока пишется другой, начинается заново.
+
+Что говорит вариант:
+
+- **`height`** — высота строки в пикселях; она же высота надписи, если вариант в стиле первый.
+- **`narrow`** — до скольких процентов можно сузить буквы по ширине; 0 — нельзя.
+- **`joined`** — буквы соединены, как в письме от руки.
+- **`pen`** — ширина пера в пикселях; 0 — волосная линия.
+- **Только однострочный облик** пишет рукописный текст, то есть надпись. В кнопке, поле ввода, списке и тексте в
+  несколько строк рукописный вариант пропускается.
+- **Чего это стоит.** Если вариант его назвал — около 31 КБ: шрифт `font0ss` — 17,8 КБ, перо DGX — 10 КБ, dgx-ui —
+  1,6 КБ. Если не назвал — около 100 байт. Вариант занимает 16 байт, рукописный он или нет.
+- **Время прохода.** Перо между проходами ничего не хранит: каждый проход проходит уже написанные штрихи, не
+  рисуя их, и пишет новые. На ESP32 с частотой 240 МГц и дисплеем 320 на 240 на SPI проход занимает от 5 до 9 мс,
+  пока пишется строка из 12–30 букв высотой 24 пикселя; из них меньше 3 мс уходит на пройденные штрихи. Нарисовать
+  всю надпись заново стоило бы от 23 до 41 мс.
+
+У мягкого пера края сходят на нет, и ему нужно место, где хранится количество чернил: холст виджета. Вариант
+называет `&dgx_ui_handwriting_canvas`, а у надписи стоит флаг `DGX_UI_CANVAS`:
+
+```c
+static dgx_ui_font_variant_t signature_fonts[1];
+static dgx_ui_text_style_t   signature_style;
+static char                  signature_text[24];
+static dgx_ui_textbox_t      signature_box;
+
+static void signature_init(void)
+{
+    signature_fonts[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 32, .pen = 3 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting_canvas};
+    signature_style    = (dgx_ui_text_style_t){.variants = signature_fonts, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    dgx_ui_textbox_init(&signature_box, signature_text, sizeof signature_text, 1, &signature_style);
+}
+
+/* the canvas of the label holds the amounts of ink: a byte of RAM for each of its pixels */
+static const dgx_ui_widget_t signature_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_CANVAS, .text = &signature_box, .want_w = 120};
+```
+
+Холсту нужны `CONFIG_DGX_ENABLE_VSCREEN=y` и дисплей в 16 бит. Если писать напрямую, через `&dgx_ui_handwriting`,
+мягкое перо становится жёстким той же ширины, и об этом один раз пишется в журнал. Программа, которая называет
+только `&dgx_ui_handwriting`, холста не несёт.
 
 ## Свои цвета и ночной режим
 

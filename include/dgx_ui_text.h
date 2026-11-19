@@ -22,12 +22,44 @@
 extern "C" {
 #endif
 
-/** @brief A font a text may be drawn in. */
+/** @brief The library's handwriting, named by a variant of a handwritten font: &dgx_ui_handwriting. */
+typedef struct dgx_ui_hand_t dgx_ui_hand_t;
+
+/**
+ * @brief A font a text may be drawn in.
+ *
+ * A handwritten font (DGX_FONT_HW) is drawn by the one-line look of a text when its variant names the library's
+ * handwriting, so that a program of bitmap fonts carries none of it:
+ *
+ *     {.font = font0ss(), .height = 24, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting}
+ *
+ * a line 24 pixels high that may be narrowed to 70% across to go in, in whole percents, its letters joined, written
+ * by a pen two pixels wide. For a soft pen, `.pen = 2 | DGX_PEN_SOFT` with `.hand = &dgx_ui_handwriting_canvas` on a
+ * widget of DGX_UI_CANVAS, whose 8-bit canvas holds the amounts of ink; written straight, a soft pen is the hard pen
+ * of its width, told once in the log. A text too long for its box even narrowed is cut by the box. Letters coming
+ * (dgx_ui_text_appear()) are written stroke by stroke at the pace of a pen, the whole text taking as long as so many
+ * letters of letter_ms.
+ */
 typedef struct dgx_ui_font_variant_t {
-    dgx_font_t *font;
-    int16_t     height; ///< a handwritten font: the height of a line in pixels; a bitmap font: 0, its own size
-    uint8_t     narrow; ///< a handwritten font: its x may shrink to so many percent of y first; 0 never
+    dgx_font_t          *font;
+    int16_t              height; ///< a handwritten font: the height of a line in pixels; a bitmap font: 0, its own size
+    uint8_t              narrow; ///< a handwritten font: its x may shrink to so many percent of y first; 0 never
+    bool                 joined; ///< a handwritten font: its letters joined
+    uint32_t             pen;    ///< a handwritten font: the width of the pen in pixels, DGX_PEN_SOFT added for a soft one; 0 is a pixel, a hairline
+    const dgx_ui_hand_t *hand;   ///< a handwritten font: &dgx_ui_handwriting or &dgx_ui_handwriting_canvas; NULL, the variant is skipped
 } dgx_ui_font_variant_t;
+
+/** @brief Letters coming in handwriting: a pass asked for every so many ms, fifty frames a second. A pass called
+ * sooner, for another widget, writes on to its own time. */
+enum { DGX_UI_HAND_FRAME_MS = 20 };
+
+/** @brief The library's handwriting, for dgx_ui_font_variant_t::hand: straight on the screen, by a hard pen. */
+extern const dgx_ui_hand_t dgx_ui_handwriting;
+/**
+ * @brief The same, and on a widget of DGX_UI_CANVAS into its canvas, where a soft pen is soft. Needs the virtual
+ * screens of DGX (CONFIG_DGX_ENABLE_VSCREEN); a program that names only dgx_ui_handwriting carries no canvas.
+ */
+extern const dgx_ui_hand_t dgx_ui_handwriting_canvas;
 
 /** Flags of a style. */
 enum {
@@ -66,7 +98,7 @@ struct dgx_ui_textbox_t {
     uint8_t                    letter_ms; ///< appearing: a letter every so many ms; 0 all at once
     uint8_t                    flags;     ///< DGX_UI_TEXTBOX_*
     uint32_t                   since_ms;  ///< when the text was first drawn: its scroll and its letters count from it
-    uint16_t                   letters_drawn; ///< the look of lines: the letters come when it last drew
+    uint16_t                   letters_drawn; ///< the look of lines: the letters come when it last drew; handwriting: the ms of its time written
     uint16_t                   total_lines, total_letters; ///< the look of lines: of the text laid, while COUNTED
 };
 
