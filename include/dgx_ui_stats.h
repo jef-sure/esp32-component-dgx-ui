@@ -87,7 +87,7 @@ typedef struct dgx_ui_paint_stats_t {
     uint32_t               looks_last_us;      ///< the drawing's time at the last pass: the sum of the parts the looks were called
                                                ///< for; of a pass by dgx_ui_changed_measured(), the program's function told
     uint64_t               looks_us;           ///< at all of them
-    uint16_t               draws_last;   ///< draws of widgets at the last pass: a widget drawn by a composing and by the walk of one pass is two
+    uint16_t               draws_last;   ///< draws of widgets at the last pass
     uint16_t               parts_last;   ///< parts a look was called for at the last pass
     uint32_t               draws, parts; ///< at all of them
     uint16_t               widgets;      ///< at the last pass, the tree and its popups: the widgets in use, as dgx_ui_dump() says "in use"

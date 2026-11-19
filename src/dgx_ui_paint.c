@@ -64,6 +64,10 @@ static void drawn_now(dgx_ui_node_t *n)
     n->state_drawn.bits = n->state.bits, n->state_drawn.value = dgx_ui_value_of(n);
 }
 
+/* a rectangle of the tree's screen composed (below); left_to_walk: a place a cover left, composed by the painter before
+   its walk */
+static void compose(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area, bool background, bool left_to_walk);
+
 /* a rectangle cut by the covers: its parts counted, or drawn by a look, or laid with the paper, under a clip of each */
 typedef struct {
     dgx_ui_paint_t      *paint;
@@ -191,14 +195,20 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
     }
     /* the keyboard's band gone or moved: the place it leaves composed again, the new band left alone */
     const dgx_ui_rect_t was = paint->cover_was, now = paint->cover;
+    dgx_ui_rect_t       band_left = dgx_ui_rect(0, 0, 0, 0);
     if (was.x != now.x || was.y != now.y || was.w != now.w || was.h != now.h) {
         paint->cover_was = now;
-        if (!dgx_ui_rect_empty(&was)) dgx_ui_paint_area(ui, paint, was.x, was.y, was.w, was.h);
+        if (!dgx_ui_rect_empty(&was)) compose(ui, paint, was, false, true), band_left = was;
     }
-    /* popups closed at any level: where they lay composed again from every tree still open, in one rectangle */
+    /* popups closed at any level: where they lay composed again from every tree still open, in one rectangle, less the
+       band's place composed just now: every pixel once. What of that place the new band covers is covered here too */
     dgx_ui_rect_t closed = dgx_ui_rect(0, 0, 0, 0);
     for (dgx_ui_t *t = ui; t; t = t->popup) closed = hull(closed, t->popup_was), t->popup_was = dgx_ui_rect(0, 0, 0, 0);
-    if (!dgx_ui_rect_empty(&closed)) dgx_ui_paint_area(ui, paint, closed.x, closed.y, closed.w, closed.h);
+    if (!dgx_ui_rect_empty(&closed)) {
+        dgx_ui_rect_t parts[4];
+        const int     count = dgx_ui_rect_subtract(&closed, &band_left, parts); /* the place whole with no band left */
+        for (int k = 0; k < count; ++k) compose(ui, paint, parts[k], false, true);
+    }
     int cx, cy, cw, ch;
     dgx_screen_clip_get(scr, &cx, &cy, &cw, &ch);
     dgx_screen_batch_begin(scr);
@@ -237,12 +247,19 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint)
 }
 
 /* every widget under i that meets the area drawn whole under a clip of its part of it, nothing marked; for the
-   background only, nothing within a widget whose look fills: none of the background shows there */
-static void walk_area(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool on_bg, bool background, const dgx_ui_rect_t *area)
+   background only, nothing within a widget whose look fills: none of the background shows there. left_to_walk, the
+   painter's own composing of a place a cover left before its walk: a widget the walk will draw is left to it, marked
+   whole so that the walk draws all of it, and every pixel of the place is written once */
+static void walk_area(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool on_bg, bool background, const dgx_ui_rect_t *area,
+                      bool left_to_walk)
 {
-    const dgx_ui_node_t *w = dgx_ui_at(ui, i);
-    dgx_ui_rect_t        seen; /* its box within the area and its parent's: its children lie within it, or are cut */
+    dgx_ui_node_t *w = dgx_ui_at(ui, i);
+    dgx_ui_rect_t  seen; /* its box within the area and its parent's: its children lie within it, or are cut */
     if ((w->state.bits & DGX_UI_HIDDEN) || !dgx_ui_rect_intersect(&(dgx_ui_rect_t){w->x, w->y, w->w, w->h}, area, &seen)) return;
+    if (left_to_walk && ((w->marks & (DGX_UI_MARKS_TO_DRAW | DGX_UI_MARK_WHOLE)) || differs(w))) {
+        w->marks |= DGX_UI_MARK_WHOLE;
+        return;
+    }
     const dgx_ui_look_t *look  = look_told(ui, i);
     const bool           fills = look && look->fill >= 0;
     if (background && fills) return;
@@ -251,7 +268,7 @@ static void walk_area(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper,
         draw_parts(paint, ui, i, look, &seen, paint->now_ms);
     }
     const uint8_t in = fills ? (uint8_t)look->fill : paper;
-    for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) walk_area(paint, ui, c, in, on_bg && !fills, background, &seen);
+    for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) walk_area(paint, ui, c, in, on_bg && !fills, background, &seen, left_to_walk);
 }
 
 void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)
@@ -260,6 +277,11 @@ void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w,
 }
 
 void dgx_ui_compose(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area, bool background)
+{
+    compose(ui, paint, area, background, false);
+}
+
+static void compose(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area, bool background, bool left_to_walk)
 {
     dgx_screen_t *scr = paint->scr;
     for (dgx_ui_t *t = ui; t; t = t->popup) dgx_ui_layout(t);
@@ -279,7 +301,7 @@ void dgx_ui_compose(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area, boo
     paint->composing = true;
     for (dgx_ui_t *t = ui; t; t = t->popup) {
         paint->popup_over = t->popup;
-        if (dgx_ui_widget(t, 0)) walk_area(paint, t, 0, paint->background, drawn, background, &area);
+        if (dgx_ui_widget(t, 0)) walk_area(paint, t, 0, paint->background, drawn, background, &area, left_to_walk);
     }
     paint->popup_over = NULL;
     paint->composing  = false;

@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.22: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.23: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1069,7 +1069,7 @@ A pass, `dgx_ui_paint_stats_t`:
 | `passes`, `passes_us`, `last_us` | the passes measured, their time in all, the time of the last |
 | `drawing_passes`, `drawing_us`, `last_drawing_us`, `longest_drawing_us` | the passes that drew, those at which a look was called for a part of a widget: how many, their time in all, the time of the last and of the longest |
 | `looks_last_us`, `looks_us` | the time of the drawing, at the last pass and in all: the time spent in the looks, with what they send to the display and with the program's strips. A pass's time less it is the core's own, the layout and the walk |
-| `draws_last`, `parts_last`, `draws`, `parts` | draws of widgets and the parts they were drawn in, at the last pass and in all. A widget partly under a popup or the keyboard's band is drawn in parts; one drawn by a composing and again by the walk of the same pass is two draws |
+| `draws_last`, `parts_last`, `draws`, `parts` | draws of widgets and the parts they were drawn in, at the last pass and in all. A widget partly under a popup or the keyboard's band is drawn in parts |
 | `widgets`, `room` | at the last pass, of the tree and its popups: the widgets in use and the room of their arrays and blocks of nodes, as `dgx_ui_dump()` counts them |
 | `slowest_last`, `slowest` | the slowest draw of the last pass and of all: `level` 0 is the tree measured, 1 the popup over it, and so on; `widget` is its index there, as `dgx_ui_dump()` numbers them; `us` its time |
 | `per_widget_tree`, `per_widget`, `per_widget_count` | the count for each widget: the tree whose widgets are counted each, the measured one or a popup over it, such as a page; the program's array of `dgx_ui_widget_stats_t`, an entry for a node's index; how many entries. `per_widget` `NULL`: none is counted each |

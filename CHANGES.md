@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.23 - 2026-11-20
+
+- A widget changed while something lay over it (the keyboard's band, a popup, a page, a dropdown's list) is drawn once
+  when that goes, and so is the place of a popup closed and the band gone in one pass; they were drawn twice. About
+  150 bytes more.
+
 ## 0.0.22 - 2026-11-20
 
 - A widget's value lives in the program's memory: the widget names its place, `.value = &variable` (an `int32_t`), and

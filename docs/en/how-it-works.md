@@ -228,7 +228,8 @@ strips take a widget only where it lies on a drawn background. See
 **Covers.** Rectangles may lie over a tree: the popups open over it, and the band of DGX-DI's keyboard, which the
 program gives as `cover`. A widget partly under them is drawn in the parts that show, the clip set to each part in turn. One
 wholly under them is not drawn and keeps its marks, so a text changed under a popup is drawn right when the popup
-closes. Where a cover was and is no more, the painter composes the tree again.
+closes. Where a cover was and is no more, the painter composes the tree again, and leaves to its walk every widget
+the walk will draw anyway, one that changed while it was covered: that widget is drawn whole, once.
 
 **Composing.** `dgx_ui_paint_area()` draws a rectangle of the screen from the root down: the background, then every
 widget that meets it, whole, under a clip. With `ox`, `oy` the screen may be a small buffer that holds a strip of the

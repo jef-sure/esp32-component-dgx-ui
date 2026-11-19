@@ -383,9 +383,8 @@ int main(void)
         dgx_ui_paint_free(&paint), dgx_ui_free(&ui);
     }
 
-    /* under the keyboard's band, wholly: its place written three times, nothing drawn; the band gone, drawn as the
-       memory is then. (The band's place composed and the widget marked under it are drawn both, as with
-       dgx_ui_set_value() under a band: the painter's, apart from the places) */
+    /* under the keyboard's band, wholly: its place written three times, nothing drawn; the band gone, drawn once, as
+       the memory is then */
     {
         static dgx_ui_node_t nodes[3];
         dgx_ui_t             ui;
@@ -411,7 +410,7 @@ int main(void)
         panel_count_from_now(panel);
         dgx_ui_paint(&ui, &paint, 10);
         fresh(v, &level_w, &other_w);
-        CHECK(panel_differ(panel, v) == 0 && n->state_drawn.value == 5);
+        CHECK(panel_twice(panel) == 0 && panel_differ(panel, v) == 0 && n->state_drawn.value == 5);
         dgx_ui_paint_free(&paint), dgx_ui_free(&ui);
     }
 

@@ -6,7 +6,7 @@
  * shown over the span with the loop's waits, one begun again before its end, none counted with no transition; by a
  * clock at 1000 s, a struct begun anew in the middle of a run and a run whose first frames were not measured, in the
  * cost only. A count
- * for each widget: a draw by a composing and by the walk of one pass, the entries' sums the whole's, a widget replaced
+ * for each widget: a widget changed under a popup closed drawn once, the entries' sums the whole's, a widget replaced
  * at its index, an array smaller than the tree, a page named, closed and freed, a sum near 32 bits halved, begun anew,
  * a widget drawn because the program wrote its place.
  */
@@ -247,8 +247,8 @@ int main(void)
         char text[96];
         dgx_ui_widget_stats_text(&stats, 1, text, sizeof text);
         CHECK(strcmp(text, "widget 1: 2 draws, 310 us mean, 310 us longest") == 0);
-        /* a popup over the first widget, closed, and the first widget changed: its place composed and the walk drawing it,
-           two draws of one pass in its entry as in the whole */
+        /* a popup over the first widget, closed, and the first widget changed: the place composed less the widget, which
+           the walk draws whole: one draw in its entry as in the whole */
         {
             static dgx_ui_node_t popup_nodes[1];
             static dgx_ui_t      popup;
@@ -259,7 +259,7 @@ int main(void)
             dgx_ui_redraw(&home, 1);
             const uint32_t before = entries[1].draws;
             dgx_ui_paint_measured(&home, &paint, 300, &stats);
-            CHECK(entries[1].draws == before + 2 && stats.draws_last >= 3);
+            CHECK(entries[1].draws == before + 1 && stats.draws_last >= 1);
             dgx_ui_free(&popup);
         }
         /* another widget at the index of the other: its entry begun anew */
