@@ -13,7 +13,8 @@ It checks that:
 - the C code of every page compiles against `include/`, with the stubs of `test/docs/stubs` for FreeRTOS;
 - every `dgx_ui_` and `DGX_UI_` name a page prints is in a header;
 - the API pages name every public function, type and constant of the headers;
-- the links between the pages lead to files that are there.
+- the links between the pages lead to files that are there;
+- a number a page writes beside the name of a constant, as in "`DGX_UI_POPUP_DEPTH`, 8", is the header's value.
 
 The code blocks of a page, in their order, are one file of C: a block is whole declarations and functions, and the
 Russian pages hold the same blocks as the English ones.
