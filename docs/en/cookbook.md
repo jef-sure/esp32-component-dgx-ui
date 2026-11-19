@@ -1021,6 +1021,10 @@ What to keep to:
 - **A crossfade**, `DGX_UI_CROSSFADE`, is mixed in the frame buffer of a display that reads it, a DSI display. On
   one that cannot be read it is mixed strip by strip in the paint's buffer, which must hold a row of the screen at
   least. On a display of 24 bits DGX mixes pixel by pixel, which is slow; a slide is two transfers on any display.
+- **How fast.** A frame is one transfer of a whole picture to the display, so the display sets the pace. On an
+  ESP32-P4 with a DSI display of 1280 by 800 at 16 bits and the pictures in PSRAM a slide runs at 12 frames a
+  second, 83 ms a frame, and a crossfade at 7.5, 133 ms a frame; the start, both screens composed, takes 53 ms. A
+  smaller display is faster in proportion to its pixels.
 - **What it costs.** About 1.3 KB, with the 0.6 KB of `dgx_ui_changed()` and the 0.2 KB of the pages' calls, and
   the virtual screens of DGX (`CONFIG_DGX_ENABLE_VSCREEN=y`).
 
