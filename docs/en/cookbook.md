@@ -29,6 +29,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [Pages and "back"](#pages-and-back)
 - [Pages that slide](#pages-that-slide)
 - [Buttons of the board](#buttons-of-the-board)
+- [One knob](#one-knob)
 - [Touch with DGX-DI](#touch-with-dgx-di)
 - [Touch woken by an interrupt](#touch-woken-by-an-interrupt)
 - [A field and a keyboard](#a-field-and-a-keyboard)
@@ -1220,6 +1221,98 @@ static void dialog_keys(dgx_ui_t *ui, bool buttons_in_a_row)
   default back.
 - It is the table of the tree given to `dgx_ui_buttons()`. The keys it gives go to the popups over that tree as any
   key does.
+
+## One knob
+
+An encoder with a push gives three signals in place of six keys: a turn each way and a click. A turn moves the
+focus, and in a list walks its rows first, as the keys do; a click activates. A slider needs one thing more, since
+a turn cannot both leave it and change it: a click on a slider begins the change, turns then move it, and a click
+ends it.
+
+```c
+enum { MSG_DIAL = 19 };
+typedef struct {
+    int8_t steps;   /* turned since the last message, clockwise more than 0 */
+    bool   clicked; /* pushed and let go */
+} dial_t;
+DGX_UI_MESSAGE(dial, MSG_DIAL, dial_t)
+
+/* a slider that shows it is being changed: the library's slider drawn with other parameters while it is pressed */
+static const dgx_ui_slider_look_t dial_slider_plain   = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = ACCENT, .disabled = DIM, .track_h = 2};
+static const dgx_ui_slider_look_t dial_slider_changed = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = ACCENT_DOWN, .disabled = DIM, .track_h = 4};
+static const dgx_ui_look_t        dial_look_plain     = {.draw = dgx_ui_draw_slider, .params = &dial_slider_plain, .fill = -1};
+static const dgx_ui_look_t        dial_look_changed   = {.draw = dgx_ui_draw_slider, .params = &dial_slider_changed, .fill = -1};
+
+static bool dial_slider_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    const bool changed = dgx_ui_node(ui, i)->state_value.bits & DGX_UI_PRESSED;
+    return dgx_ui_draw_slider(changed ? &dial_look_changed : &dial_look_plain, paint, ui, i, now_ms);
+}
+
+static const dgx_ui_look_t dial_slider_look = {.draw = dial_slider_draw, .fill = -1};
+
+/* the slider the dial changes now: its tree, its index and its widget; -1: the dial moves the focus */
+static dgx_ui_t              *dial_tree;
+static int                    dial_slider = -1;
+static const dgx_ui_widget_t *dial_widget;
+
+/* in the loop, before dgx_ui_paint(): the slider is let go when it is the dial's no longer. Its tree may have closed:
+   it is looked for among the open ones by its address, and read only when found */
+static void dial_tidy(dgx_ui_t *ui)
+{
+    if (dial_slider < 0) return;
+    dgx_ui_t *top  = ui;
+    bool      open = ui == dial_tree;
+    while (top->popup) top = top->popup, open |= top == dial_tree;
+    const bool there = open && dgx_ui_widget(dial_tree, dial_slider) == dial_widget;
+    const bool held  = there && (dgx_ui_node(dial_tree, dial_slider)->state_value.bits & DGX_UI_PRESSED);
+    if (held && top == dial_tree && top->focus == dial_slider) return; /* still the dial's */
+    if (held) dgx_ui_set_state(dial_tree, dial_slider, DGX_UI_PRESSED, false);
+    dial_slider = -1;
+}
+
+/* in the loop, for a message no widget claimed */
+static void dial_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg)
+{
+    dial_t dial;
+    if (msg_decode_dial(msg, &dial) != ESP_OK) return;
+    dial_tidy(ui);
+    for (int step = dial.steps; step != 0; step += step > 0 ? -1 : 1) {
+        if (dial_slider >= 0) dgx_ui_key(ui, step > 0 ? DGX_UI_KEY_MORE : DGX_UI_KEY_LESS);
+        else dgx_ui_key(ui, step > 0 ? DGX_UI_KEY_NEXT : DGX_UI_KEY_PREV);
+    }
+    if (!dial.clicked) return;
+    if (dial_slider >= 0) { /* a click ends the change */
+        dgx_ui_set_state(dial_tree, dial_slider, DGX_UI_PRESSED, false);
+        dial_slider = -1;
+        return;
+    }
+    dgx_ui_t *top = ui;
+    while (top->popup) top = top->popup;
+    const dgx_ui_widget_t *focused = top->focus >= 0 ? dgx_ui_widget(top, top->focus) : NULL;
+    if (focused && focused->kind == DGX_UI_SLIDER) { /* a click on a slider begins it */
+        dial_tree = top, dial_slider = top->focus, dial_widget = focused;
+        dgx_ui_set_state(top, dial_slider, DGX_UI_PRESSED, true);
+    } else dgx_ui_key(ui, DGX_UI_KEY_ACTIVATE);
+}
+```
+
+- **Who reads the encoder** sends `MSG_DIAL` with the steps turned since its last message and whether the knob was
+  clicked: `msg_post_dial()` from a task, or `dgx_ui_post_from_isr()` from an interrupt, as in
+  [A message from an interrupt](#a-message-from-an-interrupt).
+- **In the loop** `dial_message()` takes the message when no widget claimed it, and `dial_tidy()` is called before
+  `dgx_ui_paint()`.
+- **A list and a dropdown** need no mode. Turns walk the rows of a list and leave it at its ends. A click on a
+  dropdown opens its list, turns walk it, and a click chooses. A click turns a switch and presses a button.
+- **The slider being changed is marked by `DGX_UI_PRESSED`**, which the library's slider does not draw. So the look
+  above draws the library's slider with other parameters while it is pressed: a thicker track and another knob. A
+  finger that holds the slider shows the same. Give the look to the sliders the dial reaches:
+  `.look = &dial_slider_look`.
+- **The change ends by itself** when the slider is the dial's no longer: a finger pressed another widget, or took
+  this one and let it go; a popup opened over it; its page closed. That is `dial_tidy()`: of a tree that may have
+  closed it compares the address alone, and reads the tree only when it is among the open ones.
+- **"Back" has no signal.** A page reached by the dial gets a "back" button, as in
+  [Pages and "back"](#pages-and-back).
 
 ## Touch with DGX-DI
 

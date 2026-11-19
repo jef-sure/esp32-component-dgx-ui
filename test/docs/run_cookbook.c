@@ -438,6 +438,106 @@ int main(int argc, char **argv)
         dgx_screen_destroy(&soft_screen);
     }
 
+    /* one knob: turns move the focus, a click on the slider begins its change and a click ends it; the list walked; a finger elsewhere,
+       a finger on the slider itself, a popup over it and a page closed and gone let the slider go */
+    {
+        static dgx_ui_node_t         dial_nodes[6], dial_page_nodes[3];
+        static char                  dial_button_buf[8], dial_list_buf[24];
+        static dgx_ui_textbox_t      dial_button_box, dial_list_box;
+        static const dgx_ui_widget_t dial_button_w = {.kind = DGX_UI_BUTTON, .text = &dial_button_box, .want_h = 14, .look = &dgx_ui_look_button};
+        static const dgx_ui_widget_t dial_volume_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .look = &dial_slider_look};
+        static const dgx_ui_widget_t dial_list_w   = {.kind = DGX_UI_LIST, .min = 0, .max = 2, .text = &dial_list_box, .want_h = 42, .look = &dgx_ui_look_list};
+        static const dgx_ui_widget_t dial_switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .want_h = 12, .look = &dgx_ui_look_switch};
+        dgx_screen_t                *dial_screen   = dgx_vscreen_init(160, 120, 16, DgxScreenRGB);
+        dgx_ui_paint_t               dial_paint    = {.scr = dial_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_t                     dial_ui;
+        static dgx_ui_t              dial_page;
+        dgx_ui_msg_t                 dial_msg;
+        dgx_ui_textbox_init(&dial_button_box, dial_button_buf, sizeof dial_button_buf, 1, &st_centre);
+        dgx_ui_textbox_init(&dial_list_box, dial_list_buf, sizeof dial_list_buf, 1, &st_left);
+        dgx_ui_init(&dial_ui, dial_nodes, 6, 1);
+        dgx_ui_add(&dial_ui, -1, &col_w);
+        const int button = dgx_ui_add(&dial_ui, 0, &dial_button_w), volume = dgx_ui_add(&dial_ui, 0, &dial_volume_w);
+        const int rows = dgx_ui_add(&dial_ui, 0, &dial_list_w), toggle = dgx_ui_add(&dial_ui, 0, &dial_switch_w);
+        dgx_ui_text_set(&dial_ui, button, "Go"), dgx_ui_text_set(&dial_ui, rows, "one\ntwo\nthree");
+        dgx_ui_paint(&dial_ui, &dial_paint, 0);
+#define DIAL(turned, was_clicked)                                                                                  \
+    do {                                                                                                           \
+        const dial_t dial_sent = {.steps = (turned), .clicked = (was_clicked)};                                    \
+        dgx_ui_msg_value(&dial_msg, MSG_DIAL, &dial_sent, sizeof dial_sent), dial_message(&dial_ui, &dial_msg);    \
+        dial_tidy(&dial_ui), dgx_ui_paint(&dial_ui, &dial_paint, 0);                                               \
+    } while (0)
+#define DIAL_PRESSED(tree, widget) ((dgx_ui_node((tree), (widget))->state_value.bits & DGX_UI_PRESSED) != 0)
+        DIAL(1, false);
+        DIAL(1, false);
+        const int focus_at_slider = dial_ui.focus == volume;
+        DIAL(0, true);
+        const int pressed_in = DIAL_PRESSED(&dial_ui, volume);
+        DIAL(3, false);
+        const int moved_to = dgx_ui_node(&dial_ui, volume)->state_value.value, focus_stays = dial_ui.focus == volume;
+        DIAL(-1, true);
+        printf("dial: two turns reach the slider %d; a click marks it %d; three turns move it to %d, the focus staying %d; a turn back and a click: %d, unmarked %d\n",
+               focus_at_slider, pressed_in, moved_to, focus_stays, dgx_ui_node(&dial_ui, volume)->state_value.value, !DIAL_PRESSED(&dial_ui, volume));
+        DIAL(1, false);
+        const int at_list = dial_ui.focus == rows;
+        DIAL(2, false);
+        const int picked = dgx_ui_node(&dial_ui, rows)->state_value.value;
+        DIAL(1, false);
+        const int at_switch = dial_ui.focus == toggle;
+        DIAL(0, true);
+        printf("dial: the next turn reaches the list %d, two more pick its row %d, one more leaves it for the switch %d, a click turns it to %d\n", at_list, picked, at_switch,
+               dgx_ui_node(&dial_ui, toggle)->state_value.value);
+        /* the slider being changed, and a finger presses the button: the slider is let go at the next pass */
+        dgx_ui_focus(&dial_ui, volume);
+        DIAL(0, true);
+        const int marked = DIAL_PRESSED(&dial_ui, volume);
+        const dgx_ui_node_t *button_node = dgx_ui_node(&dial_ui, button);
+        dgx_ui_pointer(&dial_ui, &(dgx_ui_pointer_t){.x = (int16_t)(button_node->x + 4), .y = (int16_t)(button_node->y + 4), .down = true, .pressed = true, .ms = 100});
+        dial_tidy(&dial_ui), dgx_ui_paint(&dial_ui, &dial_paint, 0);
+        const int let_go = !DIAL_PRESSED(&dial_ui, volume);
+        dgx_ui_pointer(&dial_ui, &(dgx_ui_pointer_t){.x = (int16_t)(button_node->x + 4), .y = (int16_t)(button_node->y + 4), .released = true, .ms = 150});
+        DIAL(1, false);
+        printf("dial: marked %d; a finger on the button lets the slider go %d; the next turn moves the focus, to the slider %d, its value kept %d\n", marked, let_go,
+               dial_ui.focus == volume, dgx_ui_node(&dial_ui, volume)->state_value.value == 10);
+        /* a finger takes the marked slider itself and lets it go: the change is over */
+        DIAL(0, true);
+        const dgx_ui_node_t *volume_node = dgx_ui_node(&dial_ui, volume);
+        dgx_ui_pointer(&dial_ui, &(dgx_ui_pointer_t){.x = (int16_t)(volume_node->x + 8), .y = (int16_t)(volume_node->y + 4), .down = true, .pressed = true, .ms = 300});
+        dgx_ui_pointer(&dial_ui, &(dgx_ui_pointer_t){.x = (int16_t)(volume_node->x + 8), .y = (int16_t)(volume_node->y + 4), .released = true, .ms = 350});
+        dial_tidy(&dial_ui);
+        const int value_by_finger = dgx_ui_node(&dial_ui, volume)->state_value.value;
+        DIAL(1, false);
+        printf("dial: a finger took the marked slider and let it go: unmarked %d; the next turn moves the focus on %d, the value as the finger left it %d\n",
+               !DIAL_PRESSED(&dial_ui, volume), dial_ui.focus == rows, dgx_ui_node(&dial_ui, volume)->state_value.value == value_by_finger);
+        /* a page with a slider of its own, changed by the dial; the page closed, freed and its memory zeroed: nothing of it is read */
+        dgx_ui_focus(&dial_ui, volume);
+        DIAL(0, true); /* the home's slider marked, and a page opens over it: let go */
+        const int marked_under = DIAL_PRESSED(&dial_ui, volume);
+        dgx_ui_init(&dial_page, dial_page_nodes, 3, 1);
+        dgx_ui_add(&dial_page, -1, &col_w);
+        const int page_volume = dgx_ui_add(&dial_page, 0, &dial_volume_w);
+        dgx_ui_page_open(&dial_ui, &dial_page);
+        dial_tidy(&dial_ui);
+        printf("dial: the home's slider marked %d; a page opened over it lets it go %d\n", marked_under, !DIAL_PRESSED(&dial_ui, volume));
+        dgx_ui_focus(&dial_ui, button);
+        dgx_ui_focus(&dial_page, page_volume);
+        DIAL(0, true);
+        DIAL(2, false);
+        const int page_marked = DIAL_PRESSED(&dial_page, page_volume), page_value = dgx_ui_node(&dial_page, page_volume)->state_value.value;
+        dgx_ui_page_back(&dial_ui);
+        dgx_ui_free(&dial_page);
+        memset(&dial_page, 0, sizeof dial_page), memset(dial_page_nodes, 0, sizeof dial_page_nodes);
+        dial_tidy(&dial_ui), dgx_ui_paint(&dial_ui, &dial_paint, 0);
+        const int home_value = dgx_ui_node(&dial_ui, volume)->state_value.value;
+        DIAL(1, false);
+        printf("dial: a slider of a page marked %d and moved to %d; the page closed and gone: the next turn moves the home's focus to its slider %d and changes no value %d\n",
+               page_marked, page_value, dial_ui.focus == volume, dgx_ui_node(&dial_ui, volume)->state_value.value == home_value);
+#undef DIAL
+#undef DIAL_PRESSED
+        dgx_ui_paint_free(&dial_paint), dgx_ui_free(&dial_ui);
+        dgx_screen_destroy(&dial_screen);
+    }
+
     /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */
     {
         dgx_screen_t                *hand_screen = dgx_vscreen_init(200, 80, 16, DgxScreenRGB); /* a column 200 pixels wide */
