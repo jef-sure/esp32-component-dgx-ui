@@ -1769,6 +1769,88 @@ static void mirror(dgx_ui_t *ui, dgx_ui_paint_t *paint, const dgx_di_keyboard_t 
   display's pixel at the strip's corner given, and the pad before it by `dgx_di_pad_draw_to(pad, band, 0, y)`. The
   program's `main/idf_component.yml` then asks for `jef-sure/dgx-di` 0.1.7 or later.
 
+## The tree as a layer in another compositor's strips
+
+A program that sends the display its own picture in strips, a game, a map, a video, wants the widgets in the same
+strips and not drawn over them afterwards. Two calls do it. `dgx_ui_changed()` makes the pass `dgx_ui_paint()` would
+make, but writes nothing: it tells a function of the program each rectangle that changed, and marks it drawn.
+`dgx_ui_paint_area_to()` then composes any rectangle of the tree into a screen of the program's. Here the scene is
+the tree's drawn background, so one composing lays the scene and the widgets over it.
+
+```c
+/* the compositor's own: a piece of its picture laid into a screen, and a strip sent to the display */
+void scene_piece(dgx_screen_t *to, int to_x, int to_y, int x, int y, int w, int h);
+void strip_send(const uint16_t *pixels, int top, int rows);
+
+enum { LAYER_W = 320, LAYER_H = 240, STRIP_ROWS = 16, STRIPS = LAYER_H / STRIP_ROWS };
+
+static uint16_t strip_pixels[LAYER_W * STRIP_ROWS]; /* a strip of RGB565 */
+static bool     strip_marked[STRIPS];               /* to be composed and sent */
+
+/* the scene is the background of the tree: the painter asks for its pieces where the tree shows what lies under it */
+static void scene_under(dgx_ui_paint_t *paint, int x, int y, int w, int h, void *ctx)
+{
+    scene_piece(paint->scr, x - paint->ox, y - paint->oy, x, y, w, h);
+}
+
+/* told a rectangle that changed, by the tree or by the scene itself: the strips it meets go out again */
+static void layer_changed(void *ctx, dgx_ui_rect_t rect)
+{
+    for (int number = rect.y < 0 ? 0 : rect.y / STRIP_ROWS; number < STRIPS && number * STRIP_ROWS < rect.y + rect.h; ++number) strip_marked[number] = true;
+}
+
+static void layer_init(dgx_ui_paint_t *paint)
+{
+    dgx_ui_background_set(paint, scene_under, NULL);
+}
+
+/* in the loop, where dgx_ui_paint() would be; true while a look asks for time */
+static bool layer_show(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
+{
+    const bool    busy  = dgx_ui_changed(ui, paint, now_ms, layer_changed, NULL);
+    dgx_screen_t *strip = dgx_vscreen_from_array(strip_pixels, LAYER_W, STRIP_ROWS, 16, DgxScreenRGB);
+    if (!strip) return busy;
+    for (int number = 0; number < STRIPS; ++number) {
+        if (!strip_marked[number]) continue;
+        strip_marked[number] = false;
+        /* the scene and the tree over it composed together: every pixel of the strip is written once */
+        dgx_ui_paint_area_to(ui, paint, strip, NULL, 0, number * STRIP_ROWS, LAYER_W, STRIP_ROWS);
+        strip_send(strip_pixels, number * STRIP_ROWS, STRIP_ROWS);
+    }
+    dgx_screen_destroy(&strip);
+    return busy;
+}
+```
+
+What happens, on a display of 320 by 240 sent in strips of 16 rows:
+
+1. The first call tells one rectangle, the whole screen: all 15 strips are composed and sent.
+2. Nothing changes: the call tells nothing, and nothing is sent.
+3. The user moves a slider that lies in rows 100 to 111. Its rectangle is told, strip 6 is marked, composed, the
+   scene's piece with the slider over it, and sent: 16 rows, not 240, and no pixel written twice.
+4. The scene changes somewhere. The compositor marks the strips itself, by the same `layer_changed()`. A composing
+   draws the tree as it stands, so it need not ask what changed first.
+5. A text whose letters are coming is told at every call while it asks for time; `layer_show()` returns `true`, and
+   `dgx_ui_wake()` says when to call again.
+
+What to keep to:
+
+- **One or the other.** A tree is led by `dgx_ui_paint()` or by `dgx_ui_changed()`, not by both: after
+  `dgx_ui_changed()` the marks are gone, and nothing is on the paint's screen.
+- **The paint's screen** is the display's own. The tree is laid for its size and its turn, and nothing is written
+  on it, so no screen as large as the display is needed.
+- **When to call.** When the loop would paint: after input and messages, and when `dgx_ui_wake()` says a look's
+  moment has come. A look that asks for time is told at every call, its moment come or not.
+- **What is told.** A widget drawn whole is told once, and its children not. Where a popup closed and where the
+  keyboard's band was is told too. What lies under a popup or under the band is not told, and is told when it shows.
+- **The function** may note the rectangle, as here, or compose it at once into a screen of its own, a frame buffer.
+  With `NULL` for the function nobody is told and the tree is marked drawn: for a compositor that has just composed
+  all of it.
+- **The keyboard and the pad of DGX-DI** go into the same strip after the tree, as in
+  [A mirror of the screen](#a-mirror-of-the-screen).
+- **What it costs.** About 0.6 KB for a program that calls `dgx_ui_changed()`, and the drawn background's 0.5 KB;
+  nothing for one that does not.
+
 ## Turning the screen
 
 ```c

@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.14 - 2026-11-19
+
+- `dgx_ui_changed()`: the rectangles that changed told to a function of the program and nothing drawn, so that the
+  tree is a layer in another compositor's strips, which composes them by `dgx_ui_paint_area_to()`. A program that does
+  not call it carries none of it.
+
 ## 0.0.13 - 2026-11-19
 
 - Handwriting in the one-line look of a text: a variant of a handwritten font names `&dgx_ui_handwriting` (straight,

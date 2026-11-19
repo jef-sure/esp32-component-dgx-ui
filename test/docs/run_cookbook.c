@@ -16,6 +16,22 @@ void mode_set(int m) { mode = m, ++modes; }
 static int fan_speed = -1, fans;
 static uint16_t mirror_all[320 * 240]; /* what mirror_send() was given, strip after strip */
 static int      mirror_got;
+static uint32_t table[COLORS];
+
+/* the layer recipe: the compositor's scene, a pattern that depends on scene_version, and what it sent */
+static int      scene_version, strips_sent;
+static uint16_t layer_shown[320 * 240];
+void            scene_piece(dgx_screen_t *to, int to_x, int to_y, int x, int y, int w, int h)
+{
+    for (int row = 0; row < h; ++row)
+        for (int column = 0; column < w; ++column)
+            dgx_set_pixel(to, to_x + column, to_y + row, table[((x + column) / 16 + (y + row) / 16 + scene_version) % 2 ? FILL : DIM]);
+}
+void strip_send(const uint16_t *pixels, int top, int rows)
+{
+    ++strips_sent;
+    memcpy(layer_shown + 320 * top, pixels, sizeof(uint16_t) * 320 * (size_t)rows);
+}
 /* the pad of two axes: what the program is told */
 static int point_calls, point_x, point_y;
 void       point_set(int x, int y) { ++point_calls, point_x = x, point_y = y; }
@@ -55,7 +71,6 @@ void dgx_di_keyboard_draw_to(const dgx_di_keyboard_t *kb, dgx_screen_t *scr, int
     if (kb->open) dgx_fill_rectangle(scr, kb->x - ox, kb->y - oy, kb->w, kb->h, 0xffff);
 }
 
-static uint32_t table[COLORS];
 static const dgx_ui_widget_t col_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 
 /* a picture of a screen as PPM */
@@ -143,6 +158,57 @@ int main(int argc, char **argv)
     const dgx_ui_node_t *n = dgx_ui_node(&ui, level);
     printf("level look: box %d,%d %dx%d; a pixel at 20%% is the bar %d, at 80%% the rest %d\n", n->x, n->y, n->w, n->h,
            dgx_get_pixel(scr, n->x + n->w / 5, n->y + 1) == table[ACCENT], dgx_get_pixel(scr, n->x + n->w * 4 / 5, n->y + 1) == table[FILL]);
+
+    /* the tree as a layer in the compositor's strips: told and composed, against the same tree painted over the same scene */
+    {
+        enum { SENTINEL = 0x1234 };
+        dgx_screen_t  *layer_display = dgx_vscreen_init(320, 240, 16, DgxScreenRGB), *painted = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
+        dgx_screen_t  *shown         = dgx_vscreen_from_array(layer_shown, 320, 240, 16, DgxScreenRGB);
+        dgx_fill_rectangle(layer_display, 0, 0, 320, 240, SENTINEL);
+        dgx_ui_paint_t layer_paint = {.scr = layer_display, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_paint_t plain_paint = {.scr = painted, .colors = table, .color_count = COLORS, .background = PAPER};
+        layer_init(&layer_paint), layer_init(&plain_paint);
+        static const dgx_ui_widget_t layer_root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
+        static const dgx_ui_widget_t layer_space_w  = {.kind = DGX_UI_BOX, .want_h = 100};
+        static const dgx_ui_widget_t layer_slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .want_h = 12, .look = &dgx_ui_look_slider};
+        static dgx_ui_node_t         layer_nodes[2][4];
+        dgx_ui_t                     layer_ui, plain_ui;
+        int                          slider = -1;
+        for (int which = 0; which < 2; ++which) {
+            dgx_ui_t *tree = which ? &plain_ui : &layer_ui;
+            dgx_ui_init(tree, layer_nodes[which], 4, 1);
+            dgx_ui_add(tree, -1, &layer_root_w);
+            dgx_ui_add(tree, 0, &layer_space_w);
+            slider = dgx_ui_add(tree, 0, &layer_slider_w);
+        }
+        int differs[4], sent[4];
+        for (int step = 0; step < 4; ++step) {
+            if (step == 2) dgx_ui_set_value(&layer_ui, slider, 60), dgx_ui_set_value(&plain_ui, slider, 60);
+            if (step == 3) {
+                /* the scene changed in rows 32 to 63: the compositor marks them itself; the painted tree is told its background changed */
+                ++scene_version;
+                layer_changed(NULL, dgx_ui_rect(0, 32, 320, 32));
+                dgx_ui_background_changed(&plain_ui, &plain_paint, 0, 32, 320, 32);
+            }
+            strips_sent = 0;
+            layer_show(&layer_ui, &layer_paint, 1000 + 100 * (uint32_t)step);
+            dgx_ui_paint(&plain_ui, &plain_paint, 1000 + 100 * (uint32_t)step);
+            sent[step] = strips_sent, differs[step] = 0;
+            for (int row = 0; row < 240; ++row)
+                for (int column = 0; column < 320; ++column) differs[step] += dgx_get_pixel(shown, column, row) != dgx_get_pixel(painted, column, row);
+        }
+        int written = 0;
+        for (int row = 0; row < 240; ++row)
+            for (int column = 0; column < 320; ++column) written += dgx_get_pixel(layer_display, column, row) != SENTINEL;
+        const dgx_ui_node_t *slider_node = dgx_ui_node(&layer_ui, slider);
+        printf("layer: the slider in rows %d..%d; strips sent: first call %d, nothing changed %d, the slider moved %d, the scene changed in rows 32..63 %d\n",
+               slider_node->y, slider_node->y + slider_node->h - 1, sent[0], sent[1], sent[2], sent[3]);
+        printf("layer: what was sent differs from the same tree painted over the same scene by %d, %d, %d, %d pixels; written on the paint's own screen %d\n",
+               differs[0], differs[1], differs[2], differs[3], written);
+        dgx_ui_free(&layer_ui), dgx_ui_free(&plain_ui);
+        dgx_ui_paint_free(&layer_paint), dgx_ui_paint_free(&plain_paint);
+        dgx_screen_destroy(&layer_display), dgx_screen_destroy(&painted), dgx_screen_destroy(&shown);
+    }
 
     /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */
     {

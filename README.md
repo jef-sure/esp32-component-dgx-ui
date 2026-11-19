@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.13: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.14: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.13"
+    version: "0.0.14"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -83,7 +83,7 @@ It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from
 | ---- | ------------- |
 | [Getting started](docs/en/getting-started.md) | adding the component, the first program piece by piece, building for a chip and for the computer |
 | [How it works](docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
-| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a handwritten text, a popup, keys, touch, a field and a keyboard, a look of your own, a control of your own |
+| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a handwritten text, a popup, keys, touch, a field and a keyboard, a look of your own, a control of your own, the tree as a layer in another compositor's strips |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
 
 Examples, each for a CYD board and for a window on the computer: [thin_paint](examples/thin_paint/main/thin_paint.c),
@@ -123,6 +123,8 @@ worked by a finger and by the keys, on a board taken from
   has it.
 - **Time only when asked**: a widget that animates asks for time and says when; an idle interface is a sleeping
   task, and one that scrolls a text sleeps between its steps.
+- **A layer in another compositor**: for a program that sends the display its own picture, a game, a map, a
+  video, the tree tells the rectangles that changed and draws nothing, and is composed into the program's own strips.
 - **Tests on the computer**: the logic draws nothing and calls no function of DGX, so it is tested without a display.
 
 ## Not there yet
@@ -149,6 +151,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | drawing through the buffer for a display of 18 or 24 bits, when the program names it | about 0.6 KB more, and 5 KB of DGX |
 | a picture for the background, when the program sets one | about 0.5 KB more |
 | a canvas, when a widget has one | about 1.5 KB more, and a byte of RAM a pixel of its box |
+| `dgx_ui_changed()`, when the program calls it | about 0.6 KB more |
 
 ## License
 

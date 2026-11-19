@@ -16,7 +16,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.13: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.14: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -632,6 +632,34 @@ how many.
 | `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures and of the strips, and the table of the indexed pictures. The canvases of the widgets too. The struct may be used again. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | A colour of the table; 0 past its end. |
 | `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | For a look of the program's own that holds children: an area of the widget `i`, in pixels of the tree's screen, filled with a colour everywhere but under its shown children that a look draws. In a column or a row; a widget of neither has the area filled whole. Called from a look's `draw`. |
+
+### What changed, told and not drawn
+
+```c
+typedef void (*dgx_ui_changed_fn)(void *ctx, dgx_ui_rect_t rect);
+```
+
+| Call | What it does |
+| ---- | ------------ |
+| `bool dgx_ui_changed(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_changed_fn tell, void *ctx)` | The pass `dgx_ui_paint()` would make, over the same marks, with nothing written. Every part of a widget it would draw is told to `tell` as a rectangle of the tree's screen, in its pixels, and the widget is marked drawn. It returns what `dgx_ui_paint()` would, and fills `wake_ms` the same. |
+
+The tree is then a layer in another compositor's picture, which composes each rectangle told by
+`dgx_ui_paint_area_to()`.
+
+- A tree is led by `dgx_ui_paint()` or by `dgx_ui_changed()`, not by both: after `dgx_ui_changed()` the marks are
+  gone and nothing is on the paint's screen. That screen is the display's own: the tree is laid for its size and its
+  turn, and nothing is written on it.
+- The looks are called all the same, under an empty clip, so that each keeps what it keeps: its time and its
+  moment, its canvas, its fitted variant.
+- A widget drawn whole is told once and its children not. Where the keyboard's band was and where popups closed is
+  told too. The parts under `cover` and under a popup are not told, as they are not drawn.
+- Call it when the loop would paint: after input and messages, and when `dgx_ui_wake()` says a look's moment has
+  come. A look that asks for time is told at every call. A frame composed for the compositor's own reason need not
+  call it first.
+- `tell` may note the rectangle or compose it at once. `tell` `NULL`: nobody is told, the tree is marked drawn.
+- It is in a file of its own: about 0.6 KB for a program that calls it, nothing for one that does not.
+
+The recipe: [The tree as a layer in another compositor's strips](cookbook.md#the-tree-as-a-layer-in-another-compositors-strips).
 
 ### A drawn background
 

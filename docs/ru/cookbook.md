@@ -1790,6 +1790,90 @@ static void mirror(dgx_ui_t *ui, dgx_ui_paint_t *paint, const dgx_di_keyboard_t 
   в углу полосы, а пад — перед ней, вызовом `dgx_di_pad_draw_to(pad, band, 0, y)`. В `main/idf_component.yml`
   программы тогда нужен `jef-sure/dgx-di` версии 0.1.7 или новее.
 
+## Дерево как слой в чужих полосах
+
+Программе, которая сама шлёт на дисплей свою картинку полосами — игра, карта, видео, — нужно, чтобы виджеты
+попадали в те же полосы, а не рисовались поверх них потом. Это делают два вызова. `dgx_ui_changed()` делает тот же
+проход, что `dgx_ui_paint()`, но ничего не пишет: каждый изменившийся прямоугольник он сообщает функции программы
+и отмечает нарисованным. `dgx_ui_paint_area_to()` потом собирает любой прямоугольник дерева на экран программы.
+В примере сцена — фон-картинка дерева, поэтому одна сборка кладёт и сцену, и виджеты поверх неё.
+
+```c
+/* the compositor's own: a piece of its picture laid into a screen, and a strip sent to the display */
+void scene_piece(dgx_screen_t *to, int to_x, int to_y, int x, int y, int w, int h);
+void strip_send(const uint16_t *pixels, int top, int rows);
+
+enum { LAYER_W = 320, LAYER_H = 240, STRIP_ROWS = 16, STRIPS = LAYER_H / STRIP_ROWS };
+
+static uint16_t strip_pixels[LAYER_W * STRIP_ROWS]; /* a strip of RGB565 */
+static bool     strip_marked[STRIPS];               /* to be composed and sent */
+
+/* the scene is the background of the tree: the painter asks for its pieces where the tree shows what lies under it */
+static void scene_under(dgx_ui_paint_t *paint, int x, int y, int w, int h, void *ctx)
+{
+    scene_piece(paint->scr, x - paint->ox, y - paint->oy, x, y, w, h);
+}
+
+/* told a rectangle that changed, by the tree or by the scene itself: the strips it meets go out again */
+static void layer_changed(void *ctx, dgx_ui_rect_t rect)
+{
+    for (int number = rect.y < 0 ? 0 : rect.y / STRIP_ROWS; number < STRIPS && number * STRIP_ROWS < rect.y + rect.h; ++number) strip_marked[number] = true;
+}
+
+static void layer_init(dgx_ui_paint_t *paint)
+{
+    dgx_ui_background_set(paint, scene_under, NULL);
+}
+
+/* in the loop, where dgx_ui_paint() would be; true while a look asks for time */
+static bool layer_show(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
+{
+    const bool    busy  = dgx_ui_changed(ui, paint, now_ms, layer_changed, NULL);
+    dgx_screen_t *strip = dgx_vscreen_from_array(strip_pixels, LAYER_W, STRIP_ROWS, 16, DgxScreenRGB);
+    if (!strip) return busy;
+    for (int number = 0; number < STRIPS; ++number) {
+        if (!strip_marked[number]) continue;
+        strip_marked[number] = false;
+        /* the scene and the tree over it composed together: every pixel of the strip is written once */
+        dgx_ui_paint_area_to(ui, paint, strip, NULL, 0, number * STRIP_ROWS, LAYER_W, STRIP_ROWS);
+        strip_send(strip_pixels, number * STRIP_ROWS, STRIP_ROWS);
+    }
+    dgx_screen_destroy(&strip);
+    return busy;
+}
+```
+
+Что происходит на дисплее 320 на 240, который шлют полосами по 16 строк:
+
+1. Первый вызов сообщает один прямоугольник, весь экран: собираются и отправляются все 15 полос.
+2. Ничего не меняется: вызов ничего не сообщает, ничего не отправляется.
+3. Пользователь двигает ползунок, который лежит в строках с 100 по 111. Сообщается его прямоугольник, полоса 6
+   помечается, собирается — кусок сцены с ползунком поверх — и отправляется: 16 строк, а не 240, и ни один пиксель
+   не пишется дважды.
+4. Где-то меняется сцена. Компоновщик помечает полосы сам, той же `layer_changed()`. Сборка рисует дерево таким,
+   какое оно сейчас, поэтому спрашивать перед ней, что изменилось, не нужно.
+5. Текст, у которого появляются буквы, сообщается при каждом вызове, пока он просит время; `layer_show()`
+   возвращает `true`, а `dgx_ui_wake()` говорит, когда звать снова.
+
+Чего держаться:
+
+- **Одно из двух.** Дерево ведёт либо `dgx_ui_paint()`, либо `dgx_ui_changed()`, но не оба: после
+  `dgx_ui_changed()` пометки сняты, а на экране отрисовки ничего нет.
+- **Экран отрисовки** — сам дисплей. По нему дерево раскладывается под размер и поворот, писать на него никто не
+  будет, поэтому экран размером с дисплей не нужен.
+- **Когда звать.** Тогда, когда цикл рисовал бы: после ввода и сообщений и когда `dgx_ui_wake()` говорит, что
+  пришёл момент облика. Облик, который просит время, сообщается при каждом вызове, пришёл его момент или нет.
+- **Что сообщается.** Виджет, который рисуется целиком, сообщается один раз, его дети — нет. Сообщается и место,
+  где закрылось окно и где была полоса клавиатуры. То, что лежит под окном или под полосой, не сообщается, пока не
+  покажется.
+- **Функция** может запомнить прямоугольник, как здесь, или собрать его сразу на свой экран, в буфер кадра. Если
+  вместо функции дать `NULL`, никому ничего не сообщается, а дерево отмечается нарисованным: это для компоновщика,
+  который только что собрал его целиком.
+- **Клавиатура и пад DGX-DI** кладутся в ту же полосу после дерева, как в рецепте
+  [Зеркало экрана](#зеркало-экрана).
+- **Чего это стоит.** Около 0,6 КБ у программы, которая вызывает `dgx_ui_changed()`, и 0,5 КБ фона-картинки; у
+  той, что не вызывает, — ничего.
+
 ## Поворот экрана
 
 ```c

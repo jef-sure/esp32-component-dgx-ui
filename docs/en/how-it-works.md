@@ -235,6 +235,11 @@ The looks of the library draw the whole box of the widget in its state as it is,
 A look that does remember what it drew stores it only in the last part of a pass: see
 [A look of your own](cookbook.md#a-look-of-your-own).
 
+A program that sends the display its own picture need not let the painter write at all. `dgx_ui_changed()` makes
+the same pass and only tells the rectangles that changed, and `dgx_ui_paint_area_to()` composes any rectangle of the
+tree into the program's own strip or frame: see
+[The tree as a layer in another compositor's strips](cookbook.md#the-tree-as-a-layer-in-another-compositors-strips).
+
 ## Texts
 
 A text box holds the program's buffer for the string, the number of lines it shows and a style. A style lists the

@@ -473,6 +473,45 @@ static inline void dgx_ui_paint_area_to(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx
     paint->scr = was_scr, paint->colors = was_colors, paint->ox = was_ox, paint->oy = was_oy;
 }
 
+/** @brief A function of the program told a rectangle of the tree's screen, in its pixels: dgx_ui_changed(). */
+typedef void (*dgx_ui_changed_fn)(void *ctx, dgx_ui_rect_t rect);
+
+/**
+ * @brief What changed, told and not drawn: the tree a layer in another compositor's strips.
+ *
+ * The pass dgx_ui_paint() would make, over the same marks, with nothing written. Every part of a widget it would draw
+ * is told to `tell`, and the look is called all the same under an empty clip, so that it keeps what it keeps: its time
+ * and its moment, its canvas, its fitted variant. A widget drawn whole is told once and its children not; where the
+ * keyboard's band was and where popups closed is told too. The parts under `cover` are not told, as they are not
+ * drawn: the new place of a band is the compositor's own, which draws the band. Then the compositor composes each
+ * rectangle in its strips:
+ *
+ *     static void changed(void *ctx, dgx_ui_rect_t rect) { strips_mark(rect); }  // the compositor's list
+ *     ...
+ *     busy = dgx_ui_changed(&ui, &paint, now, changed, NULL);
+ *     for (int y = 0; y < 240; y += 16)                          // each strip marked: its own picture, the tree over it
+ *         if (strips_marked(y)) {
+ *             game_draw(strip, y);
+ *             dgx_ui_paint_area_to(&ui, &paint, strip, NULL, 0, y, 320, 16);
+ *             send(strip, y);
+ *         }
+ *
+ * The function may note the rectangle, as above, or compose it at once, dgx_ui_paint_area_to() into a frame buffer:
+ * a composing made in it is drawn on its own screen and not told. `tell` NULL: the tree marked drawn, nobody told, for
+ * a compositor that has just composed all of it.
+ *
+ * A tree is led by dgx_ui_paint() or by dgx_ui_changed(), not by both: after this the marks are gone and nothing is
+ * on the paint's screen. That screen is the display's own: the tree is laid for its size and turn and nothing is
+ * written on it, so no screen of the display's size is needed. Call it when the loop would paint: after input and
+ * messages, and when dgx_ui_wake() says a look's moment came; a look that asks for time is told at every call, its
+ * moment come or not. A frame the compositor composes for a reason of its own need not call it first:
+ * dgx_ui_paint_area_to() draws the tree as it stands, and what changed meanwhile is told at the next call. In a file
+ * of its own: a program that does not call it carries none of it.
+ *
+ * @return As dgx_ui_paint(): a look asks for time; paint's wake_ms filled the same.
+ */
+bool dgx_ui_changed(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_changed_fn tell, void *ctx);
+
 /**
  * @brief The program's picture under the tree changed in a rectangle of the tree's screen (dgx_ui_background_set()): laid there now where it
  * shows, and the widgets on it drawn again over it.
