@@ -59,7 +59,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.15: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.16: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -71,7 +71,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.15"
+    version: "0.0.16"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or later; DGX comes by itself, from the registry. Start with
@@ -118,7 +118,7 @@ worked by a finger and by the keys, on a board taken from
 - **A canvas of a widget's own**: a picture that stays from pass to pass, for a look that only adds to it, a graph
   or digits that morph.
 - **Popups** over the tree, one over another: modal, or closed by a finger outside. Pages, each the whole screen,
-  one over another, closed by the key back.
+  one over another, closed by the key back; on a board with the memory, coming by a slide or a crossfade.
 - **Input**: a pointer, the keys of a dialog, the buttons of a game pad with a repeat of a held one, code points
   typed; the touch of [DGX-DI](https://github.com/jef-sure/esp32-component-dgx-di) through a header, if the program
   has it.
@@ -153,6 +153,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | a picture for the background, when the program sets one | about 0.5 KB more |
 | a canvas, when a widget has one | about 1.5 KB more, and a byte of RAM a pixel of its box |
 | `dgx_ui_changed()`, when the program calls it | about 0.6 KB more |
+| transitions between pages, when the program names them | about 2 KB more, and two pictures of the screen in RAM |
 
 ## License
 

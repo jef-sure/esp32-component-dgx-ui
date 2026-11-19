@@ -891,6 +891,86 @@ static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = 
 - Pages of one level that replace each other, tabs, need no popup: the children of one box, all hidden but one
   (`dgx_ui_show()`).
 
+## Pages that slide
+
+On a board with memory for two pictures of the screen a page may come by a slide or a crossfade. The module is
+named by the program, `dgx_ui_transition.h`; a program that does not name it carries none of it. It stands on the
+pages of the recipe above: the same trees, `pages_home` and `settings_save()`.
+
+```c
+#include "dgx_ui_transition.h"
+
+void *big_memory(size_t bytes); /* the program's: from PSRAM; NULL when there is none */
+
+static dgx_ui_transition_t page_slide = {.ms = 250};
+static dgx_ui_paint_t     *slide_paint; /* the paint of the loop, for the calls made from on() */
+
+/* two pictures of the whole screen, of its depth; without them every page changes at once */
+static void slide_init(dgx_ui_paint_t *paint)
+{
+    const dgx_screen_t *screen = paint->scr;
+    const size_t        bytes  = (size_t)screen->width * screen->height * ((screen->color_bits + 7) / 8);
+    void               *first = big_memory(bytes), *second = big_memory(bytes);
+    slide_paint               = paint;
+    if (!first || !second) return;
+    page_slide.from = dgx_vscreen_from_array(first, screen->width, screen->height, screen->color_bits, screen->rgb_order);
+    page_slide.to   = dgx_vscreen_from_array(second, screen->width, screen->height, screen->color_bits, screen->rgb_order);
+}
+
+/* a button of the first tree: the settings come in from the right */
+static void on_slide_settings(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) dgx_ui_page_open_by(pages_home, &page_settings, slide_paint, &page_slide, DGX_UI_SLIDE_LEFT);
+}
+
+/* the root of a page that slides away: the key back and the page's "back" button both come here */
+static void on_slide_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what != DGX_UI_BACK) return;
+    settings_save();
+    dgx_ui_page_back_by(pages_home, slide_paint, &page_slide, DGX_UI_SLIDE_RIGHT);
+}
+
+/* in the loop, where the pointer is given and the tree painted: no input while the frames run, a frame in place of the pass */
+static bool slide_show(dgx_ui_t *home, dgx_ui_paint_t *paint, const dgx_ui_pointer_t *finger, uint32_t now_ms)
+{
+    if (page_slide.running) return dgx_ui_transition_frame(&page_slide, paint, now_ms);
+    if (finger) dgx_ui_pointer(home, finger);
+    return dgx_ui_paint(home, paint, now_ms);
+}
+```
+
+What happens when the user presses the button of the first tree:
+
+1. `dgx_ui_page_open_by()` composes the screen as it stands into the picture `from`, opens the page as
+   `dgx_ui_page_open()` does, marks the trees drawn without drawing, and composes the screen as it will be into `to`.
+2. The loop finds `page_slide.running` and calls `dgx_ui_transition_frame()` in place of `dgx_ui_paint()`. Each
+   frame is made from the two pictures alone: `from` goes out to the left and `to` comes in from the right, every
+   pixel written once. The next frame is asked for at once.
+3. A message for the clock comes while the frames run. The clock's label takes it; nothing is drawn.
+4. After 250 ms the last frame puts `to` whole. The loop paints again, and that pass draws only what changed
+   meanwhile.
+5. Back, by the key or by the page's button: the root of the settings is told `DGX_UI_BACK`, saves, and calls
+   `dgx_ui_page_back_by()`: the page goes out to the right, and the clock shows, with the text that came in step 3.
+
+What to keep to:
+
+- **The loop.** While a transition runs, the frame is called in place of the pass: a pass would draw over the
+  frames. The trees get no finger and no key meanwhile. A finger that went down during the frames and is still down
+  after them comes without its press, and is nobody's until it goes up.
+- **Back** is named in the page's root's `on(DGX_UI_BACK)`. The key back, and a "back" button that calls
+  `dgx_ui_page_back()`, both go through it, by one transition.
+- **The memory** is two pictures of the screen, of its depth. In RGB565: 0.3 MB for 320 by 240, 0.5 MB for 480 by
+  272, 1.5 MB for 480 by 800, 2.5 MB for 1024 by 600, 4.1 MB for 800 by 1280.
+- **A page changes at once**, and that is no error, when there are no pictures or `ms` is 0, when a picture is not
+  of the screen's size and depth (the screen was turned since they were made), and while the keyboard's band is
+  open. The same program then runs on a board without the memory.
+- **A crossfade**, `DGX_UI_CROSSFADE`, is mixed in the frame buffer of a display that reads it, a DSI display. On
+  one that cannot be read it is mixed strip by strip in the paint's buffer, which must hold a row of the screen at
+  least. On a display of 24 bits DGX mixes pixel by pixel, which is slow; a slide is two transfers on any display.
+- **What it costs.** About 1.3 KB, with the 0.6 KB of `dgx_ui_changed()` and the 0.2 KB of the pages' calls, and
+  the virtual screens of DGX (`CONFIG_DGX_ENABLE_VSCREEN=y`).
+
 ## Buttons of the board
 
 Whoever reads the buttons sends which are held now, as bits of a game pad; the loop gives them to the tree.

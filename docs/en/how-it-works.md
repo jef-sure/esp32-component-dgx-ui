@@ -291,7 +291,8 @@ every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_d
 
 A page is a popup on the whole screen that the key back closes: `dgx_ui_page_open()` and `dgx_ui_page_back()` keep
 a stack of them, and a page's root is told `DGX_UI_BACK` before it goes. See
-[Pages and "back"](cookbook.md#pages-and-back).
+[Pages and "back"](cookbook.md#pages-and-back). On a board with memory for two pictures of the screen a page may
+come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide).
 
 ## Memory and weight
 

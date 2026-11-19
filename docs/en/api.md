@@ -14,9 +14,10 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_ticker.h`](#dgx_ui_tickerh) | a message every so many milliseconds |
 | [`dgx_ui_paint.h`](#dgx_ui_painth) | the painter, the looks and their parameters |
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
+| [`dgx_ui_transition.h`](#dgx_ui_transitionh) | pages that change by a slide or a crossfade |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.15: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.16: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -926,6 +927,44 @@ The program calls it when the dropdown's `on()` is told `DGX_UI_ACTIVATED`.
   chosen again, closes the list and tells nothing. Closed any other way, the value stays and nothing is told.
 - The list shows the dropdown's own text. While it is open the program does not change the options and does not
   remove the dropdown.
+
+## dgx_ui_transition.h
+
+Pages that change by a transition, made from two pictures of the whole screen the program gives. A program that
+does not include it carries none of it; it needs the virtual screens of DGX.
+
+```c
+enum { DGX_UI_SLIDE_LEFT, DGX_UI_SLIDE_RIGHT, DGX_UI_SLIDE_UP, DGX_UI_SLIDE_DOWN, DGX_UI_CROSSFADE };
+
+typedef struct dgx_ui_transition_t {
+    dgx_screen_t *from, *to;
+    uint16_t      ms;
+    uint8_t       kind;
+    bool          running;
+    bool          started;
+    uint32_t      start_ms;
+} dgx_ui_transition_t;
+```
+
+The program gives `from` and `to`, two virtual screens as large as the display and of its depth, and `ms`, how long
+a transition takes. The rest is the module's; the program reads `running`: frames are to come. With
+`DGX_UI_SLIDE_LEFT` the new screen comes in from the right, with `_RIGHT` from the left, with `_UP` from below, with
+`_DOWN` from above; with `DGX_UI_CROSSFADE` the two screens fade into each other.
+
+| Call | What it does |
+| ---- | ------------ |
+| `bool dgx_ui_page_open_by(dgx_ui_t *home, dgx_ui_t *page, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind)` | `dgx_ui_page_open()` by a transition: the screen as it stands composed into `from`, the page opened, the trees marked drawn by `dgx_ui_changed()` with nobody told, the screen as it will be composed into `to`. Called from an `on()`. Asked for while one runs, a new one starts from the trees as they stand. It returns what `dgx_ui_page_open()` does. |
+| `bool dgx_ui_page_back_by(dgx_ui_t *home, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind)` | `dgx_ui_page_back()` by a transition: `from` composed with the top page still open, then the page closed. Call it from the page's root's `on(DGX_UI_BACK)`: the key back and a "back" button then go by one transition. It returns what `dgx_ui_page_back()` does. |
+| `bool dgx_ui_transition_frame(dgx_ui_transition_t *tr, dgx_ui_paint_t *paint, uint32_t now_ms)` | The next frame on the paint's screen; the first sets the start. The last puts `to` whole. It asks for the next frame at once, the paint's `wake_ms` 0, and returns `true` while the transition runs, the last frame included. |
+
+- While a transition runs the loop calls `dgx_ui_transition_frame()` in place of `dgx_ui_paint()`, and gives the
+  trees no finger and no key. What changes in the trees meanwhile is drawn by the first pass after the last frame.
+- A page changes at once, and that is no error: no pictures or `ms` 0; a picture not of the screen's size and depth;
+  the keyboard's band open; a crossfade on a display that cannot be read when the paint's buffer does not hold a row.
+- A crossfade is mixed in the frame buffer of a display that reads it, and strip by strip in the paint's buffer on
+  one that cannot be read. On a display of 24 bits it is slow.
+
+The recipe: [Pages that slide](cookbook.md#pages-that-slide).
 
 ## dgx_ui_di.h
 

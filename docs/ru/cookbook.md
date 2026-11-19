@@ -901,6 +901,87 @@ static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = 
 - Страницам одного уровня, которые сменяют друг друга, — вкладкам — окно не нужно: это дети одного контейнера,
   из которых скрыты все, кроме одного (`dgx_ui_show()`).
 
+## Страницы, которые сдвигаются
+
+На плате, где хватает памяти на две картинки экрана, страница может приходить сдвигом или кроссфейдом. Модуль
+программа называет сама, это `dgx_ui_transition.h`; программа, которая его не называет, ничего из него не несёт.
+Рецепт стоит на страницах из рецепта выше: те же деревья, `pages_home` и `settings_save()`.
+
+```c
+#include "dgx_ui_transition.h"
+
+void *big_memory(size_t bytes); /* the program's: from PSRAM; NULL when there is none */
+
+static dgx_ui_transition_t page_slide = {.ms = 250};
+static dgx_ui_paint_t     *slide_paint; /* the paint of the loop, for the calls made from on() */
+
+/* two pictures of the whole screen, of its depth; without them every page changes at once */
+static void slide_init(dgx_ui_paint_t *paint)
+{
+    const dgx_screen_t *screen = paint->scr;
+    const size_t        bytes  = (size_t)screen->width * screen->height * ((screen->color_bits + 7) / 8);
+    void               *first = big_memory(bytes), *second = big_memory(bytes);
+    slide_paint               = paint;
+    if (!first || !second) return;
+    page_slide.from = dgx_vscreen_from_array(first, screen->width, screen->height, screen->color_bits, screen->rgb_order);
+    page_slide.to   = dgx_vscreen_from_array(second, screen->width, screen->height, screen->color_bits, screen->rgb_order);
+}
+
+/* a button of the first tree: the settings come in from the right */
+static void on_slide_settings(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) dgx_ui_page_open_by(pages_home, &page_settings, slide_paint, &page_slide, DGX_UI_SLIDE_LEFT);
+}
+
+/* the root of a page that slides away: the key back and the page's "back" button both come here */
+static void on_slide_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what != DGX_UI_BACK) return;
+    settings_save();
+    dgx_ui_page_back_by(pages_home, slide_paint, &page_slide, DGX_UI_SLIDE_RIGHT);
+}
+
+/* in the loop, where the pointer is given and the tree painted: no input while the frames run, a frame in place of the pass */
+static bool slide_show(dgx_ui_t *home, dgx_ui_paint_t *paint, const dgx_ui_pointer_t *finger, uint32_t now_ms)
+{
+    if (page_slide.running) return dgx_ui_transition_frame(&page_slide, paint, now_ms);
+    if (finger) dgx_ui_pointer(home, finger);
+    return dgx_ui_paint(home, paint, now_ms);
+}
+```
+
+Что происходит, когда пользователь нажимает кнопку первого дерева:
+
+1. `dgx_ui_page_open_by()` собирает экран, какой он есть, в картинку `from`, открывает страницу, как это делает
+   `dgx_ui_page_open()`, отмечает деревья нарисованными, ничего не рисуя, и собирает экран, каким он будет, в `to`.
+2. Цикл видит `page_slide.running` и вместо `dgx_ui_paint()` зовёт `dgx_ui_transition_frame()`. Каждый кадр
+   делается только из двух картинок: `from` уходит влево, `to` приходит справа, каждый пиксель пишется один раз.
+   Следующий кадр запрашивается сразу.
+3. Пока идут кадры, приходит сообщение для часов. Надпись часов его берёт; ничего не рисуется.
+4. Через 250 мс последний кадр кладёт `to` целиком. Цикл снова рисует, и этот проход рисует только то, что
+   изменилось за это время.
+5. «Назад», клавишей или кнопкой страницы: корню настроек сообщается `DGX_UI_BACK`, он сохраняет и вызывает
+   `dgx_ui_page_back_by()`: страница уходит вправо, видны часы, с текстом, который пришёл на шаге 3.
+
+Чего держаться:
+
+- **Цикл.** Пока идёт переход, вместо прохода зовётся кадр: проход нарисовал бы поверх кадров. Палец и клавиши
+  деревьям в это время не даются. Палец, который опустился во время кадров и ещё опущен после них, приходит без
+  своего нажатия и остаётся ничьим, пока не поднимется.
+- **«Назад»** называется в `on(DGX_UI_BACK)` корня страницы. Через него идут и клавиша «назад», и кнопка «назад»,
+  которая вызывает `dgx_ui_page_back()`, — одним переходом.
+- **Память** — две картинки экрана, его глубины. В RGB565: 0,3 МБ для 320 на 240, 0,5 МБ для 480 на 272, 1,5 МБ
+  для 480 на 800, 2,5 МБ для 1024 на 600, 4,1 МБ для 800 на 1280.
+- **Страница меняется сразу**, и это не ошибка, когда картинок нет или `ms` равно 0, когда картинка не того
+  размера или глубины, что экран (экран повернули после того, как их сделали), и пока открыта полоса клавиатуры.
+  Та же программа тогда работает на плате без такой памяти.
+- **Кроссфейд**, `DGX_UI_CROSSFADE`, на дисплее, который читает свой буфер кадра, то есть на DSI, смешивается
+  прямо в нём. На дисплее, который прочитать нельзя, он смешивается полосами в буфере отрисовки, куда должна
+  помещаться хотя бы строка экрана. На дисплее в 24 бита DGX смешивает по пикселям, а это медленно; сдвиг — две
+  пересылки на любом дисплее.
+- **Чего это стоит.** Около 1,3 КБ, вместе с 0,6 КБ `dgx_ui_changed()` и 0,2 КБ вызовов страниц, и виртуальные
+  экраны DGX (`CONFIG_DGX_ENABLE_VSCREEN=y`).
+
 ## Кнопки платы
 
 Тот, кто читает кнопки, шлёт, какие из них удерживаются сейчас, битами геймпада; цикл передаёт их дереву.

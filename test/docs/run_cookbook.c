@@ -18,6 +18,12 @@ static uint16_t mirror_all[320 * 240]; /* what mirror_send() was given, strip af
 static int      mirror_got;
 static uint32_t table[COLORS];
 
+/* the sliding pages: the program's big memory, there or not */
+static bool  big_memory_there;
+static void *big_blocks[4];
+static int   big_count;
+void        *big_memory(size_t bytes) { return big_memory_there && big_count < 4 ? (big_blocks[big_count++] = calloc(1, bytes)) : NULL; }
+
 /* the layer recipe: the compositor's scene, a pattern that depends on scene_version, and what it sent */
 static int      scene_version, strips_sent;
 static uint16_t layer_shown[320 * 240];
@@ -208,6 +214,57 @@ int main(int argc, char **argv)
         dgx_ui_free(&layer_ui), dgx_ui_free(&plain_ui);
         dgx_ui_paint_free(&layer_paint), dgx_ui_paint_free(&plain_paint);
         dgx_screen_destroy(&layer_display), dgx_screen_destroy(&painted), dgx_screen_destroy(&shown);
+    }
+
+    /* pages that slide: with the two pictures, and on a board without them */
+    for (int with_memory = 1; with_memory >= 0; --with_memory) {
+        dgx_screen_t                *slide_screen = dgx_vscreen_init(160, 60, 16, DgxScreenRGB), *fresh = dgx_vscreen_init(160, 60, 16, DgxScreenRGB);
+        dgx_ui_paint_t               slide_paint_here = {.scr = slide_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        static const dgx_ui_widget_t slide_home_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
+        static const dgx_ui_widget_t slide_button_w = {.kind = DGX_UI_BUTTON, .want_h = 16, .look = &dgx_ui_look_button, .on = on_slide_settings};
+        static const dgx_ui_widget_t slide_page_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .on = on_slide_root};
+        static const dgx_ui_widget_t slide_slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .want_h = 10, .look = &dgx_ui_look_slider};
+        static dgx_ui_node_t         slide_home_nodes[4];
+        static dgx_ui_t              slide_home;
+        big_memory_there = with_memory;
+        page_slide       = (dgx_ui_transition_t){.ms = 250};
+        dgx_ui_init(&slide_home, slide_home_nodes, 4, 1), dgx_ui_add(&slide_home, -1, &slide_home_w);
+        const int open_button = dgx_ui_add(&slide_home, 0, &slide_button_w);
+        dgx_ui_init(&page_settings, page_settings_nodes, 8, 1), dgx_ui_add(&page_settings, -1, &slide_page_w);
+        const int page_slider = dgx_ui_add(&page_settings, 0, &slide_slider_w);
+        pages_home            = &slide_home;
+        slide_init(&slide_paint_here);
+        const int saves_before = saves;
+        int       open_frames = 0, back_frames = 0, differs_open, differs_back;
+        uint32_t  now = 0;
+        slide_show(&slide_home, &slide_paint_here, NULL, now);
+        dgx_ui_focus(&slide_home, open_button), dgx_ui_key(&slide_home, DGX_UI_KEY_ACTIVATE); /* the settings */
+        for (now = 20; page_slide.running && now < 2000; now += 20) {
+            if (now == 100) dgx_ui_set_value(&page_settings, page_slider, 70); /* changed while the frames run */
+            slide_show(&slide_home, &slide_paint_here, NULL, now), ++open_frames;
+        }
+        slide_show(&slide_home, &slide_paint_here, NULL, now); /* the pass after: what changed meanwhile */
+        const bool page_on_top = slide_home.popup == &page_settings;
+        dgx_ui_paint_area_to(&slide_home, &slide_paint_here, fresh, NULL, 0, 0, 160, 60);
+        differs_open = 0;
+        for (int row = 0; row < 60; ++row)
+            for (int column = 0; column < 160; ++column) differs_open += dgx_get_pixel(fresh, column, row) != dgx_get_pixel(slide_screen, column, row);
+        dgx_ui_key(&slide_home, DGX_UI_KEY_BACK); /* back by the key: the root saves and names the slide */
+        for (now += 20; page_slide.running && now < 4000; now += 20) slide_show(&slide_home, &slide_paint_here, NULL, now), ++back_frames;
+        slide_show(&slide_home, &slide_paint_here, NULL, now);
+        dgx_ui_paint_area_to(&slide_home, &slide_paint_here, fresh, NULL, 0, 0, 160, 60);
+        differs_back = 0;
+        for (int row = 0; row < 60; ++row)
+            for (int column = 0; column < 160; ++column) differs_back += dgx_get_pixel(fresh, column, row) != dgx_get_pixel(slide_screen, column, row);
+        printf("slide, %s: the settings on top %d after %d frames, the screen then differs from the trees composed anew by %d pixels (the slider at %d); "
+               "back: %d frames, the home on top %d, differs by %d; settings_save() called %d time(s)\n",
+               with_memory ? "with the two pictures" : "no memory for them", page_on_top, open_frames, differs_open,
+               dgx_ui_node(&page_settings, page_slider)->state_value.value, back_frames, !slide_home.popup, differs_back, saves - saves_before);
+        if (page_slide.from) dgx_screen_destroy(&page_slide.from);
+        if (page_slide.to) dgx_screen_destroy(&page_slide.to);
+        while (big_count > 0) free(big_blocks[--big_count]);
+        dgx_ui_paint_free(&slide_paint_here), dgx_ui_free(&slide_home), dgx_ui_free(&page_settings);
+        dgx_screen_destroy(&slide_screen), dgx_screen_destroy(&fresh);
     }
 
     /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */

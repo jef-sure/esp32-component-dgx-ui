@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.16 - 2026-11-19
+
+- Transitions between pages, `dgx_ui_transition.h`: `dgx_ui_page_open_by()` and `dgx_ui_page_back_by()` slide or
+  crossfade from two pictures of the screen the program gives; the loop calls `dgx_ui_transition_frame()` in place of
+  the pass while it runs. Without the pictures a page changes at once. A program that names none of it carries none.
+
 ## 0.0.15 - 2026-11-19
 
 - Pages: `dgx_ui_page_open()` and `dgx_ui_page_back()`, a popup on the whole screen closed by the key back, its root
