@@ -46,11 +46,21 @@ struct dgx_ui_hand_t {
     bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, const dgx_ui_font_variant_t *v);
     /* the rows of a variant's base line under the top of its line; -1 for a variant it cannot write */
     int (*base_rows)(const dgx_ui_font_variant_t *v);
-    /* into the canvas of a widget of DGX_UI_CANVAS (dgx_ui_hand_canvas.c); NULL: always straight. false: no canvas
-       to be had, written straight */
-    bool (*canvas)(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui_font_variant_t *v, const char *text,
-                   const struct dgx_ui_hand_line_t *line, int ink);
+    /* the writing into the canvas of a widget of DGX_UI_CANVAS (dgx_ui_hand_canvas.c); NULL: always straight */
+    const struct dgx_ui_hand_canvas_t *canvas;
 };
+struct dgx_ui_hand_canvas_t {
+    /* a line of the one-line look; false: no canvas to be had, written straight */
+    bool (*line)(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui_font_variant_t *v, const char *text,
+                 const struct dgx_ui_hand_line_t *line, int ink);
+    /* a widget's canvas and its putting, dgx_ui_canvas() and dgx_ui_canvas_put(), for the handwritten lines */
+    dgx_screen_t *(*of)(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made);
+    void (*put)(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink);
+};
+
+/* the look of lines in a bitmap or dot variant a look of handwritten lines fitted from its ladder, its first row on
+   first_rows under the box's top (dgx_ui_lines_look.c) */
+bool dgx_ui_draw_lines_in(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, int chosen, int first_rows);
 
 /* a variant the looks can draw: a font of bitmaps or dots with an advance; handwriting not yet */
 static inline bool dgx_ui_variant_usable(dgx_font_t *font)

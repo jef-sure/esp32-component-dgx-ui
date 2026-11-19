@@ -18,7 +18,7 @@
 | [`dgx_ui_transition.h`](#dgx_ui_transitionh) | страницы, которые сменяются сдвигом или кроссфейдом |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | касание DGX-DI как указатель дерева |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.16:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.17:
 имена и сигнатуры ещё могут измениться.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -461,8 +461,8 @@ typedef struct dgx_ui_text_style_t {
 | `pen` | ширина пера в пикселях, 0 — волосная линия; для мягкого пера добавляется `DGX_PEN_SOFT` из DGX |
 | `hand` | `&dgx_ui_handwriting` — пишется прямо на экран, жёстким пером. `&dgx_ui_handwriting_canvas` — то же, а у виджета с `DGX_UI_CANVAS` — в его холст, где мягкое перо остаётся мягким; нужны виртуальные экраны DGX. `NULL` — вариант пропускается |
 
-`dgx_ui_hand_t` — свой тип библиотеки, который стоит за этими двумя константами. Рукописный текст пишет только
-однострочный облик текста; остальные облики рукописный вариант пропускают. Текст, который не помещается даже
+`dgx_ui_hand_t` — свой тип библиотеки, который стоит за этими двумя константами. Рукописный текст пишут
+однострочный облик текста и `dgx_ui_look_hand_lines`; остальные облики рукописный вариант пропускают. Текст, который не помещается даже
 суженным, обрезается по прямоугольнику виджета в конце. Буквы, появляющиеся по одной (`dgx_ui_text_appear()`),
 пишутся штрих за штрихом, весь текст — за время его букв по `letter_ms` каждая; облик просит проход каждые
 `DGX_UI_HAND_FRAME_MS`, 20 мс. Рецепт: [Рукописный текст](cookbook.md#рукописный-текст).
@@ -474,7 +474,7 @@ typedef struct dgx_ui_text_style_t {
 | Флаг | Что значит |
 | ---- | ---------- |
 | `DGX_UI_TEXT_MIDDLE` | текст в более позднем варианте стоит посередине высоты, а не на базовой линии первого варианта, рукописного или нет |
-| `DGX_UI_TEXT_IMPORTANT` | текст, который не помещается в свои строки, прокручивается, а не обрезается; для `dgx_ui_look_lines` |
+| `DGX_UI_TEXT_IMPORTANT` | текст, который не помещается в свои строки, прокручивается, а не обрезается; для `dgx_ui_look_lines` и `dgx_ui_look_hand_lines` |
 
 `int dgx_ui_variant_line(const dgx_ui_font_variant_t *v)`: высота строки варианта.
 
@@ -787,6 +787,7 @@ typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, in
 | `dgx_ui_look_frame` | рамка: граница и заливка. Облик `DGX_UI_FRAME`, если не назван другой | `dgx_ui_frame_look_t` |
 | `dgx_ui_look_text` | текст в одну строку, слишком длинный обрезается с многоточием. Облик `DGX_UI_LABEL`, если не назван другой | `dgx_ui_text_look_t` |
 | `dgx_ui_look_lines` | текст в несколько строк: с переносом по словам, обрезается или прокручивается, буквы могут появляться по одной | `dgx_ui_text_look_t` |
+| `dgx_ui_look_hand_lines` | рукописный текст в несколько строк: с переносом по словам на высоте варианта, пишется строка за строкой, обрезается с `...` или прокручивается; матричный вариант его стиля рисуется так, как его рисует `dgx_ui_look_lines` | `dgx_ui_text_look_t` |
 | `dgx_ui_look_button` | кнопка и выпадающий список: лицевая сторона над тенью, текст посередине | `dgx_ui_button_look_t` |
 | `dgx_ui_look_switch` | переключатель: дорожка с ручкой на одном конце | `dgx_ui_switch_look_t` |
 | `dgx_ui_look_slider` | ползунок: дорожка, закрашенная до ручки | `dgx_ui_slider_look_t` |
@@ -811,6 +812,7 @@ typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, in
 | `dgx_ui_draw_frame` | `dgx_ui_look_frame` | `dgx_ui_frame_look_t`; его заливка — поле `fill` облика |
 | `dgx_ui_draw_text` | `dgx_ui_look_text` | `dgx_ui_text_look_t` |
 | `dgx_ui_draw_lines` | `dgx_ui_look_lines` | `dgx_ui_text_look_t` |
+| `dgx_ui_draw_hand_lines` | `dgx_ui_look_hand_lines` | `dgx_ui_text_look_t` |
 | `dgx_ui_draw_button` | `dgx_ui_look_button` | `dgx_ui_button_look_t` |
 | `dgx_ui_draw_input` | `dgx_ui_look_input` | `dgx_ui_input_look_t` |
 | `dgx_ui_draw_switch` | `dgx_ui_look_switch` | `dgx_ui_switch_look_t` |

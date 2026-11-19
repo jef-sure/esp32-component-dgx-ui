@@ -1,5 +1,12 @@
 # Changes
 
+## 0.0.17 - 2026-11-19
+
+- Handwriting in lines, `dgx_ui_look_hand_lines`: a text laid word by word at a variant's height, a bitmap variant of
+  its ladder drawn as `dgx_ui_look_lines` draws it; letters coming written line after line; an important text scrolled,
+  one that is not cut with "..." in the same hand; straight or into the widget's canvas.
+- The look of lines lays its lines by a source shared with it: about 30 bytes more.
+
 ## 0.0.16 - 2026-11-19
 
 - Transitions between pages, `dgx_ui_transition.h`: `dgx_ui_page_open_by()` and `dgx_ui_page_back_by()` slide or

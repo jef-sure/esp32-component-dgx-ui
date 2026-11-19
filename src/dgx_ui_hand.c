@@ -13,6 +13,7 @@
  */
 
 #include <limits.h>
+#include <string.h>
 
 #include "dgx_ui_hand_priv.h"
 #include "dgx_ui_paint_priv.h"
@@ -92,6 +93,20 @@ int dgx_ui_hand_base_rows(const dgx_ui_font_variant_t *variant)
     return (2 * variant->font->hw->base_line * variant->height + size) / (2 * size);
 }
 
+int dgx_ui_hand_span(const dgx_ui_font_variant_t *variant, const char *text, int n)
+{
+    char line[DGX_UI_LINE + 1];
+    if (n > DGX_UI_LINE) n = DGX_UI_LINE;
+    if (n <= 0 || !writable(variant)) return 0;
+    memcpy(line, text, (size_t)n);
+    line[n]               = 0;
+    const float      scale = (float)variant->height / variant->font->hw->symbol_size_y;
+    dgx_hw_context_t ctx   = {.font = variant->font, .scale_x = scale, .scale_y = scale, .width = dgx_ui_hand_pen(variant), .joined = variant->joined};
+    int              width = 0;
+    dgx_hw_bounds(&ctx, line, NULL, NULL, &width, NULL);
+    return width;
+}
+
 int dgx_ui_hand_width(const dgx_ui_font_variant_t *variant, const char *text, int field)
 {
     float scale_x, scale_y;
@@ -138,7 +153,7 @@ bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     const bool commit = !paint->composing && paint->part + 1 >= paint->parts; /* the painter's own pass, its last part */
     if (!line.came) dgx_ui_wake_in(paint, DGX_UI_HAND_FRAME_MS); /* the next frame of the pen */
     if (commit) box->since_ms = since, box->flags &= (uint8_t)~DGX_UI_TEXTBOX_START;
-    if ((node->widget->flags & DGX_UI_CANVAS) && variant->hand->canvas && variant->hand->canvas(paint, ui, i, variant, text, &line, params->ink))
+    if ((node->widget->flags & DGX_UI_CANVAS) && variant->hand->canvas && variant->hand->canvas->line(paint, ui, i, variant, text, &line, params->ink))
         return !line.came;
     /* straight on the screen: the box laid and all of it written when it is anew or whole; else the new strokes only */
     if (variant->pen & DGX_PEN_SOFT) {

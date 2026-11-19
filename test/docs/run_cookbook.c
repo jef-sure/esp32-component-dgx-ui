@@ -330,6 +330,45 @@ int main(int argc, char **argv)
         dgx_screen_destroy(&hand_screen);
     }
 
+    /* the handwritten note of several lines: its lines, the letters coming line after line, the bitmap font for one too long */
+    {
+        dgx_screen_t                *note_screen = dgx_vscreen_init(200, 60, 16, DgxScreenRGB); /* three lines of 20 */
+        dgx_ui_paint_t               note_paint  = {.scr = note_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        static const dgx_ui_widget_t note_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
+        static dgx_ui_node_t         note_nodes[2];
+        dgx_ui_t                     note_ui;
+        note_init();
+        dgx_ui_init(&note_ui, note_nodes, 2, 1);
+        dgx_ui_add(&note_ui, -1, &note_root_w);
+        const int note = dgx_ui_add(&note_ui, 0, &note_w);
+        dgx_ui_text_set(&note_ui, note, "The quick brown fox jumps over the lazy dog and runs on and on");
+        dgx_ui_paint(&note_ui, &note_paint, 0);
+        const int lines = note_box.total_lines, variant_short = note_box.variant;
+        dgx_ui_text_appear(&note_ui, note, 40);
+        int passes = 0, frame = -1, changed_least = 1 << 30, changed_most = 0;
+        static uint16_t before[200 * 60];
+        for (uint32_t now = 1000; now < 9000; now += DGX_UI_HAND_FRAME_MS) {
+            for (int row = 0; row < 60; ++row)
+                for (int column = 0; column < 200; ++column) before[row * 200 + column] = (uint16_t)dgx_get_pixel(note_screen, column, row);
+            const bool more = dgx_ui_paint(&note_ui, &note_paint, now);
+            int        changed = 0;
+            for (int row = 0; row < 60; ++row)
+                for (int column = 0; column < 200; ++column) changed += before[row * 200 + column] != (uint16_t)dgx_get_pixel(note_screen, column, row);
+            if (passes && more) changed_least = changed < changed_least ? changed : changed_least, changed_most = changed > changed_most ? changed : changed_most;
+            ++passes;
+            if (!more) break;
+            frame = (int)note_paint.wake_ms;
+        }
+        dgx_ui_text_set(&note_ui, note, "The quick brown fox jumps over the lazy dog and runs on and on over the hills and far away until the night comes down upon the land");
+        dgx_ui_paint(&note_ui, &note_paint, 20000);
+        printf("note: %d lines in a note 200x%d by variant %d; its letters at 40 ms written in %d passes, a pass asked every %d ms, a pass changing %d to %d "
+               "pixels of the screen; a note too long takes variant %d\n",
+               lines, dgx_ui_node(&note_ui, note)->h, variant_short, passes, frame, changed_least, changed_most, note_box.variant);
+        dgx_ui_free(&note_ui);
+        dgx_ui_paint_free(&note_paint);
+        dgx_screen_destroy(&note_screen);
+    }
+
     /* a widget of the program's own worked by the finger and the keys: the pad of two axes, and the bar that is tapped */
     {
         dgx_screen_t                *xs = dgx_vscreen_init(40, 64, 16, DgxScreenRGB); /* a column 40 pixels wide */

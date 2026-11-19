@@ -4,7 +4,8 @@
  *  The canvases of widgets of DGX_UI_CANVAS: 8-bit virtual screens as large as their boxes, kept by the paint in a
  *  table of its own from pass to pass, and put on the paint's screen through a table of its colours. The painter
  *  reaches the table through two pointers it holds, so a program whose looks ask for no canvas carries none of this.
- *  It needs the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN).
+ *  It needs the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN). The same table keeps the memory a look keeps for
+ *  a widget (dgx_ui_kept()), freed as a canvas is; that needs no virtual screen.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -29,6 +30,8 @@ typedef struct {
     int16_t                none_w, none_h; /* the size no canvas could be had for: told once for it */
     bool                   tell;           /* DGX_UI_NO_MEMORY to be told at the end of the next pass */
     dgx_screen_t          *scr;            /* NULL: none to be had */
+    void                  *kept;           /* the memory its look keeps, kept_size bytes; NULL none */
+    size_t                 kept_size;
 } entry_t;
 
 typedef struct {
@@ -91,6 +94,20 @@ dgx_screen_t *dgx_ui_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *ma
     return NULL;
 }
 
+void *dgx_ui_kept(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, size_t size, bool *made)
+{
+    dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    *made            = false;
+    if (!n || !n->widget || !size) return NULL;
+    entry_t *e = entry_of(paint, ui, i, n->widget, true);
+    if (!e) return NULL;
+    if (e->kept && e->kept_size >= size) return e->kept;
+    void *more = realloc(e->kept, size);
+    if (!more) return NULL; /* the smaller one kept, not handed out */
+    e->kept = more, e->kept_size = size, *made = true;
+    return more;
+}
+
 /* the box less a hole, its paper laid */
 static void paper_around(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dgx_ui_rect_t *hole)
 {
@@ -150,8 +167,9 @@ void dgx_ui_canvas_put(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink)
     if (bot > top) dgx_vscreen8_region_to_screen16(paint->scr, n->x - paint->ox, n->y + top - paint->oy, c, 0, top, cw, bot - top, paint->lut, flags);
 }
 
-/* after a pass over ui: a canvas of a widget no longer drawn by this paint freed (its tree not in the pass, its slot
-   holding another widget, the widget asking for no canvas any more); then DGX_UI_NO_MEMORY told */
+/* after a pass over ui: an entry of a widget no longer drawn by this paint freed, its canvas and its kept memory (its
+   tree not in the pass, its slot holding another widget); a canvas of a widget asking for none any more freed; then
+   DGX_UI_NO_MEMORY told */
 static void end(dgx_ui_paint_t *paint, dgx_ui_t *ui)
 {
     table_t *t    = (table_t *)paint->canvases;
@@ -161,12 +179,11 @@ static void end(dgx_ui_paint_t *paint, dgx_ui_t *ui)
         bool       live = false;
         const dgx_ui_t *u = ui;
         while (u && u != e->ui) u = u->popup;
-        if (u) {
-            const dgx_ui_node_t *n = dgx_ui_node(u, e->i);
-            live                   = n && n->widget == e->widget && (n->widget->flags & DGX_UI_CANVAS);
-        }
+        const dgx_ui_node_t *n = u ? dgx_ui_node(u, e->i) : NULL;
+        live                   = n && n->widget == e->widget;
+        if (e->scr && (!live || !(n->widget->flags & DGX_UI_CANVAS))) dgx_screen_destroy(&e->scr);
         if (!live) {
-            if (e->scr) dgx_screen_destroy(&e->scr);
+            free(e->kept);
             continue;
         }
         t->at[kept++] = *e;
@@ -185,8 +202,10 @@ static void end(dgx_ui_paint_t *paint, dgx_ui_t *ui)
 static void free_all(dgx_ui_paint_t *paint)
 {
     table_t *t = (table_t *)paint->canvases;
-    for (int k = 0; k < t->count; ++k)
+    for (int k = 0; k < t->count; ++k) {
         if (t->at[k].scr) dgx_screen_destroy(&t->at[k].scr);
+        free(t->at[k].kept);
+    }
     free(t);
     paint->canvases = NULL;
 }

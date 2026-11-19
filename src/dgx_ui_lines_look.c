@@ -6,7 +6,8 @@
  *  its letters), the variant of the style fitted, each line shown a field of DGX under a clip of its own row, the
  *  paper between the fields only when drawn whole. An important text too long scrolls a line every scroll_ms; one
  *  that is not is cut, its last line seen ending in an ellipsis. Letters appear one by one when asked, each where it
- *  will stand. Fonts of bitmaps and dots; handwriting not yet.
+ *  will stand. Fonts of bitmaps and dots; handwriting is dgx_ui_look_hand_lines (dgx_ui_hand_lines.c), which lays its
+ *  lines by the same source (dgx_ui_lines_layout.h) and draws a bitmap variant of its ladder by dgx_ui_draw_lines_in().
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -23,77 +24,10 @@ static const char ELLIPSIS[] = "...";
 #define next_char dgx_ui_next_char
 #define width_of  dgx_ui_width_of
 
-static int letters_in(const char *s, int from, int to)
-{
-    int n = 0;
-    for (int k = from; k < to; k = next_char(s, k)) ++n;
-    return n;
-}
-
-/* the line of a text that begins at byte from: its end in *end; where the next begins (past spaces and one break) */
-static int lay_line(const char *text, int len, int from, dgx_font_t *f, int width, int *end)
-{
-    const int start = from;
-    int       e     = start; /* the end of the last word that goes in */
-    for (;;) {
-        int w = e;
-        while (w < len && text[w] == ' ') ++w;
-        int we = w;
-        while (we < len && text[we] != ' ' && text[we] != '\n') ++we;
-        if (we - start > LINE || width_of(f, text + start, we - start) > width) {
-            if (e == start) {
-                /* one word wider than the line: as many of its letters as go, one at least */
-                int c = start;
-                while (c < we && next_char(text, c) - start <= LINE && width_of(f, text + start, next_char(text, c) - start) <= width) c = next_char(text, c);
-                e = c > start ? c : next_char(text, start);
-            }
-            break;
-        }
-        e = we;
-        if (we >= len || text[we] == '\n') break;
-    }
-    *end     = e;
-    int next = e;
-    while (next < len && text[next] == ' ') ++next;
-    if (next < len && text[next] == '\n') ++next;
-    return next;
-}
-
-/* how many lines a text takes, up to a limit; and the letters of its first `rows` lines */
-static int count_lines(const char *text, int len, dgx_font_t *f, int width, int limit, int rows, int *letters)
-{
-    int n = 0, from = 0, l = 0;
-    while (from < len && n < limit) {
-        int end;
-        const int next = lay_line(text, len, from, f, width, &end);
-        if (n < rows) l += letters_in(text, from, end);
-        from = next, ++n;
-    }
-    if (letters) *letters = l;
-    return n;
-}
-
-static bool usable(const dgx_ui_font_variant_t *v)
-{
-    return dgx_ui_variant_usable(v->font);
-}
-
-/* the first variant the text goes into whole, its lines in the rows the box has for it; else the one that shows
-   the most letters, the earlier of equals; -1 when there is none of a bitmap or dot font */
-static int fit(const dgx_ui_text_style_t *st, const char *text, int len, int width, int height)
-{
-    int best = -1, most = -1;
-    for (int v = 0; v < st->count; ++v) {
-        if (!usable(&st->variants[v])) continue;
-        dgx_font_t *f    = st->variants[v].font;
-        const int   rows = height / f->yAdvance > 0 ? height / f->yAdvance : 1;
-        int         letters;
-        const int   n = count_lines(text, len, f, width, rows + 1, rows, &letters);
-        if (n <= rows) return v;
-        if (letters > most) best = v, most = letters;
-    }
-    return best;
-}
+/* the shared laying of lines, by the fonts' own measure; a variant of no bitmap or dot font is not drawn here */
+#define LINES_MEASURE(v, s, n) width_of((v)->font, s, n)
+#define LINES_HEIGHT(v)        (dgx_ui_variant_usable((v)->font) ? (v)->font->yAdvance : 0)
+#include "dgx_ui_lines_layout.h"
 
 /* the clip of the screen cut to rows top .. bottom of the tree's screen; false when nothing of them is left */
 static bool clip_rows(dgx_ui_paint_t *paint, const int part[4], int top, int bottom)
@@ -105,7 +39,9 @@ static bool clip_rows(dgx_ui_paint_t *paint, const int part[4], int top, int bot
     return true;
 }
 
-bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+/* the look's drawing; chosen: the variant a look of handwritten lines fitted, -1 fitted here; first_rows: its first
+   row's base line under the box's top, -1 the first bitmap variant's */
+static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, int chosen, int first_rows)
 {
     dgx_ui_node_t            *w   = dgx_ui_node(ui, i);
     dgx_ui_textbox_t         *box = w->widget->text;
@@ -125,21 +61,23 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const bool commit = !paint->composing && paint->part + 1 >= paint->parts;
     /* the variant: fitted again when the text or the width changed */
     int v = box->variant;
-    if (w->marks & DGX_UI_MARK_FIT) v = fit(st, text, len, w->w, w->h);
-    if (v < 0 || v >= st->count || !usable(&st->variants[v])) {
+    if (chosen >= 0) v = chosen;
+    else if (w->marks & DGX_UI_MARK_FIT) v = fit_lines(st, text, len, w->w, w->h);
+    if (v < 0 || v >= st->count || !dgx_ui_variant_usable(st->variants[v].font)) {
         if (paint->whole) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, w->h);
         return false;
     }
     if (v != box->variant) paint->whole = true; /* another height: the rows around the fields too */
     const uint32_t since = (box->flags & DGX_UI_TEXTBOX_START) ? now_ms : box->since_ms;
-    dgx_font_t    *f = st->variants[v].font, *f0 = usable(&st->variants[0]) ? st->variants[0].font : f;
+    const dgx_ui_font_variant_t *var = &st->variants[v];
+    dgx_font_t                  *f = var->font, *f0 = dgx_ui_variant_usable(st->variants[0].font) ? st->variants[0].font : f;
     const int      lh = f->yAdvance, cell_top = f->yOffsetLowest, cell = f->yBottomMax - f->yOffsetLowest;
     const int      rows = w->h / lh > 0 ? w->h / lh : 1;
 
     /* the lines and letters of the text: counted again only when the text, the width or the variant changed */
     int total, all_letters;
     if (!(box->flags & DGX_UI_TEXTBOX_COUNTED) || (w->marks & (DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT)) || v != box->variant) {
-        total = count_lines(text, len, f, w->w, MAX_LINES, MAX_LINES, &all_letters);
+        total = count_lines(text, len, var, w->w, MAX_LINES, MAX_LINES, &all_letters);
     } else {
         total = box->total_lines, all_letters = box->total_letters;
     }
@@ -183,7 +121,7 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const int  shown = total - top < rows ? total - top : rows;
 
     /* the base line of the first row: the first variant's, or the block of the rows shown in the middle */
-    int base0 = w->y - f0->yOffsetLowest;
+    int base0 = w->y + (first_rows >= 0 ? first_rows : -f0->yOffsetLowest);
     if (st->flags & DGX_UI_TEXT_MIDDLE) {
         const int block = shown > 0 ? (shown - 1) * lh + cell : cell;
         base0           = w->y + (w->h - block) / 2 - cell_top;
@@ -206,7 +144,7 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
         /* the line of this row */
         int start = len, end = len;
         while (from < len && line <= top + k) {
-            const int next = lay_line(text, len, from, f, w->w, &end);
+            const int next = lay_line(text, len, from, var, w->w, &end);
             start          = from;
             if (line < top + k) letters_before += letters_in(text, from, end);
             from = next, ++line;
@@ -252,6 +190,16 @@ bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     dgx_screen_clip(paint->scr, part[0], part[1], part[2], part[3]);
     if (paint->whole && bottom > filled) dgx_ui_lay_paper(paint, p->paper, w->x, filled, w->w, bottom - filled);
     return more;
+}
+
+bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    return draw_lines(look, paint, ui, i, now_ms, -1, -1);
+}
+
+bool dgx_ui_draw_lines_in(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, int chosen, int first_rows)
+{
+    return draw_lines(look, paint, ui, i, now_ms, chosen, first_rows);
 }
 
 static const dgx_ui_text_look_t lines_default = {.ink = 1, .paper = DGX_UI_PAPER};

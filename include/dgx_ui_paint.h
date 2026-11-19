@@ -345,6 +345,17 @@ extern const dgx_ui_look_t dgx_ui_look_button, dgx_ui_look_input, dgx_ui_look_sw
 extern const dgx_ui_look_t dgx_ui_look_lines;
 
 /**
+ * A look of a text of several lines in handwriting (.look = &dgx_ui_look_hand_lines), for a style whose variants name
+ * the library's handwriting (dgx_ui_font_variant_t::hand): the text laid word by word at a variant's height, not
+ * narrowed, the ladder of the style fitting it; a bitmap variant of the ladder drawn as dgx_ui_look_lines draws it, on
+ * the first variant's base line. Each row written by the hand, straight, or into the widget's canvas by
+ * &dgx_ui_handwriting_canvas. Letters coming (dgx_ui_text_appear()) are written line after line stroke by stroke, a
+ * frame every DGX_UI_HAND_FRAME_MS; an important text too long scrolls a line every scroll_ms once all came; one that
+ * is not ends its last row in "..." in the same hand. A program that names it not does not carry it.
+ */
+extern const dgx_ui_look_t dgx_ui_look_hand_lines;
+
+/**
  * @brief The draw functions of the looks above, for a look of the program's own colours as a constant:
  * `static const dgx_ui_look_t mine = {.draw = dgx_ui_draw_button, .params = &my_colours, .fill = -1};`. Each takes the
  * parameters of its look's type; one that holds children (a box, a frame) takes dgx_ui_look_t::fill as its fill.
@@ -353,6 +364,7 @@ bool dgx_ui_draw_box(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t 
 bool dgx_ui_draw_frame(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_hand_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_input(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_switch(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);

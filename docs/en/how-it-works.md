@@ -252,7 +252,8 @@ when its style says it is important, scrolls a line up every `scroll_ms`. Letter
 will stand.
 
 A variant of a handwritten font of DGX that names the library's handwriting is written by a pen in a label: at the
-height the variant gives, narrowed to go in, its letters coming stroke by stroke. A text in a later variant stands on
+height the variant gives, narrowed to go in, its letters coming stroke by stroke. In several lines it is written by
+the look `dgx_ui_look_hand_lines`, line after line. A text in a later variant stands on
 the base line of the first. See [A handwritten text](cookbook.md#a-handwritten-text).
 
 No table of lines is kept: the text is laid again when it is drawn.
@@ -310,6 +311,7 @@ come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide)
 | the look of several lines, when named | about 2.5 KB |
 | a variant of a font | 16 bytes |
 | handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
+| handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the
 program gives the painter: a picture of 4 or 8 bits, a row of the picture at least; and, when the program names the

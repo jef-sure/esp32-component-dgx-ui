@@ -36,4 +36,5 @@ static bool into_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui
     return true;
 }
 
-const dgx_ui_hand_t dgx_ui_handwriting_canvas = {.width = dgx_ui_hand_width, .draw = dgx_ui_hand_draw, .base_rows = dgx_ui_hand_base_rows, .canvas = into_canvas};
+static const struct dgx_ui_hand_canvas_t canvas_ways = {.line = into_canvas, .of = dgx_ui_canvas, .put = dgx_ui_canvas_put};
+const dgx_ui_hand_t dgx_ui_handwriting_canvas = {.width = dgx_ui_hand_width, .draw = dgx_ui_hand_draw, .base_rows = dgx_ui_hand_base_rows, .canvas = &canvas_ways};

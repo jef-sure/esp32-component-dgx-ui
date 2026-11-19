@@ -665,8 +665,8 @@ What the variant says:
 - **`narrow`** is how far across the letters may be narrowed, in percent; 0: never.
 - **`joined`**: the letters joined, as in handwriting.
 - **`pen`** is the width of the pen in pixels; 0 is a hairline.
-- **Only the one-line look** writes handwriting, that is a label. In a button, a field, a list and a text of several
-  lines a handwritten variant is passed over.
+- **Which looks write it.** The one-line look, that is a label, and `dgx_ui_look_hand_lines` for several lines,
+  below. In a button, a field, a list and `dgx_ui_look_lines` a handwritten variant is passed over.
 - **What it costs.** Named by a variant: about 31 KB, of which the font `font0ss` is 17.8 KB, DGX's pen 10 KB and
   dgx-ui 1.6 KB. Not named: about 100 bytes. A variant is 16 bytes, handwritten or not.
 - **The time of a pass.** The pen keeps nothing between passes: each pass goes over the strokes already written
@@ -697,6 +697,59 @@ static const dgx_ui_widget_t signature_w = {.kind = DGX_UI_LABEL, .flags = DGX_U
 The canvas needs `CONFIG_DGX_ENABLE_VSCREEN=y` and a display of 16 bits. Written straight, by `&dgx_ui_handwriting`, a
 soft pen is the hard pen of its width, and the log says so once. A program that names only `&dgx_ui_handwriting`
 carries no canvas.
+
+### In several lines
+
+A text of several lines in handwriting names a look of its own, `dgx_ui_look_hand_lines`. Its variants name the
+handwriting as a label's do.
+
+```c
+static dgx_ui_font_variant_t note_fonts[2];
+static dgx_ui_text_style_t   note_style;
+static char                  note_text[200];
+static dgx_ui_textbox_t      note_box;
+
+static void note_init(void)
+{
+    /* the hand at 20 pixels, then a bitmap font for a note too long for its lines */
+    note_fonts[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 20, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
+    note_fonts[1] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    note_style    = (dgx_ui_text_style_t){.variants = note_fonts, .count = 2, .align = DGX_FONT_ALIGN_LEFT};
+    dgx_ui_textbox_init(&note_box, note_text, sizeof note_text, 3, &note_style); /* three lines */
+}
+
+static const dgx_ui_widget_t note_w = {.kind = DGX_UI_LABEL, .text = &note_box, .look = &dgx_ui_look_hand_lines};
+```
+
+What happens in a note 200 pixels wide and three lines high:
+
+1. `"The quick brown fox jumps over the lazy dog and runs on and on"` is laid into lines word by word at the height
+   of 20, not narrowed: two lines.
+2. With `dgx_ui_text_appear(ui, note, 40)` it is written line after line, stroke by stroke. A pass every 20 ms writes
+   only the new strokes of the line being written; the lines done are not touched.
+3. A note too long for three lines at 20 pixels takes the bitmap font, which is drawn as `dgx_ui_look_lines` draws
+   it, its first line on the base line the hand would have.
+4. With the hand alone in the style, a note too long is cut, and its last line ends in `...` in the same hand. With
+   `DGX_UI_TEXT_IMPORTANT` and a `scroll_ms` in the style it scrolls a line up every `scroll_ms` once all its letters
+   came.
+
+What to know of it:
+
+- **The widget names the look.** `dgx_ui_look_lines` passes a handwritten variant over, as before, so a program of
+  bitmap lines carries no handwriting, and a program of handwritten labels of one line carries no lines.
+- **Not narrowed.** `narrow` is for one line; in lines the list of variants fits the text.
+- **What is kept.** The paint keeps the line breaks of the text and each line's amount of writing for the widget: 12
+  bytes and 8 a line, 36 bytes for three lines. So a pass costs the line being written, whatever the length of the
+  text. They are laid again when the text, the width or the variant changes, and freed when the widget goes.
+  Without memory for them the lines are laid at every pass, which is slower and no error.
+- **The time of a pass.** On an ESP32 at 240 MHz with a display of 320 by 240 on SPI, at 20 pixels with a pen of 2:
+  a pass while letters come takes 7 to 12 ms for a text of 58 letters in two lines and of 101 letters in three.
+  Laid at every pass, with no memory for the line breaks, it takes 45 and 80 ms, more than the frame of 20 ms. The
+  first pass after a new text, which lays the paper and the lines, takes 40 to 130 ms, and a scroll step, which
+  draws the box whole, about 80 ms.
+- **A soft pen** is as for one line: `&dgx_ui_handwriting_canvas` in the variant and `DGX_UI_CANVAS` on the widget.
+- **What it costs.** About 3.9 KB for the look, with the look of lines, 2.9 KB, and the paint's table, 0.7 KB, over
+  what handwriting costs.
 
 ## Colours of your own, and a night mode
 

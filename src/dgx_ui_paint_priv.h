@@ -39,6 +39,11 @@ struct dgx_ui_canvases_t {
     void (*free)(dgx_ui_paint_t *paint);              /* all freed, the table too */
 };
 
+/* memory a look keeps for widget i from pass to pass, of at least size bytes, in the paint's table of canvases
+   (dgx_ui_canvas.c): freed when the widget goes, as a canvas is; *made: new or larger, its contents not set. NULL:
+   none to be had, the look does without */
+void *dgx_ui_kept(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, size_t size, bool *made);
+
 /* a look's paper, an index or DGX_UI_PAPER, is the program's drawn background here: laid by dgx_ui_lay_paper(), and
    the letters and pictures over it drawn without paper */
 static inline bool dgx_ui_paper_drawn(const dgx_ui_paint_t *paint, uint8_t paper)

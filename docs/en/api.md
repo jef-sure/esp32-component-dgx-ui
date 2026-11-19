@@ -17,7 +17,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_transition.h`](#dgx_ui_transitionh) | pages that change by a slide or a crossfade |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.16: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.17: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -458,7 +458,7 @@ a font of bitmaps or of dots the other members stay 0. For a handwritten font (`
 | `hand` | `&dgx_ui_handwriting`: written straight on the screen, by a hard pen. `&dgx_ui_handwriting_canvas`: the same, and on a widget of `DGX_UI_CANVAS` into its canvas, where a soft pen is soft; it needs the virtual screens of DGX. `NULL`: the variant is passed over |
 
 `dgx_ui_hand_t` is the library's own type behind the two constants. Handwriting is written by the one-line look of
-a text only; the other looks pass a handwritten variant over. A text too wide even narrowed is cut by the widget's
+a text and by `dgx_ui_look_hand_lines`; the other looks pass a handwritten variant over. A text too wide even narrowed is cut by the widget's
 rectangle at its end. Letters coming (`dgx_ui_text_appear()`) are written stroke by stroke, the whole text in as
 long as its letters at `letter_ms` each, the look asking for a pass every `DGX_UI_HAND_FRAME_MS`, 20 ms. The recipe:
 [A handwritten text](cookbook.md#a-handwritten-text).
@@ -470,7 +470,7 @@ hand.
 | Flag | Meaning |
 | ---- | ------- |
 | `DGX_UI_TEXT_MIDDLE` | a text in a later variant stands in the middle of the height, not on the base line of the first variant, handwritten or not |
-| `DGX_UI_TEXT_IMPORTANT` | a text too long for its lines scrolls rather than being cut; for `dgx_ui_look_lines` |
+| `DGX_UI_TEXT_IMPORTANT` | a text too long for its lines scrolls rather than being cut; for `dgx_ui_look_lines` and `dgx_ui_look_hand_lines` |
 
 `int dgx_ui_variant_line(const dgx_ui_font_variant_t *v)`: the height of a line of a variant.
 
@@ -781,6 +781,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_frame` | a frame: a border and a fill. The look of `DGX_UI_FRAME` when none is named | `dgx_ui_frame_look_t` |
 | `dgx_ui_look_text` | a text of one line, cut with an ellipsis when too long. The look of `DGX_UI_LABEL` when none is named | `dgx_ui_text_look_t` |
 | `dgx_ui_look_lines` | a text of several lines: laid word by word, cut or scrolled, its letters appearing | `dgx_ui_text_look_t` |
+| `dgx_ui_look_hand_lines` | a text of several lines in handwriting: laid word by word at a variant's height, written line after line, cut with `...` or scrolled; a bitmap variant of its style drawn as `dgx_ui_look_lines` draws it | `dgx_ui_text_look_t` |
 | `dgx_ui_look_button` | a button or a dropdown: a face over a shadow, its text in the middle | `dgx_ui_button_look_t` |
 | `dgx_ui_look_switch` | a switch: a track with a knob at one end | `dgx_ui_switch_look_t` |
 | `dgx_ui_look_slider` | a slider: a track filled up to a knob | `dgx_ui_slider_look_t` |
@@ -805,6 +806,7 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_frame` | `dgx_ui_look_frame` | `dgx_ui_frame_look_t`; its fill is the look's `fill` |
 | `dgx_ui_draw_text` | `dgx_ui_look_text` | `dgx_ui_text_look_t` |
 | `dgx_ui_draw_lines` | `dgx_ui_look_lines` | `dgx_ui_text_look_t` |
+| `dgx_ui_draw_hand_lines` | `dgx_ui_look_hand_lines` | `dgx_ui_text_look_t` |
 | `dgx_ui_draw_button` | `dgx_ui_look_button` | `dgx_ui_button_look_t` |
 | `dgx_ui_draw_input` | `dgx_ui_look_input` | `dgx_ui_input_look_t` |
 | `dgx_ui_draw_switch` | `dgx_ui_look_switch` | `dgx_ui_switch_look_t` |
