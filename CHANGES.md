@@ -1,5 +1,12 @@
 # Changes
 
+## 0.0.31 - 2026-11-20
+
+- The ring scale draws whole about five times faster and a step three to five times faster, with the same pixels: the
+  ring's part of a row is cut into runs of one class instead of being classed pixel by pixel. About 3.6 KB.
+- `host/dgx_ui_host.mk` lists the looks of the radio and the checkbox, the level bar and the ring scale, so a program
+  built on a computer with make can name them.
+
 ## 0.0.30 - 2026-11-20
 
 - A ring scale, `dgx_ui_look_ring`: the value of a widget's place as an arc of a ring, coloured by bands of value,

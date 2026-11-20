@@ -2387,10 +2387,11 @@ static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
 - **Under a popup** a part of the ring may show beside it. It is the same pixels as without the popup: the colour of
   a pixel depends only on where it lies and on the value.
 - A child hidden or shown makes the ring be drawn whole with its children.
-- **What it takes.** About 3.3 KB of code in a program that names the look. Of the look's own work, the display's
-  apart: a step of the value on this ring takes 0.9 ms on an ESP32 at 240 MHz, and the ring whole 22 ms; a ring of
-  800 pixels on an ESP32-P4 at 400 MHz, 2.5 ms and 88 ms. On a display of 18 or 24 bits with the strips named a
-  widget is drawn whole at every change, a ring too.
+- **What it takes.** About 3.6 KB of code in a program that names the look. Of the look's own work, the display's
+  apart, built as ESP-IDF builds by default (`-Og`): a step of the value on this ring takes 0.3 ms on an ESP32 at
+  240 MHz, and the ring whole 5 ms; a ring of 800 pixels on an ESP32-P4 at 400 MHz, 0.5 ms and 20 ms, three quarters
+  of that the writing of its 640,000 pixels. With `-O2` a step and the ring of 240 take about a third less. On a
+  display of 18 or 24 bits with the strips named a widget is drawn whole at every change, a ring too.
 
 ## A display of 18 or 24 bits
 

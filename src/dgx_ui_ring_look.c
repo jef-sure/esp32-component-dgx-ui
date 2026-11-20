@@ -8,6 +8,9 @@
  *  the ring its turn from the start against the rays of the value and of the bands, compared without division. So a
  *  part under any clip and a strip moved by any whole pixels give the same pixels, and a value reached by steps is the
  *  same picture as that value drawn whole. The rays come from a table of a quarter of a sine, the same on every target.
+ *  Along a row on one side of the middle column the turn only grows or only shrinks, so the ring's part of a row is
+ *  not classed pixel by pixel: a piece whose first and last pixels lie on the same side of every ray and in the same
+ *  band is one class, and any other is halved.
  *  When only the value moved, only the pixels of the arc whose colour changed are written, within the box that holds
  *  the arc between the two values. A program that names it not carries none of it.
  *
@@ -58,21 +61,16 @@ static turn_t turn_of(int32_t x, int32_t y)
     return (turn_t){3, y, y - x};
 }
 
-static bool before(turn_t a, turn_t b)
+static bool before(const turn_t *a, const turn_t *b)
 {
-    return a.quarter != b.quarter ? a.quarter < b.quarter : a.along * b.of < b.along * a.of;
+    return a->quarter != b->quarter ? a->quarter < b->quarter : a->along * b->of < b->along * a->of;
 }
 
-static bool same_turn(turn_t a, turn_t b)
+/* a turn within the turn clockwise from the start up to a ray, the start's ray in it and the other not: given whether
+   it lies at the start's ray or past it, whether before the other, and whether the turn up to the other passes the top */
+static bool within_past(bool past_start, bool wraps, bool before_ray)
 {
-    return a.quarter == b.quarter && a.along * b.of == b.along * a.of;
-}
-
-/* t within the turn clockwise from s up to e, s's ray in it and e's not */
-static bool within(turn_t s, turn_t e, turn_t t)
-{
-    if (!before(e, s)) return !before(t, s) && before(t, e);
-    return !before(t, s) || before(t, e);
+    return wraps ? past_start || before_ray : past_start && before_ray;
 }
 
 /* the turn of the ray at an angle, clockwise from the top */
@@ -85,6 +83,7 @@ static turn_t ray_at(int32_t angle)
 enum { NONE, UP_TO, ALL };
 typedef struct lit_t {
     uint8_t how;
+    bool    wraps; /* the turn from the start to `to` passes the top */
     turn_t  to;
     int32_t angle; /* the ray's, from the start, in 64ths of a degree */
     int     color; /* the arc's colour, by the value shown; by place, -1 */
@@ -103,6 +102,7 @@ typedef struct ring_t {
     bool                       full;           /* a sweep of all the circle */
     int32_t                    start, sweep;   /* in 64ths of a degree, clockwise */
     turn_t                     from, to;       /* the sweep's rays */
+    bool                       wraps;          /* the sweep passes the top */
     int                        bands;          /* bands by place read */
     lit_t                      band[BANDS_READ];
 } ring_t;
@@ -118,6 +118,7 @@ static lit_t lit_of(const ring_t *r, int32_t value)
         lit.how   = UP_TO;
         lit.angle = (int32_t)((uint32_t)r->sweep * (uint32_t)(value - w->min) / (uint32_t)(w->max - w->min));
         lit.to    = ray_at(r->start + lit.angle);
+        lit.wraps = before(&lit.to, &r->from);
     }
     if (r->p->bands_by != DGX_UI_BANDS_BY_PLACE || !r->p->band_count) {
         lit.color = r->p->on;
@@ -130,23 +131,78 @@ static lit_t lit_of(const ring_t *r, int32_t value)
     return lit;
 }
 
-/* the class of a pixel, its centre dx, dy halves of a pixel from the middle, y down: AROUND, or a colour */
-static int class_of(const ring_t *r, int32_t dx, int32_t dy, const lit_t *lit)
+/* the key of a pixel of the ring, its centre dx, dy halves of a pixel from the middle, y down: on which side of each
+   ray it lies, and the first band by place that holds it; its class is the key's. Along a piece of a row on one side
+   of the middle column the turn only grows or only shrinks, so each side changes once at most, and the band, while
+   the side of the start's ray stays: two pixels of a piece of one key hold that class between them. `drawn` is the
+   lighting drawn, or in a pass drawn whole `now` again */
+enum { PAST_START = 1, BEFORE_END = 2, PAST_END = 4, BEFORE_NOW = 8, BEFORE_DRAWN = 16, BAND_SHIFT = 5 };
+static uint32_t key_of(const ring_t *r, int32_t dx, int32_t dy, const lit_t *now, const lit_t *drawn)
 {
-    if (!r->sweep || dx > r->outer || dx < -r->outer || dy > r->outer || dy < -r->outer) return AROUND; /* no scale; or before a square
-                                                                                                       that would not fit */
-    const int32_t far = dx * dx + dy * dy;
-    if (far > r->outer2 || (!r->disc && far <= r->inner2)) return AROUND;
-    const turn_t t = dx == 0 && dy == 0 ? r->from : turn_of(r->mirrored ? -dx : dx, -dy); /* the middle at the start */
-    if (!r->full && !within(r->from, r->to, t) && !same_turn(t, r->to)) return AROUND;   /* outside the sweep */
-    const bool on = lit->how == ALL || (lit->how == UP_TO && within(r->from, lit->to, t));
+    const turn_t t          = dx == 0 && dy == 0 ? r->from : turn_of(r->mirrored ? -dx : dx, -dy); /* the middle at the start */
+    const bool   past_start = !before(&t, &r->from);
+    uint32_t     key        = (past_start ? PAST_START : 0) | (before(&t, &r->to) ? BEFORE_END : 0) | (before(&r->to, &t) ? PAST_END : 0);
+    if (now->how == UP_TO && before(&t, &now->to)) key |= BEFORE_NOW;
+    if (drawn->how == UP_TO && before(&t, &drawn->to)) key |= BEFORE_DRAWN;
+    int k = 0;
+    if (now->color < 0)
+        for (; k < r->p->band_count; ++k) {
+            lit_t        read;
+            const lit_t *band = k < r->bands ? &r->band[k] : (read = lit_of(r, r->p->bands[k].below), &read);
+            if (band->how == ALL || (band->how == UP_TO && within_past(past_start, band->wraps, before(&t, &band->to)))) break;
+        }
+    return key | (uint32_t)k << BAND_SHIFT;
+}
+
+/* the class of a key, by a lighting whose ray's side is the key's bit `before_lit`: AROUND, or a colour */
+static int class_of(const ring_t *r, uint32_t key, const lit_t *lit, uint32_t before_lit)
+{
+    const bool past_start = key & PAST_START;
+    if (!r->sweep) return AROUND; /* no scale */
+    if (!r->full && !within_past(past_start, r->wraps, key & BEFORE_END) && (key & (BEFORE_END | PAST_END)))
+        return AROUND; /* outside the sweep, and not on its end ray */
+    const bool on = lit->how == ALL || (lit->how == UP_TO && within_past(past_start, lit->wraps, key & before_lit));
     if (!on) return r->p->off;
     if (lit->color >= 0) return lit->color;
-    for (int k = 0; k < r->p->band_count; ++k) {
-        const lit_t band = k < r->bands ? r->band[k] : lit_of(r, r->p->bands[k].below);
-        if (band.how == ALL || (band.how == UP_TO && within(r->from, band.to, t))) return r->p->bands[k].color;
+    const int band = (int)(key >> BAND_SHIFT);
+    return band < r->p->band_count ? r->p->bands[band].color : r->p->on;
+}
+
+/* the runs of a row being made: from `start` to `end`, of a class, -1 none or unchanged */
+typedef struct run_t {
+    int start, end, cls;
+} run_t;
+
+static void emit(const ring_t *r, int y, int x0, int x1, int cls, int child);
+
+/* pixels from a to b of one class added to the run, which is laid when the next ones differ; at the row's end a class
+   of -1 lays the last */
+static void add_run(const ring_t *r, int y, run_t *run, int a, int b, int cls)
+{
+    if (cls == run->cls && a == run->end) {
+        run->end = b;
+        return;
     }
-    return r->p->on;
+    if (run->cls >= 0 && run->end > run->start) emit(r, y, run->start, run->end, run->cls, r->n->child);
+    *run = (run_t){a, b, cls};
+}
+
+/* the pixels from a to b of a piece of a row on one side of the middle column, of the keys first_key and last_key at its
+   ends: of one key, a run of its class, or with `drawn`, of its class where the class changed; else its two halves */
+static void piece(const ring_t *r, int y, run_t *run, int32_t dy, int a, int b, uint32_t first_key, uint32_t last_key, const lit_t *now, const lit_t *drawn)
+{
+    if (first_key == last_key) {
+        int cls = class_of(r, first_key, now, BEFORE_NOW);
+        if (drawn && class_of(r, first_key, drawn, BEFORE_DRAWN) == cls) cls = -1;
+        add_run(r, y, run, a, b, cls);
+        return;
+    }
+    const lit_t   *second    = drawn ? drawn : now;
+    const int      half      = a + (b - a) / 2;
+    const uint32_t left_end  = half - 1 == a ? first_key : key_of(r, 2 * (half - 1) + 1 - r->cx2, dy, now, second);
+    const uint32_t right_end = half == b - 1 ? last_key : key_of(r, 2 * half + 1 - r->cx2, dy, now, second);
+    piece(r, y, run, dy, a, half, first_key, left_end, now, drawn);
+    piece(r, y, run, dy, half, b, right_end, last_key, now, drawn);
 }
 
 /* a run of a row laid: the paper or a colour */
@@ -189,7 +245,8 @@ static int32_t root_of(int32_t v)
 
 /* a row of the box from x0 to x1 (the clip's): its runs, of the classes `now` gives, or, `drawn` given, only the pixels
    of the ring whose class changed. The row is cut into the paper outside the outer circle, the ring, the paper inside
-   the inner one, the ring, the paper outside again: the paper's runs laid whole, the ring's pixels classed one by one */
+   the inner one, the ring, the paper outside again: the paper's runs laid whole, the ring's parts cut where the middle
+   column is, each piece into runs of one class (piece()) */
 static void row(const ring_t *r, int y, int x0, int x1, const lit_t *now, const lit_t *drawn)
 {
     const int32_t dy    = 2 * y + 1 - r->cy2;
@@ -218,18 +275,18 @@ static void row(const ring_t *r, int y, int x0, int x1, const lit_t *now, const 
             if (!drawn) emit(r, y, a, b, AROUND, child); /* the paper never changes with the value */
             continue;
         }
-        int start = a, run = -1;
-        for (int x = a; x <= b; ++x) {
-            int cls = -1; /* past the end, or unchanged: no run */
-            if (x < b) {
-                const int32_t dx = 2 * x + 1 - r->cx2;
-                cls              = class_of(r, dx, dy, now);
-                if (drawn && class_of(r, dx, dy, drawn) == cls) cls = -1;
-            }
-            if (cls == run) continue;
-            if (run >= 0) emit(r, y, start, x, run, child);
-            start = x, run = cls;
-        }
+        /* the part cut where the middle column is: left of it, on it, right of it */
+        const lit_t *second    = drawn ? drawn : now;
+        run_t        run       = {a, a, -1};
+        const int    middle    = r->cx2 >= 1 ? r->cx2 / 2 : -((1 - r->cx2) / 2); /* the least x of dx >= 0 */
+        const int    on_middle = r->cx2 & 1;                                       /* a column of dx == 0 */
+        const int    ends[4]   = {a, middle < a ? a : middle > b ? b : middle,
+                                  middle + on_middle < a ? a : middle + on_middle > b ? b : middle + on_middle, b};
+        for (int e = 0; e < 3; ++e)
+            if (ends[e + 1] > ends[e])
+                piece(r, y, &run, dy, ends[e], ends[e + 1], key_of(r, 2 * ends[e] + 1 - r->cx2, dy, now, second),
+                      key_of(r, 2 * (ends[e + 1] - 1) + 1 - r->cx2, dy, now, second), now, drawn);
+        add_run(r, y, &run, b, b, -1);
     }
 }
 
@@ -282,7 +339,7 @@ bool dgx_ui_draw_ring(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     if (sweep < 0) r.mirrored = true, start = -start, sweep = -sweep;
     if (sweep > 360) sweep = 360;
     r.start = start * DEGREE, r.sweep = sweep * DEGREE, r.full = sweep == 360;
-    r.from = ray_at(r.start), r.to = ray_at(r.start + r.sweep);
+    r.from = ray_at(r.start), r.to = ray_at(r.start + r.sweep), r.wraps = before(&r.to, &r.from);
     if (p->bands_by == DGX_UI_BANDS_BY_PLACE)
         for (; r.bands < p->band_count && r.bands < BANDS_READ; ++r.bands) r.band[r.bands] = lit_of(&r, p->bands[r.bands].below);
     const lit_t now = lit_of(&r, dgx_ui_value_of(n));

@@ -4,8 +4,10 @@
  * An oracle of its own: each pixel's class by atan2 and hypot in doubles against the panel, only the pixels within a
  * hundredth of a pixel of a ray or a circle let off. A full circle at max: its four quarters of one count, for an odd
  * side and an even one, at points of 1, 2 and 3. A disc, a width of 0, a box of one pixel, a box wider than high; a
- * sweep of 360, of 10 and counter-clockwise, a start of 0 and past 360; max at min and below it; a value out of the
- * range; bands by place and by the value shown, a value at a band's edge. Children inside, one lying over the ring:
+ * sweep of 360, of 10 and counter-clockwise, narrow sweeps beside the top and across it, a start of 0 and past 360; a
+ * sweep of 0, all paper; max at min and below it; a value out of the range; bands by place and by the value shown, a
+ * value at a band's edge, twenty bands by place. A pixel on the end ray at max and on the start ray past min; the
+ * middle of a disc, the one pixel the oracle cannot say, the arc's at its start. Children inside, one lying over the ring:
  * every pixel of the box written once by the ring and its children together; a child hidden and shown. Its second users:
  * two rings of one place and a slider of it; a part under a popup and under the keyboard's band while the value
  * changes, the cover gone in the same pass; a composing between two passes; a drawn background. On a panel behind a bus,
@@ -205,7 +207,8 @@ int main(void)
         for (int x = 0; x < PANEL_W; ++x) dgx_set_pixel(map, x, y, (x / 4 + y / 4) % 2 ? colors[2] : colors[0]);
 
     /* the steps and the oracle: the default look, bands by place, by the value shown, counter-clockwise, a full
-       circle, a narrow sweep, a disc; boxes of an even side and an odd one */
+       circle, a narrow sweep, narrow sweeps beside the top on either side of it and across it, both ways, a disc and a
+       narrow one in a disc; boxes of an even side and an odd one */
     {
         static const dgx_ui_band_t      bands[] = {{.below = 30, .color = 1}, {.below = 70, .color = 0}};
         static const dgx_ui_ring_look_t looks[] = {
@@ -216,6 +219,12 @@ int main(void)
             {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 0, .sweep = 360, .bands_by = DGX_UI_BANDS_BY_PLACE},
             {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 400, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
             {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 40, .start = -90, .sweep = 180, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = -15, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 5, .sweep = 10, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
+            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 355, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 15, .sweep = -10, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
+            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 40, .start = -20, .sweep = 15, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 40, .start = 170, .sweep = -15, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
         };
         for (size_t k = 0; k < sizeof looks / sizeof *looks; ++k)
             for (int odd = 0; odd < 2; ++odd) {
@@ -227,6 +236,29 @@ int main(void)
                 const int faults = steps_off(dgx_ui_node(&tree, i), i, &looks[k], 1);
                 CHECK(faults == 0);
                 if (faults) fprintf(stderr, "  look %zu, side %d: %d faults over the steps\n", k, 58 + odd, faults);
+                done();
+            }
+    }
+
+    /* the middle of a disc of an odd side, the one pixel the oracle cannot say, is the arc's at its start: the rest's at
+       min, the arc's past it */
+    {
+        const int starts[] = {-135, 0, 37, 90, 200}, sweeps[] = {270, -270, 10, -10, 360};
+        for (int k = 0; k < 5; ++k)
+            for (int j = 0; j < 5; ++j) {
+                const dgx_ui_ring_look_t disc = {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 40, .start = (int16_t)starts[k], .sweep = (int16_t)sweeps[j]};
+                const dgx_ui_look_t      look = {.draw = dgx_ui_draw_ring, .params = &disc, .fill = -1};
+                const dgx_ui_widget_t    ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = 59, .want_h = 59, .look = &look};
+                level                           = 0;
+                const int            i          = make_ring(&ring_w, 1);
+                const dgx_ui_node_t *n          = dgx_ui_node(&tree, i);
+                const int            mx = n->x + 29, my = n->y + 29;
+                CHECK(pass(&tree, 0) == 0 && panel->mem[my][mx] == fill_c);
+                const int32_t values[3] = {1, 50, 100};
+                for (int v = 0; v < 3; ++v) {
+                    level = values[v];
+                    CHECK(pass(&tree, 10 * (v + 1)) == 0 && panel->mem[my][mx] == accent_c);
+                }
                 done();
             }
     }
