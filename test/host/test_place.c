@@ -9,7 +9,8 @@
  * when seen. dgx_ui_changed() telling the widget whose memory changed. A key stepping from memory out of the bounds.
  * The place written while the finger holds the slider: the last writer wins. The dropdown's place written while its
  * list is open. A slider of a page open over the tree, its place written. A tree with no paint reads the memory at
- * once. A place written after a pass asks for no pass.
+ * once. A place written after a pass asks for no pass. A tree of nodes in blocks past the program's array, and of
+ * blocks alone: places at the last node of the array, at the first and the last of a block, in a block not full.
  */
 #include <string.h>
 
@@ -92,6 +93,65 @@ static void collect(void *ctx, dgx_ui_rect_t rect)
 {
     told_t *told = ctx;
     if (told->count < 8) told->at[told->count++] = rect;
+}
+
+/* the painter's look at the places before a pass, the library's own (src/dgx_ui_priv.h): called here to see that it
+   finds nothing to mark */
+void dgx_ui_places(dgx_ui_t *ui);
+
+/* a tree of 143 nodes, of an array of first_size (0: none) and blocks past it: a slider with a place of its own at each
+   of four nodes, the others boxes of a point in the far corner (one of no size would take the whole root, lying over
+   the sliders); each place written in turn, the pass drawing that slider alone, every
+   pixel once, and the look at the places finding nothing after */
+enum { BLOCKED_NODES = 143 };
+static int32_t               blocked_places[4];
+static const dgx_ui_widget_t free_root_w = {.kind = DGX_UI_BOX};
+static const dgx_ui_widget_t nothing_w   = {.kind = DGX_UI_BOX, .at_x = -1, .at_y = -1, .want_w = 1, .want_h = 1}; /* a point in the far corner */
+static const dgx_ui_widget_t blocked_w[4] = {
+    {.kind = DGX_UI_SLIDER, .value = &blocked_places[0], .max = 10, .at_x = 2, .at_y = 2, .want_w = 60, .want_h = 8, .look = &dgx_ui_look_slider},
+    {.kind = DGX_UI_SLIDER, .value = &blocked_places[1], .max = 10, .at_x = 2, .at_y = 14, .want_w = 60, .want_h = 8, .look = &dgx_ui_look_slider},
+    {.kind = DGX_UI_SLIDER, .value = &blocked_places[2], .max = 10, .at_x = 2, .at_y = 26, .want_w = 60, .want_h = 8, .look = &dgx_ui_look_slider},
+    {.kind = DGX_UI_SLIDER, .value = &blocked_places[3], .max = 10, .at_x = 2, .at_y = 38, .want_w = 60, .want_h = 8, .look = &dgx_ui_look_slider},
+};
+static int blocked_tree(panel_t *panel, dgx_screen_t *v, int first_size, const int at[4])
+{
+    static dgx_ui_node_t array[4];
+    dgx_ui_t             ui, again;
+    dgx_ui_paint_t       paint = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 4};
+    int                  faults = 0;
+    memset(blocked_places, 0, sizeof blocked_places);
+    dgx_ui_init(&ui, first_size ? array : NULL, first_size, 1);
+    dgx_ui_add(&ui, -1, &free_root_w);
+    for (int i = 1, k = 0; i < BLOCKED_NODES; ++i) {
+        const bool slider = k < 4 && i == at[k];
+        faults += dgx_ui_add(&ui, 0, slider ? &blocked_w[k++] : &nothing_w) != i;
+    }
+    dgx_ui_paint(&ui, &paint, 0);
+    for (int k = 0; k < 4; ++k) {
+        const dgx_ui_node_t *n = dgx_ui_node(&ui, at[k]);
+        panel_count_from_now(panel);
+        blocked_places[k] = 3 + k;
+        dgx_ui_paint(&ui, &paint, (uint32_t)(10 + k));
+        faults += panel_written(panel) == 0 || panel_twice(panel) != 0 || panel_written_outside(panel, n->x, n->y, n->x + n->w, n->y + n->h) != 0;
+        faults += n->state_drawn.value != 3 + k;
+        dgx_ui_places(&ui);
+        for (int i = 0; i < ui.count; ++i) faults += dgx_ui_node(&ui, i)->marks != 0;
+        panel_count_from_now(panel);
+        dgx_ui_paint(&ui, &paint, (uint32_t)(20 + k));
+        faults += panel_written(panel) != 0;
+    }
+    /* the panel as the same tree drawn from nothing on a screen */
+    static dgx_ui_node_t again_array[4];
+    dgx_ui_paint_t       whole = {.scr = v, .colors = colors, .color_count = 4};
+    dgx_ui_init(&again, first_size ? again_array : NULL, first_size, 1);
+    dgx_ui_add(&again, -1, &free_root_w);
+    for (int i = 1, k = 0; i < BLOCKED_NODES; ++i) dgx_ui_add(&again, 0, k < 4 && i == at[k] ? &blocked_w[k++] : &nothing_w);
+    dgx_fill_rectangle(v, 0, 0, PANEL_W, PANEL_H, 0x1234);
+    dgx_ui_paint(&again, &whole, 0);
+    faults += panel_differ(panel, v) != 0;
+    dgx_ui_paint_free(&whole), dgx_ui_free(&again);
+    dgx_ui_paint_free(&paint), dgx_ui_free(&ui);
+    return faults;
 }
 
 int main(void)
@@ -527,6 +587,16 @@ int main(void)
         dgx_ui_paint(&ui, &paint, 1000);
         CHECK(dgx_ui_node(&ui, l)->state_drawn.value == 6 && dgx_ui_wake(&paint, &ui, 1000) == DGX_UI_WAKE_NONE);
         dgx_ui_paint_free(&paint), dgx_ui_free(&ui);
+    }
+
+    /* nodes in blocks: an array of 3 and blocks of DGX_UI_BLOCK past it, the last node of the array, the first and the
+       last of block 0, one in block 2, which is not full; and blocks alone, the first node the root */
+    {
+        const int with_array[4] = {2, 3, 2 + DGX_UI_BLOCK, 3 + 2 * DGX_UI_BLOCK + 10};
+        const int blocks_only[4] = {DGX_UI_BLOCK - 1, DGX_UI_BLOCK, 2 * DGX_UI_BLOCK - 1, 2 * DGX_UI_BLOCK + 12};
+        CHECK(BLOCKED_NODES > 3 + 2 * DGX_UI_BLOCK + 10 && BLOCKED_NODES < 3 + 3 * DGX_UI_BLOCK);
+        CHECK(blocked_tree(panel, v, 3, with_array) == 0);
+        CHECK(blocked_tree(panel, v, 0, blocks_only) == 0);
     }
 
     v->destroy(&v), e->destroy(&e);

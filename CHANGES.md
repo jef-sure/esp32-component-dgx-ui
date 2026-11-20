@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.26 - 2026-11-20
+
+- The painter's look at the variables at the start of a pass takes about half the time: 17 us for a hundred widgets on
+  an ESP32 at 240 MHz, 5 us on a P4.
+
 ## 0.0.25 - 2026-11-20
 
 - A text box over a string constant, `DGX_UI_TEXT_CONST()`, and `dgx_ui_text_written()` for a buffer the program wrote

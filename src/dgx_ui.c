@@ -389,7 +389,7 @@ static bool no_place(const dgx_ui_widget_t *w)
 
 int32_t dgx_ui_shown(const dgx_ui_node_t *n)
 {
-    return n->widget->kind == DGX_UI_RADIO ? dgx_ui_radio_chosen(n) : dgx_ui_value_of(n);
+    return dgx_ui_shown_inline(n);
 }
 
 int32_t dgx_ui_value(const dgx_ui_t *ui, int i)
@@ -415,11 +415,16 @@ void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)
  */
 void dgx_ui_places(dgx_ui_t *ui)
 {
-    for (int i = 0; i < ui->count; ++i) {
-        dgx_ui_node_t *n = NODE(ui, i);
-        if (!n->widget || !n->widget->value || dgx_ui_shown(n) == n->state_drawn.value || dgx_ui_hidden(ui, i)) continue;
-        if (n->widget->kind == DGX_UI_LIST) n->marks |= DGX_UI_MARK_WINDOW;
-        dgx_ui_touched(ui, i);
+    /* run by run, the program's array and then each block, the nodes of a run in a row of memory: no call a node */
+    for (int start = 0; start < ui->count;) {
+        const int limit = start < ui->first_size ? ui->first_size : start + DGX_UI_BLOCK, end = limit < ui->count ? limit : ui->count;
+        dgx_ui_node_t *n = NODE(ui, start);
+        for (int i = start; i < end; ++i, ++n) {
+            if (!n->widget || !n->widget->value || dgx_ui_shown_inline(n) == n->state_drawn.value || dgx_ui_hidden(ui, i)) continue;
+            if (n->widget->kind == DGX_UI_LIST) n->marks |= DGX_UI_MARK_WINDOW;
+            dgx_ui_touched(ui, i);
+        }
+        start = end;
     }
 }
 
