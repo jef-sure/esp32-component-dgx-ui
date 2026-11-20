@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.32 - 2026-11-20
+
+- Needs DGX 0.11.6, whose hard pen gives the same pixels in a screen moved by whole pixels: handwriting drawn through
+  the strips is now the same as handwriting drawn whole.
+
 ## 0.0.31 - 2026-11-20
 
 - The ring scale draws whole about five times faster and a step three to five times faster, with the same pixels: the

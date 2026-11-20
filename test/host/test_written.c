@@ -67,16 +67,12 @@ static int pass(dgx_ui_t *ui, uint32_t now_ms)
     return pass_counted(ui, now_ms, true);
 }
 
-/* handwriting straight on the panel: the pen's strokes cross the paper laid under them and each other, so its pixels
-   are written more than once as the hand means them, and only the panel is compared. Through the strips of 18 bits a
-   stroke cut by the edge of a strip lies a pixel off the stroke drawn whole, so there the panel is compared with the
-   same text painted anew through the same strips (same_as_anew()) */
+/* handwriting: straight on the panel the pen's strokes cross the paper laid under them and each other, so its pixels
+   are written more than once as the hand means them, and only the panel is compared; through the strips of 18 bits
+   each pixel is sent once, and a stroke drawn in a strip's screen lies as the stroke drawn whole */
 static int pass_handwritten(dgx_ui_t *ui, uint32_t now_ms)
 {
-    if (PANEL_BITS == 16) return pass_counted(ui, now_ms, false);
-    panel_count_from_now(panel);
-    dgx_ui_paint(ui, &paint, now_ms);
-    return panel_twice(panel);
+    return pass_counted(ui, now_ms, PANEL_BITS == 18);
 }
 
 /* a pass that should draw nothing: no pixel written */
