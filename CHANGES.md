@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.25 - 2026-11-20
+
+- A text box over a string constant, `DGX_UI_TEXT_CONST()`, and `dgx_ui_text_written()` for a buffer the program wrote
+  itself.
+
 ## 0.0.24 - 2026-11-20
 
 - Radio buttons, `DGX_UI_RADIO`: the buttons of a group name one variable, each its own number in `.step`, and the one

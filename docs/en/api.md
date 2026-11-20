@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.24: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.25: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -528,12 +528,18 @@ line shown, and what the look of lines and the handwriting count. Its flags `DGX
 `DGX_UI_TEXTBOX_ENDED` and `DGX_UI_TEXTBOX_COUNTED` are the library's too. A text box is one widget's: a second widget
 that shows the same text has a box of its own.
 
+A box of `size` 0 is over a string constant, as `DGX_UI_TEXT_CONST()` makes it: the library never writes its
+buffer, and setting its text changes nothing. The box itself is still the program's RAM. The string may lie under
+any number of boxes.
+
 | Call | What it does |
 | ---- | ------------ |
 | `void dgx_ui_textbox_init(dgx_ui_textbox_t *box, char *buf, int size, int lines, const dgx_ui_text_style_t *style)` | A text box over the program's buffer of `size` bytes, empty, of so many lines. A text set is cut to `size - 1` bytes. |
 | `bool dgx_ui_text_printf(dgx_ui_t *ui, int i, const char *format, ...)` | The text of a widget set as by `printf()`, cut to its buffer on a whole letter of UTF-8. `true` when it changed. With a buffer of up to 256 bytes the same text changes nothing; a longer buffer is taken as changed every time. |
 | `bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)` | The same with a `va_list`. |
 | `bool dgx_ui_text_set(dgx_ui_t *ui, int i, const char *text)` | The text set as it is. |
+| `void dgx_ui_text_written(dgx_ui_t *ui, int i)` | The program wrote the buffer of the widget's text box itself, or pointed the box at another string: the widget is fitted and drawn again, its text begun anew, and a list open over its tree that shows the box is told, as by `dgx_ui_text_set()`. It does not look whether the text differs. A buffer with no 0 within its size is ended at `size - 1`, on a whole letter. |
+| `DGX_UI_TEXT_CONST(text, line_count, text_style)` | The initializer of a text box over a string constant: `static dgx_ui_textbox_t yes = DGX_UI_TEXT_CONST("Yes", 1, &style);`. No buffer, no call. It names every member in its order, so C++ takes it too. |
 | `void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms)` | The text appears letter by letter from the next pass, a letter every so many ms; 0: all at once. A text set later appears too. For `dgx_ui_look_lines`. |
 | `void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines)` | A text that is not important moved so many lines up, or down when negative, as far as there are lines. For `dgx_ui_look_lines`. Of a list that scrolls: its window moved so many rows, within its rows, the pick staying; the next change of the value brings the window back to the pick. |
 

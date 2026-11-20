@@ -2,7 +2,7 @@
  * The painter under scripts made by chance, from a fixed set of seeds: values written, widgets shown and hidden,
  * disabled, a text set, a popup opened anywhere and closed, the keyboard's band laid and gone, the finger on the
  * slider, a group of radio buttons chosen by a click, by a key and by the program, a checkbox ticked, the row of them
- * shown and hidden, a radio of the group in the popup. Each seed in two modes: on the paper straight, and over a drawn background with the strips
+ * shown and hidden, a radio of the group in the popup, a caption over a constant pointed at another and told. Each seed in two modes: on the paper straight, and over a drawn background with the strips
  * named. After every pass: no pixel written twice, and the panel is the tree composed anew by a fresh paint, the
  * band's own rows left out. At the end of each seed, with the band gone, the popup closed and the finger up, a pass,
  * then the look at the places marks nothing shown and the next pass writes nothing.
@@ -45,6 +45,8 @@ static dgx_ui_textbox_t note_box, list_box, ask_box, button_box;
 static dgx_ui_textbox_t one_box = {.buf = (char *)"One", .lines = 1, .style = &style}, two_box = {.buf = (char *)"Two", .lines = 1, .style = &style};
 static dgx_ui_textbox_t six_box = {.buf = (char *)"Six", .lines = 1, .style = &style}, four_box = {.buf = (char *)"Four", .lines = 1, .style = &style};
 static dgx_ui_textbox_t tick_box = {.buf = (char *)"Tick", .lines = 1, .style = &style};
+static dgx_ui_textbox_t caption_box = DGX_UI_TEXT_CONST("Yes", 1, &style);
+static const char *const captions[] = {"Yes", "Oui", "Ja", "Si"};
 
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 static const dgx_ui_widget_t note_w   = {.kind = DGX_UI_LABEL, .text = &note_box, .look = &dgx_ui_look_lines};
@@ -53,6 +55,7 @@ static const dgx_ui_widget_t bar_w    = {.kind = DGX_UI_OWN, .min = 0, .max = 10
 static const dgx_ui_widget_t line_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 4, .want_h = 16};
 static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .text = &button_box, .want_w = 50, .look = &dgx_ui_look_button};
 static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .value = &flag, .look = &dgx_ui_look_switch};
+static const dgx_ui_widget_t caption_w = {.kind = DGX_UI_LABEL, .want_w = 60, .text = &caption_box};
 static const dgx_ui_widget_t list_w   = {.kind = DGX_UI_LIST, .min = 0, .max = 5, .text = &list_box, .want_h = 30, .value = &row, .look = &dgx_ui_look_list};
 static const dgx_ui_widget_t group_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 14};
 static const dgx_ui_widget_t radio_w[3] = {
@@ -121,6 +124,8 @@ int main(void)
             dgx_ui_add(&ui, -1, &root_w);
             const int note = dgx_ui_add(&ui, 0, &note_w), slider = dgx_ui_add(&ui, 0, &slider_w), bar = dgx_ui_add(&ui, 0, &bar_w);
             const int line = dgx_ui_add(&ui, 0, &line_w), button = dgx_ui_add(&ui, line, &button_w), toggle = dgx_ui_add(&ui, line, &switch_w);
+            const int caption = dgx_ui_add(&ui, line, &caption_w);
+            caption_box.buf   = (char *)captions[0];
             const int list = dgx_ui_add(&ui, 0, &list_w), group = dgx_ui_add(&ui, 0, &group_w);
             int       radio[3];
             for (int k = 0; k < 3; ++k) radio[k] = dgx_ui_add(&ui, group, &radio_w[k]);
@@ -153,7 +158,7 @@ int main(void)
                     if (marked) ++unquiet_seeds, printf("seed %d: %d widgets marked after the passes settled\n", s, marked);
                 }
                 for (int a = 0; a < acts; ++a) {
-                    const int what = chance(22);
+                    const int what = chance(23);
                     did[strlen(did)] = (char)('a' + what);
                     switch (what) {
                     case 0: level = chance(21) * 5; break;
@@ -201,6 +206,10 @@ int main(void)
                         else if (!held) click(&ui, &ui, tick, now);
                         break;
                     case 21: dgx_ui_show(&ui, group, chance(3) != 0); break; /* the row of the group and the checkbox */
+                    case 22: /* a caption over a constant pointed at another, and told */
+                        caption_box.buf = (char *)captions[chance(4)];
+                        dgx_ui_text_written(&ui, caption);
+                        break;
                     }
                 }
                 memmove(history[0], history[1], sizeof history[0] * 3), strcpy(history[3], did);

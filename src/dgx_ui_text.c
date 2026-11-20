@@ -108,6 +108,15 @@ bool dgx_ui_text_set(dgx_ui_t *ui, int i, const char *text)
     return dgx_ui_text_printf(ui, i, "%s", text ? text : "");
 }
 
+void dgx_ui_text_written(dgx_ui_t *ui, int i)
+{
+    dgx_ui_node_t    *w   = dgx_ui_node(ui, i);
+    dgx_ui_textbox_t *box = w && w->widget ? w->widget->text : NULL;
+    if (!box || !box->buf) return;
+    if (box->size && !memchr(box->buf, 0, box->size)) box->buf[whole_chars(box->buf, box->size - 1)] = 0; /* no end: cut on a letter */
+    text_changed(ui, i, w, box);
+}
+
 void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms)
 {
     dgx_ui_node_t    *n   = dgx_ui_node(ui, i);

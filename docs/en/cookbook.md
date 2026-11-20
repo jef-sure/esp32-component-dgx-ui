@@ -12,6 +12,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [One message for several widgets](#one-message-for-several-widgets)
 - [A clock, or anything once in a while](#a-clock-or-anything-once-in-a-while)
 - [A button](#a-button)
+- [A caption from a string constant](#a-caption-from-a-string-constant)
 - [A slider and a switch](#a-slider-and-a-switch)
 - [A list](#a-list)
 - [A dropdown](#a-dropdown)
@@ -194,8 +195,7 @@ user clicked it or pressed the key of activation with the focus on it.
 ```c
 void settings_save(void);
 
-static char             save_buf[8];
-static dgx_ui_textbox_t save_box;
+static dgx_ui_textbox_t save_box = DGX_UI_TEXT_CONST("Save", 1, &st_centre); /* a caption that never changes: no buffer */
 
 static void save_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
@@ -207,10 +207,7 @@ static const dgx_ui_widget_t save_w = {
 
 static int save_add(dgx_ui_t *ui, int parent)
 {
-    dgx_ui_textbox_init(&save_box, save_buf, sizeof save_buf, 1, &st_centre);
-    const int b = dgx_ui_add(ui, parent, &save_w);
-    dgx_ui_text_set(ui, b, "Save");
-    return b;
+    return dgx_ui_add(ui, parent, &save_w);
 }
 ```
 
@@ -219,6 +216,45 @@ static int save_add(dgx_ui_t *ui, int parent)
 - `dgx_ui_set_state(ui, b, DGX_UI_PRESSED, true)` draws it pressed and activates nothing: so a key of the board may
   show on the screen.
 - `on()` may remove widgets, the button itself too: a dialog may close itself there.
+
+## A caption from a string constant
+
+Most texts of an interface never change: the names of buttons, a title, a unit. Such a text needs no buffer in RAM
+and no call that sets it: its text box is made over the string constant itself, as the button above has it.
+
+```c
+/* the answers of a dialog in two languages: a box for each widget, pointed at a string of the table */
+enum { CAPTION_YES, CAPTION_NO, CAPTIONS };
+
+static const char *const caption_text[2][CAPTIONS] = {{"Yes", "No"}, {"Oui", "Non"}};
+static dgx_ui_textbox_t  caption_box[CAPTIONS] = {DGX_UI_TEXT_CONST("Yes", 1, &st_centre), DGX_UI_TEXT_CONST("No", 1, &st_centre)};
+
+/* the language changed: every box pointed at its other string and its widget told; widgets[] are the widgets of the boxes */
+static void captions_language(dgx_ui_t *ui, const int widgets[CAPTIONS], int language)
+{
+    for (int caption = 0; caption < CAPTIONS; ++caption) {
+        caption_box[caption].buf = (char *)caption_text[language][caption];
+        dgx_ui_text_written(ui, widgets[caption]);
+    }
+}
+```
+
+- **`DGX_UI_TEXT_CONST(text, lines, style)`** makes a box whose buffer is the string and whose size is 0. The
+  library never writes such a buffer: `dgx_ui_text_set()` on it changes nothing and returns `false`, and a field over
+  it takes no letter.
+- **The box is still 28 bytes of RAM**: the library keeps in it how the text was fitted. What is saved is the
+  buffer, and the two calls that made the box and set its text. Measured on ten captions with buffers of 16 bytes on
+  an ESP32: 168 bytes of RAM and 88 bytes of code less; the image is some 14 bytes a caption larger, as the boxes'
+  first values now lie in flash.
+- **A program all of whose texts are constants**, with no number printed into a text anywhere, does not link the
+  printing behind `dgx_ui_text_printf()`: about 14 KB less on an ESP32, as long as nothing else in the program prints.
+- **A box is one widget's**; the string may lie under any number of boxes. Two buttons that both say "Yes" are two
+  boxes over one string.
+- **A caption that changes seldom**, with the language or the mode, is pointed at another constant and its widget
+  told by `dgx_ui_text_written()`, as above.
+- **A text the program makes**, a number, a name that came by a message, keeps its buffer and `dgx_ui_text_printf()`.
+- **The rows of a list and the options of a dropdown** may be a constant too: `DGX_UI_TEXT_CONST("Low\nMiddle\nHigh", 1,
+  &st_left)`.
 
 ## A slider and a switch
 
@@ -411,8 +447,10 @@ enum { AIR_AUTO, AIR_DAY, AIR_NIGHT, AIR_MODES };
 static int32_t air_mode = AIR_AUTO; /* the group: every radio button of it names this variable */
 static int32_t beep_wanted = 1;     /* the checkbox */
 
-static char             air_buf[AIR_MODES][8], beep_buf[8];
-static dgx_ui_textbox_t air_box[AIR_MODES], beep_box;
+/* captions that never change: a box for each widget, over a string constant */
+static dgx_ui_textbox_t air_box[AIR_MODES] = {
+    DGX_UI_TEXT_CONST("Auto", 1, &st_left), DGX_UI_TEXT_CONST("Day", 1, &st_left), DGX_UI_TEXT_CONST("Night", 1, &st_left)};
+static dgx_ui_textbox_t beep_box = DGX_UI_TEXT_CONST("Beep", 1, &st_left);
 
 static void air_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
@@ -437,13 +475,8 @@ static const dgx_ui_widget_t beep_w = {
 
 static void air_add(dgx_ui_t *ui, int parent)
 {
-    static const char *const names[AIR_MODES] = {"Auto", "Day", "Night"};
-    for (int mode = 0; mode < AIR_MODES; ++mode) {
-        dgx_ui_textbox_init(&air_box[mode], air_buf[mode], sizeof air_buf[mode], 1, &st_left);
-        dgx_ui_text_set(ui, dgx_ui_add(ui, parent, &air_w[mode]), names[mode]);
-    }
-    dgx_ui_textbox_init(&beep_box, beep_buf, sizeof beep_buf, 1, &st_left);
-    dgx_ui_text_set(ui, dgx_ui_add(ui, parent, &beep_w), "Beep");
+    for (int mode = 0; mode < AIR_MODES; ++mode) dgx_ui_add(ui, parent, &air_w[mode]);
+    dgx_ui_add(ui, parent, &beep_w);
 }
 ```
 
@@ -680,15 +713,14 @@ static void texts_add(dgx_ui_t *ui, int parent)
 ## A log of the last lines
 
 A log shows the last lines that came: a new line is added at the bottom, and when there is no room the oldest go.
-The look of lines draws the window; the program keeps the lines.
+The look of lines draws the window; the program keeps the lines, in the buffer of the text box itself.
 
 ```c
 #include <string.h>
 
 enum { LOG_ROWS = 5 };
 
-static char             log_lines[240]; /* the last lines of the log, "\n" between them */
-static char             log_buf[sizeof log_lines];
+static char             log_buf[240]; /* the last lines of the log, "\n" between them: the buffer of the text box itself */
 static dgx_ui_textbox_t log_box;
 
 static const dgx_ui_widget_t log_w = {.kind = DGX_UI_LABEL, .text = &log_box, .look = &dgx_ui_look_lines};
@@ -702,34 +734,33 @@ static int log_make(dgx_ui_t *ui, int parent)
 /* a line added at the end of the log; the oldest lines go when the new one has no room */
 static void log_add(dgx_ui_t *ui, int log, const char *line)
 {
-    const size_t room = sizeof log_lines - 1;
-    size_t       have = strlen(log_lines), length = strlen(line);
+    const size_t room = sizeof log_buf - 1;
+    size_t       have = strlen(log_buf), length = strlen(line);
     if (length > room) { /* longer than the whole log: its beginning, cut on a whole letter of UTF-8 */
         length = room;
         while (length > 0 && ((unsigned char)line[length] & 0xC0) == 0x80) --length;
     }
     while (have > 0 && have + 1 + length > room) { /* the oldest line goes, with its "\n" */
-        const char  *line_end = strchr(log_lines, '\n');
-        const size_t gone     = line_end ? (size_t)(line_end + 1 - log_lines) : have;
-        memmove(log_lines, log_lines + gone, have - gone + 1);
+        const char  *line_end = strchr(log_buf, '\n');
+        const size_t gone     = line_end ? (size_t)(line_end + 1 - log_buf) : have;
+        memmove(log_buf, log_buf + gone, have - gone + 1);
         have -= gone;
     }
-    if (have > 0) log_lines[have++] = '\n';
-    memcpy(log_lines + have, line, length);
-    log_lines[have + length] = 0;
-    dgx_ui_text_set(ui, log, log_lines);
+    if (have > 0) log_buf[have++] = '\n';
+    memcpy(log_buf + have, line, length);
+    log_buf[have + length] = 0;
+    dgx_ui_text_written(ui, log);        /* the buffer was written in place */
     dgx_ui_text_scroll(ui, log, 0x7fff); /* down to the last lines: the painter stops at the last window */
 }
 ```
 
-- `dgx_ui_text_set()` begins a text from its first line. `dgx_ui_text_scroll()` with a number larger than any count
-  of rows then moves it down as far as there are rows, so the last `LOG_ROWS` rows are shown, however many rows a
-  long line took when it was laid into the box.
+- **The buffer is written in place**, and `dgx_ui_text_written()` says so: the widget is fitted and drawn again, and
+  its text begins from its first line, as after `dgx_ui_text_set()`. So the lines are kept once: 240 bytes hold
+  about ten lines of 20 letters.
+- `dgx_ui_text_scroll()` with a number larger than any count of rows then moves the text down as far as there are
+  rows, so the last `LOG_ROWS` rows are shown, however many rows a long line took when it was laid into the box.
 - To look back, `dgx_ui_text_scroll(ui, log, -1)` shows a row older, as far as the lines kept go. The next line
   added brings the end back.
-- The lines are kept twice, in `log_lines` and in the buffer of the text box: `dgx_ui_text_set()` copies the text it
-  is given into the buffer, so the lines cannot be kept in the buffer itself. 240 bytes hold about ten lines of 20
-  letters.
 - A line longer than the whole log is cut on a whole letter and stands alone in it.
 - `log_add()` is called by the task that owns the tree. Another task sends its line as a message, as in
   [Large data: a message by reference](#large-data-a-message-by-reference).
@@ -1001,8 +1032,9 @@ A popup is a tree of its own: its own nodes, its own root, the same widgets and 
 rectangle of the screen.
 
 ```c
-static char             ask_buf[32], yes_buf[8], no_buf[8];
-static dgx_ui_textbox_t ask_box, yes_box, no_box;
+/* the question and the two answers never change: boxes over string constants */
+static dgx_ui_textbox_t ask_box = DGX_UI_TEXT_CONST("Save the settings?", 1, &st_centre);
+static dgx_ui_textbox_t yes_box = DGX_UI_TEXT_CONST("Yes", 1, &st_centre), no_box = DGX_UI_TEXT_CONST("No", 1, &st_centre);
 static dgx_ui_node_t    ask_nodes[6];
 static dgx_ui_t         ask_ui;
 static dgx_ui_t        *ask_over; /* the tree it is open over */
@@ -1030,15 +1062,12 @@ static const dgx_ui_widget_t no_w = {
 
 static void ask_open(dgx_ui_t *ui)
 {
-    dgx_ui_textbox_init(&ask_box, ask_buf, sizeof ask_buf, 1, &st_centre);
-    dgx_ui_textbox_init(&yes_box, yes_buf, sizeof yes_buf, 1, &st_centre);
-    dgx_ui_textbox_init(&no_box, no_buf, sizeof no_buf, 1, &st_centre);
     dgx_ui_init(&ask_ui, ask_nodes, 6, 2);
     const int root = dgx_ui_add(&ask_ui, -1, &ask_root_w);
-    dgx_ui_text_set(&ask_ui, dgx_ui_add(&ask_ui, root, &ask_w), "Save the settings?");
+    dgx_ui_add(&ask_ui, root, &ask_w);
     const int row = dgx_ui_add(&ask_ui, root, &ask_row_w);
-    dgx_ui_text_set(&ask_ui, dgx_ui_add(&ask_ui, row, &yes_w), "Yes");
-    dgx_ui_text_set(&ask_ui, dgx_ui_add(&ask_ui, row, &no_w), "No");
+    dgx_ui_add(&ask_ui, row, &yes_w);
+    dgx_ui_add(&ask_ui, row, &no_w);
     ask_over = ui;
     dgx_ui_popup_open(ui, &ask_ui, 50, 70, 220, 92, DGX_UI_POPUP_MODAL); /* pixels of the screen */
 }
@@ -2237,8 +2266,8 @@ static bool ppm_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
     return false;
 }
 
-static char                ppm_buf[8], ppm_unit_buf[12], ring_temp_buf[12], ring_rh_buf[8];
-static dgx_ui_textbox_t    ppm_box, ppm_unit_box;
+static char                ppm_buf[8], ring_temp_buf[12], ring_rh_buf[8];
+static dgx_ui_textbox_t    ppm_box, ppm_unit_box = DGX_UI_TEXT_CONST("ppm CO2", 1, &st_centre);
 static dgx_ui_text_style_t st_ring_right;
 static ring_t              ring_data;
 static const ring_look_t   ring_params = {.width = 14};
@@ -2264,12 +2293,11 @@ static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
     ring_off  = dgx_screen_rgb(scr, 40, 46, 60);
     st_ring_right = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
     dgx_ui_textbox_init(&ppm_box, ppm_buf, sizeof ppm_buf, 1, &st_city); /* the large font, or the small one */
-    dgx_ui_textbox_init(&ppm_unit_box, ppm_unit_buf, sizeof ppm_unit_buf, 1, &st_centre);
     dgx_ui_textbox_init(&temp_box, ring_temp_buf, sizeof ring_temp_buf, 1, &st_left);
     dgx_ui_textbox_init(&rh_box, ring_rh_buf, sizeof ring_rh_buf, 1, &st_ring_right);
     const int ring = dgx_ui_add(ui, -1, &ring_w);
     dgx_ui_add(ui, ring, &ppm_w);
-    dgx_ui_text_set(ui, dgx_ui_add(ui, ring, &ppm_unit_w), "ppm CO2");
+    dgx_ui_add(ui, ring, &ppm_unit_w);
     dgx_ui_add(ui, ring, &ring_rest_w); /* pushes the row to the bottom of the square */
     const int row = dgx_ui_add(ui, ring, &ring_row_w);
     dgx_ui_add(ui, row, &ring_temp_w);

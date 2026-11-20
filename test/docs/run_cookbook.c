@@ -692,6 +692,33 @@ int main(int argc, char **argv)
         dgx_screen_destroy(&air_screen);
     }
 
+    /* a caption from a string constant: drawn with no call; set refused; pointed at another constant and told: drawn in the other language */
+    {
+        static dgx_ui_node_t         caption_nodes[4];
+        static const dgx_ui_widget_t caption_yes_w = {.kind = DGX_UI_BUTTON, .text = &caption_box[CAPTION_YES], .want_h = 16, .look = &dgx_ui_look_button};
+        static const dgx_ui_widget_t caption_no_w  = {.kind = DGX_UI_BUTTON, .text = &caption_box[CAPTION_NO], .want_h = 16, .look = &dgx_ui_look_button};
+        dgx_screen_t                *caption_screen = dgx_vscreen_init(120, 60, 16, DgxScreenRGB);
+        dgx_ui_paint_t               caption_paint  = {.scr = caption_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_t                     caption_ui;
+        dgx_ui_init(&caption_ui, caption_nodes, 4, 1);
+        dgx_ui_add(&caption_ui, -1, &col_w);
+        const int widgets[CAPTIONS] = {dgx_ui_add(&caption_ui, 0, &caption_yes_w), dgx_ui_add(&caption_ui, 0, &caption_no_w)};
+        dgx_ui_paint(&caption_ui, &caption_paint, 0);
+        int ink_first = 0, ink_second = 0;
+        const dgx_ui_node_t *yes_node = dgx_ui_node(&caption_ui, widgets[CAPTION_YES]);
+        for (int y = yes_node->y; y < yes_node->y + yes_node->h; ++y)
+            for (int x = yes_node->x; x < yes_node->x + yes_node->w; ++x) ink_first += dgx_get_pixel(caption_screen, x, y) == table[INK];
+        const bool set_refused = !dgx_ui_text_set(&caption_ui, widgets[CAPTION_YES], "Sure") && strcmp(caption_box[CAPTION_YES].buf, "Yes") == 0;
+        captions_language(&caption_ui, widgets, 1);
+        dgx_ui_paint(&caption_ui, &caption_paint, 20);
+        for (int y = yes_node->y; y < yes_node->y + yes_node->h; ++y)
+            for (int x = yes_node->x; x < yes_node->x + yes_node->w; ++x) ink_second += dgx_get_pixel(caption_screen, x, y) == table[INK];
+        printf("caption: \"Yes\" drawn with no call, %d pixels of ink; a text set on it refused %d; pointed at \"%s\" and told: %d pixels of ink, another picture %d\n", ink_first,
+               set_refused, caption_box[CAPTION_YES].buf, ink_second, ink_second != ink_first && ink_second > 0);
+        dgx_ui_paint_free(&caption_paint), dgx_ui_free(&caption_ui);
+        dgx_screen_destroy(&caption_screen);
+    }
+
     /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */
     {
         dgx_screen_t                *hand_screen = dgx_vscreen_init(200, 80, 16, DgxScreenRGB); /* a column 200 pixels wide */

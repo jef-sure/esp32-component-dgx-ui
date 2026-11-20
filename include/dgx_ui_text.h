@@ -88,10 +88,14 @@ enum {
  * @brief A text box: the program's buffer of the string, its style and the lines it shows. The text is laid into
  * lines, word by word, each time it is drawn: no table of lines is kept. A text box is one widget's; a second widget
  * showing the same text has a box of its own.
+ *
+ * A box of size 0 is over a string constant (DGX_UI_TEXT_CONST()): the library never writes its buffer, and setting
+ * its text changes nothing. The box itself is still the program's RAM, as the library keeps in it the fit, the line on
+ * top and the letters come.
  */
 struct dgx_ui_textbox_t {
     char                      *buf;       ///< the program's: the string, cut to the size
-    uint16_t                   size;      ///< bytes of buf, the 0 at the end included
+    uint16_t                   size;      ///< bytes of buf, the 0 at the end included; 0: a constant's, never written
     uint8_t                    lines;     ///< the lines it shows: its height is so many lines of the first variant
     uint8_t                    variant;   ///< the variant the text was fitted in, by the painter
     const dgx_ui_text_style_t *style;
@@ -102,6 +106,21 @@ struct dgx_ui_textbox_t {
     uint16_t                   letters_drawn; ///< the look of lines: the letters come when it last drew; handwriting: the ms of its time written
     uint16_t                   total_lines, total_letters; ///< the look of lines: of the text laid, while COUNTED
 };
+
+/**
+ * @brief A text box over a string constant, of so many lines in a style: no buffer of RAM, no call to fill it.
+ *
+ *     static dgx_ui_textbox_t yes = DGX_UI_TEXT_CONST("Yes", 1, &style);
+ *     static const dgx_ui_widget_t yes_w = {.kind = DGX_UI_BUTTON, .text = &yes, .look = &dgx_ui_look_button};
+ *
+ * A list's rows and a dropdown's options take it too ("Low\nMiddle\nHigh", 3). The string may lie under any number of
+ * boxes; a box is one widget's, so two widgets of one caption are two boxes over one string. Another constant is
+ * shown by pointing the box at it and telling the widget: `yes.buf = (char *)"Oui"; dgx_ui_text_written(ui, i);`.
+ * Every member is named, in its order, so that a program in C++ built with -Wextra takes it without a word.
+ */
+#define DGX_UI_TEXT_CONST(text, line_count, text_style)                                                                 \
+    {.buf = (char *)(text), .size = 0, .lines = (line_count), .variant = 0, .style = (text_style), .top = 0, .letter_ms = 0, \
+     .flags = 0, .since_ms = 0, .letters_drawn = 0, .total_lines = 0, .total_letters = 0}
 
 /** @brief The height of a line of a variant: its own for a handwritten font, the font's advance for a bitmap one. */
 int dgx_ui_variant_line(const dgx_ui_font_variant_t *v);
@@ -127,6 +146,17 @@ bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args);
 
 /** @brief The text of a widget set as it is. */
 bool dgx_ui_text_set(dgx_ui_t *ui, int i, const char *text);
+
+/**
+ * @brief The program wrote the buffer of widget i's text box itself, or pointed the box at another string: the widget
+ * is fitted and drawn again, its text begun anew, and the lists over its tree that show the box are told, as by
+ * dgx_ui_text_set(). A buffer with no 0 within its size is ended at size - 1 on a whole letter.
+ *
+ * It does not look whether the text differs: a program that calls it at every turn of its loop has the widget drawn
+ * at every pass. The buffer is written by the task that owns the tree, as any value is; another task sends a message.
+ * Two boxes over one buffer are two widgets, each told. No widget, no box or no buffer: nothing.
+ */
+void dgx_ui_text_written(dgx_ui_t *ui, int i);
 
 /**
  * @brief The text of a widget appears letter by letter from the next pass of the painter, a letter every so many
