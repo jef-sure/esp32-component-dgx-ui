@@ -89,7 +89,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         return false;
     }
     const char    *text = box->buf ? box->buf : "";
-    const bool     focused = n->state.bits & DGX_UI_FOCUSED, off = n->state.bits & DGX_UI_DISABLED;
+    const bool     focused = dgx_ui_bits_shown(ui, n) & DGX_UI_FOCUSED, off = n->state.bits & DGX_UI_DISABLED;
     const uint8_t  bar = focused ? p->focused : p->pick;
     const uint32_t ink = dgx_ui_color(paint, off ? p->disabled : p->ink);
     const uint32_t bar_ink = dgx_ui_color(paint, off ? p->disabled : p->pick_ink);

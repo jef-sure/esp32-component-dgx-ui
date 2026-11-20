@@ -430,7 +430,7 @@ static int fan_add(dgx_ui_t *ui, int parent)
   возвращает `true`, и программе эта клавиша, пока список открыт, не достаётся.
 - **Палец, который ведут по списку,** ведёт за собой полосу, а отпущенный ничего не выбирает: список остаётся
   открытым, выбирает нажатие.
-- **`dgx_ui_dropdown_t`** — это всплывающее окно списка, 276 байт ОЗУ программы на 32-битном чипе, обнулённые
+- **`dgx_ui_dropdown_t`** — это всплывающее окно списка, 284 байта ОЗУ программы на 32-битном чипе, обнулённые
   перед первым открытием, как любая `static`-переменная. Открыт бывает только один список, поэтому одной структуры
   хватает на все выпадающие списки.
 - **Облики** окна — два последних аргумента, рамка и список; `NULL` значит облик библиотеки.
@@ -2045,6 +2045,8 @@ static const dgx_ui_widget_t level_w      = {.kind = DGX_UI_OWN, .min = 0, .max 
 
 - **Где.** Он рисует прямоугольник виджета, `n->x, n->y, n->w, n->h`, за вычетом `paint->ox, paint->oy`: экраном может быть
   буфер, в котором лежит часть картины. Отсечение уже поставлено, и облик не меняет его насовсем.
+- **Биты, которые надо показать**, — это `dgx_ui_bits_shown(ui, n)`, а не `n->state.bits`: пока над деревом лежит
+  модальное окно, фокус не показывается, а облик, который читает состояние сам, продолжал бы его показывать.
 - **Каждый пиксель один раз.** Пишите каждый пиксель того, что рисуете, один раз, и на дисплее за шиной виджет не
   мигает. Полоса выше — два прямоугольника, которые не перекрываются.
 - **Весь прямоугольник, когда `paint->whole`.** Тогда на экране от виджета нет ничего. Облик, который рисует только
@@ -2092,7 +2094,7 @@ static bool xy_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *
     const xy_data_t     *d = n->widget->own;
     const int            x = n->x - paint->ox, y = n->y - paint->oy;
     const int            kx = (n->w - XY_KNOB) * dgx_ui_value_of(n) / 100, ky = (n->h - XY_KNOB) * d->y / 100;
-    const unsigned       bits  = n->state.bits;
+    const unsigned       bits  = dgx_ui_bits_shown(ui, n); /* what to show: no focus under a modal popup */
     const uint32_t       field = dgx_ui_color(paint, FILL), ink = dgx_ui_color(paint, INK);
     /* the field in four rectangles round the knob, then the knob: every pixel once */
     if (ky > 0) dgx_fill_rectangle(paint->scr, x, y, n->w, ky, field);

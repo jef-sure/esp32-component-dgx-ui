@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.33 - 2026-11-20
+
+- While a modal popup is open, the trees under it show no mark of the focus, and the mark comes back where the focus
+  is when it closes; the focus itself stays. A look reads the bits it shows by `dgx_ui_bits_shown()`.
+
 ## 0.0.32 - 2026-11-20
 
 - Needs DGX 0.11.6, whose hard pen gives the same pixels in a screen moved by whole pixels: handwriting drawn through

@@ -62,7 +62,7 @@ bool dgx_ui_draw_switch(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     dgx_ui_tell_no_place(i, n->widget, "a switch", &told);
     const bool     on    = dgx_ui_value_of(n) != 0;
     const uint32_t track = dgx_ui_color(paint, on ? p->on : p->off);
-    const unsigned bits  = n->state.bits;
+    const unsigned bits  = dgx_ui_bits_shown(ui, n);
     const uint32_t knob  = dgx_ui_color(paint, (bits & DGX_UI_DISABLED) ? p->disabled : p->knob);
     const int      k     = n->h < n->w / 2 ? n->h : n->w / 2; /* a square knob */
     int            kw    = k;
@@ -90,7 +90,7 @@ bool dgx_ui_draw_slider(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     dgx_ui_tell_no_place(i, n->widget, "a slider", &told);
     const dgx_ui_widget_t *w     = n->widget;
     const uint32_t         track = dgx_ui_color(paint, p->track), filled = dgx_ui_color(paint, p->fill);
-    const unsigned         bits  = n->state.bits;
+    const unsigned         bits  = dgx_ui_bits_shown(ui, n);
     const uint32_t         knob  = dgx_ui_color(paint, (bits & DGX_UI_DISABLED) ? p->disabled : p->knob);
     int                    kw    = DGX_UI_KNOB * ui->unit, th = p->track_h * ui->unit;
     if (kw > n->w) kw = n->w;

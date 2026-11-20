@@ -73,7 +73,7 @@ bool dgx_ui_draw_level(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const int     now_filled = filled(w, value, length);
     const uint8_t bar        = color_of(p, value);
     int           a = 0, b = length; /* the part written, along the bar */
-    if (!paint->whole && n->state.bits == n->state_drawn.bits) {
+    if (!paint->whole && dgx_ui_bits_shown(ui, n) == n->state_drawn.bits) {
         /* only the value moved: the part between the length drawn and the new one; its colour changed, all of the
            filled part, and what emptied */
         const int  was_filled = filled(w, drawn, length);

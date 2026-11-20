@@ -426,11 +426,14 @@ struct dgx_ui_t {
     dgx_ui_rect_t     popup_was;   ///< where a popup closed since the last pass of the painter: composed again there
     dgx_ui_t         *under;       ///< the library's: the tree this one lies over as a popup; NULL none
     bool              shown_told;  ///< the library's, not to be read: a program keeps a flag of its own from DGX_UI_SHOWN and _COVERED
+    uint8_t           veiled_bits; ///< the library's: DGX_UI_FOCUSED while a modal popup lies over the tree, the bits its looks do
+                                   ///< not show; read by dgx_ui_bits_shown()
 };
 
 /** How a popup takes the pointer and the keys. */
 enum {
-    DGX_UI_POPUP_MODAL         = 1u << 0, ///< it takes every pointer and key that reaches it: nothing goes to the tree under it
+    DGX_UI_POPUP_MODAL         = 1u << 0, ///< it takes every pointer and key that reaches it: nothing goes to the tree under it,
+                                          ///< and the trees under it show no focus
     DGX_UI_POPUP_CLOSE_OUTSIDE = 1u << 1, ///< a finger that goes down outside it closes it (a dropdown's list)
     DGX_UI_POPUP_BACK          = 1u << 2, ///< the key back that nothing in it took closes it, its root told DGX_UI_BACK first
     DGX_UI_POPUP_SCREEN        = 1u << 3, ///< it lies on the whole screen of the tree, laid again when the screen turns; x, y, w, h not read
@@ -682,6 +685,12 @@ void dgx_ui_focus(dgx_ui_t *ui, int i);
  * `dgx_ui_tell(&home, 0, DGX_UI_SHOWN)`. A covered tree still takes messages. An on() told these two may close or
  * free its own tree; it never opens, closes or frees another tree closed by the same call, which the library tells
  * next, nor opens a tree being freed.
+ *
+ * The focus under a popup: while a popup of DGX_UI_POPUP_MODAL lies over a tree, anywhere above it, the tree's looks
+ * show no focus (dgx_ui_bits_shown()); its focus stays where it is, the widget's DGX_UI_FOCUSED and ui->focus too, and
+ * the mark is back where the focus is then when the popup closes, with no DGX_UI_FOCUS told. Under a popup that is not
+ * modal the mark stays: the keys go to that popup first all the same when it has widgets that take the focus, and a
+ * program whose popup should take the mark off the tree under it opens it DGX_UI_POPUP_MODAL.
  */
 
 /**

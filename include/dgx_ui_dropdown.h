@@ -46,7 +46,7 @@ extern "C" {
 
 /**
  * @brief The popup of a dropdown's list, in the program's RAM, zeroed before its first use (a static is). The popup
- * keeps pointers to its widgets while it is open, so they live here. 276 bytes on an ESP32.
+ * keeps pointers to its widgets while it is open, so they live here. 284 bytes on an ESP32.
  */
 typedef struct dgx_ui_dropdown_t {
     dgx_ui_t        tree;     ///< the popup: a frame holding the list

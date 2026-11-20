@@ -25,7 +25,7 @@ bool dgx_ui_frame_begin(dgx_ui_paint_t *paint, const dgx_ui_t *ui, int i, dgx_ui
 {
     const dgx_ui_node_t *n = dgx_ui_node(ui, i);
     frame->rect = dgx_ui_rect(0, 0, 0, 0), frame->color = color;
-    if (!n || !(n->state.bits & DGX_UI_FOCUSED) || color == DGX_UI_PAPER || dgx_ui_rect_empty(&rect)) return true;
+    if (!n || !(dgx_ui_bits_shown(ui, n) & DGX_UI_FOCUSED) || color == DGX_UI_PAPER || dgx_ui_rect_empty(&rect)) return true;
     frame->rect = rect;
     int *was    = frame->clip;
     dgx_screen_clip_get(paint->scr, &was[0], &was[1], &was[2], &was[3]);

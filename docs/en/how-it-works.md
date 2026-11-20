@@ -302,7 +302,8 @@ keyboard of DGX-DI types them.
 
 **What shows it.** The looks of the library show a value, the focus and a finger each in its own way: a value in
 colour 3 of the table; the focus by a frame of a point round the widget, or by a hollow knob, in colour 1; a finger
-by another colour of the face or of the inside of a mark, or by a wider knob. See
+by another colour of the face or of the inside of a mark, or by a wider knob. While a modal popup lies over a tree,
+that tree shows no focus: the keys go to the popup, and the mark is back when it closes. See
 [A value, the focus and a finger](api.md#a-value-the-focus-and-a-finger).
 
 **Touch.** `dgx_ui_di.h` gives the first finger of DGX-DI's pointer to the tree and sorts the gestures. While a widget

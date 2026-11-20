@@ -347,7 +347,7 @@ bool dgx_ui_draw_ring(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     int cx, cy, cw, ch;
     dgx_screen_clip_get(paint->scr, &cx, &cy, &cw, &ch);
     int        x0 = cx + paint->ox, y0 = cy + paint->oy, x1 = x0 + cw, y1 = y0 + ch;
-    const bool moved = !paint->whole && n->state.bits == n->state_drawn.bits;
+    const bool moved = !paint->whole && dgx_ui_bits_shown(ui, n) == n->state_drawn.bits;
     lit_t      drawn = now;
     if (moved) {
         drawn = lit_of(&r, n->state_drawn.value);

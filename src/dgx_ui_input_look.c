@@ -32,7 +32,7 @@ static bool draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui,
         dgx_ui_lay_paper(paint, p->paper, n->x, n->y, n->w, n->h);
         return false;
     }
-    const bool  caret = n->state.bits & DGX_UI_FOCUSED;
+    const bool  caret = dgx_ui_bits_shown(ui, n) & DGX_UI_FOCUSED;
     const int   cw    = caret ? (ui->unit > 1 ? ui->unit : 1) : 0;
     const int   cell = f->yBottomMax - f->yOffsetLowest;
     const int   base = (box->style->flags & DGX_UI_TEXT_MIDDLE) ? n->y + (n->h - cell) / 2 - f->yOffsetLowest : n->y - f->yOffsetLowest;

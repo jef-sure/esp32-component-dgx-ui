@@ -143,8 +143,9 @@ struct dgx_ui_paint_t {
  * The rules of a look (struct dgx_ui_look_t, dgx_ui.h): what its function draws and when.
  *
  * The function draws what differs between the widget's state_drawn and state, or all of it when the painter
- * says whole; the clip of the screen is set to the part of the widget's box it may draw, and it may be called for
- * several parts in turn. It should write every pixel once. It draws the widget's box less paint's ox and oy: the
+ * says whole. The bits it shows are dgx_ui_bits_shown(), not state.bits: no focus is shown while a modal popup lies
+ * over the tree, and state_drawn.bits holds the bits shown. The clip of the screen is set to the part of the widget's
+ * box it may draw, and it may be called for several parts in turn. It should write every pixel once. It draws the widget's box less paint's ox and oy: the
  * screen may be a buffer that holds a part of the tree's screen. So it is drawn in strips on a display of 18 or 24
  * bits (above): whole in each strip, composing in all but the last strip of a part.
  *
@@ -156,6 +157,15 @@ struct dgx_ui_paint_t {
  * stores it only in the last part of the painter's own pass: paint->part == paint->parts - 1 and not composing.
  * Stored in the first, it would find nothing changed in the parts after.
  */
+
+/**
+ * @brief The bits of a widget its look shows: its state's, less DGX_UI_FOCUSED while a popup of DGX_UI_POPUP_MODAL lies
+ * over its tree; what state_drawn.bits holds once it is drawn.
+ */
+static inline uint8_t dgx_ui_bits_shown(const dgx_ui_t *ui, const dgx_ui_node_t *n)
+{
+    return (uint8_t)(n->state.bits & ~ui->veiled_bits);
+}
 
 /** @brief No look asks for time: paint's wake_ms, dgx_ui_wake(). */
 #define DGX_UI_WAKE_NONE UINT32_MAX

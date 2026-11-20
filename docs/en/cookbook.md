@@ -425,7 +425,7 @@ static int fan_add(dgx_ui_t *ui, int parent)
   program is not given that key while the list is open.
 - **A finger moved along the list** takes the bar with it and, let go, chooses nothing: the list stays open, and a
   tap chooses.
-- **`dgx_ui_dropdown_t`** is the popup of the list, 276 bytes of the program's RAM on a 32-bit chip, zeroed before
+- **`dgx_ui_dropdown_t`** is the popup of the list, 284 bytes of the program's RAM on a 32-bit chip, zeroed before
   its first use as a `static` is. One list is open at a time, so one serves every dropdown.
 - **The looks** of the popup are the last two arguments, its frame and its list; `NULL` is the library's.
 - **The tree knows its screen before the first list opens**: the list is placed on the screen the tree was laid
@@ -2021,6 +2021,8 @@ The rules a look keeps:
 
 - **Where.** It draws the widget's box, `n->x, n->y, n->w, n->h`, less `paint->ox, paint->oy`: the screen may be a
   buffer that holds a part of the picture. The clip is already set, and the look does not change it for good.
+- **The bits to show** are `dgx_ui_bits_shown(ui, n)`, not `n->state.bits`: while a modal popup lies over the tree
+  the focus is not shown, and a look that reads the state itself would go on showing it.
 - **Every pixel once.** Write each pixel of what you draw once, and the widget does not blink on a display behind a
   bus. The bar above is two rectangles that do not overlap.
 - **The whole box when `paint->whole`.** Then nothing of the widget is on the screen. A look that draws only a
@@ -2067,7 +2069,7 @@ static bool xy_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *
     const xy_data_t     *d = n->widget->own;
     const int            x = n->x - paint->ox, y = n->y - paint->oy;
     const int            kx = (n->w - XY_KNOB) * dgx_ui_value_of(n) / 100, ky = (n->h - XY_KNOB) * d->y / 100;
-    const unsigned       bits  = n->state.bits;
+    const unsigned       bits  = dgx_ui_bits_shown(ui, n); /* what to show: no focus under a modal popup */
     const uint32_t       field = dgx_ui_color(paint, FILL), ink = dgx_ui_color(paint, INK);
     /* the field in four rectangles round the knob, then the knob: every pixel once */
     if (ky > 0) dgx_fill_rectangle(paint->scr, x, y, n->w, ky, field);

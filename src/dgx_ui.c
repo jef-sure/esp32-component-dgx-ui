@@ -1026,6 +1026,25 @@ enum { CHAIN = DGX_UI_POPUP_DEPTH + 1 }; /* the trees of a chain: home and its p
 static dgx_ui_rect_t hull(dgx_ui_rect_t a, dgx_ui_rect_t b);
 static bool          attach(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags, bool told_kept, dgx_ui_t **closed, int *count);
 
+/* the veils of the chain from home up as it stands, set before any of it is told: a tree under a modal popup, anywhere
+   above it, shows no focus; one whose veil changed has its focused widget looked at by the next pass, drawn if what
+   it shows changed */
+static void veil_chain(dgx_ui_t *home)
+{
+    dgx_ui_t *trees[CHAIN];
+    int       count = 0;
+    for (dgx_ui_t *tree = home; tree && count < CHAIN; tree = tree->popup) trees[count++] = tree;
+    bool modal = false; /* a modal popup above, from the top down */
+    for (int k = count - 1; k >= 0; --k) {
+        dgx_ui_t *tree = trees[k];
+        modal |= tree->popup && (tree->popup_flags & DGX_UI_POPUP_MODAL);
+        const uint8_t veiled = modal ? DGX_UI_FOCUSED : 0;
+        if (tree->veiled_bits == veiled) continue;
+        tree->veiled_bits = veiled;
+        if (tree->focus >= 0) dgx_ui_touched(tree, tree->focus);
+    }
+}
+
 /* the trees closed by a call, the top first, told COVERED where they were shown. Each one's bit cleared before its
    on() is called, and nothing of it read after: that on() may free it */
 static void tell_closed(dgx_ui_t *const *closed, int count)
@@ -1083,8 +1102,9 @@ static void close_untold(dgx_ui_t *ui, dgx_ui_t **closed, int *count)
     /* where it lay, and the ones over it, drawn again from this tree up; two closed before a pass: the rectangle
        that holds both */
     ui->popup_was  = hull(ui->popup_was, hull(pop->root_rect, pop->popup_was));
-    pop->popup_was = dgx_ui_rect(0, 0, 0, 0);
-    pop->level     = 0;
+    pop->popup_was   = dgx_ui_rect(0, 0, 0, 0);
+    pop->level       = 0;
+    pop->veiled_bits = 0; /* in no chain: under nothing */
     pop->under     = NULL;
     ui->popup      = NULL;
     if (*count < CHAIN) closed[(*count)++] = pop;
@@ -1096,6 +1116,7 @@ void dgx_ui_popup_close(dgx_ui_t *ui)
     dgx_ui_t *home = home_of(ui), *closed[CHAIN];
     int       count = 0;
     close_untold(ui, closed, &count);
+    veil_chain(home);
     tell_closed(closed, count);
     tell_chain(home);
 }
@@ -1110,11 +1131,14 @@ static void free_from_chain(dgx_ui_t *ui, void (*wipe_tree)(dgx_ui_t *ui))
     dgx_ui_t *home = home_of(ui), *closed[CHAIN], *again[CHAIN];
     int       count = 0, count_again = 0;
     close_untold(ui->under ? ui->under : ui, closed, &count);
+    veil_chain(home);
     tell_closed(closed, count);
     if (ui->under) close_untold(ui->under, again, &count_again);
     else if (ui->popup) close_untold(ui, again, &count_again);
     wipe_tree(ui);
-    if (home != ui) tell_chain(home);
+    if (home == ui) return;
+    veil_chain(home);
+    tell_chain(home);
 }
 
 bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags)
@@ -1128,6 +1152,7 @@ bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h
     if (moved && opened) /* a popup moved stays as it was told: not COVERED as one closed */
         for (int k = 0; k < count; ++k)
             if (closed[k] == popup) closed[k] = closed[--count];
+    veil_chain(home);
     tell_closed(closed, count);
     tell_chain(home);
     return opened;

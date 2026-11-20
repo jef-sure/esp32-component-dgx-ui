@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.32: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.33: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -425,7 +425,7 @@ Code points typed go to a `DGX_UI_INPUT` only. The widget is hit in its whole re
 
 | Flag | Meaning |
 | ---- | ------- |
-| `DGX_UI_POPUP_MODAL` | it takes every pointer and key; back stays the program's unless the popup has `DGX_UI_POPUP_BACK`, and reaches no tree under it |
+| `DGX_UI_POPUP_MODAL` | it takes every pointer and key; back stays the program's unless the popup has `DGX_UI_POPUP_BACK`, and reaches no tree under it. The trees under it show no focus |
 | `DGX_UI_POPUP_CLOSE_OUTSIDE` | a finger that goes down outside it, and outside every popup over it, closes it |
 | `DGX_UI_POPUP_BACK` | the key back that nothing in it took closes it, its root told `DGX_UI_BACK` first |
 | `DGX_UI_POPUP_SCREEN` | it lies on the whole screen of the tree and is laid again when the screen turns; `x`, `y`, `w`, `h` are not read |
@@ -456,6 +456,14 @@ is told `DGX_UI_SHOWN` when the tree comes to the screen and `DGX_UI_COVERED` wh
   "shown". A program that wants to ask keeps a flag of its own, set in the two events.
 
 The recipe: [A page that works only while it is seen](cookbook.md#a-page-that-works-only-while-it-is-seen).
+
+**The focus under a popup.** While a popup of `DGX_UI_POPUP_MODAL` lies over a tree, anywhere above it, the looks of
+that tree show no focus: no frame, a solid knob, no caret, the bar of a list as without the focus. The keys go to
+the popup, and one mark on the screen says so. The focus itself stays where it is: `focus` of the tree and the
+widget's `DGX_UI_FOCUSED` are as they were, and the program may move it meanwhile. When the popup closes the mark is
+back where the focus is then, and no `DGX_UI_FOCUS` is told: the focus did not come. Under a popup that is not modal
+the mark stays. The keys go to that popup first all the same when it has widgets that take the focus; a program
+whose popup should take the mark off the tree under it opens it `DGX_UI_POPUP_MODAL`.
 
 ### Pages
 
@@ -714,6 +722,7 @@ how many.
 | `void dgx_ui_paint_area_to(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_screen_t *scr, const uint32_t *colors, int x, int y, int w, int h)` | The same rectangle composed onto another screen, its corner at that screen's (0, 0): a strip of a mirror of the display. `colors` is the table packed for that screen, `NULL` the paint's own. The paint's screen, colours and place are put back after; its canvases stay its own. An inline of the header. |
 | `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures and of the strips, and the table of the indexed pictures. The canvases of the widgets too. The struct may be used again. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | A colour of the table; 0 past its end. |
+| `uint8_t dgx_ui_bits_shown(const dgx_ui_t *ui, const dgx_ui_node_t *n)` | For a look: the bits of a widget's state to show. They are the state's bits, less `DGX_UI_FOCUSED` while a modal popup lies over the widget's tree. `state_drawn.bits` holds them once the widget is drawn. |
 | `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | For a look of the program's own that holds children: an area of the widget `i`, in pixels of the tree's screen, filled with a colour everywhere but under its shown children that a look draws. In a column or a row; a widget of neither has the area filled whole. Called from a look's `draw`. |
 
 ### What changed, told and not drawn
@@ -837,6 +846,9 @@ name: [A look and a behaviour](#a-look-and-a-behaviour). The rules its `draw` ke
 [A look of your own](cookbook.md#a-look-of-your-own).
 
 `DGX_UI_PAPER`, 0xff, as the paper of a look's parameters means the colour under the widget.
+
+A look takes the bits it shows from `dgx_ui_bits_shown(ui, n)` and not from `n->state.bits`: under a modal popup the
+focus is not shown. Every look of the library does.
 
 ### The looks of the library
 
@@ -1099,7 +1111,7 @@ typedef struct dgx_ui_dropdown_t {
 } dgx_ui_dropdown_t;
 ```
 
-The popup of a list, in the program's RAM: 276 bytes on a 32-bit chip, zeroed before its first use, as a `static`
+The popup of a list, in the program's RAM: 284 bytes on a 32-bit chip, zeroed before its first use, as a `static`
 is. One list is open at a time, so one serves every dropdown of the program.
 
 | Call | What it does |
