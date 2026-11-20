@@ -25,6 +25,11 @@ dgx_ui_node_t *dgx_ui_at(const dgx_ui_t *ui, int i);
  */
 void dgx_ui_touched(dgx_ui_t *ui, int i);
 
+/* what a widget shows of its place, the one question the painter's look at the places and its walk both ask, kept in
+   state_drawn.value when it is drawn: a RADIO whether it is chosen, 1 or 0, so that a button the change of its group
+   did not touch is neither marked nor drawn; any other its value */
+int32_t dgx_ui_shown(const dgx_ui_node_t *n);
+
 /* every widget whose place holds other than what was drawn marked: called by the painter before a pass */
 void dgx_ui_places(dgx_ui_t *ui);
 

@@ -121,6 +121,13 @@ enum {
     DGX_UI_INPUT,    ///< a field typed into
     DGX_UI_DROPDOWN, ///< a button showing the value picked; its list opens as a popup
     DGX_UI_OWN,      ///< drawn by a look of the program, its data in own
+    /** one of a group: the buttons of a group name one place (.value), each its own number in step, and the one whose
+        number the place holds is chosen; one of no place never is. Its value is the group's: dgx_ui_value() of any
+        button is the number chosen, the same for every button of the group, and dgx_ui_set_value() on any writes the
+        group's place; a button is chosen when the value is its step (dgx_ui_radio_chosen()). Not bound by min and max.
+        A click, or DGX_UI_KEY_ACTIVATE while it has the focus, writes its own number: on() told DGX_UI_CHANGED when
+        the place changed, the button that was chosen told nothing */
+    DGX_UI_RADIO,
 };
 
 /** How a widget is built, dgx_ui_widget_t::flags: set by the program. */
@@ -246,17 +253,19 @@ int dgx_ui_textbox_height(const dgx_ui_textbox_t *box);
  * dgx_ui_node_t of it.
  */
 typedef struct dgx_ui_widget_t {
-    uint8_t        kind;           ///< DGX_UI_BOX ... DGX_UI_OWN
+    uint8_t        kind;           ///< DGX_UI_BOX ... DGX_UI_RADIO
     uint8_t        flags;          ///< DGX_UI_COLUMN, ROW, STRETCH, SWIPE, DRAG, CANVAS
     uint8_t        pad, gap;       ///< inside a box: around its children and between them, in points
     int16_t        at_x, at_y;     ///< asked: from the parent's inside edge, in points; negative from the far edge
-    int16_t        want_w, want_h; ///< asked, in points; 0: the content's (a picture's size, a text's lines; a text has no width of its own, nor a box any size), or across the stacking all of the box
-    int16_t        min, max, step; ///< the range of a control; a list's first row and its last, and its step the least height of a row in points (0: a line of its text)
+    int16_t        want_w, want_h; ///< asked, in points; 0: the content's (a picture's size, a text's lines: of any widget with a text box, a checkbox and a radio
+                                   ///< too; a text has no width of its own, nor a box any size), or across the stacking all of the box
+    int16_t        min, max, step; ///< the range of a control; a list's first row and its last, and its step the least height of a row in points (0: a line of its text);
+                                   ///< a RADIO's step the number it stands for
     int16_t        tag;            ///< the program's: found by dgx_ui_find(), kept and nothing more
     dgx_ui_bits_t  state;          ///< the state it starts with: HIDDEN, DISABLED
     int32_t       *value;          ///< where its value lives, the program's memory; NULL: it has none (shows 0, nothing changes it)
     const dgx_ui_picture_t *picture; ///< PICTURE: one; ICON: an array of min..max
-    dgx_ui_textbox_t       *text;    ///< LABEL, BUTTON, LIST, INPUT, DROPDOWN: the text box, in RAM
+    dgx_ui_textbox_t       *text;    ///< LABEL, BUTTON, LIST, INPUT, DROPDOWN, RADIO, a SWITCH drawn as a checkbox: the text box, in RAM
     const dgx_ui_look_t    *look;    ///< how it is drawn; NULL: the look of its kind
     bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg); ///< a message offered; true: claimed
     /** told what the user did, DGX_UI_ACTIVATED ...; node: the widget's node as it is now, its value set by the finger
@@ -276,7 +285,8 @@ struct dgx_ui_node_t {
     int16_t                x, y, w, h;    ///< laid: pixels of the screen
     dgx_ui_bits_t          state;   ///< its bits as they are; its value lives where the widget says
     uint8_t                marks;         ///< the library's: DGX_UI_MARK_*
-    dgx_ui_state_t         state_drawn;   ///< the bits and the value as they were last drawn: the painter's
+    dgx_ui_state_t         state_drawn;   ///< the bits and the value as they were last drawn: the painter's; a RADIO's value
+                                          ///< whether it was chosen, 1 or 0
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
@@ -291,7 +301,7 @@ _Static_assert(sizeof(dgx_ui_node_t) == 28, "the node of a widget is 28 bytes of
 
 /**
  * @brief The value of a widget's node: read from the place its widget names, and kept within min and max when
- * min < max (an ICON's is not bound). 0 for a widget of no place. The memory itself is the program's and is not
+ * min < max (an ICON's and a RADIO's are not bound). 0 for a widget of no place. The memory itself is the program's and is not
  * corrected: it may have come from flash.
  *
  * The place is written by the program, by the user through the core, or by dgx_ui_set_value(), all in the task that
@@ -306,8 +316,15 @@ static inline int32_t dgx_ui_value_of(const dgx_ui_node_t *node)
     const dgx_ui_widget_t *w = node->widget;
     if (!w || !w->value) return 0;
     const int32_t value = *w->value;
-    if (w->max <= w->min || w->kind == DGX_UI_ICON) return value;
+    if (w->max <= w->min || w->kind == DGX_UI_ICON || w->kind == DGX_UI_RADIO) return value;
     return value < w->min ? w->min : value > w->max ? w->max : value;
+}
+
+/** @brief Whether a RADIO's node is chosen: its place holds its number, step. One of no place is not. */
+static inline bool dgx_ui_radio_chosen(const dgx_ui_node_t *node)
+{
+    const dgx_ui_widget_t *w = node->widget;
+    return w && w->value && *w->value == w->step;
 }
 
 /** Widgets past the program's array come in blocks of so many. */

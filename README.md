@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.23: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.24: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -73,7 +73,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.23"
+    version: "0.0.24"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.4 or a later 0.11; DGX comes by itself, from the registry. Start with
@@ -110,7 +110,8 @@ worked by a finger and by the keys, on a board taken from
 - **Texts**: one line, or several laid word by word; the font picked from a list so that the text goes in; a text
   too long cut with an ellipsis or scrolled; letters that appear one by one. A text in a handwritten font of DGX,
   of one line or several, written by a pen stroke by stroke.
-- **Controls**: a button with a shadow and a pressed face, a switch, a slider, a list, a dropdown with its list, a
+- **Controls**: a button with a shadow and a pressed face, a switch, a checkbox, radio buttons, a slider, a list, a dropdown
+  with its list, a
   field typed into, pictures and icons of 1, 4 and 8 bits and of RGB565. A control names its look, so a program
   carries only the looks it uses.
 - **Controls of the program's own**: a widget drawn by the program's look becomes a control when the look names a
@@ -157,6 +158,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | `dgx_ui_changed()`, when the program calls it | about 0.6 KB more |
 | transitions between pages, when the program names them | about 2 KB more, and two pictures of the screen in RAM |
 | the statistics of painting, when the program names them | about 1.8 KB more |
+| a checkbox or radio buttons, when a widget names the look | about 1.5 KB more; both, 1.7 KB |
 
 ## License
 

@@ -46,6 +46,10 @@ void mirror_send(const uint16_t *pixels, int count)
     if (mirror_got + count <= 320 * 240) memcpy(mirror_all + mirror_got, pixels, (size_t)count * 2), mirror_got += count;
 }
 void fan_set(int s) { fan_speed = s, ++fans; }
+/* the radio group's recipe: what the program was told */
+static int air_mode_told = -1, air_calls, beep_told = -1, beep_calls;
+void       air_mode_set(int mode) { air_mode_told = mode, ++air_calls; }
+void       beep_enable(bool on) { beep_told = on, ++beep_calls; }
 void wifi_connect(const char *password) { (void)password; }
 const uint16_t logo_pixels[64 * 32];
 const uint16_t map_pixels[320 * 240]  = {[0 ... 320 * 240 - 1] = 0x1084}; /* two maps of one colour each */
@@ -641,6 +645,51 @@ int main(int argc, char **argv)
                (int)dgx_ui_value(&prefs_page, backlight), (int)prefs_edited[PREF_BACKLIGHT]);
         dgx_ui_paint_free(&prefs_paint), dgx_ui_free(&prefs_page);
         dgx_screen_destroy(&prefs_screen);
+    }
+
+    /* one of several, and a tick: a click chooses and tells once; chosen again tells nothing; the program writes the variable; the keys; the checkbox */
+    {
+        static dgx_ui_node_t air_nodes[6];
+        dgx_screen_t        *air_screen = dgx_vscreen_init(160, 100, 16, DgxScreenRGB);
+        dgx_ui_paint_t       air_paint  = {.scr = air_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_t             air_ui;
+        dgx_ui_init(&air_ui, air_nodes, 6, 1);
+        dgx_ui_add(&air_ui, -1, &col_w);
+        air_add(&air_ui, 0); /* the buttons at 1, 2, 3, the checkbox at 4 */
+        dgx_ui_paint(&air_ui, &air_paint, 0);
+#define AIR_CHOSEN() (dgx_ui_radio_chosen(dgx_ui_node(&air_ui, 1)) * 1 + dgx_ui_radio_chosen(dgx_ui_node(&air_ui, 2)) * 2 + dgx_ui_radio_chosen(dgx_ui_node(&air_ui, 3)) * 4)
+#define AIR_CLICK(widget, at_ms)                                                                                                                              \
+    do {                                                                                                                                                      \
+        const dgx_ui_node_t *clicked = dgx_ui_node(&air_ui, (widget));                                                                                        \
+        dgx_ui_pointer(&air_ui, &(dgx_ui_pointer_t){.x = (int16_t)(clicked->x + 20), .y = (int16_t)(clicked->y + 2), .down = true, .pressed = true, .ms = (at_ms)}); \
+        dgx_ui_pointer(&air_ui, &(dgx_ui_pointer_t){.x = (int16_t)(clicked->x + 20), .y = (int16_t)(clicked->y + 2), .released = true, .ms = (at_ms) + 50});         \
+        dgx_ui_paint(&air_ui, &air_paint, (at_ms) + 60);                                                                                                      \
+    } while (0)
+        const int at_start = AIR_CHOSEN();
+        AIR_CLICK(3, 100); /* on the text of "Night" */
+        const int after_click = AIR_CHOSEN(), told_once = air_calls;
+        AIR_CLICK(3, 300);
+        printf("radio: at the start the buttons chosen %d (1: Auto); a click on Night: %d (4), the variable %d, told %d time(s) of mode %d; clicked again: told %d\n", at_start,
+               after_click, (int)air_mode, told_once, air_mode_told, air_calls);
+        air_mode = AIR_DAY; /* the program writes it: a message, the settings loaded */
+        dgx_ui_paint(&air_ui, &air_paint, 500);
+        const int by_program = AIR_CHOSEN(), drawn_day = (int)dgx_ui_node(&air_ui, 2)->state_drawn.value, drawn_night = (int)dgx_ui_node(&air_ui, 3)->state_drawn.value;
+        air_mode = 7;
+        dgx_ui_paint(&air_ui, &air_paint, 520);
+        printf("radio: the program writes Day: chosen %d (2), drawn as chosen: Day %d, Night %d, told still %d; a number of no button: chosen %d, the variable %d\n", by_program,
+               drawn_day, drawn_night, air_calls, AIR_CHOSEN(), (int)air_mode);
+        dgx_ui_focus(&air_ui, 1);
+        dgx_ui_key(&air_ui, DGX_UI_KEY_NEXT);
+        dgx_ui_key(&air_ui, DGX_UI_KEY_ACTIVATE);
+        printf("radio: the focus on Auto, the key next and the key that activates: the variable %d, the value of any button %d\n", (int)air_mode, (int)dgx_ui_value(&air_ui, 3));
+        AIR_CLICK(4, 700); /* the checkbox */
+        const int unticked = (int)beep_wanted, told_off = beep_told == 0;
+        AIR_CLICK(4, 900);
+        printf("radio: the checkbox clicked: %d, told so %d; clicked again: %d, told %d time(s) in all\n", unticked, told_off, (int)beep_wanted, beep_calls);
+#undef AIR_CHOSEN
+#undef AIR_CLICK
+        dgx_ui_paint_free(&air_paint), dgx_ui_free(&air_ui);
+        dgx_screen_destroy(&air_screen);
     }
 
     /* the handwritten greeting: which variant each text takes in a label 200 pixels wide, the base line kept, letters coming */

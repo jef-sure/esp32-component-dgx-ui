@@ -15,6 +15,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A slider and a switch](#a-slider-and-a-switch)
 - [A list](#a-list)
 - [A dropdown](#a-dropdown)
+- [One of several, and a tick](#one-of-several-and-a-tick)
 - [An icon that shows a state](#an-icon-that-shows-a-state)
 - [A picture from flash](#a-picture-from-flash)
 - [A picture under the widgets](#a-picture-under-the-widgets)
@@ -395,6 +396,74 @@ static int fan_add(dgx_ui_t *ui, int parent)
   once, its window kept. It does not remove the dropdown: it closes the list first.
 - A program that wants another list, a whole screen of choices, opens a popup of its own on `DGX_UI_ACTIVATED`
   instead.
+
+## One of several, and a tick
+
+Radio buttons choose one of several. A group of them is no widget and no object: it is a variable of the program's,
+which every button of the group names. A checkbox is a switch drawn as a square with a tick.
+
+```c
+void air_mode_set(int mode);
+void beep_enable(bool on);
+
+enum { AIR_AUTO, AIR_DAY, AIR_NIGHT, AIR_MODES };
+
+static int32_t air_mode = AIR_AUTO; /* the group: every radio button of it names this variable */
+static int32_t beep_wanted = 1;     /* the checkbox */
+
+static char             air_buf[AIR_MODES][8], beep_buf[8];
+static dgx_ui_textbox_t air_box[AIR_MODES], beep_box;
+
+static void air_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_CHANGED) air_mode_set(air_mode); /* the user chose another button */
+}
+
+static void beep_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_CHANGED) beep_enable(beep_wanted != 0);
+}
+
+/* a button stands for the number in its step, and is chosen while the group's variable holds that number */
+static const dgx_ui_widget_t air_w[AIR_MODES] = {
+    {.kind = DGX_UI_RADIO, .step = AIR_AUTO, .text = &air_box[AIR_AUTO], .value = &air_mode, .look = &dgx_ui_look_radio, .on = air_on},
+    {.kind = DGX_UI_RADIO, .step = AIR_DAY, .text = &air_box[AIR_DAY], .value = &air_mode, .look = &dgx_ui_look_radio, .on = air_on},
+    {.kind = DGX_UI_RADIO, .step = AIR_NIGHT, .text = &air_box[AIR_NIGHT], .value = &air_mode, .look = &dgx_ui_look_radio, .on = air_on},
+};
+
+/* a checkbox is a switch drawn as a square with a tick, its text beside it */
+static const dgx_ui_widget_t beep_w = {
+    .kind = DGX_UI_SWITCH, .max = 1, .text = &beep_box, .value = &beep_wanted, .look = &dgx_ui_look_checkbox, .on = beep_on};
+
+static void air_add(dgx_ui_t *ui, int parent)
+{
+    static const char *const names[AIR_MODES] = {"Auto", "Day", "Night"};
+    for (int mode = 0; mode < AIR_MODES; ++mode) {
+        dgx_ui_textbox_init(&air_box[mode], air_buf[mode], sizeof air_buf[mode], 1, &st_left);
+        dgx_ui_text_set(ui, dgx_ui_add(ui, parent, &air_w[mode]), names[mode]);
+    }
+    dgx_ui_textbox_init(&beep_box, beep_buf, sizeof beep_buf, 1, &st_left);
+    dgx_ui_text_set(ui, dgx_ui_add(ui, parent, &beep_w), "Beep");
+}
+```
+
+- **The group is the variable.** The buttons may stand anywhere in the layout, in different rows, on a page and on
+  the tree under it: all that name `air_mode` are one group and follow it.
+- **A click, or the key that activates,** writes the button's number into the variable. Its `on()` is told
+  `DGX_UI_CHANGED` when that changed the variable; a button chosen again tells nothing, and the button that was
+  chosen is told nothing.
+- **The program writes the variable** too, from a message or from the settings it loaded: at the next pass the
+  button that was chosen and the one that is are drawn, the others not.
+- **A number no button stands for** shows none chosen, and the variable is left as it is.
+- **A list or a dropdown of the same variable** follows the buttons and they follow it: one place, several widgets.
+- **A button is as high as a line of its text**; for a finger give it `want_h`. The whole box is hit, the text too.
+- **The focus and the finger are seen**: the ring and the square take colour 3 while the widget has the focus, and
+  their inside colour 2 while a finger is on it. Colours of your own are a `dgx_ui_check_look_t` in a look drawn by
+  `dgx_ui_draw_radio` or `dgx_ui_draw_checkbox`.
+- **What it costs**: a program that names one of the two looks carries about 1.5 KB more, both 1.7 KB; one that
+  names neither, nothing of them.
+- **Do not give a radio `min` and `max`**: its number is in `step`. `dgx_ui_radio_chosen(node)` tells whether a
+  button is the chosen one; `dgx_ui_value()` of any button of a group is the number chosen.
 
 ## An icon that shows a state
 

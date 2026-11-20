@@ -25,7 +25,7 @@ static const char *TAG = "dgx_ui";
 #define SAY(fmt, ...) fprintf(stderr, "I dgx_ui: " fmt "\n", ##__VA_ARGS__)
 #endif
 
-static const char *const kinds[] = {"BOX", "FRAME", "LABEL", "PICTURE", "ICON", "LIST", "SWITCH", "SLIDER", "BUTTON", "INPUT", "DROPDOWN", "OWN"};
+static const char *const kinds[] = {"BOX", "FRAME", "LABEL", "PICTURE", "ICON", "LIST", "SWITCH", "SLIDER", "BUTTON", "INPUT", "DROPDOWN", "OWN", "RADIO"};
 static const char *const bit_names[]  = {"HIDDEN", "DISABLED", "FOCUSED", "PRESSED"};
 static const char *const mark_names[] = {"CHANGED", "WHOLE", "FIT", "HARD_SIZE", "TIME", "AROUND", "BELOW", "WINDOW"};
 

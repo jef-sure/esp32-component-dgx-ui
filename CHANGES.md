@@ -1,5 +1,15 @@
 # Changes
 
+## 0.0.24 - 2026-11-20
+
+- Radio buttons, `DGX_UI_RADIO`: the buttons of a group name one variable, each its own number in `.step`, and the one
+  whose number the variable holds is chosen; a click or the key writes its number. Their look `dgx_ui_look_radio`.
+- A checkbox: a switch with a text, drawn by `dgx_ui_look_checkbox`.
+- Both looks show the focus and a finger on them. A program that names neither carries neither; the checkbox's look is
+  about 1.5 KB, the radio's beside it 220 bytes more, a program without them about 70 bytes more.
+- A widget hidden, itself or by a box above it, whose variable is written no more sends the painter down to it at
+  every pass.
+
 ## 0.0.23 - 2026-11-20
 
 - A widget changed while something lay over it (the keyboard's band, a popup, a page, a dropdown's list) is drawn once

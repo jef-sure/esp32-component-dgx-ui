@@ -313,10 +313,27 @@ typedef struct dgx_ui_dropdown_look_t {
 } dgx_ui_dropdown_look_t;
 
 /**
+ * Parameters of a radio button and of a checkbox: a mark as high as a line of the text at the left of the box, in the
+ * middle of its height (a ring, a square), in it a sign while chosen or on (a dot, a tick), and the widget's text to
+ * the right, the first line of its text box, in the middle too. Indices of the table.
+ */
+typedef struct dgx_ui_check_look_t {
+    uint8_t mark, focused, disabled; ///< the ring or the square in each state
+    uint8_t sign;                    ///< the dot or the tick; when disabled, the colour disabled
+    uint8_t inside, pressed;         ///< inside the mark, and there while a finger is on the widget; DGX_UI_PAPER: what lies under it
+    uint8_t ink, ink_disabled;       ///< the text
+    uint8_t paper;                   ///< around them; DGX_UI_PAPER: what lies under the widget
+} dgx_ui_check_look_t;
+
+/**
  * The looks of the controls and pictures, of the colours 0 the paper, 1 the ink, 2 a fill, 3 a border:
  * - dgx_ui_look_button: BUTTON and DROPDOWN; its text from the widget's text box;
  * - dgx_ui_look_input: INPUT, its text in one line and, focused, a caret after it;
  * - dgx_ui_look_switch, dgx_ui_look_slider;
+ * - dgx_ui_look_radio: RADIO, a ring with a dot while it is chosen; dgx_ui_look_checkbox: SWITCH, a square with a tick
+ *   while it is on. Each the mark in colour 1, in colour 3 while it has the focus and 2 while disabled, its inside
+ *   what lies under the widget and colour 2 while a finger is on it, the text of colour 1, 2 while disabled. A
+ *   program that names neither carries neither;
  * - dgx_ui_look_list: LIST, its rows the lines of its text box ("Apple\nBanana\nCherry"): row r the line r, its
  *   value min + r; the rows shown share the height of the box, each line in the middle of its row, the row picked on
  *   a bar of colour 3, its text of colour 0; while the list has the focus the bar is of colour 1, so a list in a frame
@@ -339,7 +356,7 @@ typedef struct dgx_ui_dropdown_look_t {
  *   that screen and the table of 512 bytes (dgx_ui_paint_free() gives them back).
  */
 extern const dgx_ui_look_t dgx_ui_look_button, dgx_ui_look_input, dgx_ui_look_switch, dgx_ui_look_slider, dgx_ui_look_list,
-    dgx_ui_look_dropdown, dgx_ui_look_picture, dgx_ui_look_rgb565, dgx_ui_look_indexed;
+    dgx_ui_look_dropdown, dgx_ui_look_picture, dgx_ui_look_rgb565, dgx_ui_look_indexed, dgx_ui_look_radio, dgx_ui_look_checkbox;
 
 /**
  * A look of a text of several lines, named by a widget that wants it (.look = &dgx_ui_look_lines): the text laid
@@ -379,6 +396,8 @@ bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
 bool dgx_ui_draw_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_radio(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_checkbox(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 
 /**
  * @brief The tree drawn on the screen, and every popup open over it one over another: laid out first if they have to

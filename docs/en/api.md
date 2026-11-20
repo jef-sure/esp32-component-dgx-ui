@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.23: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.24: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -78,8 +78,8 @@ typedef struct dgx_ui_state_t {
   saving them.
 - A place written after a pass asks for no pass of its own: the task that writes it is awake, by the message that
   made it write, and its next pass draws it.
-- Read by `dgx_ui_value()` or `dgx_ui_value_of()`, a value is kept within `min..max` when `min < max`; an icon's is
-  not. The memory itself is left as it is, since it may have come from flash; the user's next change writes it
+- Read by `dgx_ui_value()` or `dgx_ui_value_of()`, a value is kept within `min..max` when `min < max`; an icon's and a
+  radio button's are not. The memory itself is left as it is, since it may have come from flash; the user's next change writes it
   within the bounds.
 - Several widgets may name one place, and all of them follow it. A constant added twice, or to two trees, shares its
   value.
@@ -118,7 +118,7 @@ of every member.
 | `pad`, `gap` | of a box: points from its edges to its children, and between them |
 | `at_x`, `at_y` | where it asks to be, in points from the inner edge of its parent; negative: from the far edge. In a column only `at_x` is used, in a row only `at_y` |
 | `want_w`, `want_h` | its size in points; 0: the size of its content, or across the stacking all of the box |
-| `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list, and in `step` the least height of its rows in points, 0 a line of its text; the values of an icon's pictures |
+| `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list, and in `step` the least height of its rows in points, 0 a line of its text; the values of an icon's pictures; in `step` of a radio button the number it stands for |
 | `tag` | the program's number of it, found by `dgx_ui_find()`; 0 for none |
 | `state` | the state it starts with: `.state = {.bits = DGX_UI_HIDDEN}`, or `DGX_UI_DISABLED` |
 | `value` | where its value lives, an `int32_t` of the program's: `.value = &volume`; `NULL`: it has none. See the value above |
@@ -146,6 +146,7 @@ of every member.
 | `DGX_UI_INPUT` | a field typed into |
 | `DGX_UI_DROPDOWN` | a button that shows the option chosen: its options the lines of its text, its value the one chosen. Activated, the program opens its list by `dgx_ui_dropdown_open()` |
 | `DGX_UI_OWN` | drawn by a look of the program's, its data in `own`; worked by the finger and the keys when its look names a behaviour |
+| `DGX_UI_RADIO` | a radio button, one of a group. The group is a place: every button of it names the same `value`. A button stands for the number in its `step` and is chosen while the place holds that number; one of no place never is. A click, or the key that activates while it has the focus, writes its number: its `on()` is told `DGX_UI_CHANGED` when the place changed, and the button that was chosen is told nothing. Its value is the group's, not bound by `min` and `max` |
 
 **Flags**
 
@@ -213,7 +214,7 @@ A widget in a tree, 28 bytes of RAM on a 32-bit chip. The program reads it and d
 | `parent`, `child`, `next` | the numbers of its parent, its first child and its next sibling; -1 for none |
 | `x`, `y`, `w`, `h` | where it was laid, in pixels of the screen |
 | `state` | its bits as they are: `state.bits`. Its value lives where its widget says |
-| `state_drawn` | its bits and its value as they were last drawn: the painter's |
+| `state_drawn` | its bits and its value as they were last drawn: the painter's. Of a radio button the value is whether it was drawn chosen, 1 or 0 |
 | `marks` | the library's: see below |
 
 | Mark | Meaning |
@@ -264,6 +265,7 @@ None of these tells `on()`.
 | ---- | ------------ |
 | `int32_t dgx_ui_value(const dgx_ui_t *ui, int i)` | The value of widget `i`, read from its place and kept within `min..max` when `min < max`; an icon's is not bound. 0 for a widget of no place and for a number that holds no widget. |
 | `int32_t dgx_ui_value_of(const dgx_ui_node_t *node)` | The same of a node, for an `on()` and a look, which are given the node. An inline of the header. |
+| `bool dgx_ui_radio_chosen(const dgx_ui_node_t *node)` | Whether a radio button is the chosen one of its group: its place holds its `step`. An inline of the header. |
 | `void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)` | The value written into the widget's place, within `min..max` when `min < max`. An icon's is not bound: outside its range it shows no picture. A widget of no place: nothing. The program may as well write its variable itself. |
 | `void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)` | `DGX_UI_DISABLED` or `DGX_UI_PRESSED` set or cleared. Disabled, a widget loses the focus, and a press of the finger on it ends. |
 | `void dgx_ui_show(dgx_ui_t *ui, int i, bool shown)` | Shown or hidden; its row or column is laid again. Hidden, it loses the focus and a press of the finger. |
@@ -816,6 +818,8 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_button` | a button or a dropdown: a face over a shadow, its text in the middle | `dgx_ui_button_look_t` |
 | `dgx_ui_look_switch` | a switch: a track with a knob at one end | `dgx_ui_switch_look_t` |
 | `dgx_ui_look_slider` | a slider: a track filled up to a knob | `dgx_ui_slider_look_t` |
+| `dgx_ui_look_radio` | a radio button: a ring as high as a line of its text, a dot in it while it is chosen, its text to the right | `dgx_ui_check_look_t` |
+| `dgx_ui_look_checkbox` | a switch as a checkbox: a square, a tick in it while the value is not 0, its text to the right | `dgx_ui_check_look_t` |
 | `dgx_ui_look_list` | a list: its rows the lines of its text, the row picked on a bar | `dgx_ui_list_look_t` |
 | `dgx_ui_look_dropdown` | a dropdown: a flat face with the option chosen and an arrow pointing down | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_look_input` | a field: its text in one line, at the top or with `DGX_UI_TEXT_MIDDLE` in the middle of its height, and, focused, a caret after it | `dgx_ui_input_look_t` |
@@ -842,6 +846,8 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_input` | `dgx_ui_look_input` | `dgx_ui_input_look_t` |
 | `dgx_ui_draw_switch` | `dgx_ui_look_switch` | `dgx_ui_switch_look_t` |
 | `dgx_ui_draw_slider` | `dgx_ui_look_slider` | `dgx_ui_slider_look_t` |
+| `dgx_ui_draw_radio` | `dgx_ui_look_radio` | `dgx_ui_check_look_t` |
+| `dgx_ui_draw_checkbox` | `dgx_ui_look_checkbox` | `dgx_ui_check_look_t` |
 | `dgx_ui_draw_list` | `dgx_ui_look_list` | `dgx_ui_list_look_t` |
 | `dgx_ui_draw_dropdown` | `dgx_ui_look_dropdown` | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
@@ -880,6 +886,14 @@ typedef struct dgx_ui_slider_look_t {
     uint8_t track_h;                    /* the height of the track, in points */
 } dgx_ui_slider_look_t;
 
+typedef struct dgx_ui_check_look_t {
+    uint8_t mark, focused, disabled; /* the ring or the square in each state */
+    uint8_t sign;                    /* the dot or the tick; when disabled, the colour disabled */
+    uint8_t inside, pressed;         /* inside the mark, and there while a finger is on the widget; DGX_UI_PAPER: what lies under it */
+    uint8_t ink, ink_disabled;       /* the text */
+    uint8_t paper;                   /* around them; DGX_UI_PAPER: what lies under the widget */
+} dgx_ui_check_look_t;
+
 typedef struct dgx_ui_picture_look_t {
     uint8_t ink;   /* the pixels of a picture of 1 bit */
     uint8_t paper; /* the rest; DGX_UI_PAPER: what lies under the widget */
@@ -916,6 +930,11 @@ kept in `top` of its text box, and a bar on its right edge, two points wide, mar
 follows the pick. With all its rows shown a finger picks the row under it; on a list that scrolls a finger put
 down picks nothing, moved up or down it moves the pick a row for each row's height, up going on down the list, and
 let go without a move it clicks the row under it.
+
+By default the ring of a radio button and the square of a checkbox are colour 1, colour 3 while the widget has the
+focus and colour 2 while it is disabled; the dot and the tick are colour 1; the inside of the mark is what lies under
+the widget, and colour 2 while a finger is on it; the text is colour 1, and 2 while disabled. The mark is written
+row by row, every pixel once, and of a group whose choice changed only the two buttons it touched are drawn.
 
 By default the bar of a list is colour 3 and the text on it colour 0; while the list has the focus the bar is colour
 1, so the pick shows in a frame too, whose fill is colour 2. The rows of a disabled list are colour 2, and the mark

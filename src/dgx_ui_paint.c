@@ -52,16 +52,16 @@ static bool fills_around(const dgx_ui_t *ui, const dgx_ui_node_t *n, const dgx_u
     return true;
 }
 
-/* its bits, or its value read from its place, are not what was drawn */
+/* its bits, or what it shows of its place (dgx_ui_shown()), are not what was drawn */
 static bool differs(const dgx_ui_node_t *n)
 {
-    return n->state.bits != n->state_drawn.bits || dgx_ui_value_of(n) != n->state_drawn.value;
+    return n->state.bits != n->state_drawn.bits || dgx_ui_shown(n) != n->state_drawn.value;
 }
 
-/* drawn as it is now: its bits, and its value as its place holds it */
+/* drawn as it is now: its bits, and what it shows of its place */
 static void drawn_now(dgx_ui_node_t *n)
 {
-    n->state_drawn.bits = n->state.bits, n->state_drawn.value = dgx_ui_value_of(n);
+    n->state_drawn.bits = n->state.bits, n->state_drawn.value = dgx_ui_shown(n);
 }
 
 /* a rectangle of the tree's screen composed (below); left_to_walk: a place a cover left, composed by the painter before

@@ -287,8 +287,8 @@ breaks with the paint, 12 bytes and 8 a line, and are laid again when the text, 
 
 **The pointer.** The program gives `dgx_ui_pointer()` where the finger is and whether it went down or up. The deepest
 widget under the finger that answers a pointer is pressed at once and takes the focus. A slider follows the finger,
-and so does the pick of a list, and a list of more rows than it takes scrolls; a button, a switch, a row of a list and
-a dropdown are clicked when the finger is let go within `DGX_UI_CLICK_MS` and was neither swiped nor dragged; a
+and so does the pick of a list, and a list of more rows than it takes scrolls; a button, a switch, a radio button, a row of a list
+and a dropdown are clicked when the finger is let go within `DGX_UI_CLICK_MS` and was neither swiped nor dragged; a
 finger that went down between two rows of a list clicks none. A disabled or hidden widget is not hit.
 
 **Keys.** `dgx_ui_key()` takes the keys of a dialog: next and previous move the focus (in a list, the rows first),
@@ -340,6 +340,7 @@ come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide)
 | handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
 | handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
 | the statistics of painting, when the program names them | about 1.8 KB for the measured pass and its line, and 92 bytes of the program's RAM |
+| a checkbox or radio buttons, when a widget names the look | about 1.5 KB; both, 1.7 KB |
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the
 program gives the painter: a picture of 4 or 8 bits, a row of the picture at least; and, when the program names the

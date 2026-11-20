@@ -16,6 +16,7 @@
 - [Ползунок и переключатель](#ползунок-и-переключатель)
 - [Список](#список)
 - [Выпадающий список](#выпадающий-список)
+- [Одно из нескольких и галочка](#одно-из-нескольких-и-галочка)
 - [Значок который показывает состояние](#значок-который-показывает-состояние)
 - [Картинка из флеша](#картинка-из-флеша)
 - [Картинка под виджетами](#картинка-под-виджетами)
@@ -400,6 +401,77 @@ static int fan_add(dgx_ui_t *ui, int parent)
   показывает новые, его окно остаётся на месте. Сам выпадающий список она не удаляет: сначала закрывает список.
 - Если программе нужен другой список, например выбор на весь экран, она по `DGX_UI_ACTIVATED` открывает своё
   всплывающее окно.
+
+## Одно из нескольких и галочка
+
+Радиокнопки выбирают одно из нескольких. Их группа — не виджет и не объект: это переменная программы, которую
+называет каждая кнопка группы. Флажок — это переключатель, нарисованный квадратом с галочкой.
+
+```c
+void air_mode_set(int mode);
+void beep_enable(bool on);
+
+enum { AIR_AUTO, AIR_DAY, AIR_NIGHT, AIR_MODES };
+
+static int32_t air_mode = AIR_AUTO; /* the group: every radio button of it names this variable */
+static int32_t beep_wanted = 1;     /* the checkbox */
+
+static char             air_buf[AIR_MODES][8], beep_buf[8];
+static dgx_ui_textbox_t air_box[AIR_MODES], beep_box;
+
+static void air_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_CHANGED) air_mode_set(air_mode); /* the user chose another button */
+}
+
+static void beep_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_CHANGED) beep_enable(beep_wanted != 0);
+}
+
+/* a button stands for the number in its step, and is chosen while the group's variable holds that number */
+static const dgx_ui_widget_t air_w[AIR_MODES] = {
+    {.kind = DGX_UI_RADIO, .step = AIR_AUTO, .text = &air_box[AIR_AUTO], .value = &air_mode, .look = &dgx_ui_look_radio, .on = air_on},
+    {.kind = DGX_UI_RADIO, .step = AIR_DAY, .text = &air_box[AIR_DAY], .value = &air_mode, .look = &dgx_ui_look_radio, .on = air_on},
+    {.kind = DGX_UI_RADIO, .step = AIR_NIGHT, .text = &air_box[AIR_NIGHT], .value = &air_mode, .look = &dgx_ui_look_radio, .on = air_on},
+};
+
+/* a checkbox is a switch drawn as a square with a tick, its text beside it */
+static const dgx_ui_widget_t beep_w = {
+    .kind = DGX_UI_SWITCH, .max = 1, .text = &beep_box, .value = &beep_wanted, .look = &dgx_ui_look_checkbox, .on = beep_on};
+
+static void air_add(dgx_ui_t *ui, int parent)
+{
+    static const char *const names[AIR_MODES] = {"Auto", "Day", "Night"};
+    for (int mode = 0; mode < AIR_MODES; ++mode) {
+        dgx_ui_textbox_init(&air_box[mode], air_buf[mode], sizeof air_buf[mode], 1, &st_left);
+        dgx_ui_text_set(ui, dgx_ui_add(ui, parent, &air_w[mode]), names[mode]);
+    }
+    dgx_ui_textbox_init(&beep_box, beep_buf, sizeof beep_buf, 1, &st_left);
+    dgx_ui_text_set(ui, dgx_ui_add(ui, parent, &beep_w), "Beep");
+}
+```
+
+- **Группа — это переменная.** Кнопки могут стоять в раскладке где угодно: в разных строках, на странице и в дереве
+  под ней. Все, кто называет `air_mode`, — одна группа и идут за ней.
+- **Щелчок или клавиша «активировать»** пишет число кнопки в переменную. Её `on()` получает `DGX_UI_CHANGED`, если
+  переменная от этого изменилась; кнопка, выбранная ещё раз, ничего не сообщает, и кнопке, которая была выбрана,
+  ничего не сообщается.
+- **Программа тоже пишет в переменную** — по сообщению или из загруженных настроек: на следующем проходе рисуются
+  кнопка, которая была выбрана, и та, что выбрана теперь; остальные не рисуются.
+- **Число, которому не соответствует ни одна кнопка,** показывает группу без выбора, а переменная остаётся как
+  есть.
+- **Список или выпадающий список той же переменной** идёт за кнопками, а они за ним: одно место, несколько
+  виджетов.
+- **Кнопка высотой в строку своего текста**; под палец ей дают `want_h`. Нажимается весь прямоугольник, и текст
+  тоже.
+- **Фокус и палец видны**: кольцо и квадрат получают цвет 3, пока виджет в фокусе, а их середина — цвет 2, пока на
+  нём палец. Свои цвета — это `dgx_ui_check_look_t` в облике, который рисует `dgx_ui_draw_radio` или
+  `dgx_ui_draw_checkbox`.
+- **Цена**: программа, которая назвала один из двух обликов, несёт ещё около 1,5 КБ, оба — 1,7 КБ; та, что не
+  назвала ни одного, ничего из них не несёт.
+- **Радиокнопке не дают `min` и `max`**: её число лежит в `step`. `dgx_ui_radio_chosen(node)` говорит, выбрана ли
+  кнопка; `dgx_ui_value()` любой кнопки группы — выбранное число.
 
 ## Значок который показывает состояние
 

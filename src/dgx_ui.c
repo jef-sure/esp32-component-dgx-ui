@@ -129,7 +129,7 @@ int dgx_ui_insert(dgx_ui_t *ui, int parent, int before, const dgx_ui_widget_t *w
     n->marks           = DGX_UI_MARK_WHOLE | DGX_UI_MARK_FIT;
     n->state.bits = (uint8_t)(w->state.bits & ~(DGX_UI_FOCUSED | DGX_UI_PRESSED));
     n->state_drawn.bits  = n->state.bits;
-    n->state_drawn.value = dgx_ui_value_of(n); /* its value is in its place; drawn whole anyway */
+    n->state_drawn.value = dgx_ui_shown(n); /* its value is in its place; drawn whole anyway */
     if (parent >= 0) {
         /* linked before `before` among the parent's children, or as the last */
         dgx_ui_node_t *p  = NODE(ui, parent);
@@ -376,7 +376,7 @@ static void unpress(dgx_ui_t *ui);
 /* within min..max when there is a range; an ICON's value outside it is no picture, so it is not clamped */
 static int clamp_value(const dgx_ui_widget_t *w, int value)
 {
-    if (w->max <= w->min || w->kind == DGX_UI_ICON) return value;
+    if (w->max <= w->min || w->kind == DGX_UI_ICON || w->kind == DGX_UI_RADIO) return value;
     return value < w->min ? w->min : value > w->max ? w->max : value;
 }
 
@@ -385,6 +385,11 @@ static int clamp_value(const dgx_ui_widget_t *w, int value)
 static bool no_place(const dgx_ui_widget_t *w)
 {
     return !w->value;
+}
+
+int32_t dgx_ui_shown(const dgx_ui_node_t *n)
+{
+    return n->widget->kind == DGX_UI_RADIO ? dgx_ui_radio_chosen(n) : dgx_ui_value_of(n);
 }
 
 int32_t dgx_ui_value(const dgx_ui_t *ui, int i)
@@ -405,13 +410,14 @@ void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)
 /*
  * The painter's look at the places, before a pass: every widget whose place holds other than what was drawn is
  * marked as a writer marks it, a list's window to be brought to its pick. So the program writes its memory and calls
- * nothing, and every widget of one place follows it.
+ * nothing, and every widget of one place follows it. A hidden one, itself or by a box above it, is left: shown, it is
+ * drawn whole, or with the box shown. Asked only of a widget whose place differs, the few written since the last pass.
  */
 void dgx_ui_places(dgx_ui_t *ui)
 {
     for (int i = 0; i < ui->count; ++i) {
         dgx_ui_node_t *n = NODE(ui, i);
-        if (!n->widget || !n->widget->value || dgx_ui_value_of(n) == n->state_drawn.value) continue;
+        if (!n->widget || !n->widget->value || dgx_ui_shown(n) == n->state_drawn.value || dgx_ui_hidden(ui, i)) continue;
         if (n->widget->kind == DGX_UI_LIST) n->marks |= DGX_UI_MARK_WINDOW;
         dgx_ui_touched(ui, i);
     }
@@ -460,7 +466,7 @@ static const dgx_ui_behavior_t *behavior_of(const dgx_ui_widget_t *w)
 static bool interactive(const dgx_ui_widget_t *w)
 {
     return w->kind == DGX_UI_LIST || w->kind == DGX_UI_SWITCH || w->kind == DGX_UI_SLIDER || w->kind == DGX_UI_BUTTON ||
-           w->kind == DGX_UI_INPUT || w->kind == DGX_UI_DROPDOWN || behavior_of(w);
+           w->kind == DGX_UI_INPUT || w->kind == DGX_UI_DROPDOWN || w->kind == DGX_UI_RADIO || behavior_of(w);
 }
 
 /* answers the pointer and takes the focus: interactive, shown and not disabled, nor any above it */
@@ -806,6 +812,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
             return true;
         }
         if (w->kind == DGX_UI_SWITCH) user_value(ui, i, dgx_ui_value_of(n) ? 0 : 1);
+        if (w->kind == DGX_UI_RADIO) user_value(ui, i, w->step); /* its number into the group's place */
         /* a list that scrolls, a click: the row it went down on, picked now */
         if (list_scrolls(ui, n)) point_to_value(ui, i, ui->press_x - n->x, ui->press_y - n->y);
         if (!live(ui, i) || NODE(ui, i)->widget != w) return true; /* on(CHANGED) removed it, or put another in its place */
@@ -914,6 +921,7 @@ static bool key_in(dgx_ui_t *ui, int key)
     case DGX_UI_KEY_ACTIVATE:
         if (!w) return false;
         if (w->kind == DGX_UI_SWITCH) user_value(ui, f, dgx_ui_value_of(n) ? 0 : 1);
+        else if (w->kind == DGX_UI_RADIO) user_value(ui, f, w->step);
         else if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN || behavior_of(w)) tell(ui, f, DGX_UI_ACTIVATED); /* of the program's own: what key() did not take, as a click */
         else if (w->kind == DGX_UI_INPUT) tell(ui, f, DGX_UI_EDIT);
         else return false;
