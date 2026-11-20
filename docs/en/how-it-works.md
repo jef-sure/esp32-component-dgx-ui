@@ -351,6 +351,7 @@ covers; a dialog or a list leaves the tree under it seen. See
 | handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
 | handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
 | the statistics of painting, when the program names them | about 1.8 KB for the measured pass and its line, and 92 bytes of the program's RAM |
+| a level bar, when a widget names the look | about 0.6 KB |
 | a checkbox or radio buttons, when a widget names the look | about 1.7 KB for a checkbox, 1.5 KB for radio buttons; both, 1.9 KB |
 | the frame of the focus, once in a program that names the look of a button, a dropdown, a radio button or a checkbox | about 0.5 KB |
 | a pass that draws nothing, of a tree of a hundred widgets, half of them controls with values | about 20 microseconds on an ESP32 at 240 MHz, 6 on an ESP32-P4 at 400 MHz; nearly all of it the look at the values |

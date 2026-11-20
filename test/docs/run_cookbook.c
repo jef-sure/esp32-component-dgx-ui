@@ -1414,6 +1414,49 @@ int main(int argc, char **argv)
         dgx_ui_free(&air_ask), dgx_ui_free(&air_about), dgx_ui_free(&air_page), dgx_ui_free(&air_home);
     }
 
+    /* a level bar: the colour by the value's band, the tank filled from the bottom, and only the part that changed written */
+    {
+        static dgx_ui_node_t         level_nodes[3];
+        static const dgx_ui_widget_t level_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .gap = 2};
+        static uint32_t              level_table[COLORS];
+        dgx_ui_t                     levels;
+        panel_t                     *panel = panel_make();
+        for (int k = 0; k < COLORS; ++k) level_table[k] = dgx_screen_rgb(&panel->sbus.scr, (uint8_t)(40 * k), (uint8_t)(250 - 30 * k), (uint8_t)(20 * k));
+        dgx_ui_paint_t level_paint = {.scr = &panel->sbus.scr, .colors = level_table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_init(&levels, level_nodes, 3, 1);
+        dgx_ui_add(&levels, -1, &level_root_w);
+        const int charge = dgx_ui_add(&levels, 0, &charge_w), tank = dgx_ui_add(&levels, 0, &tank_w);
+        static const int values[5]                      = {10, 20, 30, 50, 80};
+        static const int wanted[5]                      = {ACCENT_DOWN, BORDER, BORDER, ACCENT, ACCENT};
+        int              right_colors = 0, right_lengths = 0;
+        const dgx_ui_node_t *bar = NULL;
+        for (int k = 0; k < 5; ++k) {
+            charge_percent = values[k];
+            dgx_ui_paint(&levels, &level_paint, (uint32_t)k);
+            bar = dgx_ui_node(&levels, charge);
+            int filled_columns = 0;
+            for (int x = 0; x < bar->w; ++x) filled_columns += panel->mem[bar->y][bar->x + x] != level_table[FILL];
+            right_colors += panel->mem[bar->y][bar->x] == level_table[wanted[k]];
+            right_lengths += filled_columns == bar->w * values[k] / 100;
+        }
+        /* 80 to 81 of a hundred, the colour the same: the columns between the two lengths and no more */
+        panel_count_from_now(panel);
+        charge_percent = 81;
+        dgx_ui_paint(&levels, &level_paint, 10);
+        const int grown = panel_written(panel), grown_twice = panel_twice(panel), columns = bar->w * 81 / 100 - bar->w * 80 / 100;
+        tank_litres = 100;
+        dgx_ui_paint(&levels, &level_paint, 11);
+        const dgx_ui_node_t *box = dgx_ui_node(&levels, tank);
+        int                  filled_rows = 0;
+        for (int y = 0; y < box->h; ++y) filled_rows += panel->mem[box->y + y][box->x] == level_table[ACCENT];
+        printf("level: the charge at 10, 20, 30, 50, 80: the colour of its band %d of 5, the length right %d of 5; 80 to 81 in a bar of %d pixels: %d pixels written, "
+               "%d column(s) of %d rows, %d twice; the tank %dx%d at 100 of 200: %d rows filled, the lowest filled %d, the top empty %d\n",
+               right_colors, right_lengths, bar->w, grown, columns, bar->h, grown_twice, box->w, box->h, filled_rows,
+               panel->mem[box->y + box->h - 1][box->x] == level_table[ACCENT], panel->mem[box->y][box->x] == level_table[FILL]);
+        dgx_ui_paint_free(&level_paint), dgx_ui_free(&levels);
+        free(panel);
+    }
+
     puts("cookbook: ran to the end");
     return 0;
 }

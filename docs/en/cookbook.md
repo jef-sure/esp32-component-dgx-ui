@@ -17,6 +17,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A list](#a-list)
 - [A dropdown](#a-dropdown)
 - [One of several, and a tick](#one-of-several-and-a-tick)
+- [A level bar](#a-level-bar)
 - [An icon that shows a state](#an-icon-that-shows-a-state)
 - [A picture from flash](#a-picture-from-flash)
 - [A picture under the widgets](#a-picture-under-the-widgets)
@@ -501,6 +502,43 @@ static void air_add(dgx_ui_t *ui, int parent)
   dropdown share. One that names neither, nothing of them.
 - **Do not give a radio `min` and `max`**: its number is in `step`. `dgx_ui_radio_chosen(node)` tells whether a
   button is the chosen one; `dgx_ui_value()` of any button of a group is the number chosen.
+
+## A level bar
+
+A value shown as the filled part of a box: a battery, a signal, a tank. It is the library's look
+`dgx_ui_look_level` on a widget of `DGX_UI_OWN` that names the place of its value. With no parameters of its own,
+`.look = &dgx_ui_look_level`, it is filled from the left in colour 3 over colour 2. Here two bars in colours of the
+program's:
+
+```c
+static int32_t charge_percent; /* written by whoever reads the battery, as any value of the program */
+
+/* below 20 in one colour, below 50 in another, from there up in `bar`; filled from the left */
+static const dgx_ui_band_t       charge_bands[] = {{20, ACCENT_DOWN}, {50, BORDER}};
+static const dgx_ui_level_look_t charge_colors  = {.bar = ACCENT, .rest = FILL, .from = DGX_UI_FROM_LEFT, .band_count = 2, .bands = charge_bands};
+static const dgx_ui_look_t       look_charge    = {.draw = dgx_ui_draw_level, .params = &charge_colors, .fill = -1};
+static const dgx_ui_widget_t     charge_w       = {.kind = DGX_UI_OWN, .max = 100, .want_h = 6, .value = &charge_percent, .look = &look_charge};
+
+/* a tank filled from the bottom: 0 to 200 litres in a box 12 points wide and 40 high */
+static int32_t                   tank_litres;
+static const dgx_ui_level_look_t tank_colors = {.bar = ACCENT, .rest = FILL, .from = DGX_UI_FROM_BOTTOM};
+static const dgx_ui_look_t       look_tank   = {.draw = dgx_ui_draw_level, .params = &tank_colors, .fill = -1};
+static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, .want_w = 12, .want_h = 40, .value = &tank_litres, .look = &look_tank};
+```
+
+- **The value** is the variable's, kept within `min`..`max`. Whoever writes the variable moves the bar: a
+  message's `take()`, a slider that names the same variable. The bar follows at the next pass.
+- **The edge** it fills from is `from`: `DGX_UI_FROM_LEFT`, `DGX_UI_FROM_BOTTOM`, `DGX_UI_FROM_RIGHT`,
+  `DGX_UI_FROM_TOP`.
+- **Bands.** A value below a band's `below` takes that band's colour, the lowest band first; a value past the last
+  band takes `bar`. Here 10 is `ACCENT_DOWN`, 20 and 30 are `BORDER`, 50 and 80 are `ACCENT`. All of the filled part
+  is of one colour, the value's.
+- **What is written.** When only the value moved, the part between the length that was filled and the new one:
+  a bar 200 pixels long that grows by one percent sends two columns of pixels. When the colour changed, the filled
+  part and what emptied. Every pixel once.
+- **`rest`** may be `DGX_UI_PAPER`: over a drawn background the empty part shows the picture.
+- **Nothing works it**: it takes no finger and no focus. A bar the user moves is a slider.
+- **What it costs**: about 0.6 KB in a program that names it.
 
 ## An icon that shows a state
 
@@ -1946,7 +1984,8 @@ Only by value. The call lies in IRAM, so an interrupt that runs with the cache o
 ## A look of your own
 
 A look is a function that draws a widget, parameters of its own type, and the colour it leaves under the widget's
-children. Here a level bar: the value of the widget as a filled part of its box.
+children. Here a level bar: the value of the widget as a filled part of its box. The library has such a look of its
+own, [A level bar](#a-level-bar); this one is the lesson, written out.
 
 ```c
 typedef struct {
@@ -1979,7 +2018,8 @@ The rules a look keeps:
 - **Every pixel once.** Write each pixel of what you draw once, and the widget does not blink on a display behind a
   bus. The bar above is two rectangles that do not overlap.
 - **The whole box when `paint->whole`.** Then nothing of the widget is on the screen. A look that draws only a
-  difference must draw all of it then. The looks of the library draw all of the box every time.
+  difference must draw all of it then. Most looks of the library draw all of the box every time; the list and the
+  level bar draw a difference.
 - **Colours** come from `dgx_ui_color(paint, index)`. `paint->paper` is the index of the colour under the widget.
 - **Called for parts.** When a popup or the keyboard lies over a part of the widget, the look is called once for each
   part that shows, the clip set to it. It must draw the same in every call. A look that remembers what it drew stores

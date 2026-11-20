@@ -19,7 +19,7 @@
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | статистика отрисовки: измеренный проход |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | касание DGX-DI как указатель дерева |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.28:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.29:
 имена и сигнатуры ещё могут измениться.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -147,7 +147,7 @@ typedef struct dgx_ui_widget_t {
 | `DGX_UI_BUTTON` | кнопка: срабатывает по нажатию |
 | `DGX_UI_INPUT` | поле ввода |
 | `DGX_UI_DROPDOWN` | выпадающий список: кнопка, которая показывает выбранный вариант. Варианты — строки его текста, значение — выбранный вариант. Когда кнопка сработала, программа открывает его список вызовом `dgx_ui_dropdown_open()` |
-| `DGX_UI_OWN` | свой вид: рисуется обликом программы, данные лежат в `own`; если облик называет поведение, виджетом управляют палец и клавиши |
+| `DGX_UI_OWN` | свой вид: рисуется обликом программы, данные лежат в `own`; если облик называет поведение, виджетом управляют палец и клавиши. Полоса уровня библиотеки, `dgx_ui_look_level`, — тоже облик для него |
 | `DGX_UI_RADIO` | радиокнопка, одна из группы. Группа — это место: каждая её кнопка называет одно и то же `value`. Кнопка соответствует числу в своём `step` и выбрана, пока в месте лежит это число; кнопка без места не выбрана никогда. Щелчок или клавиша «активировать», пока кнопка в фокусе, пишет её число: её `on()` получает `DGX_UI_CHANGED`, если место изменилось, а кнопке, которая была выбрана, ничего не сообщается. Её значение — значение группы, пределами `min` и `max` не ограничивается |
 
 **Флаги**
@@ -867,6 +867,7 @@ typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, in
 | `dgx_ui_look_list` | список: его строки — строки его текста, выбранная выделена полосой | `dgx_ui_list_look_t` |
 | `dgx_ui_look_dropdown` | выпадающий список: плоская кнопка с выбранным вариантом и стрелкой вниз | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_look_input` | поле ввода: текст в одну строку, у верхнего края или с `DGX_UI_TEXT_MIDDLE` посередине высоты, и, когда оно в фокусе, курсор после него | `dgx_ui_input_look_t` |
+| `dgx_ui_look_level` | полоса уровня на виджете вида `DGX_UI_OWN`: значение его места в виде закрашенной части прямоугольника от одного края, цвет по диапазонам значения | `dgx_ui_level_look_t` |
 | `dgx_ui_look_picture` | картинка или значок в 1 бит, посередине прямоугольника | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_rgb565` | картинка или значок RGB565. Нужны `CONFIG_DGX_ENABLE_VSCREEN` и 16-битный экран | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_indexed` | картинка или значок в 4 или 8 бит: её значения через карту — номера цветов таблицы; рисует и картинку в 1 бит. Нужны `CONFIG_DGX_ENABLE_VSCREEN`, буфер отрисовки не меньше строки картинки и 16-битный экран; без них на месте виджета бумага | `dgx_ui_picture_look_t` |
@@ -894,6 +895,7 @@ typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, in
 | `dgx_ui_draw_checkbox` | `dgx_ui_look_checkbox` | `dgx_ui_check_look_t` |
 | `dgx_ui_draw_list` | `dgx_ui_look_list` | `dgx_ui_list_look_t` |
 | `dgx_ui_draw_dropdown` | `dgx_ui_look_dropdown` | `dgx_ui_dropdown_look_t` |
+| `dgx_ui_draw_level` | `dgx_ui_look_level` | `dgx_ui_level_look_t` |
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_indexed` | `dgx_ui_look_indexed` | `dgx_ui_picture_look_t` |
@@ -962,6 +964,21 @@ typedef struct dgx_ui_dropdown_look_t {
     uint8_t text, text_disabled;              /* the option chosen */
     uint8_t arrow;                            /* the arrow; disabled, it is text_disabled */
 } dgx_ui_dropdown_look_t;
+
+typedef struct dgx_ui_band_t {
+    int32_t below; /* the band holds the values below this, from the band before up */
+    uint8_t color; /* its colour */
+} dgx_ui_band_t;
+
+enum { DGX_UI_FROM_LEFT, DGX_UI_FROM_BOTTOM, DGX_UI_FROM_RIGHT, DGX_UI_FROM_TOP };
+
+typedef struct dgx_ui_level_look_t {
+    uint8_t              bar;        /* the filled part; with bands, a value past the last of them */
+    uint8_t              rest;       /* the rest of the box; DGX_UI_PAPER: what lies under the widget */
+    uint8_t              from;       /* the edge it fills from: DGX_UI_FROM_LEFT, _BOTTOM, _RIGHT, _TOP */
+    uint8_t              band_count; /* how many bands; 0: `bar` alone */
+    const dgx_ui_band_t *bands;      /* the colour of the filled part by the value, the lowest band first */
+} dgx_ui_level_look_t;
 ```
 
 Строки списка и варианты выпадающего списка — это строки текста виджета, разделённые `\n`: `"Auto\nHeat\nCool"`.
@@ -1019,6 +1036,15 @@ static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switc
 цвет 1; середина отметки — то, что лежит под виджетом, и цвет 2, пока на нём палец; текст — цвет 1, а у отключённого —
 2. Отметка пишется по строкам, каждый пиксель один раз, а в группе, где выбор сменился, рисуются только две кнопки,
 которых он коснулся.
+
+Полоса уровня — виджет вида `DGX_UI_OWN`, который называет `dgx_ui_look_level` и место своего значения:
+`.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 6, .look = &dgx_ui_look_level`. Им ничто не управляет.
+Значение, приведённое к `min`..`max`, — это закрашенная часть прямоугольника от края `from`; если `max` не больше
+`min`, полоса пуста. По умолчанию закрашенная часть — цвет 3, остальное — цвет 2, от левого края. С `bands` цвет
+закрашенной части зависит от значения: берётся первый диапазон, у которого `below` больше значения (диапазоны идут
+от меньшего к большему); значение за последним диапазоном получает цвет `bar`. Вся закрашенная часть одного цвета.
+Если изменилось только значение, облик пишет часть между длиной, которую нарисовал, и новой; если сменился цвет —
+закрашенную часть и то, что опустело. Рецепт: [Полоса уровня](cookbook.md#полоса-уровня).
 
 По умолчанию полоса списка — цвет 3, текст на ней — цвет 0; пока список в фокусе, полоса — цвет 1, так что выбор
 виден и в рамке, заливка которой — цвет 2. Строки отключённого списка — цвет 2, а отметка окна, `bar`, — цвет 3.

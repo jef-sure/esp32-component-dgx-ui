@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.29 - 2026-11-20
+
+- A level bar, `dgx_ui_look_level`: the value of a widget's place as the filled part of its box from one edge, its
+  colour by bands of value (`dgx_ui_band_t`); when the value moves, only the part that changed is written. About
+  570 bytes for a program that names it.
+
 ## 0.0.28 - 2026-11-20
 
 - A tree's root is told `DGX_UI_SHOWN` when the tree comes to the screen and `DGX_UI_COVERED` when a page covers it or

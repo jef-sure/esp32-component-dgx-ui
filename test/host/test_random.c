@@ -3,7 +3,8 @@
  * disabled, a text set, a popup opened anywhere and closed, the keyboard's band laid and gone, the finger on the
  * slider, a group of radio buttons chosen by a click, by a key and by the program, a checkbox ticked, the row of them
  * shown and hidden, a radio of the group in the popup, a caption over a constant pointed at another and told, a page
- * opened and gone back from, the popup opened over the top of the chain, a popup closed from the middle of it. Each seed in two modes: on the paper straight, and over a drawn background with the strips
+ * opened and gone back from, the popup opened over the top of the chain, a popup closed from the middle of it; a level
+ * bar of the library on the slider's place. Each seed in two modes: on the paper straight, and over a drawn background with the strips
  * named. After every pass: no pixel written twice, and the panel is the tree composed anew by a fresh paint, the
  * band's own rows left out. At the end of each seed, with the band gone, the popup closed and the finger up, a pass,
  * then the look at the places marks nothing shown and the next pass writes nothing. After every step: each tree's
@@ -65,6 +66,7 @@ static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COL
 static const dgx_ui_widget_t note_w   = {.kind = DGX_UI_LABEL, .text = &note_box, .look = &dgx_ui_look_lines};
 static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &level, .look = &dgx_ui_look_slider};
 static const dgx_ui_widget_t bar_w    = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level, .look = &bar_look};
+static const dgx_ui_widget_t gauge_w  = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level, .look = &dgx_ui_look_level};
 static const dgx_ui_widget_t line_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 4, .want_h = 16};
 static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .text = &button_box, .want_w = 50, .look = &dgx_ui_look_button};
 static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .value = &flag, .look = &dgx_ui_look_switch};
@@ -155,6 +157,7 @@ int main(void)
             dgx_ui_init(&ui, nodes, 16, 1);
             dgx_ui_add(&ui, -1, &root_w);
             const int note = dgx_ui_add(&ui, 0, &note_w), slider = dgx_ui_add(&ui, 0, &slider_w), bar = dgx_ui_add(&ui, 0, &bar_w);
+            dgx_ui_add(&ui, 0, &gauge_w); /* the library's level bar of the slider's place */
             const int line = dgx_ui_add(&ui, 0, &line_w), button = dgx_ui_add(&ui, line, &button_w), toggle = dgx_ui_add(&ui, line, &switch_w);
             const int caption = dgx_ui_add(&ui, line, &caption_w);
             caption_box.buf   = (char *)captions[0];

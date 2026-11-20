@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.28: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.29: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -145,7 +145,7 @@ of every member.
 | `DGX_UI_BUTTON` | clicked: activated |
 | `DGX_UI_INPUT` | a field typed into |
 | `DGX_UI_DROPDOWN` | a button that shows the option chosen: its options the lines of its text, its value the one chosen. Activated, the program opens its list by `dgx_ui_dropdown_open()` |
-| `DGX_UI_OWN` | drawn by a look of the program's, its data in `own`; worked by the finger and the keys when its look names a behaviour |
+| `DGX_UI_OWN` | drawn by a look of the program's, its data in `own`; worked by the finger and the keys when its look names a behaviour. The library's level bar, `dgx_ui_look_level`, is a look for it too |
 | `DGX_UI_RADIO` | a radio button, one of a group. The group is a place: every button of it names the same `value`. A button stands for the number in its `step` and is chosen while the place holds that number; one of no place never is. A click, or the key that activates while it has the focus, writes its number: its `on()` is told `DGX_UI_CHANGED` when the place changed, and the button that was chosen is told nothing. Its value is the group's, not bound by `min` and `max` |
 
 **Flags**
@@ -857,6 +857,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_list` | a list: its rows the lines of its text, the row picked on a bar | `dgx_ui_list_look_t` |
 | `dgx_ui_look_dropdown` | a dropdown: a flat face with the option chosen and an arrow pointing down | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_look_input` | a field: its text in one line, at the top or with `DGX_UI_TEXT_MIDDLE` in the middle of its height, and, focused, a caret after it | `dgx_ui_input_look_t` |
+| `dgx_ui_look_level` | a level bar, on a widget of `DGX_UI_OWN`: the value of its place as the filled part of its box from one edge, its colour by bands of value | `dgx_ui_level_look_t` |
 | `dgx_ui_look_picture` | a picture or an icon of 1 bit, in the middle of the box | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table; one of 1 bit too. It needs `CONFIG_DGX_ENABLE_VSCREEN`, the paint's buffer of a row of the picture at least, and a 16-bit screen; without them the widget is paper | `dgx_ui_picture_look_t` |
@@ -884,6 +885,7 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_checkbox` | `dgx_ui_look_checkbox` | `dgx_ui_check_look_t` |
 | `dgx_ui_draw_list` | `dgx_ui_look_list` | `dgx_ui_list_look_t` |
 | `dgx_ui_draw_dropdown` | `dgx_ui_look_dropdown` | `dgx_ui_dropdown_look_t` |
+| `dgx_ui_draw_level` | `dgx_ui_look_level` | `dgx_ui_level_look_t` |
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_indexed` | `dgx_ui_look_indexed` | `dgx_ui_picture_look_t` |
@@ -952,6 +954,21 @@ typedef struct dgx_ui_dropdown_look_t {
     uint8_t text, text_disabled;              /* the option chosen */
     uint8_t arrow;                            /* the arrow; disabled, it is text_disabled */
 } dgx_ui_dropdown_look_t;
+
+typedef struct dgx_ui_band_t {
+    int32_t below; /* the band holds the values below this, from the band before up */
+    uint8_t color; /* its colour */
+} dgx_ui_band_t;
+
+enum { DGX_UI_FROM_LEFT, DGX_UI_FROM_BOTTOM, DGX_UI_FROM_RIGHT, DGX_UI_FROM_TOP };
+
+typedef struct dgx_ui_level_look_t {
+    uint8_t              bar;        /* the filled part; with bands, a value past the last of them */
+    uint8_t              rest;       /* the rest of the box; DGX_UI_PAPER: what lies under the widget */
+    uint8_t              from;       /* the edge it fills from: DGX_UI_FROM_LEFT, _BOTTOM, _RIGHT, _TOP */
+    uint8_t              band_count; /* how many bands; 0: `bar` alone */
+    const dgx_ui_band_t *bands;      /* the colour of the filled part by the value, the lowest band first */
+} dgx_ui_level_look_t;
 ```
 
 The rows of a list and the options of a dropdown are the lines of the widget's text, parted by `\n`:
@@ -1008,6 +1025,15 @@ By default the ring of a radio button and the square of a checkbox are colour 1,
 disabled; the dot and the tick are colour 1; the inside of the mark is what lies under the widget, and colour 2
 while a finger is on it; the text is colour 1, and 2 while disabled. The mark is written row by row, every pixel
 once, and of a group whose choice changed only the two buttons it touched are drawn.
+
+A level bar is a widget of `DGX_UI_OWN` that names `dgx_ui_look_level` and the place of its value:
+`.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 6, .look = &dgx_ui_look_level`. Nothing works it. The
+value, kept within `min`..`max`, is the filled part of the box from the edge `from`; `max` not above `min` shows it
+empty. By default the filled part is colour 3 and the rest colour 2, from the left. With `bands` the filled part
+takes its colour by the value: that of the first band whose `below` is above the value, the lowest band first; a
+value past the last band takes `bar`. All of the filled part is of one colour. When only the value moved, the look
+writes the part between the length it drew and the new one; when the colour changed, the filled part and what
+emptied. The recipe: [A level bar](cookbook.md#a-level-bar).
 
 By default the bar of a list is colour 3 and the text on it colour 0; while the list has the focus the bar is colour
 1, so the pick shows in a frame too, whose fill is colour 2. The rows of a disabled list are colour 2, and the mark

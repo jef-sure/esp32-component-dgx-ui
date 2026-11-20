@@ -120,7 +120,7 @@ enum {
     DGX_UI_BUTTON,   ///< pressed and let go within DGX_UI_CLICK_MS, not swiped: activated, wherever it is let go
     DGX_UI_INPUT,    ///< a field typed into
     DGX_UI_DROPDOWN, ///< a button showing the value picked; its list opens as a popup
-    DGX_UI_OWN,      ///< drawn by a look of the program, its data in own
+    DGX_UI_OWN,      ///< drawn by a look of the program, or of the library's (the level bar), its data in own
     /** one of a group: the buttons of a group name one place (.value), each its own number in step, and the one whose
         number the place holds is chosen; one of no place never is. Its value is the group's: dgx_ui_value() of any
         button is the number chosen, the same for every button of the group, and dgx_ui_set_value() on any writes the

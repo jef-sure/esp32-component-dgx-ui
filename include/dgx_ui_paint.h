@@ -342,6 +342,40 @@ typedef struct dgx_ui_check_look_t {
 } dgx_ui_check_look_t;
 
 /**
+ * A band of colour by value, for a look that colours by it: a value below `below` takes `color`, the first band that
+ * holds it, the lowest band first; a value past the last band takes the look's own colour.
+ */
+typedef struct dgx_ui_band_t {
+    int32_t below; ///< the band holds the values below this, and from the band before up
+    uint8_t color; ///< index of the table
+} dgx_ui_band_t;
+
+/** Where a level bar fills from: dgx_ui_level_look_t::from. */
+enum { DGX_UI_FROM_LEFT, DGX_UI_FROM_BOTTOM, DGX_UI_FROM_RIGHT, DGX_UI_FROM_TOP };
+
+/**
+ * Parameters of a level bar: the value of the widget's place, within min..max, as the filled part of its box from one
+ * edge; max not above min shows it empty. The filled part's colour is `bar`, or by the value from `bands`; all of the
+ * filled part takes one colour, that of the value.
+ */
+typedef struct dgx_ui_level_look_t {
+    uint8_t              bar;        ///< the filled part; with bands, a value past the last of them
+    uint8_t              rest;       ///< the rest of the box; DGX_UI_PAPER: what lies under the widget
+    uint8_t              from;       ///< DGX_UI_FROM_LEFT, _BOTTOM, _RIGHT, _TOP
+    uint8_t              band_count; ///< bands; 0: `bar` alone
+    const dgx_ui_band_t *bands;      ///< the filled part's colour by the value, the lowest band first; may lie in flash
+} dgx_ui_level_look_t;
+
+/**
+ * The look of a level bar, `dgx_ui_look_level`, of the colours 3 filled and 2 the rest, from the left, on a widget of
+ * DGX_UI_OWN with no behaviour, which nothing works: `.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 6,
+ * .look = &dgx_ui_look_level`. Every pixel of the box once; when only its value changed, only the part between the
+ * filled length drawn and the new one is written, or all of the filled part when its colour changed. A program that
+ * names it not carries none of it.
+ */
+extern const dgx_ui_look_t dgx_ui_look_level;
+
+/**
  * The looks of the controls and pictures, of the colours 0 the paper, 1 the ink, 2 a fill, 3 a border:
  * - dgx_ui_look_button: BUTTON and DROPDOWN; its text from the widget's text box;
  * - dgx_ui_look_input: INPUT, its text in one line and, focused, a caret after it;
@@ -419,6 +453,7 @@ bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_radio(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_checkbox(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_level(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 
 /**
  * @brief The tree drawn on the screen, and every popup open over it one over another: laid out first if they have to
