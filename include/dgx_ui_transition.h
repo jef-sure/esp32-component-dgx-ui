@@ -64,8 +64,10 @@ typedef struct dgx_ui_transition_t {
     /* the module's */
     uint8_t  kind;     ///< DGX_UI_SLIDE_LEFT ... DGX_UI_CROSSFADE, as the call gave it
     bool     running;  ///< frames to come: the loop calls dgx_ui_transition_frame() in place of dgx_ui_paint()
-    bool     started;  ///< its first frame drawn, start_ms set
-    uint32_t start_ms; ///< the time of the first frame
+    bool          started;  ///< its first frame drawn, start_ms set
+    uint32_t      start_ms; ///< the time of the first frame
+    dgx_ui_rect_t area;     ///< where the frames move: the screen, or the place of a page in home's place
+    dgx_ui_rect_t outside;  ///< what else changed, outside the area: written by the last frame alone
 } dgx_ui_transition_t;
 
 /**

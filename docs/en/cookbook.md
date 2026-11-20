@@ -30,6 +30,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [Showing, hiding, disabling](#showing-hiding-disabling)
 - [A popup](#a-popup)
 - [Pages and "back"](#pages-and-back)
+- [A bar over the pages](#a-bar-over-the-pages)
 - [A page that works only while it is seen](#a-page-that-works-only-while-it-is-seen)
 - [Pages that slide](#pages-that-slide)
 - [Settings that stay](#settings-that-stay)
@@ -1223,6 +1224,84 @@ static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = 
 - Pages of one level that replace each other, tabs, need no popup: the children of one box, all hidden but one
   (`dgx_ui_show()`).
 
+## A bar over the pages
+
+A status line with a clock, a "back" button, tabs: one bar for every page, in the first tree, with the pages under
+it. `dgx_ui_page_place()` names the widget of the first tree the pages lie over; the rest of that tree stays on the
+screen and works. Take a bar with a clock, two tabs and "Back":
+
+1. At the start the place under the bar shows what the first tree put there, here an empty box. The clock is the
+   label of [A clock, or anything once in a while](#a-clock-or-anything-once-in-a-while), fed by its ticker.
+2. The user taps "Air". `on_tab()` finds no page to close and opens the air page: it lies over the box under the
+   bar. The first tree is not covered: its root is told nothing, and its ticker runs on.
+3. A minute passes. The clock takes the ticker's message and its label is drawn, in the bar, beside the open page.
+4. The user taps "Log". The air page is told `DGX_UI_BACK` and `DGX_UI_COVERED` and closes; the log page opens in
+   the same place and is told `DGX_UI_SHOWN`.
+5. The key back, or "Back" in the bar, closes the page. The place shows the first tree's box again.
+
+```c
+static dgx_ui_t *tab_home;         /* the first tree: the bar, and under it the place of the pages */
+static dgx_ui_t  tab_air, tab_log; /* two pages, built at the start as any tree */
+
+static char             tab_clock_buf[24];
+static dgx_ui_textbox_t tab_clock_box;
+static dgx_ui_textbox_t tab_air_box = DGX_UI_TEXT_CONST("Air", 1, &st_centre), tab_log_box = DGX_UI_TEXT_CONST("Log", 1, &st_centre);
+static dgx_ui_textbox_t tab_back_box = DGX_UI_TEXT_CONST("Back", 1, &st_centre);
+
+/* a tab of the bar: the page open now goes, its own comes; the widget's ctx names its page */
+static void on_tab(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what != DGX_UI_ACTIVATED) return;
+    dgx_ui_page_back(tab_home); /* told DGX_UI_BACK and closed; no page open: nothing */
+    dgx_ui_page_open(tab_home, ctx);
+}
+
+static void on_tab_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) dgx_ui_page_back(tab_home);
+}
+
+static const dgx_ui_widget_t tab_root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
+static const dgx_ui_widget_t tab_bar_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
+static const dgx_ui_widget_t tab_clock_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .at_y = 2, .text = &tab_clock_box, .take = date_take};
+static const dgx_ui_widget_t tab_air_w   = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 30, .text = &tab_air_box, .look = &dgx_ui_look_button, .on = on_tab, .ctx = &tab_air};
+static const dgx_ui_widget_t tab_log_w   = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 30, .text = &tab_log_box, .look = &dgx_ui_look_button, .on = on_tab, .ctx = &tab_log};
+static const dgx_ui_widget_t tab_back_w  = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 34, .text = &tab_back_box, .look = &dgx_ui_look_button, .on = on_tab_back};
+static const dgx_ui_widget_t tab_place_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
+
+static void tab_build(dgx_ui_t *home)
+{
+    tab_home = home;
+    dgx_ui_textbox_init(&tab_clock_box, tab_clock_buf, sizeof tab_clock_buf, 1, &st_left);
+    const int root = dgx_ui_add(home, -1, &tab_root_w), bar = dgx_ui_add(home, root, &tab_bar_w);
+    dgx_ui_add(home, bar, &tab_clock_w), dgx_ui_add(home, bar, &tab_air_w), dgx_ui_add(home, bar, &tab_log_w), dgx_ui_add(home, bar, &tab_back_w);
+    dgx_ui_page_place(home, dgx_ui_add(home, root, &tab_place_w)); /* the pages lie over this box from now on */
+}
+```
+
+- **The place** is a widget of the first tree. The pages `dgx_ui_page_open()` opens from then on lie over its box
+  and follow it when the tree is laid again: a turn, a widget of the bar shown or hidden. `dgx_ui_page_place(home,
+  -1)` gives the pages the whole screen again.
+- **The bar works.** Its widgets take the finger, its labels take messages and are drawn, and its root is not told
+  `DGX_UI_COVERED`: a page in the place covers the pages under it there, not the first tree.
+- **The keys go to the page.** While a page is open the bar is of the finger alone, and its widgets show no focus.
+  A program of keys alone reaches what the bar does another way: the key back, a button of the page.
+- **What a widget of the bar opens goes over the top**, not over the first tree: a popup opened over a tree closes
+  the one it had, the pages with it. The top is found by `dgx_ui_t *top = home; while (top->popup) top =
+  top->popup;`. A dropdown of the bar opens its list over the top by itself.
+- **A page of the whole screen** over everything, an alarm, is opened by the program:
+  `dgx_ui_popup_open(top, &alarm, 0, 0, 0, 0, DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN)`. It
+  covers the bar too, the first tree is told `DGX_UI_COVERED`, and back closes it as any page.
+- **A dialog of a page** lies where it is opened, in pixels of the screen, and takes every finger, a finger on the
+  bar too.
+- **With a slide** ([Pages that slide](#pages-that-slide)) the frames move the place alone, and nothing of the bar
+  is written while they run.
+- **The place hidden** hides the pages over it, and they are told nothing; removed, it gives them the whole screen.
+- **What it costs**: about 0.5 KB in a program that names a place.
+
 ## A page that works only while it is seen
 
 The root of a tree is told when the tree comes to the screen, `DGX_UI_SHOWN`, and when it leaves it,
@@ -1263,7 +1342,8 @@ static void air_message(const dgx_ui_msg_t *msg)
 ```
 
 - **A page covers, a dialog does not.** A tree is shown while no popup of the whole screen
-  (`DGX_UI_POPUP_SCREEN`) lies over it. A dialog, a hint and a dropdown's list leave it seen.
+  (`DGX_UI_POPUP_SCREEN`) lies over it. A dialog, a hint and a dropdown's list leave it seen. A page in a place
+  ([A bar over the pages](#a-bar-over-the-pages)) covers the pages under it there and leaves the first tree shown.
 - **Told at the call.** The roots are told by the call that opens or closes, the key back's too, and not at a pass:
   two pages opened one after another before anything was drawn are told just the same.
 - **The first tree** is shown from the start and is told nothing then. Start what it needs when it is built, or

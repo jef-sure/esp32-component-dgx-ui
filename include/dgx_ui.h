@@ -428,6 +428,7 @@ struct dgx_ui_t {
     bool              shown_told;  ///< the library's, not to be read: a program keeps a flag of its own from DGX_UI_SHOWN and _COVERED
     uint8_t           veiled_bits; ///< the library's: DGX_UI_FOCUSED while a modal popup lies over the tree, the bits its looks do
                                    ///< not show; read by dgx_ui_bits_shown()
+    int16_t           page_place;  ///< the library's: home's widget its pages lie over, + 1 (dgx_ui_page_place()); 0 the screen
 };
 
 /** How a popup takes the pointer and the keys. */
@@ -437,6 +438,9 @@ enum {
     DGX_UI_POPUP_CLOSE_OUTSIDE = 1u << 1, ///< a finger that goes down outside it closes it (a dropdown's list)
     DGX_UI_POPUP_BACK          = 1u << 2, ///< the key back that nothing in it took closes it, its root told DGX_UI_BACK first
     DGX_UI_POPUP_SCREEN        = 1u << 3, ///< it lies on the whole screen of the tree, laid again when the screen turns; x, y, w, h not read
+    DGX_UI_POPUP_PLACE         = 1u << 4, ///< it lies on the box of home's widget named by dgx_ui_page_place(), laid again when that box
+                                          ///< changes, the screen while none is named; x, y, w, h not read. With MODAL a finger outside
+                                          ///< it still goes to the trees under it, unless a popup over it of MODAL alone takes it
 };
 
 /** Popups stand one over another over a tree, so many at most: the painter needs no memory for their covers. */
@@ -503,7 +507,9 @@ int dgx_ui_insert(dgx_ui_t *ui, int parent, int before, const dgx_ui_widget_t *w
  * @brief A widget removed with everything under it.
  *
  * A focus or a press inside it is dropped: no ACTIVATED comes, and the widgets removed are told nothing. Their
- * slots are taken again by dgx_ui_add().
+ * slots are taken again by dgx_ui_add(). The widget that home's pages lie over removed, or one above it
+ * (dgx_ui_page_place()), the pages take the whole screen, and the trees covered or shown by that are told so here,
+ * from within this call, by the rules of DGX_UI_SHOWN and DGX_UI_COVERED.
  */
 void dgx_ui_remove(dgx_ui_t *ui, int i);
 
@@ -674,7 +680,10 @@ void dgx_ui_focus(dgx_ui_t *ui, int i);
  * popup over it; the pointer and the keys go to the top one first, and messages go to every tree, the bottom first.
  *
  * Where a tree is, told to its root: a tree is shown while no popup of DGX_UI_POPUP_SCREEN (a page) lies over it,
- * anywhere above it; a dialog, a dropdown's list or any popup not of the screen covers nothing. Its root is told
+ * anywhere above it; a dialog, a dropdown's list or any popup not of the screen or of the place covers nothing. A page
+ * in home's place (DGX_UI_POPUP_PLACE, dgx_ui_page_place()) covers the trees of the place alone: the lowest popup of
+ * the place in the chain and those above it. Home under it stays shown, and so does a dialog opened over home before
+ * the pages; a popup of the place while home names no place covers as one of the screen. Its root is told
  * DGX_UI_SHOWN when it comes to the screen (a popup opened, a page over it closed) and DGX_UI_COVERED when it leaves it
  * (a page opened over it, or it closed while shown), in pairs: a page keeps a ticker or a sensor's poll from SHOWN to
  * COVERED and never has one left running. Told by the calls that open and close (the key back's too), at the call and
@@ -757,6 +766,28 @@ bool dgx_ui_page_open(dgx_ui_t *home, dgx_ui_t *page);
  * @return false: no page is open over home.
  */
 bool dgx_ui_page_back(dgx_ui_t *home);
+
+/**
+ * @brief Home's pages put over the box of its widget i, not over the whole screen: a bar shared by the pages, a status
+ * line with a clock, a "back" button, tabs.
+ *
+ * The pages opened from then on are of DGX_UI_POPUP_PLACE, and those open move there at once: each lies on the box of
+ * widget i and follows it when home is laid again (a turn, a widget shown or hidden), at the layout, so that a finger
+ * and a composing meet it where it is. The rest of home stays on the screen and alive: its widgets take the finger,
+ * a ticker of it keeps running, as home is not covered (DGX_UI_COVERED). The keys still go to the top page alone, so
+ * that while a page is open the bar is of the finger alone: a program of keys only reaches what the bar does another
+ * way, by the key back or a button of the page. Widget i hidden, the pages over it are hidden too, told nothing, and
+ * the keys still go to the top page; removed, or one above it, the pages take the screen (dgx_ui_remove()).
+ *
+ * What a widget of the bar opens goes over the top of the chain, not over home: a popup opened over a tree closes the
+ * one it had, the pages with it. dgx_ui_dropdown_open() does so for a dropdown of the bar itself; a program's own
+ * finds the top as `dgx_ui_t *top = &home; while (top->popup) top = top->popup;` and opens over it.
+ *
+ * @param home The bottom of the chain, no popup itself.
+ * @param i    A widget of home; -1: the whole screen again, as the pages are by default.
+ * @return false: home lies over a tree as a popup, or i is no widget of it.
+ */
+bool dgx_ui_page_place(dgx_ui_t *home, int i);
 
 #ifdef __cplusplus
 }

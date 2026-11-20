@@ -31,6 +31,7 @@
 - [Показать, скрыть, отключить](#показать-скрыть-отключить)
 - [Всплывающее окно](#всплывающее-окно)
 - [Страницы и «назад»](#страницы-и-назад)
+- [Полоса над страницами](#полоса-над-страницами)
 - [Страница, которая работает, только пока её видно](#страница-которая-работает-только-пока-её-видно)
 - [Страницы, которые сдвигаются](#страницы-которые-сдвигаются)
 - [Настройки, которые сохраняются](#настройки-которые-сохраняются)
@@ -1240,6 +1241,86 @@ static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = 
 - Страницам одного уровня, которые сменяют друг друга, — вкладкам — окно не нужно: это дети одного контейнера,
   из которых скрыты все, кроме одного (`dgx_ui_show()`).
 
+## Полоса над страницами
+
+Строка состояния с часами, кнопка «назад», вкладки — одна полоса на все страницы, в первом дереве, а страницы под
+ней. `dgx_ui_page_place()` называет виджет первого дерева, над которым лежат страницы; остальное дерево остаётся на
+экране и работает. Возьмём полосу с часами, двумя вкладками и кнопкой «Back»:
+
+1. В начале место под полосой показывает то, что положило туда первое дерево, здесь — пустой контейнер. Часы — это
+   надпись из рецепта [Часы или что угодно время от времени](#часы-или-что-угодно-время-от-времени), её кормит
+   тикер.
+2. Пользователь нажимает «Air». `on_tab()` не находит страницы, которую надо закрыть, и открывает страницу воздуха:
+   она ложится на прямоугольник под полосой. Первое дерево не накрыто: его корню ничего не сообщается, тикер идёт.
+3. Проходит минута. Часы получают сообщение тикера, и их надпись рисуется в полосе, рядом с открытой страницей.
+4. Пользователь нажимает «Log». Странице воздуха сообщаются `DGX_UI_BACK` и `DGX_UI_COVERED`, и она закрывается;
+   страница журнала открывается на том же месте и получает `DGX_UI_SHOWN`.
+5. Клавиша «назад» или кнопка «Back» в полосе закрывает страницу. Место снова показывает контейнер первого дерева.
+
+```c
+static dgx_ui_t *tab_home;         /* the first tree: the bar, and under it the place of the pages */
+static dgx_ui_t  tab_air, tab_log; /* two pages, built at the start as any tree */
+
+static char             tab_clock_buf[24];
+static dgx_ui_textbox_t tab_clock_box;
+static dgx_ui_textbox_t tab_air_box = DGX_UI_TEXT_CONST("Air", 1, &st_centre), tab_log_box = DGX_UI_TEXT_CONST("Log", 1, &st_centre);
+static dgx_ui_textbox_t tab_back_box = DGX_UI_TEXT_CONST("Back", 1, &st_centre);
+
+/* a tab of the bar: the page open now goes, its own comes; the widget's ctx names its page */
+static void on_tab(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what != DGX_UI_ACTIVATED) return;
+    dgx_ui_page_back(tab_home); /* told DGX_UI_BACK and closed; no page open: nothing */
+    dgx_ui_page_open(tab_home, ctx);
+}
+
+static void on_tab_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) dgx_ui_page_back(tab_home);
+}
+
+static const dgx_ui_widget_t tab_root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
+static const dgx_ui_widget_t tab_bar_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
+static const dgx_ui_widget_t tab_clock_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .at_y = 2, .text = &tab_clock_box, .take = date_take};
+static const dgx_ui_widget_t tab_air_w   = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 30, .text = &tab_air_box, .look = &dgx_ui_look_button, .on = on_tab, .ctx = &tab_air};
+static const dgx_ui_widget_t tab_log_w   = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 30, .text = &tab_log_box, .look = &dgx_ui_look_button, .on = on_tab, .ctx = &tab_log};
+static const dgx_ui_widget_t tab_back_w  = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 34, .text = &tab_back_box, .look = &dgx_ui_look_button, .on = on_tab_back};
+static const dgx_ui_widget_t tab_place_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
+
+static void tab_build(dgx_ui_t *home)
+{
+    tab_home = home;
+    dgx_ui_textbox_init(&tab_clock_box, tab_clock_buf, sizeof tab_clock_buf, 1, &st_left);
+    const int root = dgx_ui_add(home, -1, &tab_root_w), bar = dgx_ui_add(home, root, &tab_bar_w);
+    dgx_ui_add(home, bar, &tab_clock_w), dgx_ui_add(home, bar, &tab_air_w), dgx_ui_add(home, bar, &tab_log_w), dgx_ui_add(home, bar, &tab_back_w);
+    dgx_ui_page_place(home, dgx_ui_add(home, root, &tab_place_w)); /* the pages lie over this box from now on */
+}
+```
+
+- **Место** — виджет первого дерева. Страницы, которые после этого открывает `dgx_ui_page_open()`, лежат над его
+  прямоугольником и идут за ним, когда дерево раскладывается заново: при повороте, когда виджет полосы показали или
+  скрыли. `dgx_ui_page_place(home, -1)` снова отдаёт страницам весь экран.
+- **Полоса работает.** Её виджеты принимают палец, надписи получают сообщения и рисуются, а корню не сообщается
+  `DGX_UI_COVERED`: страница на месте накрывает страницы под собой на этом месте, а не первое дерево.
+- **Клавиши идут странице.** Пока страница открыта, полосой управляет только палец, и её виджеты фокус не
+  показывают. Программа с одними клавишами добирается до того, что делает полоса, иначе: клавишей «назад», кнопкой
+  страницы.
+- **То, что открывает виджет полосы, открывается над верхом цепочки**, а не над первым деревом: окно, открытое над
+  деревом, закрывает прежнее, а с ним и страницы. Верх находят так: `dgx_ui_t *top = home; while (top->popup) top =
+  top->popup;`. Выпадающий список в полосе сам открывает свой список над верхом.
+- **Страницу на весь экран** поверх всего, тревогу, программа открывает сама:
+  `dgx_ui_popup_open(top, &alarm, 0, 0, 0, 0, DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN)`. Она
+  накрывает и полосу, первому дереву сообщается `DGX_UI_COVERED`, а «назад» закрывает её, как любую страницу.
+- **Диалог страницы** лежит там, где его открыли, в пикселях экрана, и забирает любой палец, в том числе палец на
+  полосе.
+- **При сдвиге** ([Страницы, которые сдвигаются](#страницы-которые-сдвигаются)) кадры двигают только место, и из
+  полосы, пока они идут, ничего не пишется.
+- **Скрытое место** скрывает страницы над ним, и им ничего не сообщается; удалённое отдаёт им весь экран.
+- **Цена**: около 0,5 КБ в программе, которая называет место.
+
 ## Страница, которая работает, только пока её видно
 
 Корню дерева сообщают, когда дерево появляется на экране, `DGX_UI_SHOWN`, и когда уходит с него, `DGX_UI_COVERED`.
@@ -1280,7 +1361,9 @@ static void air_message(const dgx_ui_msg_t *msg)
 ```
 
 - **Страница накрывает, диалог — нет.** Дерево показано, пока над ним нет окна на весь экран
-  (`DGX_UI_POPUP_SCREEN`). Диалог, подсказка и список выпадающего списка оставляют его на виду.
+  (`DGX_UI_POPUP_SCREEN`). Диалог, подсказка и список выпадающего списка оставляют его на виду. Страница на месте
+  ([Полоса над страницами](#полоса-над-страницами)) накрывает страницы под собой на этом месте, а первое дерево
+  остаётся показанным.
 - **Сообщается при вызове.** Корням сообщает тот вызов, который открывает или закрывает, в том числе клавиша
   «назад», а не проход: две страницы, открытые подряд до первой отрисовки, получат то же самое.
 - **Первое дерево** показано с самого начала, и тогда ему ничего не сообщается. Запустите то, что ему нужно, когда

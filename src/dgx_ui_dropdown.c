@@ -20,7 +20,7 @@ static void on_list(dgx_ui_t *tree, int li, const dgx_ui_node_t *node, int what,
     dgx_ui_dropdown_t *dd = ctx;
     dgx_ui_t          *ui = dd->ui;
     const int          i = dd->i, value = dgx_ui_value_of(node);
-    dgx_ui_popup_close(ui);
+    if (dd->tree.under) dgx_ui_popup_close(dd->tree.under); /* the list alone: it may lie over a page over the dropdown's tree */
     dd->ui                 = NULL;
     const dgx_ui_node_t *n = dgx_ui_node(ui, i);
     /* gone, or another widget in its place (removed while its list was open), or the option it had: nothing told */
@@ -89,7 +89,11 @@ bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_
     dgx_ui_init(&dd->tree, dd->nodes, 2, u);
     dgx_ui_add(&dd->tree, -1, &dd->frame);
     const int li = dgx_ui_add(&dd->tree, 0, &dd->list);
-    if (!dgx_ui_popup_open(ui, &dd->tree, x, y, width, h, DGX_UI_POPUP_MODAL | DGX_UI_POPUP_CLOSE_OUTSIDE | DGX_UI_POPUP_BACK)) return false;
+    /* over the top of the chain the dropdown's tree is in: a popup opened over a tree closes the one it had, and a
+       dropdown of a bar under the pages would close them */
+    dgx_ui_t *top = ui;
+    while (top->popup) top = top->popup;
+    if (!dgx_ui_popup_open(top, &dd->tree, x, y, width, h, DGX_UI_POPUP_MODAL | DGX_UI_POPUP_CLOSE_OUTSIDE | DGX_UI_POPUP_BACK)) return false;
     dgx_ui_text_shown_over = lists_told; /* its options set while the list is open: the list hears of it */
     dd->ui = ui, dd->i = (int16_t)i;
     dgx_ui_focus(&dd->tree, li); /* the keys move the pick */

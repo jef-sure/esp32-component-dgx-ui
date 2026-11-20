@@ -4,11 +4,14 @@
  * slider, a group of radio buttons chosen by a click, by a key and by the program, a checkbox ticked, the row of them
  * shown and hidden, a radio of the group in the popup, a caption over a constant pointed at another and told, a page
  * opened and gone back from, the popup opened over the top of the chain, a popup closed from the middle of it; a level
- * bar of the library on the slider's place, and a ring scale with a child in it. Each seed in two modes: on the paper straight, and over a drawn background with the strips
+ * bar of the library on the slider's place, and a ring scale with a child in it; home's pages put in a place of it and
+ * on the screen again, the place's box removed and added again, by the script and from within the roots' on(), the
+ * slider above the place in the bar the pages leave. Each seed in two modes: on the paper straight, and over a drawn background with the strips
  * named. After every pass: no pixel written twice, and the panel is the tree composed anew by a fresh paint, the
  * band's own rows left out. At the end of each seed, with the band gone, the popup closed and the finger up, a pass,
  * then the look at the places marks nothing shown and the next pass writes nothing. After every step: each tree's
- * root told last what a walk of the chain says of it (shown while no page lies above it), its words alternating.
+ * root told last what a walk of the chain says of it (shown while no page of the screen lies above it, nor one of the
+ * place above a tree of the place), its words alternating.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,11 +58,31 @@ static const char *const captions[] = {"Yes", "Oui", "Ja", "Si"};
 enum { HOME_TREE, POPUP_TREE, PAGE_TREE, TREES };
 static bool shown_last[TREES];
 static int  out_of_turn;
+
+/* home and the place its pages may lie in; a root's on() sometimes moves the pages or removes the place and adds it
+   again, as the rules of SHOWN and COVERED let it: no tree opened, closed or freed */
+static dgx_ui_t             *home_tree;
+static int                   place_at = -1;
+static bool                  roots_act;
+static int                   acting_depth, roots_acted, steps_in_place; /* how much of it the scripts reached */
+static const dgx_ui_widget_t place_w = {.kind = DGX_UI_BOX, .want_h = 30};
+static int                   chance(int below);
+static void                  place_again(dgx_ui_t *home)
+{
+    if (dgx_ui_node(home, place_at)) dgx_ui_remove(home, place_at);
+    place_at = dgx_ui_add(home, 0, &place_w);
+}
+
 static void on_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     const int tree = (int)(intptr_t)ctx;
     if (what == DGX_UI_SHOWN) out_of_turn += shown_last[tree], shown_last[tree] = true;
     if (what == DGX_UI_COVERED) out_of_turn += !shown_last[tree], shown_last[tree] = false;
+    if (!roots_act || acting_depth > 1 || (what != DGX_UI_SHOWN && what != DGX_UI_COVERED) || chance(6)) return;
+    ++acting_depth, ++roots_acted;
+    if (chance(2)) dgx_ui_page_place(home_tree, chance(2) ? place_at : -1);
+    else place_again(home_tree);
+    --acting_depth;
 }
 
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .on = on_root, .ctx = (void *)(intptr_t)HOME_TREE};
@@ -91,9 +114,19 @@ static bool as_the_chain_says(dgx_ui_t *home, dgx_ui_t *const trees[TREES])
     dgx_ui_t *chain[8];
     int       count = 0;
     for (dgx_ui_t *tree = home; tree && count < 8; tree = tree->popup) chain[count++] = tree;
-    bool covered = false;
-    for (int k = count - 1; k >= 0; --k) {
-        covered |= chain[k]->popup && (chain[k]->popup_flags & DGX_UI_POPUP_SCREEN);
+    /* a page of the screen above covers; one of the place above covers the trees of the place, the lowest popup of the
+       place and those over it, and while home names no place it covers as one of the screen */
+    const bool named  = home->page_place != 0;
+    int        lowest = count;
+    for (int j = count - 1; j >= 1; --j)
+        if (chain[j - 1]->popup_flags & DGX_UI_POPUP_PLACE) lowest = j;
+    for (int k = 0; k < count; ++k) {
+        bool covered = false;
+        for (int m = k; m < count; ++m) {
+            if (!chain[m]->popup) continue;
+            const unsigned flags = chain[m]->popup_flags;
+            covered |= (flags & DGX_UI_POPUP_SCREEN) || ((flags & DGX_UI_POPUP_PLACE) && (!named || k >= lowest));
+        }
         for (int t = 0; t < TREES; ++t)
             if (trees[t] == chain[k]) shown_now[t] = !covered;
     }
@@ -164,6 +197,7 @@ int main(void)
             const int caption = dgx_ui_add(&ui, line, &caption_w);
             dgx_ui_add(&ui, dgx_ui_add(&ui, line, &ring_w), &dot_w); /* the library's ring scale of the slider's place, a child in it */
             caption_box.buf   = (char *)captions[0];
+            home_tree = &ui, place_at = dgx_ui_add(&ui, 0, &place_w), roots_act = false;
             const int list = dgx_ui_add(&ui, 0, &list_w), group = dgx_ui_add(&ui, 0, &group_w);
             int       radio[3];
             for (int k = 0; k < 3; ++k) radio[k] = dgx_ui_add(&ui, group, &radio_w[k]);
@@ -203,7 +237,7 @@ int main(void)
                     if (marked) ++unquiet_seeds, printf("seed %d: %d widgets marked after the passes settled\n", s, marked);
                 }
                 for (int a = 0; a < acts; ++a) {
-                    const int what = chance(26);
+                    const int what = chance(29);
                     did[strlen(did)] = (char)('a' + what);
                     switch (what) {
                     case 0: level = chance(21) * 5; break;
@@ -261,6 +295,9 @@ int main(void)
                     case 25: /* a popup closed from the middle of the chain */
                         if (ui.popup && ui.popup->popup) dgx_ui_popup_close(ui.popup);
                         break;
+                    case 26: dgx_ui_page_place(&ui, chance(3) ? place_at : -1); break; /* the pages in the place, or on the screen */
+                    case 27: place_again(&ui); break;                                  /* the place's box removed and added again */
+                    case 28: roots_act = !roots_act; break;                            /* the roots' on() acting, or not */
                     case 22: /* a caption over a constant pointed at another, and told */
                         caption_box.buf = (char *)captions[chance(4)];
                         dgx_ui_text_written(&ui, caption);
@@ -284,6 +321,7 @@ int main(void)
                     }
                 dgx_ui_paint_free(&fresh);
                 unsaid_steps += !as_the_chain_says(&ui, trees);
+                steps_in_place += ui.page_place && page.under && (page.under->popup_flags & DGX_UI_POPUP_PLACE);
                 const bool unquiet = step == STEPS + 1 && written;
                 if (unquiet) ++unquiet_seeds, printf("seed %d: %d pixels written by the pass after the passes settled\n", s, written);
                 if ((twice || off) && first_bad < 0) {
@@ -301,6 +339,8 @@ int main(void)
         }
         CHECK(faulty_seeds == 0);
         CHECK(unquiet_seeds == 0);
+        CHECK(steps_in_place > 100 && roots_acted > 20); /* the place and the roots' acts reached */
+        if (drawn_background) printf("test_random: %d steps with the page in the place, %d acts of the roots\n", steps_in_place, roots_acted);
         CHECK(unsaid_seeds == 0);
     }
     CHECK_DONE();

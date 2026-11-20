@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.34 - 2026-11-20
+
+- Home's pages can lie over the box of one of its widgets, `dgx_ui_page_place()`: the rest of home, a bar shared by the
+  pages, stays on the screen, takes the finger and keeps its ticker; the keys go to the page; a transition moves the
+  place alone.
+- A dropdown's list opens over the top of the chain its tree is in and closes alone: a popup over the dropdown's tree
+  that a finger outside does not close now stays under the list instead of being closed by it.
+
 ## 0.0.33 - 2026-11-20
 
 - While a modal popup is open, the trees under it show no mark of the focus, and the mark comes back where the focus

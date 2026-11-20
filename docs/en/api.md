@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.33: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.34: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -246,7 +246,7 @@ how many popups lie under it, 0 for a tree that is no popup.
 | `void dgx_ui_free(dgx_ui_t *ui)` | Every widget removed and the blocks given back. A tree open as a popup is closed first, and so are the popups open over a tree, their roots told as a close tells them. The tree being freed is told `DGX_UI_COVERED` when it was shown and never `DGX_UI_SHOWN`; the trees that come to the screen are told after it is wiped. A tree is built again by `dgx_ui_init()` only while it is not open. |
 | `int dgx_ui_add(dgx_ui_t *ui, int parent, const dgx_ui_widget_t *w)` | A widget added as the last child of `parent`; the first one added is the root, whatever `parent` is. It returns its number; -1 for no such parent or no memory for a block. The tree keeps the pointer: the widget must live as long as it is in the tree. |
 | `int dgx_ui_insert(dgx_ui_t *ui, int parent, int before, const dgx_ui_widget_t *w)` | The same, before the child `before`; -1: as the last. |
-| `void dgx_ui_remove(dgx_ui_t *ui, int i)` | A widget removed with everything under it. A focus or a press inside it is dropped, and nothing is told. Its number is given to a widget added later. |
+| `void dgx_ui_remove(dgx_ui_t *ui, int i)` | A widget removed with everything under it. A focus or a press inside it is dropped, and nothing is told. Its number is given to a widget added later. When it is the widget the pages lie over (`dgx_ui_page_place()`), or one above it, the pages take the whole screen, and the roots covered or shown by that are told `DGX_UI_COVERED` and `DGX_UI_SHOWN` from within the call. |
 | `int dgx_ui_find(const dgx_ui_t *ui, int parent, int tag)` | The first widget of a tag under `parent`, in the order of the tree; `parent` -1: in all of the tree. -1 when there is none. |
 | `dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i)` | The node of a number; `NULL` past the tree. |
 | `const dgx_ui_widget_t *dgx_ui_widget(const dgx_ui_t *ui, int i)` | The widget of a number; `NULL` for a number that holds none. |
@@ -429,11 +429,15 @@ Code points typed go to a `DGX_UI_INPUT` only. The widget is hit in its whole re
 | `DGX_UI_POPUP_CLOSE_OUTSIDE` | a finger that goes down outside it, and outside every popup over it, closes it |
 | `DGX_UI_POPUP_BACK` | the key back that nothing in it took closes it, its root told `DGX_UI_BACK` first |
 | `DGX_UI_POPUP_SCREEN` | it lies on the whole screen of the tree and is laid again when the screen turns; `x`, `y`, `w`, `h` are not read |
+| `DGX_UI_POPUP_PLACE` | it lies on the box of the widget of the first tree named by `dgx_ui_page_place()` and is laid again when that box changes; on the whole screen while none is named; `x`, `y`, `w`, `h` are not read. With `DGX_UI_POPUP_MODAL` a finger outside it still goes to the trees under it, unless a popup over it that is modal and not of the place takes it |
 
 `DGX_UI_POPUP_DEPTH` is 8: at most so many popups stand one over another over a tree.
 
 **Where a tree is.** A tree is shown while no popup of `DGX_UI_POPUP_SCREEN`, a page, lies over it, anywhere
-above it. A dialog, a dropdown's list, any popup that is not of the whole screen covers nothing. The root of a tree
+above it. A dialog, a dropdown's list, any popup that is neither of the whole screen nor of the place covers
+nothing. A page in the place (`DGX_UI_POPUP_PLACE`) covers the trees of the place alone: the lowest popup of the
+place and those above it. The first tree under it stays shown, and so does a dialog opened over the first tree
+before the pages. A popup of the place while no place is named covers as one of the whole screen. The root of a tree
 is told `DGX_UI_SHOWN` when the tree comes to the screen and `DGX_UI_COVERED` when it leaves it:
 
 | What happens | Who is told |
@@ -468,15 +472,26 @@ whose popup should take the mark off the tree under it opens it `DGX_UI_POPUP_MO
 ### Pages
 
 A page is a popup with `DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN`: a screen of its own over the
-one under it, closed by the key back. A program may open one by `dgx_ui_popup_open()` itself; these two calls are the
-common case, in a file of their own.
+one under it, closed by the key back. While the first tree names a place for its pages, a page is opened with
+`DGX_UI_POPUP_PLACE` in place of `DGX_UI_POPUP_SCREEN`: over the box of that widget, the rest of the first tree left
+on the screen. A program may open one by `dgx_ui_popup_open()` itself; these calls are the common case, in a file of
+their own.
 
 | Call | What it does |
 | ---- | ------------ |
 | `bool dgx_ui_page_open(dgx_ui_t *home, dgx_ui_t *page)` | A page opened over the top page of `home`, or over `home`. First the popups over that page that a finger elsewhere would close (`DGX_UI_POPUP_CLOSE_OUTSIDE`: a dropdown's list, a hint) are closed, from the top down to the first that is not; a modal dialog that waits for an answer stays under the new page. It returns what `dgx_ui_popup_open()` does. |
 | `bool dgx_ui_page_back(dgx_ui_t *home)` | The top page of `home` closed, with all over it; its root told `DGX_UI_BACK` first, while it is open. `false`: no page is open over `home`. |
+| `bool dgx_ui_page_place(dgx_ui_t *home, int i)` | The pages of `home` put over the box of its widget `i`: a bar shared by the pages. Pages opened from then on are of `DGX_UI_POPUP_PLACE`, and those open move there at once. -1: the whole screen again. `false`: `home` is itself a popup, or `i` is no widget of it. |
 
-The recipe: [Pages and "back"](cookbook.md#pages-and-back).
+A page in the place follows the box of its widget when the first tree is laid again, at the layout, so that a finger
+and a composing meet it where it is. The rest of the first tree stays alive: its widgets take the finger, and it is
+not covered. The keys go to the top page alone, so while a page is open the bar is of the finger alone. The widget
+hidden, the pages over it are hidden too and told nothing; removed, or a box above it, the pages take the whole
+screen. What a widget of the bar opens goes over the top of the chain, found by
+`dgx_ui_t *top = &home; while (top->popup) top = top->popup;`: a popup opened over the first tree closes the one it
+had, the pages with it.
+
+The recipes: [Pages and "back"](cookbook.md#pages-and-back), [A bar over the pages](cookbook.md#a-bar-over-the-pages).
 
 ### Other
 
@@ -1116,7 +1131,7 @@ is. One list is open at a time, so one serves every dropdown of the program.
 
 | Call | What it does |
 | ---- | ------------ |
-| `bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_ui_look_t *frame_look, const dgx_ui_look_t *list_look)` | Opens the list of dropdown `i` as a popup over its tree, which may be a popup itself. The looks are those of the popup's frame, its border one point, and of its list; `NULL` is the library's. `false`, nothing opened: `i` is no dropdown, it has no option (`max` less than `min`), `dd` shows a list already, the tree does not know its screen yet (the painter tells it, or `dgx_ui_screen()`), a row would have no height, or the popup is refused. |
+| `bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_ui_look_t *frame_look, const dgx_ui_look_t *list_look)` | Opens the list of dropdown `i` as a popup over the top of the chain its tree is in: a popup already open over that tree stays under the list. The tree may be a popup itself. The looks are those of the popup's frame, its border one point, and of its list; `NULL` is the library's. `false`, nothing opened: `i` is no dropdown, it has no option (`max` less than `min`), `dd` shows a list already, the tree does not know its screen yet (the painter tells it, or `dgx_ui_screen()`), a row would have no height, or the popup is refused. |
 
 The program calls it when the dropdown's `on()` is told `DGX_UI_ACTIVATED`.
 
@@ -1170,6 +1185,9 @@ a transition takes. The rest is the module's; the program reads `running`: frame
   and before `to` is composed: what an `on()` sets then is in the picture that comes in. An `on()` told so that
   calls `dgx_ui_page_open_by()` or `dgx_ui_page_back_by()` itself changes the pages at once, with no pictures of its
   own; the transition goes from what the display showed to the trees as they stand when every `on()` has been told.
+- A page in the place of the first tree ([Pages](#pages)) changes within that place: the frames move and fade the
+  place alone, and nothing outside it is written while they run. The two pictures are of the whole screen all the
+  same.
 - A page changes at once, and that is no error: no pictures or `ms` 0; a picture not of the screen's size and depth;
   the keyboard's band open; a crossfade on a display that cannot be read when the paint's buffer does not hold a row.
 - A crossfade is mixed in the frame buffer of a display that reads it, and strip by strip in the paint's buffer on

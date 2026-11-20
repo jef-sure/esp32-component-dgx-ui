@@ -327,6 +327,10 @@ a stack of them, and a page's root is told `DGX_UI_BACK` before it goes. See
 [Pages and "back"](cookbook.md#pages-and-back). On a board with memory for two pictures of the screen a page may
 come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide).
 
+The pages need not take the whole screen: the first tree names one of its widgets, and the pages lie over its box,
+while the rest, a bar with a clock or tabs, stays on the screen and takes the finger. See
+[A bar over the pages](cookbook.md#a-bar-over-the-pages).
+
 The root of a tree is told when the tree comes to the screen and when it leaves it, `DGX_UI_SHOWN` and
 `DGX_UI_COVERED`, in turn: a page keeps its ticker or the poll of a sensor only while it is seen. Only a page
 covers; a dialog or a list leaves the tree under it seen. See

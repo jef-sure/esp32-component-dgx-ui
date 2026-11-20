@@ -1470,6 +1470,43 @@ int main(int argc, char **argv)
         free(panel);
     }
 
+    /* a bar over the pages: the tabs open their pages in the place under the bar, the bar's back closes them */
+    {
+        static dgx_ui_node_t         tab_home_nodes[8], tab_air_nodes[2], tab_log_nodes[2];
+        static const dgx_ui_widget_t tab_page_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2};
+        dgx_ui_t                     bar_home;
+        dgx_screen_t                *bar_screen = dgx_vscreen_init(200, 120, 16, DgxScreenRGB);
+        dgx_ui_paint_t               bar_paint  = {.scr = bar_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_init(&bar_home, tab_home_nodes, 8, 1);
+        dgx_ui_init(&tab_air, tab_air_nodes, 2, 1), dgx_ui_add(&tab_air, -1, &tab_page_root_w);
+        dgx_ui_init(&tab_log, tab_log_nodes, 2, 1), dgx_ui_add(&tab_log, -1, &tab_page_root_w);
+        tab_build(&bar_home);
+        dgx_ui_paint(&bar_home, &bar_paint, 0);
+        /* the widgets as tab_build() added them: the root, the bar, the clock, the two tabs, back, the place */
+        const dgx_ui_node_t *air_tab = dgx_ui_node(&bar_home, 3), *log_tab = dgx_ui_node(&bar_home, 4), *back = dgx_ui_node(&bar_home, 5), *place = dgx_ui_node(&bar_home, 6);
+        const dgx_ui_node_t *taps[3] = {air_tab, log_tab, back};
+        int                  open_air = 0, open_log = 0, in_place = 0, closed = 0;
+        for (int k = 0; k < 3; ++k) {
+            const int16_t x = (int16_t)(taps[k]->x + taps[k]->w / 2), y = (int16_t)(taps[k]->y + taps[k]->h / 2);
+            dgx_ui_pointer(&bar_home, &(dgx_ui_pointer_t){.x = x, .y = y, .down = true, .pressed = true, .ms = 1000u * (unsigned)k});
+            dgx_ui_pointer(&bar_home, &(dgx_ui_pointer_t){.x = x, .y = y, .released = true, .ms = 1000u * (unsigned)k + 50});
+            dgx_ui_paint(&bar_home, &bar_paint, 1000u * (unsigned)k + 100);
+            const dgx_ui_t *page = bar_home.popup;
+            if (k == 0) open_air = page == &tab_air;
+            if (k == 1) open_log = page == &tab_log && !tab_air.level;
+            if (k < 2 && page) {
+                const dgx_ui_node_t *root = dgx_ui_node(page, 0);
+                in_place += root->x == place->x && root->y == place->y && root->w == place->w && root->h == place->h;
+            }
+            if (k == 2) closed = !page;
+        }
+        printf("bar: the place under the bar at %d,%d %dx%d; a tap on Air opens its page %d, on Log the other in its stead %d, each over the place %d of 2; Back in the bar "
+               "closes it %d\n",
+               place->x, place->y, place->w, place->h, open_air, open_log, in_place, closed);
+        dgx_ui_paint_free(&bar_paint), dgx_ui_free(&tab_log), dgx_ui_free(&tab_air), dgx_ui_free(&bar_home);
+        dgx_screen_destroy(&bar_screen);
+    }
+
     puts("cookbook: ran to the end");
     return 0;
 }

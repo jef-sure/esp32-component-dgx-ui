@@ -90,6 +90,12 @@ void dgx_ui_init(dgx_ui_t *ui, dgx_ui_node_t *first, int first_size, int unit)
    carries none of it. Shared by the trees of every task, and harmless, as back_closing below */
 static void (*popup_freeing)(dgx_ui_t *ui, void (*wipe)(dgx_ui_t *ui));
 
+/* the place of home's pages, named by dgx_ui_page_place(): a program that names none carries none of it, but these
+   calls. `what`: a widget about to be removed (true: the place goes with it), or one of the moments below; shared as
+   the one above */
+enum { PLACE_LAID = -1, PLACE_FINGER = -2, PLACE_TOLD = -3, PLACE_OPENED = -4, PLACE_LOWEST = -5 };
+static int (*place_hook)(dgx_ui_t *ui, int what);
+
 /* the blocks given back, the tree made anew */
 static void wipe(dgx_ui_t *ui)
 {
@@ -185,6 +191,7 @@ void dgx_ui_remove(dgx_ui_t *ui, int i)
     if (!n) return;
     if (ui->focus >= 0 && within(ui, ui->focus, i)) ui->focus = -1;
     if (ui->pressed >= 0 && within(ui, ui->pressed, i)) ui->pressed = -1;
+    const bool place_gone = place_hook && place_hook(ui, i); /* home's pages lose their place */
     if (n->parent >= 0) {
         dgx_ui_node_t *p = NODE(ui, n->parent);
         around(ui, n->parent); /* the place it leaves, filled around the children that stay */
@@ -195,6 +202,7 @@ void dgx_ui_remove(dgx_ui_t *ui, int i)
     free_subtree(ui, i);
     while (ui->count > 0 && !NODE(ui, ui->count - 1)->widget) --ui->count;
     ui->needs_layout = true;
+    if (place_gone) place_hook(ui, PLACE_TOLD); /* the pages on the screen, the chain told: last */
 }
 
 /* the next widget of the tree after i in its order (parents before children), -1 at the end; below: stays under it */
@@ -385,6 +393,7 @@ bool dgx_ui_layout(dgx_ui_t *ui)
         for (int i = 0; i < ui->count; ++i) NODE(ui, i)->marks |= DGX_UI_MARK_WHOLE | DGX_UI_MARK_FIT;
         ui->turned = false;
     }
+    if (place_hook) place_hook(ui, PLACE_LAID); /* home's pages follow their place */
     return true;
 }
 
@@ -728,6 +737,7 @@ static bool on_popup(const dgx_ui_t *pop, int x, int y)
 
 bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
 {
+    if (place_hook) place_hook(ui, PLACE_FINGER); /* home first: its pages where its place is now */
     dgx_ui_t *pop = ui->popup;
     if (pop) {
         const bool inside = on_popup(pop, p->x, p->y);
@@ -739,7 +749,9 @@ bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
            hide is pressed; the one on top first */
         if (p->pressed && inside) return dgx_ui_pointer(pop, p);
         if (dgx_ui_pointer(pop, p)) return true; /* held by a popup's widget, at whatever level; or one over closed */
-        if (ui->popup_flags & DGX_UI_POPUP_MODAL) return true;
+        /* modal: nobody's; a page in home's place lets the finger outside it, or one that moves held by none of them,
+           down to the trees under it */
+        if ((ui->popup_flags & DGX_UI_POPUP_MODAL) && !(ui->popup_flags & DGX_UI_POPUP_PLACE)) return true;
     }
     return pointer_in(ui, p);
 }
@@ -1067,10 +1079,16 @@ static void tell_chain(dgx_ui_t *home)
         bool      shown[CHAIN];
         int       count = 0;
         for (dgx_ui_t *tree = home; tree && count < CHAIN; tree = tree->popup) trees[count++] = tree;
-        bool covered = false; /* by a page above, from the top down */
+        /* covered: by a page of the screen above, from the top down; or by one of home's place above a tree of the place,
+           the lowest popup of the place or one above it. A popup of the place while home names none: of the screen */
+        const bool place  = home->page_place != 0; /* named: the hook is set */
+        const int  lowest = place ? place_hook(home, PLACE_LOWEST) : count;
+        bool       by_screen = false, by_place = false;
         for (int k = count - 1; k >= 0; --k) {
-            covered |= trees[k]->popup && (trees[k]->popup_flags & DGX_UI_POPUP_SCREEN);
-            shown[k] = !covered;
+            const unsigned flags = trees[k]->popup ? trees[k]->popup_flags : 0;
+            by_screen |= (flags & DGX_UI_POPUP_SCREEN) || ((flags & DGX_UI_POPUP_PLACE) && !place);
+            by_place |= (flags & DGX_UI_POPUP_PLACE) && place;
+            shown[k] = !by_screen && !(by_place && k >= lowest);
         }
         dgx_ui_t *told = NULL;
         int       what = DGX_UI_COVERED;
@@ -1082,6 +1100,69 @@ static void tell_chain(dgx_ui_t *home)
         told->shown_told = what == DGX_UI_SHOWN;
         if (live(told, 0)) tell(told, 0, what);
     }
+}
+
+static dgx_ui_t *home_of(dgx_ui_t *ui);
+
+/* the pages of home's place given its box, or the screen's while it names none, at the screen's size and turn: one
+   whose rectangle changed is laid and drawn whole there, the place it left composed again; `tell`, the place itself
+   changed: the chain veiled and told as it stands then */
+static void follow_place(dgx_ui_t *home, bool tell)
+{
+    dgx_ui_rect_t place = dgx_ui_rect(0, 0, home->screen_w, home->screen_h);
+    if (home->page_place) {
+        const int            i = home->page_place - 1;
+        const dgx_ui_node_t *n = live(home, i);
+        if (n) place = dgx_ui_hidden(home, i) ? dgx_ui_rect(n->x, n->y, 0, 0) : dgx_ui_rect(n->x, n->y, n->w, n->h);
+    }
+    for (dgx_ui_t *tree = home; tree->popup; tree = tree->popup) {
+        if (!(tree->popup_flags & DGX_UI_POPUP_PLACE)) continue;
+        dgx_ui_t *page = tree->popup;
+        dgx_ui_screen(page, home->screen_w, home->screen_h, home->screen_turn);
+        const dgx_ui_rect_t was = page->root_rect;
+        if (page->root_given && was.x == place.x && was.y == place.y && was.w == place.w && was.h == place.h) continue;
+        tree->popup_was = hull(tree->popup_was, was);
+        dgx_ui_set_root(page, place.x, place.y, place.w, place.h);
+        for (int k = 0; k < page->count; ++k) NODE(page, k)->marks |= DGX_UI_MARK_WHOLE;
+    }
+    if (!tell) return;
+    veil_chain(home);
+    tell_chain(home);
+}
+
+/* the hook of the place (place_hook): at each moment the core names, for a tree; i >= 0: widget i about to be removed */
+static int place_moment(dgx_ui_t *ui, int what)
+{
+    if (what >= 0) { /* the place, or a widget above it, going: the pages on the screen, told after the removal */
+        if (!ui->page_place || !within(ui, ui->page_place - 1, what)) return false;
+        ui->page_place = 0;
+        return true;
+    }
+    if (what == PLACE_LOWEST) { /* the lowest popup of the place in the chain from home, the count of it if none */
+        int k = 1;
+        for (const dgx_ui_t *tree = ui; tree->popup; tree = tree->popup, ++k)
+            if (tree->popup_flags & DGX_UI_POPUP_PLACE) return k;
+        return k;
+    }
+    if (what == PLACE_OPENED) { /* a popup of the place opened over ui: new, the screen it had for a moment lies nowhere */
+        const dgx_ui_rect_t closed_here = ui->popup_was;
+        follow_place(home_of(ui), false);
+        ui->popup_was = closed_here;
+        return 0;
+    }
+    if (ui->under || !ui->popup) return 0; /* home with pages alone */
+    if (what == PLACE_FINGER) dgx_ui_layout(ui); /* laid, its pages follow below as at every layout */
+    else follow_place(ui, what == PLACE_TOLD);
+    return 0;
+}
+
+bool dgx_ui_page_place(dgx_ui_t *home, int i)
+{
+    if (home->under || (i >= 0 && !live(home, i))) return false;
+    place_hook       = place_moment;
+    home->page_place = (int16_t)(i < 0 ? 0 : i + 1);
+    follow_place(home, true);
+    return true;
 }
 
 /* the tree at the bottom of a chain: home */
@@ -1171,8 +1252,9 @@ static bool attach(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, un
     if (ui->popup) close_untold(ui, closed, count);
     if (ui->pressed >= 0) unpress(ui); /* the finger on the tree under it is spent */
     back_closing = dgx_ui_popup_back, popup_freeing = free_from_chain;
-    if (flags & DGX_UI_POPUP_SCREEN) {
-        /* the tree's screen, its rectangle at once: a finger down on it before the next pass is its */
+    if (flags & (DGX_UI_POPUP_SCREEN | DGX_UI_POPUP_PLACE)) {
+        /* the tree's screen, its rectangle at once: a finger down on it before the next pass is its; one of the place
+           is put there below */
         popup->root_given = false;
         popup->root_rect  = dgx_ui_rect(0, 0, ui->screen_w, ui->screen_h);
         dgx_ui_screen(popup, ui->screen_w, ui->screen_h, ui->screen_turn);
@@ -1185,6 +1267,7 @@ static bool attach(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, un
     ui->popup = popup, ui->popup_flags = (uint8_t)flags;
     popup->under = ui;
     if (!told_kept) popup->shown_told = false;
+    if ((flags & DGX_UI_POPUP_PLACE) && place_hook) place_hook(ui, PLACE_OPENED); /* put in the place at once */
     return true;
 }
 

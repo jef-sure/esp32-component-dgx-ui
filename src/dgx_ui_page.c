@@ -2,8 +2,8 @@
  * dgx_ui_page.c
  *
  *  Pages: popups of DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN, a screen of its own over the one
- *  under it, closed by the key back (the core's) or by dgx_ui_page_back(). A program that calls neither carries none of
- *  this.
+ *  under it, or of DGX_UI_POPUP_PLACE in place of the screen while home names a place (dgx_ui_page_place()), closed by
+ *  the key back (the core's) or by dgx_ui_page_back(). A program that calls neither carries none of this.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -11,12 +11,12 @@
 
 #include "dgx_ui.h"
 
-enum { PAGE_FLAGS = DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN };
+enum { PAGE_FLAGS = DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK };
 
-/* the popup over this tree is a page */
+/* the popup over this tree is a page: closed by back, of the screen or of the place */
 static bool page_over(const dgx_ui_t *tree)
 {
-    return tree->popup && (tree->popup_flags & (DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN)) == (DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN);
+    return tree->popup && (tree->popup_flags & DGX_UI_POPUP_BACK) && (tree->popup_flags & (DGX_UI_POPUP_SCREEN | DGX_UI_POPUP_PLACE));
 }
 
 /* the top page, or home */
@@ -40,7 +40,7 @@ bool dgx_ui_page_open(dgx_ui_t *home, dgx_ui_t *page)
     }
     dgx_ui_t *top = home; /* the top of the chain as it stands now */
     while (top->popup) top = top->popup;
-    return dgx_ui_popup_open(top, page, 0, 0, 0, 0, PAGE_FLAGS);
+    return dgx_ui_popup_open(top, page, 0, 0, 0, 0, PAGE_FLAGS | (home->page_place ? DGX_UI_POPUP_PLACE : DGX_UI_POPUP_SCREEN));
 }
 
 bool dgx_ui_page_back(dgx_ui_t *home)
