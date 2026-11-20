@@ -5,7 +5,7 @@
  * shown and hidden, a radio of the group in the popup, a caption over a constant pointed at another and told, a page
  * opened and gone back from, the popup opened over the top of the chain, a popup closed from the middle of it; a level
  * bar of the library on the slider's place, and a ring scale with a child in it; a picture button and a toggle of two
- * pictures on the switch's place; home's pages put in a place of it and
+ * pictures on the switch's place; the button repeating while a finger holds it, the time stepped at every step; home's pages put in a place of it and
  * on the screen again, the place's box removed and added again, by the script and from within the roots' on(), the
  * slider above the place in the bar the pages leave. Each seed in two modes: on the paper straight, and over a drawn background with the strips
  * named. After every pass: no pixel written twice, and the panel is the tree composed anew by a fresh paint, the
@@ -66,7 +66,7 @@ static int  out_of_turn;
 static dgx_ui_t             *home_tree;
 static int                   place_at = -1;
 static bool                  roots_act;
-static int                   acting_depth, roots_acted, steps_in_place; /* how much of it the scripts reached */
+static int                   acting_depth, roots_acted, steps_in_place, steps_repeating; /* how much of it the scripts reached */
 static const dgx_ui_widget_t place_w = {.kind = DGX_UI_BOX, .want_h = 30};
 static int                   chance(int below);
 static void                  place_again(dgx_ui_t *home)
@@ -95,7 +95,7 @@ static const dgx_ui_widget_t gauge_w  = {.kind = DGX_UI_OWN, .min = 0, .max = 10
 static const dgx_ui_widget_t ring_w   = {.kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 5, .min = 0, .max = 100, .want_w = 16, .value = &level, .look = &dgx_ui_look_ring};
 static const dgx_ui_widget_t dot_w    = {.kind = DGX_UI_FRAME, .want_h = 6, .look = &dgx_ui_look_frame}; /* a child inside the ring */
 static const dgx_ui_widget_t line_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 4, .want_h = 16};
-static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .text = &button_box, .want_w = 50, .look = &dgx_ui_look_button};
+static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .text = &button_box, .want_w = 50, .look = &dgx_ui_look_button};
 static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .value = &flag, .look = &dgx_ui_look_switch};
 static const dgx_ui_widget_t caption_w = {.kind = DGX_UI_LABEL, .want_w = 60, .text = &caption_box};
 /* a picture button, and a toggle of two pictures of the switch's place */
@@ -247,7 +247,7 @@ int main(void)
                     if (marked) ++unquiet_seeds, printf("seed %d: %d widgets marked after the passes settled\n", s, marked);
                 }
                 for (int a = 0; a < acts; ++a) {
-                    const int what = chance(29);
+                    const int what = chance(30);
                     did[strlen(did)] = (char)('a' + what);
                     switch (what) {
                     case 0: level = chance(21) * 5; break;
@@ -312,6 +312,13 @@ int main(void)
                     case 26: dgx_ui_page_place(&ui, chance(3) ? place_at : -1); break; /* the pages in the place, or on the screen */
                     case 27: place_again(&ui); break;                                  /* the place's box removed and added again */
                     case 28: roots_act = !roots_act; break;                            /* the roots' on() acting, or not */
+                    case 29: { /* the finger down on the repeating button, held a while, let go */
+                        const dgx_ui_node_t *n = dgx_ui_node(&ui, button);
+                        const int16_t        x = (int16_t)(n->x + n->w / 2), y = (int16_t)(n->y + n->h / 2);
+                        if (!held) dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = x, .y = y, .down = true, .pressed = true, .ms = now}), held = true;
+                        else dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = x, .y = y, .released = true, .ms = now}), held = false;
+                        break;
+                    }
                     case 22: /* a caption over a constant pointed at another, and told */
                         caption_box.buf = (char *)captions[chance(4)];
                         dgx_ui_text_written(&ui, caption);
@@ -319,6 +326,7 @@ int main(void)
                     }
                 }
                 memmove(history[0], history[1], sizeof history[0] * 3), strcpy(history[3], did);
+                steps_repeating += dgx_ui_time(&ui, now); /* the button held repeats */
                 panel_count_from_now(panel);
                 dgx_ui_paint(&ui, &paint, now);
                 const int twice = panel_twice(panel), written = panel_written(panel);
@@ -353,8 +361,8 @@ int main(void)
         }
         CHECK(faulty_seeds == 0);
         CHECK(unquiet_seeds == 0);
-        CHECK(steps_in_place > 100 && roots_acted > 20); /* the place and the roots' acts reached */
-        if (drawn_background) printf("test_random: %d steps with the page in the place, %d acts of the roots\n", steps_in_place, roots_acted);
+        CHECK(steps_in_place > 100 && roots_acted > 20 && steps_repeating > 100); /* the place, the roots' acts, the repeat reached */
+        if (drawn_background) printf("test_random: %d steps with the page in the place, %d acts of the roots, %d steps repeating\n", steps_in_place, roots_acted, steps_repeating);
         CHECK(unsaid_seeds == 0);
     }
     CHECK_DONE();

@@ -15,6 +15,7 @@
 - [Кнопка](#кнопка)
 - [Подпись из строковой константы](#подпись-из-строковой-константы)
 - [Ползунок и переключатель](#ползунок-и-переключатель)
+- [Степпер: минус, значение, плюс](#степпер-минус-значение-плюс)
 - [Список](#список)
 - [Выпадающий список](#выпадающий-список)
 - [Одно из нескольких и галочка](#одно-из-нескольких-и-галочка)
@@ -311,6 +312,71 @@ static void backlight_show(int percent)
 - С флагом `DGX_UI_SWIPE` ползунок двигается на столько, на сколько ушёл палец от места касания, а не туда, где
   палец: получается широкая полоса, в которую легко попасть.
 - Клавиши «больше» и «меньше» двигают ползунок на его шаг и ставят переключатель.
+
+## Степпер: минус, значение, плюс
+
+Значение, которое выставляют мелкими шагами и точно: минуты, порог. Две кнопки и надпись над одной переменной. Кнопки
+имеют флаг `DGX_UI_REPEAT`: короткое нажатие — один шаг, а пока палец держит кнопку, шаги идут дальше.
+
+1. Пользователь нажимает «+». Кнопке сообщается `DGX_UI_ACTIVATED`, как только палец опустился: 15 становится 20, и
+   надпись это показывает. Когда палец поднимается, ничего больше не сообщается.
+2. Пользователь держит «+». Первый шаг приходит при нажатии, следующий — через полсекунды, а дальше по одному каждые
+   100 мс: за две секунды это нажатие и ещё шестнадцать шагов.
+3. На 120 функция `on()` кнопки больше ничего не меняет, хотя ей продолжают сообщать. Пользователь отпускает кнопку.
+
+```c
+static int32_t step_minutes = 15; /* the value: 0 to 120 by 5 */
+
+static dgx_ui_textbox_t step_minus_box = DGX_UI_TEXT_CONST("-", 1, &st_centre), step_plus_box = DGX_UI_TEXT_CONST("+", 1, &st_centre);
+static char             step_buf[8];
+static dgx_ui_textbox_t step_box;
+static int              step_label = -1; /* the number of the label in its tree, kept when the stepper is built */
+
+/* a button of the stepper: its ctx is the step it makes, -5 or 5. Told at the press and at every repeat */
+static void on_step(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what != DGX_UI_ACTIVATED) return;
+    int32_t next = step_minutes + (int32_t)(intptr_t)ctx;
+    if (next < 0) next = 0;
+    if (next > 120) next = 120;
+    if (next == step_minutes) return; /* at an end of the range: held, it changes nothing */
+    step_minutes = next;
+    dgx_ui_text_printf(ui, step_label, "%d min", (int)step_minutes);
+}
+
+static const dgx_ui_widget_t step_row_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
+static const dgx_ui_widget_t step_minus_w = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_minus_box, .look = &dgx_ui_look_button, .on = on_step,
+    .ctx = (void *)-5};
+static const dgx_ui_widget_t step_value_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .at_y = 2, .text = &step_box};
+static const dgx_ui_widget_t step_plus_w  = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_plus_box, .look = &dgx_ui_look_button, .on = on_step,
+    .ctx = (void *)5};
+
+static void step_add(dgx_ui_t *ui, int parent)
+{
+    dgx_ui_textbox_init(&step_box, step_buf, sizeof step_buf, 1, &st_centre);
+    const int row = dgx_ui_add(ui, parent, &step_row_w);
+    dgx_ui_add(ui, row, &step_minus_w);
+    step_label = dgx_ui_add(ui, row, &step_value_w);
+    dgx_ui_add(ui, row, &step_plus_w);
+    dgx_ui_text_printf(ui, step_label, "%d min", (int)step_minutes);
+}
+```
+
+- **Повторы делает цикл.** Они приходят из `dgx_ui_time()`: цикл зовёт её на каждом обороте и ждёт столько, сколько
+  говорит `dgx_ui_wake()`, как цикл из рецепта
+  [Цикл, который спит до следующего момента](#цикл-который-спит-до-следующего-момента). Без этого вызова кнопка с
+  `DGX_UI_REPEAT` делает один шаг, при нажатии, и больше ни одного.
+- **Пока держат — нажата.** Повтор идёт, куда бы ни ушёл палец: кнопка остаётся нажатой и выглядит нажатой, пока
+  палец не поднят. Он кончается, когда палец поднялся, при свайпе, а также когда кнопку скрыли, отключили или
+  удалили или над её деревом открылось окно.
+- **Диапазон** — дело самих кнопок: здесь их `on()` держит значение между 0 и 120.
+- **С клавиш** клавиша «выбрать», удерживаемая на кнопке в фокусе, повторяется так же (`dgx_ui_buttons()`).
+- **Повторяется что-то одно**, начатое последним: клавиша, нажатая, пока повторяет палец, перехватывает повтор, а
+  когда её отпускают, повтор пальца заново не начинается.
+- **С картинками** обе кнопки рисует `dgx_ui_look_picture_button`: [Кнопка с картинкой](#кнопка-с-картинкой).
+- **Цена**: около 0,25 КБ в программе с пальцем, которая зовёт `dgx_ui_time()`.
 
 ## Список
 
@@ -2641,7 +2707,8 @@ static void ui_loop_asleep(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t qu
 ```
 
 - **`dgx_ui_wake()`** возвращает, сколько миллисекунд цикл может ждать: наименьшее из того, что назвали облики на
-  последнем проходе, считая от `now`, и из следующего повтора удерживаемой клавиши. `DGX_UI_WAKE_NONE` значит, что
+  последнем проходе, считая от `now`, и из следующего повтора удерживаемой клавиши или кнопки с `DGX_UI_REPEAT` под
+  пальцем. `DGX_UI_WAKE_NONE` значит, что
   никто не просит.
 - **0 значит «на следующем проходе»**: облик попросил время и момента не назвал. Ждать тогда надо один тик, а не
   нисколько: цикл, который совсем не ждёт, крутится без остановки.

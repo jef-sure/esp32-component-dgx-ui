@@ -295,7 +295,8 @@ finger that went down between two rows of a list clicks none. A disabled or hidd
 activate presses the focused one, more and less move a slider or a switch. Back no widget of the library takes: it
 closes the page or the dropdown's list on top, a popup opened with `DGX_UI_POPUP_BACK`, and is the program's
 otherwise. `dgx_ui_buttons()` takes the buttons held now, as bits of a game pad, and makes keys of them; a held
-next, previous, more or less repeats after 500 ms, every 100 ms.
+next, previous, more or less repeats after 500 ms, every 100 ms. A button of `DGX_UI_REPEAT` repeats the same way
+while the finger holds it, or the key that activates: a stepper's "+".
 
 **Typing.** `dgx_ui_typed()` gives code points to the focused field: characters, erase, done and cancel, as the
 keyboard of DGX-DI types them.

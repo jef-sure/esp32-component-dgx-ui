@@ -412,6 +412,15 @@ bool dgx_ui_layout(dgx_ui_t *ui)
 /* ---- the state ---- */
 
 static void unpress(dgx_ui_t *ui);
+static dgx_ui_t *home_of(dgx_ui_t *ui);
+
+/* a button told again and again while it is held (DGX_UI_REPEAT); one also of DGX_UI_DRAG is the drag's. The finger's
+   repeat is home's repeat_key of this value, no key's, its time home's repeat_at, as a key's */
+enum { REPEAT_FINGER = 0x7f };
+static bool repeating(const dgx_ui_widget_t *w)
+{
+    return w->kind == DGX_UI_BUTTON && (w->flags & (DGX_UI_REPEAT | DGX_UI_DRAG)) == DGX_UI_REPEAT;
+}
 
 /* within min..max when there is a range; an ICON's value outside it is no picture, so it is not clamped */
 static int clamp_value(const dgx_ui_widget_t *w, int value)
@@ -781,6 +790,12 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         /* on(FOCUS) may have removed it, or opened a popup over it (an editor of a field): the finger is spent then; a
            popup closed by it (a hint, a dropdown left) takes nothing of the press */
         if (live(ui, i) && (!ui->popup || ui->popup == popup)) press(ui, i, p->x, p->y);
+        if (ui->pressed == i && repeating(NODE(ui, i)->widget)) {
+            /* told now, and again from the first repeat's time on by dgx_ui_time(), while held; nothing read after */
+            dgx_ui_t *home   = home_of(ui);
+            home->repeat_key = REPEAT_FINGER, home->repeat_at = p->ms + DGX_UI_REPEAT_FIRST_MS;
+            tell(ui, i, DGX_UI_ACTIVATED);
+        }
         return true;
     }
     dgx_ui_node_t *n = live(ui, ui->pressed);
@@ -847,6 +862,11 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         const int  i     = ui->pressed;
         const bool click = !ui->dragged && !ui->swiped && !ui->between && (uint32_t)(p->ms - ui->press_ms) < DGX_UI_CLICK_MS;
         unpress(ui);
+        if (repeating(w)) { /* told at the press: its repeat ends, nothing told now */
+            dgx_ui_t *home = home_of(ui);
+            if (home->repeat_key == REPEAT_FINGER) home->repeat_key = -1;
+            return true;
+        }
         const dgx_ui_behavior_t *b = behavior_of(w);
         if (b) {
             /* a widget of the program's own: up() first, a value it sets heard of with the click */
@@ -988,6 +1008,19 @@ static bool repeats(int key)
     return key == DGX_UI_KEY_NEXT || key == DGX_UI_KEY_PREV || key == DGX_UI_KEY_MORE || key == DGX_UI_KEY_LESS;
 }
 
+/* the key ACTIVATE held on a button of DGX_UI_REPEAT with the focus, in the first tree from the top of the chain that
+   has one: it repeats, as the finger's does */
+static bool focus_repeats(dgx_ui_t *home)
+{
+    dgx_ui_t *top = home;
+    while (top->popup) top = top->popup;
+    for (const dgx_ui_t *tree = top; tree; tree = tree->under) {
+        const dgx_ui_node_t *n = live(tree, tree->focus);
+        if (n) return repeating(n->widget);
+    }
+    return false;
+}
+
 /* the next step of a held key. By difference: now_ms runs over in 49.7 days */
 static bool repeat(dgx_ui_t *ui, uint32_t now_ms)
 {
@@ -1016,8 +1049,8 @@ bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)
     bool           taken = false;
     ui->held             = held;
     repeat_step          = repeat;
-    /* the key repeating stops when its button is let go */
-    if (ui->repeat_key >= 0) {
+    /* the key repeating stops when its button is let go; the finger's is the finger's */
+    if (ui->repeat_key >= 0 && ui->repeat_key != REPEAT_FINGER) {
         bool still = false;
         for (int b = 0; b < 8; ++b)
             if ((held & (1u << b)) && keys[b] == ui->repeat_key) still = true;
@@ -1025,15 +1058,34 @@ bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)
     }
     for (int b = 0; b < 8; ++b) {
         if (!(went & (1u << b)) || keys[b] == 0xff) continue;
+        const bool held_repeats = repeats(keys[b]) || (keys[b] == DGX_UI_KEY_ACTIVATE && focus_repeats(ui)); /* before the key acts */
         taken |= dgx_ui_key(ui, keys[b]);
-        if (repeats(keys[b])) ui->repeat_key = (int8_t)keys[b], ui->repeat_at = now_ms + DGX_UI_REPEAT_FIRST_MS;
+        if (held_repeats) ui->repeat_key = (int8_t)keys[b], ui->repeat_at = now_ms + DGX_UI_REPEAT_FIRST_MS;
     }
     return taken;
+}
+
+/* the finger's repeat: the button of DGX_UI_REPEAT held in the chain from home told when its time comes; none held (let
+   go, swiped, its press spent), the repeat ends. By difference, and one after a stall, as a key's */
+static bool finger_step(dgx_ui_t *home, uint32_t now_ms)
+{
+    dgx_ui_t *tree = home;
+    while (tree && !(!tree->swiped && live(tree, tree->pressed) && repeating(NODE(tree, tree->pressed)->widget))) tree = tree->popup;
+    if (!tree) {
+        home->repeat_key = -1;
+        return false;
+    }
+    if ((int32_t)(now_ms - home->repeat_at) < 0) return true;
+    home->repeat_at += DGX_UI_REPEAT_MS;
+    if ((int32_t)(now_ms - home->repeat_at) >= 0) home->repeat_at = now_ms + DGX_UI_REPEAT_MS; /* a long stall: no burst */
+    tell(tree, tree->pressed, DGX_UI_ACTIVATED); /* nothing read after: its on() may remove it, or change the pages */
+    return true;
 }
 
 bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)
 {
     if (ui->repeat_key < 0) return false;
+    if (ui->repeat_key == REPEAT_FINGER) return finger_step(ui, now_ms);
     return repeat_step(ui, now_ms); /* a key is held only after dgx_ui_buttons(), which named the step */
 }
 
@@ -1113,8 +1165,6 @@ static void tell_chain(dgx_ui_t *home)
         if (live(told, 0)) tell(told, 0, what);
     }
 }
-
-static dgx_ui_t *home_of(dgx_ui_t *ui);
 
 /* the pages of home's place given its box, or the screen's while it names none, at the screen's size and turn: one
    whose rectangle changed is laid and drawn whole there, the place it left composed again; `tell`, the place itself

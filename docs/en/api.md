@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.35: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.36: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -159,6 +159,20 @@ of every member.
 | `DGX_UI_DRAG` | a button dragged up or down as well as clicked, as the knob of a scroll bar: `on()` is told `DGX_UI_CHANGED` at every move |
 | `DGX_UI_REST` | along the stacking of a column or a row it takes all the box has left after the other children, the gaps and the pads; several share it equally; never less than 0 |
 | `DGX_UI_CANVAS` | the widget has a canvas of its own, a picture kept from pass to pass: `dgx_ui_canvas()` |
+| `DGX_UI_REPEAT` | a button told `DGX_UI_ACTIVATED` again and again while it is held: a stepper's "+" |
+
+A button of `DGX_UI_REPEAT` is told `DGX_UI_ACTIVATED` when the finger goes down on it, and again every
+`DGX_UI_REPEAT_MS` from `DGX_UI_REPEAT_FIRST_MS` on while the finger holds it, wherever the finger goes: it stays
+pressed and looks so until the finger goes up. Nothing is told when it goes up, so a click is one
+`DGX_UI_ACTIVATED`. The key that activates, held on it while it has the focus (`dgx_ui_buttons()`), repeats the same
+way. The repeats come from `dgx_ui_time()`: a loop with such a button calls it at every turn and waits by
+`dgx_ui_wake()`; without the call the button is told once, at the press, and no more. The repeat ends when the
+finger goes up or the press is spent: a swipe told on it, the button hidden, disabled or removed, a popup opened
+over its tree. One repeats at a time, the last begun: a key held while the finger repeats takes over, and the
+other, still held, does not begin again when that one ends. `DGX_UI_PRESSED` set by the program shows the button
+pressed and repeats nothing, and a button also of `DGX_UI_DRAG` is the drag's and does not repeat. On any other kind
+the flag means nothing. With it all eight flags are taken. The recipe:
+[A stepper: minus, a value, plus](cookbook.md#a-stepper-minus-a-value-plus).
 
 **Events**: what `on()` is told in `what`.
 
@@ -315,7 +329,7 @@ its behaviour's `key`: [A look and a behaviour](#a-look-and-a-behaviour).
 | ---- | ------------ |
 | `bool dgx_ui_key(dgx_ui_t *ui, int key)` | A key given to the tree, or to its popup first; `true` when a widget took it. |
 | `bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)` | The buttons held now. Each that went down is its key; next, previous, more and less repeat while held. Call it at every tick with all the buttons held, also when the program itself acts on one: a button it did not see go down is a new press at the next call. `true` when a widget took a key. |
-| `bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)` | The time step of the logic: a held key repeats when its time comes. `true` while such a key is held: the loop asks for time. |
+| `bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)` | The time step of the logic: a held key repeats when its time comes, and a button of `DGX_UI_REPEAT` held by the finger, in the tree or in a popup over it, is told again. `true` while such a key or button is held: the loop asks for time. |
 | `void dgx_ui_focus(dgx_ui_t *ui, int i)` | The focus put on a widget, which is told `DGX_UI_FOCUS`; -1: on none. A widget that cannot take it (hidden, disabled, of the program's own without `DGX_UI_BEHAVIOR_FOCUS`): on none. |
 
 A held key repeats `DGX_UI_REPEAT_FIRST_MS`, 500 ms, after it went down, and every `DGX_UI_REPEAT_MS`, 100 ms, after.

@@ -17,7 +17,7 @@ include $(ROOT)/host/dgx_ui_host.mk
 CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
 WARN     := -Wall -Wextra -Wno-unused-parameter
 
-all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 check-werror check-lists $(if $(DGX_DI),run-test_di) check-cxx
+all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 check-werror check-lists $(if $(DGX_DI),run-test_di) check-cxx
 
 run-%: $(BUILD)/%
 	$<
@@ -185,6 +185,10 @@ $(BUILD)/test_place_page $(BUILD)/test_place_page18: $(BUILD)/test_place_page%: 
 $(BUILD)/test_picture_button $(BUILD)/test_picture_button18: $(BUILD)/test_picture_button%: test_picture_button.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -DPANEL_BITS=$(or $*,16) -o $@ test_picture_button.c $(PAINT) $(DGX_SRCS) -lm
+
+$(BUILD)/test_repeat $(BUILD)/test_repeat18: $(BUILD)/test_repeat%: test_repeat.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
+	mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -DPANEL_BITS=$(or $*,16) -o $@ test_repeat.c $(PAINT) $(DGX_SRCS) -lm
 
 $(BUILD)/test_shown: test_shown.c check.h $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)

@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.36 - 2026-11-20
+
+- A button of `DGX_UI_REPEAT` is told ACTIVATED when the finger goes down on it, then every 100 ms from 500 ms on
+  while it is held, by `dgx_ui_time()`, and not when it goes up; the key ACTIVATE held on it with the focus repeats too.
+
 ## 0.0.35 - 2026-11-20
 
 - A picture button, `dgx_ui_look_picture_button`: a button, a switch or a radio with a picture of 1 bit on the

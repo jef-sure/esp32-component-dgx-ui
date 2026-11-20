@@ -1549,6 +1549,51 @@ int main(int argc, char **argv)
         dgx_screen_destroy(&icon_screen);
     }
 
+    /* a stepper: a tap is a step; a finger held steps at the press and then every 100 ms from 500 ms on, to the end of the range */
+    {
+        static dgx_ui_node_t         step_nodes[6];
+        static const dgx_ui_widget_t step_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2};
+        dgx_ui_t                     steps;
+        dgx_screen_t                *step_screen = dgx_vscreen_init(120, 40, 16, DgxScreenRGB);
+        dgx_ui_paint_t               step_paint  = {.scr = step_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_init(&steps, step_nodes, 6, 1);
+        const int step_root = dgx_ui_add(&steps, -1, &step_root_w);
+        step_minutes = 15;
+        step_add(&steps, step_root);
+        dgx_ui_paint(&steps, &step_paint, 0);
+        /* the widgets as step_add() added them: the row, minus, the label, plus */
+        const dgx_ui_node_t *minus = dgx_ui_node(&steps, 2), *plus = dgx_ui_node(&steps, 4);
+        const int16_t        plus_x = (int16_t)(plus->x + plus->w / 2), plus_y = (int16_t)(plus->y + plus->h / 2);
+        const int16_t        minus_x = (int16_t)(minus->x + minus->w / 2), minus_y = (int16_t)(minus->y + minus->h / 2);
+        /* a tap on plus */
+        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .down = true, .pressed = true, .ms = 1000});
+        const int at_press = (int)step_minutes;
+        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .released = true, .ms = 1050});
+        dgx_ui_time(&steps, 1050);
+        const int after_tap = (int)step_minutes;
+        /* plus held for two seconds, the loop's step every 10 ms */
+        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .down = true, .pressed = true, .ms = 2000});
+        for (uint32_t now = 2000; now <= 4000; now += 10) dgx_ui_time(&steps, now);
+        const int      after_hold = (int)step_minutes;
+        const uint32_t wait_held  = dgx_ui_wake(NULL, &steps, 4000);
+        /* held on, past the end of the range */
+        for (uint32_t now = 4010; now <= 6000; now += 10) dgx_ui_time(&steps, now);
+        const int at_the_end = (int)step_minutes;
+        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .released = true, .ms = 6000});
+        dgx_ui_time(&steps, 6000);
+        const uint32_t wait_let_go = dgx_ui_wake(NULL, &steps, 6000);
+        /* minus, without the loop's step: once at the press and no more */
+        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = minus_x, .y = minus_y, .down = true, .pressed = true, .ms = 7000});
+        const int without_time = (int)step_minutes;
+        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = minus_x, .y = minus_y, .released = true, .ms = 9000});
+        dgx_ui_paint(&steps, &step_paint, 9000);
+        printf("stepper: from 15 a tap on plus: %d at the press, %d after the release; held for 2 s: %d (the press and 16 more of 5), the loop to wake in %u ms; held on: %d, "
+               "the end of the range; let go: the wait %s; minus held 2 s with no dgx_ui_time(): %d; the label \"%s\"\n",
+               at_press, after_tap, after_hold, (unsigned)wait_held, at_the_end, wait_let_go == DGX_UI_WAKE_NONE ? "none" : "SOME", without_time, step_buf);
+        dgx_ui_paint_free(&step_paint), dgx_ui_free(&steps);
+        dgx_screen_destroy(&step_screen);
+    }
+
     puts("cookbook: ran to the end");
     return 0;
 }

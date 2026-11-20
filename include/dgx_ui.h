@@ -140,7 +140,21 @@ enum {
     DGX_UI_CANVAS  = 1u << 5, ///< the widget has a canvas of its own, made after the layout
     DGX_UI_REST    = 1u << 6, ///< along the stacking of a column or a row, all the box has left after the others, the
                               ///< gaps and the pads; several share it, the last taking the odd pixels; never below 0
+    DGX_UI_REPEAT  = 1u << 7, ///< a button told DGX_UI_ACTIVATED again and again while it is held (below): a stepper's "+"
 };
+
+/*
+ * DGX_UI_REPEAT: a button told DGX_UI_ACTIVATED when the finger goes down on it, and again every DGX_UI_REPEAT_MS from
+ * DGX_UI_REPEAT_FIRST_MS on while the finger holds it, wherever the finger goes, as it stays pressed and looks so till
+ * the finger goes up; nothing told when it goes up, so a click is one ACTIVATED. The key ACTIVATE held on it while it
+ * has the focus (dgx_ui_buttons()) repeats the same way. The repeats come from dgx_ui_time(): a loop with such a button
+ * calls it at every turn and waits by dgx_ui_wake(); without it the button is told once, at the press, and no more. It
+ * ends when the finger goes up, or the press is spent: a swipe told on it, the button hidden, disabled or removed, a
+ * popup opened over its tree. One repeats at a time, the last begun: a key held while the finger repeats takes over,
+ * and the other, still held, does not begin again when that one ends. DGX_UI_PRESSED set by the program
+ * (dgx_ui_set_state()) shows it pressed and repeats nothing; a button also of DGX_UI_DRAG is the drag's and does not
+ * repeat. The flags are all taken with this one.
+ */
 
 /** Marks of a widget, dgx_ui_widget_t::marks: set by the library only. */
 enum {
@@ -668,8 +682,9 @@ bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms);
 void dgx_ui_button_keys(dgx_ui_t *ui, const uint8_t *keys);
 
 /**
- * @brief The time step of the logic: a held key repeats when its time comes.
- * @return true while a key is held that repeats: the loop asks for time.
+ * @brief The time step of the logic: a held key repeats when its time comes, and a button of DGX_UI_REPEAT held by the
+ * finger (in home or in a popup over it) is told again.
+ * @return true while a key or such a button is held that repeats: the loop asks for time.
  */
 bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms);
 

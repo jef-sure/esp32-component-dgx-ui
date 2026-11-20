@@ -14,6 +14,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A button](#a-button)
 - [A caption from a string constant](#a-caption-from-a-string-constant)
 - [A slider and a switch](#a-slider-and-a-switch)
+- [A stepper: minus, a value, plus](#a-stepper-minus-a-value-plus)
 - [A list](#a-list)
 - [A dropdown](#a-dropdown)
 - [One of several, and a tick](#one-of-several-and-a-tick)
@@ -307,6 +308,72 @@ static void backlight_show(int percent)
 - With the flag `DGX_UI_SWIPE` a slider moves by the way the finger goes from where it went down, not to where the
   finger is: a wide strip that is easy to hit.
 - With the keys, more and less move a slider by its step and set a switch.
+
+## A stepper: minus, a value, plus
+
+A value set by small steps and exactly: minutes, a threshold. Two buttons and a label over one variable. The buttons
+are of `DGX_UI_REPEAT`: a tap is a step, and a finger held goes on stepping.
+
+1. The user taps "+". The button is told `DGX_UI_ACTIVATED` as the finger goes down: 15 becomes 20, and the label
+   shows it. Nothing more is told when the finger goes up.
+2. The user holds "+". The first step comes at the press; half a second later the next, and then one every 100 ms:
+   in two seconds, the press and sixteen more.
+3. At 120 the button's `on()` changes nothing more, though it is told on. The user lets go.
+
+```c
+static int32_t step_minutes = 15; /* the value: 0 to 120 by 5 */
+
+static dgx_ui_textbox_t step_minus_box = DGX_UI_TEXT_CONST("-", 1, &st_centre), step_plus_box = DGX_UI_TEXT_CONST("+", 1, &st_centre);
+static char             step_buf[8];
+static dgx_ui_textbox_t step_box;
+static int              step_label = -1; /* the number of the label in its tree, kept when the stepper is built */
+
+/* a button of the stepper: its ctx is the step it makes, -5 or 5. Told at the press and at every repeat */
+static void on_step(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what != DGX_UI_ACTIVATED) return;
+    int32_t next = step_minutes + (int32_t)(intptr_t)ctx;
+    if (next < 0) next = 0;
+    if (next > 120) next = 120;
+    if (next == step_minutes) return; /* at an end of the range: held, it changes nothing */
+    step_minutes = next;
+    dgx_ui_text_printf(ui, step_label, "%d min", (int)step_minutes);
+}
+
+static const dgx_ui_widget_t step_row_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
+static const dgx_ui_widget_t step_minus_w = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_minus_box, .look = &dgx_ui_look_button, .on = on_step,
+    .ctx = (void *)-5};
+static const dgx_ui_widget_t step_value_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .at_y = 2, .text = &step_box};
+static const dgx_ui_widget_t step_plus_w  = {
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_plus_box, .look = &dgx_ui_look_button, .on = on_step,
+    .ctx = (void *)5};
+
+static void step_add(dgx_ui_t *ui, int parent)
+{
+    dgx_ui_textbox_init(&step_box, step_buf, sizeof step_buf, 1, &st_centre);
+    const int row = dgx_ui_add(ui, parent, &step_row_w);
+    dgx_ui_add(ui, row, &step_minus_w);
+    step_label = dgx_ui_add(ui, row, &step_value_w);
+    dgx_ui_add(ui, row, &step_plus_w);
+    dgx_ui_text_printf(ui, step_label, "%d min", (int)step_minutes);
+}
+```
+
+- **The loop makes the repeats.** They come from `dgx_ui_time()`: the loop calls it at every turn and waits by
+  `dgx_ui_wake()`, as the loop of [A loop that sleeps till the next moment](#a-loop-that-sleeps-till-the-next-moment)
+  does. Without the call a button of `DGX_UI_REPEAT` steps once, at the press, and no more.
+- **Held is pressed.** The repeat goes on wherever the finger goes, as the button stays pressed and looks so until
+  the finger is lifted. It ends when the finger goes up, at a swipe, and when the button is hidden, disabled or
+  removed or a popup opens over its tree.
+- **The range** is the buttons' own business: here their `on()` keeps the value within 0 and 120.
+- **By the keys** the key that activates, held on the button that has the focus, repeats the same way
+  (`dgx_ui_buttons()`).
+- **One repeats at a time**, the last begun: a key held while the finger repeats takes over, and when it is let go
+  the finger's does not begin again.
+- **With pictures** the two buttons are drawn by `dgx_ui_look_picture_button`:
+  [A button of a picture](#a-button-of-a-picture).
+- **What it costs**: about 0.25 KB in a program with a finger that calls `dgx_ui_time()`.
 
 ## A list
 
@@ -2605,7 +2672,8 @@ static void ui_loop_asleep(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t qu
 ```
 
 - **`dgx_ui_wake()`** returns how many milliseconds the loop may wait: the least of what the looks named at the last
-  pass, counted from `now`, and of the next repeat of a held key. `DGX_UI_WAKE_NONE` means nobody asks.
+  pass, counted from `now`, and of the next repeat of a held key or of a button of `DGX_UI_REPEAT` under the
+  finger. `DGX_UI_WAKE_NONE` means nobody asks.
 - **0 means the next pass**: a look asked for time and named no moment. The wait is then a tick, never nothing: a
   loop that does not wait at all spins.
 - **A message wakes the loop sooner**; the next pass names the moments again.
