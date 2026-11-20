@@ -5,7 +5,8 @@
  * shown and hidden, a radio of the group in the popup, a caption over a constant pointed at another and told, a page
  * opened and gone back from, the popup opened over the top of the chain, a popup closed from the middle of it; a level
  * bar of the library on the slider's place, and a ring scale with a child in it; a picture button and a toggle of two
- * pictures on the switch's place; the button repeating while a finger holds it, the time stepped at every step; home's pages put in a place of it and
+ * pictures on the switch's place; the button repeating while a finger holds it, the time stepped at every step; an
+ * idle of 200 ms named, its 1 and 0 told to home's root by turns, 1 first; home's pages put in a place of it and
  * on the screen again, the place's box removed and added again, by the script and from within the roots' on(), the
  * slider above the place in the bar the pages leave. Each seed in two modes: on the paper straight, and over a drawn background with the strips
  * named. After every pass: no pixel written twice, and the panel is the tree composed anew by a fresh paint, the
@@ -23,6 +24,7 @@
 #include "check.h"
 #include "dgx_draw.h"
 #include "dgx_image.h"
+#include "dgx_ui_msg.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_text.h"
 #include "dgx_vscreen.h"
@@ -87,7 +89,17 @@ static void on_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
     --acting_depth;
 }
 
-static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .on = on_root, .ctx = (void *)(intptr_t)HOME_TREE};
+/* the idle's messages heard by home's root: by turns, 1 first */
+enum { IDLE_WHAT = 91 };
+static int  idle_told[2], idle_out_of_turn, idle_last = 0;
+static bool idle_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
+{
+    if (msg->what != IDLE_WHAT) return false;
+    const int byte = msg->bytes[0];
+    idle_out_of_turn += byte != !idle_last, idle_last = byte, ++idle_told[byte & 1];
+    return true;
+}
+static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .on = on_root, .ctx = (void *)(intptr_t)HOME_TREE, .take = idle_take};
 static const dgx_ui_widget_t note_w   = {.kind = DGX_UI_LABEL, .text = &note_box, .look = &dgx_ui_look_lines};
 static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &level, .look = &dgx_ui_look_slider};
 static const dgx_ui_widget_t bar_w    = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level, .look = &bar_look};
@@ -208,6 +220,9 @@ int main(void)
             dgx_ui_add(&ui, dgx_ui_add(&ui, line, &ring_w), &dot_w); /* the library's ring scale of the slider's place, a child in it */
             caption_box.buf   = (char *)captions[0];
             home_tree = &ui, place_at = dgx_ui_add(&ui, 0, &place_w), roots_act = false;
+            static dgx_ui_idle_t idle;
+            idle = (dgx_ui_idle_t){.after_ms = 200, .what = IDLE_WHAT, .wake_acts = s % 2}, idle_last = 0;
+            dgx_ui_idle(&ui, &idle, 0);
             const int list = dgx_ui_add(&ui, 0, &list_w), group = dgx_ui_add(&ui, 0, &group_w);
             int       radio[3];
             for (int k = 0; k < 3; ++k) radio[k] = dgx_ui_add(&ui, group, &radio_w[k]);
@@ -362,7 +377,10 @@ int main(void)
         CHECK(faulty_seeds == 0);
         CHECK(unquiet_seeds == 0);
         CHECK(steps_in_place > 100 && roots_acted > 20 && steps_repeating > 100); /* the place, the roots' acts, the repeat reached */
-        if (drawn_background) printf("test_random: %d steps with the page in the place, %d acts of the roots, %d steps repeating\n", steps_in_place, roots_acted, steps_repeating);
+        CHECK(idle_out_of_turn == 0 && idle_told[1] > 20 && idle_told[0] > 20); /* the idle told by turns, often enough */
+        if (drawn_background)
+            printf("test_random: %d steps with the page in the place, %d acts of the roots, %d steps repeating, idle told %d times and woken %d\n", steps_in_place, roots_acted,
+                   steps_repeating, idle_told[1], idle_told[0]);
         CHECK(unsaid_seeds == 0);
     }
     CHECK_DONE();

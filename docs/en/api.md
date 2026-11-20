@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.37: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.38: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -329,7 +329,7 @@ its behaviour's `key`: [A look and a behaviour](#a-look-and-a-behaviour).
 | ---- | ------------ |
 | `bool dgx_ui_key(dgx_ui_t *ui, int key)` | A key given to the tree, or to its popup first; `true` when a widget took it. |
 | `bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)` | The buttons held now. Each that went down is its key; next, previous, more and less repeat while held. Call it at every tick with all the buttons held, also when the program itself acts on one: a button it did not see go down is a new press at the next call. `true` when a widget took a key. |
-| `bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)` | The time step of the logic: a held key repeats when its time comes, and a button of `DGX_UI_REPEAT` held by the finger, in the tree or in a popup over it, is told again. `true` while such a key or button is held: the loop asks for time. |
+| `bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)` | The time step of the logic: a held key repeats when its time comes, and a button of `DGX_UI_REPEAT` held by the finger, in the tree or in a popup over it, is told again; the user's idle, when the program named one for this tree, is judged and told. `true` while such a key or button is held: the loop asks for time. |
 | `void dgx_ui_focus(dgx_ui_t *ui, int i)` | The focus put on a widget, which is told `DGX_UI_FOCUS`; -1: on none. A widget that cannot take it (hidden, disabled, of the program's own without `DGX_UI_BEHAVIOR_FOCUS`): on none. |
 
 A held key repeats `DGX_UI_REPEAT_FIRST_MS`, 500 ms, after it went down, and every `DGX_UI_REPEAT_MS`, 100 ms, after.
@@ -382,6 +382,50 @@ static const uint8_t row_keys[8] = {
   default back.
 - It is the table of the tree given to `dgx_ui_buttons()`. The keys it gives go to the popups over that tree as any
   key does.
+
+### The user's idle
+
+```c
+typedef struct dgx_ui_idle_t {
+    uint32_t after_ms;  /* the program's: idle after so long with nothing of the user; 0: never */
+    int      what;      /* the program's: the number of the message told to home */
+    bool     wake_acts; /* the program's: the input that wakes it acts as any other; false: it is spent */
+    bool     idle;      /* for the program to read: idle now */
+    /* the rest is the library's */
+} dgx_ui_idle_t;
+```
+
+| Call | What it does |
+| ---- | ------------ |
+| `void dgx_ui_idle(dgx_ui_t *home, dgx_ui_idle_t *idle, uint32_t now_ms)` | Names the program's idle, one for the whole program, counted from `now_ms`; `home` is the tree whose `dgx_ui_time()` tells of it. The same struct named again is counted anew, and told 0 at home's next step if it had been told 1. Another struct named takes its place. `NULL`: no idle, nothing more is told or spent. The struct dropped reads `idle` false from then on. |
+| `uint32_t dgx_ui_idle_for(const dgx_ui_idle_t *idle, uint32_t now_ms)` | The milliseconds since the user's last input; 0 while a key or typed characters wait for the next `dgx_ui_time()`. |
+
+The user is a finger on the screen, a button of the pad held, gone down or let go, a key, typed code points, given
+to any tree of the program: home, the popups and pages over it, another home. A finger is on the screen and a button
+is held as the last report of each has it, so a source that reports changes alone keeps the idle away while the
+finger rests. A `dgx_ui_pointer()` that reports no finger is not the user.
+
+When nothing of the user has come for `after_ms`, home's `dgx_ui_time()` sets `idle` and offers home's trees a
+message of the number `what` with one byte, 1, as a ticker's message is offered: a widget hears of it in its
+`take()`. The first input after that wakes it: `idle` is false at once, and home's next `dgx_ui_time()` offers the
+same message with the byte 0. Both are told by `dgx_ui_time()` of home alone, in home's task, also when the input
+came to a tree of another task.
+
+The input that wakes it is spent while `wake_acts` is false, as it is at that moment: the finger's whole gesture
+from its press to its release reaches no tree, the key and the code points of that call go nowhere, and the buttons
+of the pad held then give no key until each is let go. Every such call returns `true`, `dgx_ui_buttons()` in the
+call that spends the buttons. A new press, or a report of no finger, ends a gesture whose release never came. With
+`wake_acts` set the waking input acts as any other: for a screen that is only dimmed, where the user sees the
+button under the finger.
+
+A key and code points carry no time: they are counted at the next `dgx_ui_time()`, so the loop gives the inputs
+first and the time after. `dgx_ui_wake()` gives the moment the idle comes, as it gives a repeat's, and
+`dgx_ui_time()` does not return `true` for it: a loop that does not wait by `dgx_ui_wake()` hears of the idle when
+it next turns. `after_ms` may be changed while it runs. The backlight, and what the screen shows meanwhile, are the
+program's: [Dim the screen when nobody touches it](cookbook.md#dim-the-screen-when-nobody-touches-it).
+
+A program that names no idle carries a test of a pointer in each input call it makes and in `dgx_ui_time()`; one
+that names it, about 1 KB more.
 
 ### A look and a behaviour
 
@@ -817,7 +861,7 @@ library's laying of a picture; `dgx_ui_background_set()` names it, the program d
 | Call | What it does |
 | ---- | ------------ |
 | `void dgx_ui_wake_in(dgx_ui_paint_t *paint, uint32_t ms)` | For a look that returns `true`: it asks to be called again no sooner than in `ms`. A look that asks for time and names nothing is called at the next pass. A look names its moment again at every pass it is drawn. |
-| `uint32_t dgx_ui_wake(const dgx_ui_paint_t *paint, const dgx_ui_t *ui, uint32_t now_ms)` | For the loop: how long it may wait before the next pass, the least of the moments the looks named at the last `dgx_ui_paint()` and of the next repeat of a key held. 0: the next pass, and the loop waits a tick, not nothing. `DGX_UI_WAKE_NONE`: nobody asks, the loop waits for a message. Two trees drawn in turn by one paint are painted with the same `now_ms`; asked after the last of them, it gives the least moment of all. |
+| `uint32_t dgx_ui_wake(const dgx_ui_paint_t *paint, const dgx_ui_t *ui, uint32_t now_ms)` | For the loop: how long it may wait before the next pass, the least of the moments the looks named at the last `dgx_ui_paint()`, of the next repeat of a key or of a button of `DGX_UI_REPEAT` held, and of the moment the user's idle comes. 0: the next pass, and the loop waits a tick, not nothing. `DGX_UI_WAKE_NONE`: nobody asks, the loop waits for a message. Two trees drawn in turn by one paint are painted with the same `now_ms`; asked after the last of them, it gives the least moment of all. |
 
 `wake_ms` of the paint is the least of the moments named at the last pass, from its `now_ms`; `wake_named` is the
 painter's own, and so is `painted`, set once the paint drew a pass. Both calls are inlines of the header. The recipe is

@@ -36,6 +36,20 @@ __attribute__((always_inline)) static inline int32_t dgx_ui_shown_inline(const d
 }
 int32_t dgx_ui_shown(const dgx_ui_node_t *n);
 
+/* the user's idle (dgx_ui_idle.c), named by dgx_ui_idle(): the input calls and dgx_ui_time() reach it only through this
+   pointer, so a program that names none carries its tests alone. An input of a kind below, at ms (0: none known), the
+   pointer's state for the finger, the pad's buttons held, which it may take away while they are spent; true: the
+   input is spent. REPEAT_ENDED: a repeat of the tree ended, the idle's moment put back in its two members, nothing
+   told */
+enum { DGX_UI_INPUT_FINGER, DGX_UI_INPUT_BUTTONS, DGX_UI_INPUT_KEY, DGX_UI_INPUT_TYPED, DGX_UI_INPUT_REPEAT_ENDED };
+extern bool (*dgx_ui_idle_hook)(dgx_ui_t *ui, int input, uint32_t ms, const dgx_ui_pointer_t *p, uint32_t *held);
+/* the idle's step of dgx_ui_time(), named with the hook: of two arguments, as it is in every loop */
+extern void (*dgx_ui_idle_step)(dgx_ui_t *ui, uint32_t now_ms);
+
+/* repeat_key past the keys: the idle's moment (its time repeat_at, read by dgx_ui_wake() as a repeat's), the finger's
+   repeat */
+enum { DGX_UI_REPEAT_IDLE = 0x7e, DGX_UI_REPEAT_FINGER = 0x7f };
+
 /* every widget whose place holds other than what was drawn marked: called by the painter before a pass */
 void dgx_ui_places(dgx_ui_t *ui);
 

@@ -349,7 +349,7 @@ covers; a dialog or a list leaves the tree under it seen. See
 | a text box | 28 bytes and the program's buffer |
 | a tree, `dgx_ui_t` | 104 bytes |
 | the code of the smallest program, one label fed by a message | about 8 KB |
-| the library's own RAM | a pointer of 4 bytes for each of three: a text set, keys or a popup, the loop calling `dgx_ui_time()`; and a byte in a look that warns once in the log |
+| the library's own RAM | pointers of 4 bytes, through which a program reaches only what it names: five in the program of Getting started, 20 bytes (a text set, the place of pages, and three for the loop's `dgx_ui_time()`: the key's repeat, the finger's, the user's idle); a few more with keys, popups and input; and a byte in a look that warns once in the log |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB |
 | the roots told when their trees come to the screen and leave it, when the program opens a popup | about 0.65 KB |
 | the look of several lines, when named | about 2.5 KB |

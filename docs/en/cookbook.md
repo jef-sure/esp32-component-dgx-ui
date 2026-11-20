@@ -2672,14 +2672,128 @@ static void ui_loop_asleep(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t qu
 ```
 
 - **`dgx_ui_wake()`** returns how many milliseconds the loop may wait: the least of what the looks named at the last
-  pass, counted from `now`, and of the next repeat of a held key or of a button of `DGX_UI_REPEAT` under the
-  finger. `DGX_UI_WAKE_NONE` means nobody asks.
+  pass, counted from `now`, of the next repeat of a held key or of a button of `DGX_UI_REPEAT` under the
+  finger, and of the moment the user's idle comes, when the program named one:
+  [Dim the screen when nobody touches it](#dim-the-screen-when-nobody-touches-it). `DGX_UI_WAKE_NONE` means
+  nobody asks.
 - **0 means the next pass**: a look asked for time and named no moment. The wait is then a tick, never nothing: a
   loop that does not wait at all spins.
 - **A message wakes the loop sooner**; the next pass names the moments again.
 - **A look of your own** names its moment by `dgx_ui_wake_in(paint, ms)` before it returns `true`. Without that it
   is called at the next pass, as before.
 - The loop that asks only what `dgx_ui_paint()` and `dgx_ui_time()` return works as it did.
+
+## Dim the screen when nobody touches it
+
+Nobody has touched the device for half a minute: the program dims the backlight. Two minutes: it turns the
+backlight off. A touch brings the light back. `dgx_ui_idle()` keeps the time of the user's last input, one for the
+whole program, and tells when it has been long enough; the backlight is the program's.
+
+```c
+enum { MSG_SCREEN_IDLE = 21, DIM_AFTER_MS = 30000, DARK_AFTER_MS = 120000 };
+enum { SCREEN_LIT, SCREEN_DIMMED, SCREEN_DARK };
+
+static dgx_ui_idle_t screen_idle  = {.after_ms = DIM_AFTER_MS, .what = MSG_SCREEN_IDLE, .wake_acts = true};
+static int           screen_light = SCREEN_LIT;
+
+/* at the start, when home is built: the time is counted from now */
+static void screen_idle_start(dgx_ui_t *home, uint32_t now_ms)
+{
+    dgx_ui_idle(home, &screen_idle, now_ms);
+}
+
+/* in the loop, after dgx_ui_time(): the light follows the idle. Returns in how many ms the screen goes dark,
+   DGX_UI_WAKE_NONE when no such moment is ahead: the loop waits no longer than that */
+static uint32_t screen_light_step(uint32_t now_ms)
+{
+    int      light   = SCREEN_LIT;
+    uint32_t to_dark = DGX_UI_WAKE_NONE;
+    if (screen_idle.idle) {
+        const uint32_t untouched = dgx_ui_idle_for(&screen_idle, now_ms);
+        light = untouched >= DARK_AFTER_MS ? SCREEN_DARK : SCREEN_DIMMED;
+        if (light == SCREEN_DIMMED) to_dark = DARK_AFTER_MS - untouched;
+    }
+    if (light != screen_light) {
+        screen_light = light;
+        backlight_set(light == SCREEN_LIT ? (int)backlight_percent : light == SCREEN_DIMMED ? (int)backlight_percent / 4 : 0);
+        screen_idle.wake_acts = light != SCREEN_DARK; /* a dark screen shows no button: the touch that wakes it presses none */
+    }
+    return to_dark;
+}
+
+/* the loop of "A loop that sleeps till the next moment", with the idle */
+static void ui_loop_with_idle(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
+{
+    TickType_t wait = 0;
+    screen_idle_start(ui, (uint32_t)(esp_timer_get_time() / 1000));
+    for (;;) {
+        dgx_ui_msg_t msg;
+        while (xQueueReceive(queue, &msg, wait) == pdTRUE) {
+            wait = 0;
+            dgx_ui_take(ui, &msg); /* the program's own messages, the touch's and the buttons' among them, are handled here */
+            dgx_ui_msg_done(&msg);
+        }
+        const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+        dgx_ui_time(ui, now);
+        const uint32_t to_dark = screen_light_step(now);
+        dgx_ui_paint(ui, paint, now);
+        uint32_t ms = dgx_ui_wake(paint, ui, now);
+        if (to_dark < ms) ms = to_dark;
+        wait = ms == DGX_UI_WAKE_NONE ? portMAX_DELAY : pdMS_TO_TICKS(ms) > 0 ? pdMS_TO_TICKS(ms) : 1;
+    }
+}
+```
+
+What happens:
+
+1. The user sets the temperature and walks away. `dgx_ui_wake()` has given the loop the moment the idle comes, 30
+   seconds after the last touch, and the loop sleeps till then. It wakes, `dgx_ui_time()` sets `screen_idle.idle`
+   and offers home the message `MSG_SCREEN_IDLE` with the byte 1. `screen_light_step()` dims the backlight to a
+   quarter and returns 90 000: the loop sleeps that long.
+2. Nobody comes. The loop wakes 90 seconds later, `dgx_ui_idle_for()` gives 120 000, and `screen_light_step()` turns
+   the backlight off and clears `wake_acts`. Nothing is ahead now: the loop sleeps till a message.
+3. A finger touches the dark screen, on a button as it happens. The touch wakes the idle and is spent: the button is
+   not pressed, from the finger's going down to its going up. `screen_idle.idle` is false at once; the next
+   `dgx_ui_time()` offers home the message with the byte 0, and `screen_light_step()` gives the light back.
+4. Had the finger come while the screen was only dimmed, the button under it would have been pressed: the user saw
+   it, and `wake_acts` was set.
+
+What to know of it:
+
+- **What counts as the user**: a finger on the screen, a button of the board, a key, a typed character, in any tree
+  of the program: home, its popups and pages, another home. A finger that rests on the screen keeps the idle away,
+  also when the touch reports changes alone. A pointer that reports no finger does not count.
+- **The inputs first, the time after.** A key and typed characters carry no time; they are counted at the next
+  `dgx_ui_time()`. The loops of this page are in that order.
+- **One stage** needs less: name the idle and read `screen_idle.idle` after `dgx_ui_time()`; no
+  `dgx_ui_idle_for()` and no wait of the program's own. Leave `wake_acts` false for a screen that goes dark at
+  once.
+- **The time as a setting**: `after_ms` may be changed while the program runs, and 0 means never.
+  `dgx_ui_idle(home, NULL, now)` takes the idle away.
+- **A button of the board that is the program's own**, as "back": `dgx_ui_buttons()` returns `true` in the call
+  that spent the waking press, so `if (!dgx_ui_buttons(...) && back_went_down)` does not go back on it.
+- **A widget hears of it too.** The message goes to home's trees as a ticker's does, to the popups and pages over
+  home as well. A saver page is a root's `take()` that opens a page at 1 and closes it at 0:
+
+```c
+static dgx_ui_t saver_page; /* built as any page; home's root names saver_take as its .take */
+
+/* the take() of home's root: the saver over whatever is open when the idle comes, away when the user wakes it */
+static bool saver_take(dgx_ui_t *home, int i, const dgx_ui_msg_t *msg)
+{
+    if (msg->what != MSG_SCREEN_IDLE) return false;
+    if (msg->bytes[0]) dgx_ui_page_open(home, &saver_page);
+    else dgx_ui_page_back(home);
+    return false; /* not claimed: the trees over home hear of it too */
+}
+```
+
+  The touch that wakes it closes the saver and presses nothing under it: it is spent, or with `wake_acts` it goes
+  to the saver's page, which lies over home.
+- **A loop that does not wait by `dgx_ui_wake()`** hears of the idle when it next turns: `dgx_ui_time()` asks for
+  no time for it.
+- **What it costs**: about 1 KB for a program that names an idle, and a struct of 28 bytes. A program that names
+  none carries a test of a pointer in each input call it makes and in `dgx_ui_time()`.
 
 ## How long a pass takes
 

@@ -688,6 +688,51 @@ void dgx_ui_button_keys(dgx_ui_t *ui, const uint8_t *keys);
  */
 bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms);
 
+/**
+ * @brief The user's idle, one for the program: nothing of the user for after_ms, no finger on the screen, no button of
+ * the pad held, gone down or let go, no key and no code point, in any tree of the program; a finger on the screen and a
+ * button held as the last report of each has it (dgx_ui_pointer(), dgx_ui_buttons()), so that a source that reports
+ * changes alone keeps the idle away under them, and dgx_ui_pointer() reporting no finger is not the user. When it
+ * comes, home's trees are offered a message of the program's number, `what`, its one byte 1, as a ticker's are
+ * (dgx_ui_take()); when the user wakes it, the same with 0. Both are told by dgx_ui_time() of home alone, in home's
+ * task, a wake by another tree's input at home's next step. A widget hears of it by its take(), the loop by reading
+ * `idle` after dgx_ui_time(), or the time itself by dgx_ui_idle_for(): to dim the screen, turn it off, show a saver
+ * page, lock, go back to the first page; the backlight is the program's.
+ *
+ * The input that wakes it is spent while wake_acts is false, as it is read at that moment: the finger's whole gesture
+ * from its press to its release goes to no tree (nothing pressed, nothing told), the key and the code points of that
+ * call go nowhere, the pad's buttons held then give no key till they are let go; each such call answers true, taken,
+ * dgx_ui_buttons() in the call that spends them. A new press, or a report of no finger, ends a gesture whose release
+ * never came. With wake_acts the waking input acts as any: the program sets it while
+ * the screen is only dimmed and its buttons show, and clears it once the screen is dark.
+ *
+ * A key and code points carry no time: they are counted at the next dgx_ui_time(), so the loop calls the inputs first
+ * and the time after. dgx_ui_wake() gives the moment the idle comes, as a repeat's, and dgx_ui_time() asks for no time
+ * for it: a loop that does not wait by dgx_ui_wake() hears of the idle when it next turns. A program that names no idle
+ * carries a test of a pointer in each of those calls.
+ */
+typedef struct dgx_ui_idle_t {
+    uint32_t after_ms;  ///< the program's: idle after so long with nothing of the user; 0, never
+    int      what;      ///< the program's: the number of the message told to home, its byte 1 when the idle comes, 0 when woken
+    bool     wake_acts; ///< the program's, read at the wake: the waking input acts as any; false, it is spent
+    bool     idle;      ///< the program's to read: idle now, from the message's 1 till the input that wakes it
+    /* the library's alone */
+    bool      woken, told, spending, unstamped, finger_down, buttons_held;
+    uint8_t   spent_buttons;
+    dgx_ui_t *home;
+    uint32_t  last_ms;
+} dgx_ui_idle_t;
+
+/**
+ * @brief The program's idle named, counted from now; home's dgx_ui_time() tells it. The same named again is counted
+ * anew from now, and told 0 at home's next step if it was told 1; another named in its place drops it, telling it
+ * nothing more. NULL: no idle, nothing more told or spent. The one dropped reads `idle` false from then on.
+ */
+void dgx_ui_idle(dgx_ui_t *home, dgx_ui_idle_t *idle, uint32_t now_ms);
+
+/** @brief The milliseconds since the user's last input; 0 while one of no time waits for the next dgx_ui_time(). */
+uint32_t dgx_ui_idle_for(const dgx_ui_idle_t *idle, uint32_t now_ms);
+
 /** @brief The focus put on a widget (-1: none); its on() told DGX_UI_FOCUS. */
 void dgx_ui_focus(dgx_ui_t *ui, int i);
 

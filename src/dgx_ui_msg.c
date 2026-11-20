@@ -117,6 +117,7 @@ static int utf8_of(uint32_t c, char *out)
 
 bool dgx_ui_typed(dgx_ui_t *ui, const uint32_t *code_points, int count)
 {
+    if (dgx_ui_idle_hook && !ui->under && dgx_ui_idle_hook(ui, DGX_UI_INPUT_TYPED, 0, NULL, NULL)) return true; /* spent */
     if (ui->popup && dgx_ui_typed(ui->popup, code_points, count)) return true; /* a field of the popup first */
     const dgx_ui_widget_t *w = ui->focus >= 0 ? dgx_ui_widget(ui, ui->focus) : NULL;
     if (!w || w->kind != DGX_UI_INPUT || !w->text || !w->text->buf || w->text->size < 1) return false;

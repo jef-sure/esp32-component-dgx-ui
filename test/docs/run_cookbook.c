@@ -1594,6 +1594,98 @@ int main(int argc, char **argv)
         dgx_screen_destroy(&step_screen);
     }
 
+    /* the screen dimmed after 30 s with nobody and dark after 2 min, by a loop that sleeps what dgx_ui_wake() and the
+       second stage say; a tap while dark is spent, a tap while dimmed presses; then a saver page by the root's take() */
+    {
+        static dgx_ui_node_t         rest_nodes[3], saver_home_nodes[3], saver_nodes[2];
+        static const dgx_ui_widget_t rest_root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2};
+        static const dgx_ui_widget_t saver_home_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .take = saver_take};
+        static const dgx_ui_widget_t rest_button_w = {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 14, .look = &dgx_ui_look_button};
+        static const dgx_ui_widget_t saver_root_w  = {.kind = DGX_UI_BOX};
+        dgx_ui_t                     rest_home, saver_home;
+        dgx_screen_t                *rest_screen = dgx_vscreen_init(120, 60, 16, DgxScreenRGB);
+        dgx_ui_paint_t               rest_paint  = {.scr = rest_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_init(&rest_home, rest_nodes, 3, 1);
+        dgx_ui_add(&rest_home, -1, &rest_root_w);
+        const int rest_button = dgx_ui_add(&rest_home, 0, &rest_button_w);
+        backlight_percent = 80, backlight = -1;
+        uint32_t now = 5000;
+        dgx_ui_paint(&rest_home, &rest_paint, now);
+        const dgx_ui_node_t *rest_place = dgx_ui_node(&rest_home, rest_button);
+        const int16_t        rest_x = (int16_t)(rest_place->x + rest_place->w / 2), rest_y = (int16_t)(rest_place->y + rest_place->h / 2);
+        const uint32_t       named_at = now;
+        screen_idle_start(&rest_home, now);
+        /* the loop of the recipe on a clock of its own: the time, the light, the pass, asleep for the least of the two waits */
+        uint32_t dimmed_at = 0, dark_at = 0;
+        int      turns = 0, dimmed_light = -1;
+        for (; turns < 20; ++turns) {
+            dgx_ui_time(&rest_home, now);
+            const uint32_t to_dark = screen_light_step(now);
+            dgx_ui_paint(&rest_home, &rest_paint, now);
+            if (screen_light == SCREEN_DIMMED && !dimmed_at) dimmed_at = now, dimmed_light = backlight;
+            if (screen_light == SCREEN_DARK) {
+                dark_at = now;
+                break;
+            }
+            uint32_t ms = dgx_ui_wake(&rest_paint, &rest_home, now);
+            if (to_dark < ms) ms = to_dark;
+            if (ms == DGX_UI_WAKE_NONE) break;
+            now += ms ? ms : 1;
+        }
+        const int      dark_light  = backlight;
+        const uint32_t dark_wait   = dgx_ui_wake(&rest_paint, &rest_home, now);
+        /* a tap on the button while dark: spent */
+        now += 60000;
+        const bool dark_taken = dgx_ui_pointer(&rest_home, &(dgx_ui_pointer_t){.x = rest_x, .y = rest_y, .down = true, .pressed = true, .ms = now});
+        const bool dark_press = dgx_ui_node(&rest_home, rest_button)->state.bits & DGX_UI_PRESSED;
+        dgx_ui_pointer(&rest_home, &(dgx_ui_pointer_t){.x = rest_x, .y = rest_y, .released = true, .ms = now + 80});
+        now += 100;
+        dgx_ui_time(&rest_home, now), screen_light_step(now);
+        const int lit_light = backlight;
+        /* half a minute on: dimmed again; a tap then presses the button */
+        now += dgx_ui_wake(&rest_paint, &rest_home, now);
+        dgx_ui_time(&rest_home, now), screen_light_step(now);
+        const int  dimmed_again = screen_light == SCREEN_DIMMED;
+        dgx_ui_pointer(&rest_home, &(dgx_ui_pointer_t){.x = rest_x, .y = rest_y, .down = true, .pressed = true, .ms = now});
+        const bool dimmed_press = dgx_ui_node(&rest_home, rest_button)->state.bits & DGX_UI_PRESSED;
+        dgx_ui_pointer(&rest_home, &(dgx_ui_pointer_t){.x = rest_x, .y = rest_y, .released = true, .ms = now + 80});
+        now += 100;
+        dgx_ui_time(&rest_home, now), screen_light_step(now);
+        printf("idle: named at 0, dimmed at %u ms to %d%% of 80, dark at %u ms to %d%%, in %d turns of the loop, then no wait (%s); a tap while dark: taken %d, the button pressed %d, "
+               "the light back to %d%%; dimmed again %d, a tap then: the button pressed %d, the light %d%%\n",
+               (unsigned)(dimmed_at - named_at), dimmed_light, (unsigned)(dark_at - named_at), dark_light, turns + 1, dark_wait == DGX_UI_WAKE_NONE ? "none" : "SOME", dark_taken, dark_press,
+               lit_light, dimmed_again, dimmed_press, backlight);
+
+        /* the saver: home's root opens a page at the 1 and closes it at the 0 */
+        dgx_ui_init(&saver_home, saver_home_nodes, 3, 1), dgx_ui_init(&saver_page, saver_nodes, 2, 1);
+        dgx_ui_add(&saver_home, -1, &saver_home_w);
+        const int saver_button = dgx_ui_add(&saver_home, 0, &rest_button_w);
+        dgx_ui_add(&saver_page, -1, &saver_root_w);
+        dgx_ui_paint_free(&rest_paint);
+        rest_paint = (dgx_ui_paint_t){.scr = rest_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        now += 1000;
+        dgx_ui_paint(&saver_home, &rest_paint, now);
+        screen_idle.wake_acts = false;
+        screen_idle_start(&saver_home, now);
+        now += DIM_AFTER_MS;
+        dgx_ui_time(&saver_home, now), dgx_ui_paint(&saver_home, &rest_paint, now);
+        const bool saver_shown = saver_home.popup == &saver_page;
+        const bool saver_taken = dgx_ui_pointer(&saver_home, &(dgx_ui_pointer_t){.x = rest_x, .y = rest_y, .down = true, .pressed = true, .ms = now + 500});
+        dgx_ui_pointer(&saver_home, &(dgx_ui_pointer_t){.x = rest_x, .y = rest_y, .released = true, .ms = now + 580});
+        now += 600;
+        dgx_ui_time(&saver_home, now), dgx_ui_paint(&saver_home, &rest_paint, now);
+        const bool saver_gone   = saver_home.popup == NULL;
+        const bool woke_pressed = dgx_ui_node(&saver_home, saver_button)->state.bits & DGX_UI_PRESSED;
+        dgx_ui_pointer(&saver_home, &(dgx_ui_pointer_t){.x = rest_x, .y = rest_y, .down = true, .pressed = true, .ms = now + 100});
+        const bool next_pressed = dgx_ui_node(&saver_home, saver_button)->state.bits & DGX_UI_PRESSED;
+        dgx_ui_pointer(&saver_home, &(dgx_ui_pointer_t){.x = rest_x, .y = rest_y, .released = true, .ms = now + 180});
+        printf("saver: the page over home when the idle came %d; the tap that wakes it taken %d, the page gone %d, home's button pressed by it %d; the next tap presses it %d\n", saver_shown,
+               saver_taken, saver_gone, woke_pressed, next_pressed);
+        dgx_ui_idle(&saver_home, NULL, now);
+        dgx_ui_paint_free(&rest_paint), dgx_ui_free(&saver_page), dgx_ui_free(&saver_home), dgx_ui_free(&rest_home);
+        dgx_screen_destroy(&rest_screen);
+    }
+
     puts("cookbook: ran to the end");
     return 0;
 }

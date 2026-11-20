@@ -415,10 +415,19 @@ static void unpress(dgx_ui_t *ui);
 static dgx_ui_t *home_of(dgx_ui_t *ui);
 
 /* a button told again and again while it is held (DGX_UI_REPEAT); one also of DGX_UI_DRAG is the drag's. The finger's
-   repeat is home's repeat_key of this value, no key's, its time home's repeat_at, as a key's; its step reached by
-   dgx_ui_time() only through this, named where a press begins it: a program with no finger carries none of it */
-enum { REPEAT_FINGER = 0x7f };
+   repeat is home's repeat_key of DGX_UI_REPEAT_FINGER, no key's, its time home's repeat_at, as a key's; its step reached
+   by dgx_ui_time() only through this, named where a press begins it: a program with no finger carries none of it */
 static bool (*finger_repeat)(dgx_ui_t *home, uint32_t now_ms);
+
+bool (*dgx_ui_idle_hook)(dgx_ui_t *ui, int input, uint32_t ms, const dgx_ui_pointer_t *p, uint32_t *held);
+void (*dgx_ui_idle_step)(dgx_ui_t *ui, uint32_t now_ms);
+
+/* a repeat of home ended: the two members free, and the idle's moment back in them at once, for dgx_ui_wake() */
+static void repeat_ended(dgx_ui_t *home)
+{
+    home->repeat_key = -1;
+    if (dgx_ui_idle_hook) dgx_ui_idle_hook(home, DGX_UI_INPUT_REPEAT_ENDED, 0, NULL, NULL);
+}
 static bool finger_step(dgx_ui_t *home, uint32_t now_ms);
 static bool repeating(const dgx_ui_widget_t *w)
 {
@@ -761,6 +770,7 @@ static bool on_popup(const dgx_ui_t *pop, int x, int y)
 
 bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
 {
+    if (dgx_ui_idle_hook && !ui->under && dgx_ui_idle_hook(ui, DGX_UI_INPUT_FINGER, p->ms, p, NULL)) return true; /* spent */
     if (place_hook) place_hook(ui, PLACE_FINGER); /* home first: its pages where its place is now */
     dgx_ui_t *pop = ui->popup;
     if (pop) {
@@ -796,7 +806,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         if (ui->pressed == i && repeating(NODE(ui, i)->widget)) {
             /* told now, and again from the first repeat's time on by dgx_ui_time(), while held; nothing read after */
             dgx_ui_t *home   = home_of(ui);
-            home->repeat_key = REPEAT_FINGER, home->repeat_at = p->ms + DGX_UI_REPEAT_FIRST_MS, finger_repeat = finger_step;
+            home->repeat_key = DGX_UI_REPEAT_FINGER, home->repeat_at = p->ms + DGX_UI_REPEAT_FIRST_MS, finger_repeat = finger_step;
             tell(ui, i, DGX_UI_ACTIVATED);
         }
         return true;
@@ -867,7 +877,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         unpress(ui);
         if (repeating(w)) { /* told at the press: its repeat ends, nothing told now */
             dgx_ui_t *home = home_of(ui);
-            if (home->repeat_key == REPEAT_FINGER) home->repeat_key = -1;
+            if (home->repeat_key == DGX_UI_REPEAT_FINGER) repeat_ended(home);
             return true;
         }
         const dgx_ui_behavior_t *b = behavior_of(w);
@@ -952,7 +962,11 @@ static int key_to(dgx_ui_t *ui, int key)
     return key_in(ui, key);
 }
 
-bool dgx_ui_key(dgx_ui_t *ui, int key) { return key_to(ui, key) > 0; }
+bool dgx_ui_key(dgx_ui_t *ui, int key)
+{
+    if (dgx_ui_idle_hook && dgx_ui_idle_hook(ui, DGX_UI_INPUT_KEY, 0, NULL, NULL)) return true; /* spent */
+    return key_to(ui, key) > 0;
+}
 
 static bool key_in(dgx_ui_t *ui, int key)
 {
@@ -1047,17 +1061,18 @@ void dgx_ui_button_keys(dgx_ui_t *ui, const uint8_t *keys)
 
 bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)
 {
+    /* those spent taken away; the call that spends them answers taken */
+    bool           taken = dgx_ui_idle_hook && dgx_ui_idle_hook(ui, DGX_UI_INPUT_BUTTONS, now_ms, NULL, &held);
     const uint8_t *keys  = ui->button_keys ? ui->button_keys : default_keys;
     const uint32_t went  = held & ~ui->held;
-    bool           taken = false;
     ui->held             = held;
     repeat_step          = repeat;
     /* the key repeating stops when its button is let go; the finger's is the finger's */
-    if (ui->repeat_key >= 0 && ui->repeat_key != REPEAT_FINGER) {
+    if (ui->repeat_key >= 0 && ui->repeat_key < DGX_UI_REPEAT_IDLE) { /* a key's, not the idle's moment nor the finger's */
         bool still = false;
         for (int b = 0; b < 8; ++b)
             if ((held & (1u << b)) && keys[b] == ui->repeat_key) still = true;
-        if (!still) ui->repeat_key = -1;
+        if (!still) repeat_ended(ui);
     }
     for (int b = 0; b < 8; ++b) {
         if (!(went & (1u << b)) || keys[b] == 0xff) continue;
@@ -1075,7 +1090,7 @@ static bool finger_step(dgx_ui_t *home, uint32_t now_ms)
     dgx_ui_t *tree = home;
     while (tree && !(!tree->swiped && live(tree, tree->pressed) && repeating(NODE(tree, tree->pressed)->widget))) tree = tree->popup;
     if (!tree) {
-        home->repeat_key = -1;
+        repeat_ended(home);
         return false;
     }
     if ((int32_t)(now_ms - home->repeat_at) < 0) return true;
@@ -1087,8 +1102,9 @@ static bool finger_step(dgx_ui_t *home, uint32_t now_ms)
 
 bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)
 {
-    if (ui->repeat_key < 0) return false;
-    if (ui->repeat_key == REPEAT_FINGER) return finger_repeat(ui, now_ms); /* named by the press that began it */
+    if (dgx_ui_idle_step) dgx_ui_idle_step(ui, now_ms); /* the idle judged and told */
+    if (ui->repeat_key == DGX_UI_REPEAT_FINGER) return finger_repeat(ui, now_ms); /* named by the press that began it */
+    if ((uint8_t)ui->repeat_key >= DGX_UI_REPEAT_IDLE) return false; /* none (-1), or the idle's moment: no time asked */
     return repeat_step(ui, now_ms); /* a key is held only after dgx_ui_buttons(), which named the step */
 }
 

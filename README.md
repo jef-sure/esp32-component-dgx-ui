@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.37: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.38: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -73,7 +73,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.37"
+    version: "0.0.38"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.6 or a later 0.11; DGX comes by itself, from the registry. Start with
@@ -123,8 +123,8 @@ worked by a finger and by the keys, on a board taken from
 - **Popups** over the tree, one over another: modal, or closed by a finger outside. Pages, each the whole screen,
   one over another, closed by the key back; on a board with the memory, coming by a slide or a crossfade.
 - **Input**: a pointer, the keys of a dialog, the buttons of a game pad with a repeat of a held one, code points
-  typed; the touch of [DGX-DI](https://github.com/jef-sure/esp32-component-dgx-di) through a header, if the program
-  has it.
+  typed; the user's idle, told when nobody has touched the device for a time; the touch of
+  [DGX-DI](https://github.com/jef-sure/esp32-component-dgx-di) through a header, if the program has it.
 - **Time only when asked**: a widget that animates asks for time and says when; an idle interface is a sleeping
   task, and one that scrolls a text sleeps between its steps.
 - **A layer in another compositor**: for a program that sends the display its own picture, a game, a map, a

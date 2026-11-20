@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.38 - 2026-11-20
+
+- The user's idle, `dgx_ui_idle()`: after so long with no finger, key or button, home is told by a message of the
+  program's number, 1 when it comes and 0 when the user wakes it; the input that wakes it is spent unless the program
+  says it acts; `dgx_ui_wake()` gives its moment.
+
 ## 0.0.37 - 2026-11-20
 
 - A program with no finger no longer carries the finger's repeat: its step is named by the press that begins it, as the
