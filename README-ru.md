@@ -95,6 +95,15 @@ dependencies:
 клавиатурой DGX-DI; управляют ими пальцем и клавишами, на плате из
 [boards](https://github.com/jef-sure/esp32-component-boards). Список изменений — в [CHANGES.md](CHANGES.md).
 
+Буквы в примерах сглажены: их шрифты DGX делает во время сборки, 4 бита на пиксель, из гарнитуры, установленной на
+машине сборки, — первой из DejaVu Sans, Liberation Sans, Noto Sans, FreeSans и Arial, какая на ней есть, как
+перечисляет `fonts.rules` каждого примера; сборка печатает, какую взяла. Для этого машине сборки, кроме ESP-IDF,
+нужны свой компилятор C, файлы разработки FreeType, `pkg-config` и fontconfig; в Debian и Ubuntu:
+`sudo apt install build-essential libfreetype-dev pkg-config fontconfig fonts-dejavu-core`. Окну на компьютере нужна
+ещё SDL2, `libsdl2-dev`. Без FreeType сборка останавливается и говорит об этом; если нет ни одного из семейств —
+со словами «no face allowed by the rules». Своей программе ничего из этого не нужно, пока она не попросит сделать
+шрифт: шрифты, которые идут с DGX, готовы. См. [Сглаженные буквы](docs/ru/cookbook.md#сглаженные-буквы).
+
 ## Что в ней есть
 
 - **Дерево виджетов** в массиве, который даёт программа, а дальше — блоками по 64. То, что программа говорит о

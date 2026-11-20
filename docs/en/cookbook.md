@@ -1013,6 +1013,32 @@ static int heading_add(dgx_ui_t *ui, int parent)
 - A handwritten font is another thing: its strokes are soft only in a widget's canvas, by a soft pen, as the next
   recipe shows.
 
+**A face the machine may not have.** The need above names DejaVu Sans exactly, and the build stops on a machine
+without it. A need that names no face takes the first family of a list the program gives as rules, so the program
+builds wherever one of them is installed:
+
+```cmake
+# main/CMakeLists.txt: no face named, the rules choose one
+dgx_fonts_rules(fonts.rules)
+dgx_font_need(title SIZE 16px BITS 4 TEXTS strings.txt)
+```
+
+```
+# fonts.rules, beside it: the families in the order of preference, each from 7 pixels up
+source system
+allow "DejaVu Sans"      7..
+allow "Liberation Sans"  7..
+allow "Noto Sans"        7..
+```
+
+- The first line whose family is installed and has all the letters wins. With none the build stops and says which
+  size and which letters it looked for.
+- **Faces differ in the height of a line**: at 14 pixels it is 16 for DejaVu Sans and Liberation Sans and 19 for
+  Noto Sans. Lay nothing for one of them alone: a row's height in points is chosen for the tallest.
+- **Small letters**: at 4 bits DejaVu Sans reads from 8 pixels, Liberation Sans from 9.
+- **What the build machine needs** for a need: a C compiler, the development files of FreeType, `pkg-config` and
+  fontconfig. A program with no need asks for none of it.
+
 ## A handwritten text
 
 DGX has handwritten fonts: their letters are strokes, written by a pen at any height. A variant of such a font names

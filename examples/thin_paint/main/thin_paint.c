@@ -2,7 +2,8 @@
  * thin_paint: a frame with a CO2 value a sensor task sends every 200 ms, and a clock a ticker wakes every second,
  * and the build number. The task that owns the display sleeps on its queue; the painter draws only the fields that
  * change. On the computer, in a window of DGX the size of a CYD lying down; on a CYD, its ILI9341 standing
- * (240x320), as DGX's graphicstest sets it.
+ * (240x320), as DGX's graphicstest sets it. The fonts, with soft edges, are made at build time from a face of the
+ * build machine (main/CMakeLists.txt and fonts.rules).
  */
 #include <stdio.h>
 
@@ -11,8 +12,7 @@
 #include "dgx_ui_text.h"
 #include "dgx_ui_ticker.h"
 #include "esp_timer.h"
-#include "fonts/DejaVuSansBook32.h"
-#include "fonts/TerminusTTFMedium12.h"
+#include "dgx_fonts.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -98,8 +98,8 @@ void app_main(void)
         dgx_screen_rgb(scr, 32, 48, 72),    /* 2 the frame's fill */
         dgx_screen_rgb(scr, 120, 160, 220), /* 3 its border */
     };
-    vbig[0] = (dgx_ui_font_variant_t){.font = DejaVuSansBook32()}, vbig[1] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
-    vsmall[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    vbig[0] = (dgx_ui_font_variant_t){.font = dgx_font_large()}, vbig[1] = (dgx_ui_font_variant_t){.font = dgx_font_small()};
+    vsmall[0] = (dgx_ui_font_variant_t){.font = dgx_font_small()};
     st_big    = (dgx_ui_text_style_t){.variants = vbig, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     st_left   = (dgx_ui_text_style_t){.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_right  = (dgx_ui_text_style_t){.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};

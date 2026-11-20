@@ -16,7 +16,7 @@
 1800 mouse move 165 160
 1900 mouse up
 # the code clicked: the strip and the keypad open; 1, 2, 3, done
-2200 mouse down 114 150
+2200 mouse down 100 150
 2300 mouse up
 2600 mouse down 174 56
 2700 mouse up
@@ -27,7 +27,7 @@
 3600 mouse down 27 277
 3700 mouse up
 # the PIN clicked: 4, 2, 7, done; the field shows three stars
-4000 mouse down 84 150
+4000 mouse down 70 150
 4100 mouse up
 4400 mouse down 125 56
 4500 mouse up
@@ -38,7 +38,7 @@
 5400 mouse down 27 277
 5500 mouse up
 # the code clicked again: 9, then cancel; it keeps 123, the focus on it
-5800 mouse down 114 150
+5800 mouse down 100 150
 5900 mouse up
 6200 mouse down 76 260
 6300 mouse up

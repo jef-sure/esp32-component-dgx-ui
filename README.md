@@ -94,6 +94,15 @@ dropdown, a slider and two fields, a code and a PIN shown as stars, each edited 
 worked by a finger and by the keys, on a board taken from
 [boards](https://github.com/jef-sure/esp32-component-boards). The list of changes is in [CHANGES.md](CHANGES.md).
 
+The examples' letters have soft edges: DGX makes their fonts at build time, 4 bits a pixel, from a face installed
+on the build machine, the first of DejaVu Sans, Liberation Sans, Noto Sans, FreeSans and Arial that it has, as each
+example's `fonts.rules` lists them, and the build prints the one it took. For that the build machine needs, beside
+ESP-IDF, a C compiler of its own, the development files of FreeType, `pkg-config` and fontconfig; on Debian and
+Ubuntu: `sudo apt install build-essential libfreetype-dev pkg-config fontconfig fonts-dejavu-core`. The window on
+the computer needs SDL2 as well, `libsdl2-dev`. Without FreeType the build stops and says so; with none of the
+families, with "no face allowed by the rules". A program of your own needs none of this until it asks for a font
+to be made: the fonts DGX ships are ready. See [Letters with soft edges](docs/en/cookbook.md#letters-with-soft-edges).
+
 ## What is in it
 
 - **A tree of widgets** in an array the program gives, and in blocks of 64 past it. What the program says of a

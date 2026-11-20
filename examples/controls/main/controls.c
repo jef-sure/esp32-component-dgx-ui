@@ -16,6 +16,9 @@
  * The keys of DGX-DI's keyboard are as large as a finger, in millimetres of the glass: on the 2.8" glass of a CYD its
  * ready pad of digits takes all of it. This program's keypad (keypad.json) has rows of 7.5 mm instead, so the strip
  * fits above it.
+ *
+ * The fonts are made at build time from a face of the build machine (main/CMakeLists.txt and fonts.rules): the
+ * widgets' of 14 px with soft edges, the keypad's digits of 20 px and one bit.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +33,7 @@
 #include "dgx_ui_text.h"
 #include "dgx_ui_ticker.h"
 #include "esp_timer.h"
-#include "fonts/TerminusTTFMedium12.h"
+#include "dgx_fonts.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -86,9 +89,11 @@ static void on_field(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, v
 static void on_strip(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 static void on_answer(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 
-/* the main tree: a column of a title, a row of the popup's button and the switch, the slider, two fields, the status */
+/* the main tree: a column of a title, a row of the popup's button and the switch, the slider, two fields, the status;
+   each of a height of its own, which a line of any face the rules may pick fits (16 to 19 px at 14 px), so that the
+   widgets lie the same whatever face the build machine gave */
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 6, .gap = 8};
-static const dgx_ui_widget_t title_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_TITLE]};
+static const dgx_ui_widget_t title_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_TITLE], .want_h = 20};
 static const dgx_ui_widget_t row_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 10, .want_h = 28};
 static const dgx_ui_widget_t popup_w  = {.kind = DGX_UI_BUTTON, .text = &text_box[T_POPUP], .want_w = 90, .flags = DGX_UI_STRETCH, .look = &dgx_ui_look_button, .on = on_popup_button};
 /* the program's values: where the switch, the dropdown and the slider keep theirs, written by the user, read here */
@@ -98,7 +103,7 @@ static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .value
 static const dgx_ui_widget_t mode_w = {.kind = DGX_UI_DROPDOWN, .text = &text_box[T_MODE], .min = 0, .max = 3, .value = &mode_chosen, .flags = DGX_UI_REST | DGX_UI_STRETCH,
                                        .look = &dgx_ui_look_dropdown, .on = on_mode};
 static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .step = 1, .value = &slider_percent, .want_h = 22, .look = &dgx_ui_look_slider, .on = on_slider};
-static const dgx_ui_widget_t value_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_SLIDER]};
+static const dgx_ui_widget_t value_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_SLIDER], .want_h = 20};
 /* the fields, each on a paper of its own so that it shows empty: looks of the program's colours, constants in flash;
    the PIN's a secret one, a star for each digit */
 static const dgx_ui_input_look_t field_colours  = {.ink = 1, .caret = 3, .paper = 2};
@@ -182,7 +187,7 @@ static void edit_open(int field)
 {
     if (editing >= 0) return;
     const dgx_di_rect_t top = {.x = 0, .y = 0, .w = (int16_t)scr->width, .h = 1}; /* a field at the top: the band under it */
-    if (!dgx_di_keyboard_open(&kb, scr, mm_w, mm_h, keypad, keypad_size, TerminusTTFMedium12(), &top) || kb.y < 16) {
+    if (!dgx_di_keyboard_open(&kb, scr, mm_w, mm_h, keypad, keypad_size, dgx_font_keys(), &top) || kb.y < 16) {
         if (kb.open) dgx_di_keyboard_close(&kb);
         dgx_ui_text_set(&ui, status, "no room for the keypad");
         return;
@@ -279,7 +284,7 @@ void app_main(void)
         dgx_screen_rgb(scr, 44, 60, 86),    /* 2 a fill: a button's face, a track */
         dgx_screen_rgb(scr, 240, 160, 60),  /* 3 the accent: pressed, on, chosen; the focus is a frame of the ink */
     };
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = dgx_font_text()};
     left       = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_MIDDLE};
     middle     = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     for (int k = 0; k < TEXTS; ++k) {
