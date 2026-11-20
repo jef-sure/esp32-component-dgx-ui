@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.37 - 2026-11-20
+
+- A program with no finger no longer carries the finger's repeat: its step is named by the press that begins it, as the
+  key's is by `dgx_ui_buttons()`.
+
 ## 0.0.36 - 2026-11-20
 
 - A button of `DGX_UI_REPEAT` is told ACTIVATED when the finger goes down on it, then every 100 ms from 500 ms on

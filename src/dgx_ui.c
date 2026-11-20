@@ -415,8 +415,11 @@ static void unpress(dgx_ui_t *ui);
 static dgx_ui_t *home_of(dgx_ui_t *ui);
 
 /* a button told again and again while it is held (DGX_UI_REPEAT); one also of DGX_UI_DRAG is the drag's. The finger's
-   repeat is home's repeat_key of this value, no key's, its time home's repeat_at, as a key's */
+   repeat is home's repeat_key of this value, no key's, its time home's repeat_at, as a key's; its step reached by
+   dgx_ui_time() only through this, named where a press begins it: a program with no finger carries none of it */
 enum { REPEAT_FINGER = 0x7f };
+static bool (*finger_repeat)(dgx_ui_t *home, uint32_t now_ms);
+static bool finger_step(dgx_ui_t *home, uint32_t now_ms);
 static bool repeating(const dgx_ui_widget_t *w)
 {
     return w->kind == DGX_UI_BUTTON && (w->flags & (DGX_UI_REPEAT | DGX_UI_DRAG)) == DGX_UI_REPEAT;
@@ -793,7 +796,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         if (ui->pressed == i && repeating(NODE(ui, i)->widget)) {
             /* told now, and again from the first repeat's time on by dgx_ui_time(), while held; nothing read after */
             dgx_ui_t *home   = home_of(ui);
-            home->repeat_key = REPEAT_FINGER, home->repeat_at = p->ms + DGX_UI_REPEAT_FIRST_MS;
+            home->repeat_key = REPEAT_FINGER, home->repeat_at = p->ms + DGX_UI_REPEAT_FIRST_MS, finger_repeat = finger_step;
             tell(ui, i, DGX_UI_ACTIVATED);
         }
         return true;
@@ -1085,7 +1088,7 @@ static bool finger_step(dgx_ui_t *home, uint32_t now_ms)
 bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)
 {
     if (ui->repeat_key < 0) return false;
-    if (ui->repeat_key == REPEAT_FINGER) return finger_step(ui, now_ms);
+    if (ui->repeat_key == REPEAT_FINGER) return finger_repeat(ui, now_ms); /* named by the press that began it */
     return repeat_step(ui, now_ms); /* a key is held only after dgx_ui_buttons(), which named the step */
 }
 

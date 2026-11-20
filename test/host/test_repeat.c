@@ -1,5 +1,5 @@
 /*
- * A button of DGX_UI_REPEAT: told DGX_UI_ACTIVATED at the press and again every DGX_UI_REPEAT_MS from
+ * Before any press, the time asks nothing. A button of DGX_UI_REPEAT: told DGX_UI_ACTIVATED at the press and again every DGX_UI_REPEAT_MS from
  * DGX_UI_REPEAT_FIRST_MS on by dgx_ui_time() while it is held, wherever the finger goes; nothing at the release. The
  * exact count of a hold of 2 s, the press and sixteen more; dgx_ui_wake() the exact wait, and the lesser of it and a
  * look's; a click, one; the key ACTIVATE once, and held on it focused, repeating; the finger far off and back, the
@@ -150,9 +150,12 @@ int main(void)
     colors[2] = dgx_screen_rgb(&panel->sbus.scr, 44, 60, 86), colors[3] = dgx_screen_rgb(&panel->sbus.scr, 240, 160, 60);
     variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
 
-    /* a hold of 2 s: the press and sixteen more; the exact wait; none at the release, and no time asked after */
+    /* before any press of the program: the time asks nothing, the pad read with nothing held neither, no wait */
     make();
     CHECK(pass(0) == 0);
+    CHECK(!dgx_ui_time(&ui, 10) && !dgx_ui_buttons(&ui, 0, 20) && !dgx_ui_time(&ui, 30) && dgx_ui_wake(NULL, &ui, 30) == DGX_UI_WAKE_NONE);
+
+    /* a hold of 2 s: the press and sixteen more; the exact wait; none at the release, and no time asked after */
     down_on(&ui, plus, 1000);
     CHECK(told[PLUS] == 1 && dgx_ui_wake(NULL, &ui, 1000) == DGX_UI_REPEAT_FIRST_MS && pass(1000) == 0);
     CHECK(dgx_ui_time(&ui, 1499) && told[PLUS] == 1 && dgx_ui_wake(NULL, &ui, 1499) == 1);
