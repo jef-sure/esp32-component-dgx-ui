@@ -7,6 +7,8 @@
 
 static int saves, backs, menus, backlight = -1, wifi = -1;
 void settings_save(void) { ++saves; }
+static int air_reads; /* the sensor asked, by the recipe of the page that works only while it is seen */
+void air_read(void) { ++air_reads; }
 void backlight_set(int percent) { backlight = percent; }
 void wifi_enable(bool on) { wifi = on; }
 void menu_back(void) { ++backs; }
@@ -1382,6 +1384,36 @@ int main(int argc, char **argv)
         scr->destroy(&scr);
     }
     ring_pictures(argc > 1 ? argv[1] : NULL);
+    /* a page that works only while it is seen: the ticker's stub says whether it runs */
+    {
+        static dgx_ui_node_t         air_home_nodes[2], air_page_nodes[2], air_about_nodes[2], air_ask_nodes[2];
+        static const dgx_ui_widget_t plain_root_w = {.kind = DGX_UI_FRAME};
+        dgx_ui_t                     air_home, air_page, air_about, air_ask;
+        dgx_ui_init(&air_home, air_home_nodes, 2, 1), dgx_ui_add(&air_home, -1, &plain_root_w);
+        dgx_ui_init(&air_page, air_page_nodes, 2, 1), dgx_ui_add(&air_page, -1, &air_root_w);
+        dgx_ui_init(&air_about, air_about_nodes, 2, 1), dgx_ui_add(&air_about, -1, &plain_root_w);
+        dgx_ui_init(&air_ask, air_ask_nodes, 2, 1), dgx_ui_add(&air_ask, -1, &plain_root_w);
+        ticker_running = 0, ticker_what = -1, ticker_ms = 0;
+        dgx_ui_page_open(&air_home, &air_page); /* step 1 */
+        const int at_open = ticker_running, poll_asked = ticker_what == MSG_AIR_POLL, every_ms = ticker_ms;
+        dgx_ui_popup_open(&air_page, &air_ask, 10, 10, 60, 30, DGX_UI_POPUP_MODAL); /* step 2: a dialog */
+        const int under_a_dialog = ticker_running;
+        dgx_ui_popup_close(&air_page);
+        const int dialog_closed = ticker_running;
+        dgx_ui_page_open(&air_home, &air_about); /* step 3: a second page */
+        const int under_a_page = ticker_running;
+        dgx_ui_page_back(&air_home); /* step 4 */
+        const int shown_again = ticker_running;
+        dgx_ui_page_back(&air_home); /* step 5 */
+        const int          closed = ticker_running;
+        const dgx_ui_msg_t tick   = {.what = MSG_AIR_POLL};
+        air_message(&tick);
+        printf("air: the ticker runs: the page opened %d (its message the poll's %d, every %d ms), a dialog over it %d, the dialog closed %d, a page over it %d, shown "
+               "again %d, the page closed %d; a tick asks the sensor %d time(s)\n",
+               at_open, poll_asked, every_ms, under_a_dialog, dialog_closed, under_a_page, shown_again, closed, air_reads);
+        dgx_ui_free(&air_ask), dgx_ui_free(&air_about), dgx_ui_free(&air_page), dgx_ui_free(&air_home);
+    }
+
     puts("cookbook: ran to the end");
     return 0;
 }

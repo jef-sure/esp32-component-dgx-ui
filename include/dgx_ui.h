@@ -155,7 +155,8 @@ enum {
     DGX_UI_MARK_WINDOW    = 1u << 7, ///< a list's window to be brought to its pick when it is drawn next: its value set, its height changed
 };
 
-/** What a widget's on() is told: what the user did, never what the program set. */
+/** What a widget's on() is told: what the user did, never what the program set; and to a tree's root, where the tree
+ * is, whoever opened or closed the popups (DGX_UI_SHOWN, DGX_UI_COVERED: see the popups below). */
 enum {
     DGX_UI_ACTIVATED, ///< a click of a button, a list's row, a dropdown or a widget of the program's own; a field's "done"
     DGX_UI_CHANGED,   ///< the value changed by the finger or a key
@@ -163,6 +164,9 @@ enum {
     DGX_UI_BACK,      ///< a field's "cancel"; to a popup's root, a page's or a popup's closed by the key back, told while it is still open
     DGX_UI_NO_MEMORY, ///< its canvas could not be had, told once for that size after the pass; tried again whenever its look asks
     DGX_UI_EDIT,      ///< a field clicked, or DGX_UI_KEY_ACTIVATE while it has the focus: the program opens its editor
+    DGX_UI_SHOWN,     ///< to a tree's root: the tree came to the screen, no page over it any more, or it opened as a popup with
+                      ///< none over it; never to home at the start, nor for dgx_ui_show() of a widget
+    DGX_UI_COVERED,   ///< to a tree's root: the tree left the screen, a page came over it, or it closed while it was shown
 };
 
 typedef struct dgx_ui_t        dgx_ui_t;
@@ -414,11 +418,14 @@ struct dgx_ui_t {
     bool              told_width;  ///< the warning of a text laid with no width given once
     bool              told_look;   ///< the warning of a widget shown with no look given once
     bool              leaving;     ///< a popup whose root is told DGX_UI_BACK now: a back for it from that on() closes it, untold again
-    bool              backing;     ///< a back by a transition is being made over it (dgx_ui_page_back_by()): one asked meanwhile is that one
+    bool              setting_up;  ///< a transition is being set up over it (dgx_ui_page_open_by(), _back_by()): one asked meanwhile, from
+                                   ///< an on() told within it, changes the pages at once, with no pictures of its own
     dgx_ui_t         *popup;       ///< the popup open over the tree, a tree of its own, maybe with its own; NULL none
     uint8_t           level;       ///< how many popups lie under it: 0 for a tree that is no popup
     uint8_t           popup_flags; ///< DGX_UI_POPUP_*
     dgx_ui_rect_t     popup_was;   ///< where a popup closed since the last pass of the painter: composed again there
+    dgx_ui_t         *under;       ///< the library's: the tree this one lies over as a popup; NULL none
+    bool              shown_told;  ///< the library's, not to be read: a program keeps a flag of its own from DGX_UI_SHOWN and _COVERED
 };
 
 /** How a popup takes the pointer and the keys. */
@@ -442,7 +449,10 @@ enum { DGX_UI_POPUP_DEPTH = 8 };
  */
 void dgx_ui_init(dgx_ui_t *ui, dgx_ui_node_t *first, int first_size, int unit);
 
-/** @brief The blocks given back, every widget removed; the program's array is the program's. */
+/** @brief The blocks given back, every widget removed; the program's array is the program's. A tree with popups open
+ * over it, or open as a popup itself, has them closed first: a tree being freed is told DGX_UI_COVERED if it was
+ * shown, never DGX_UI_SHOWN, and the chain it lay in is told after the tree is wiped. A tree is built by dgx_ui_init()
+ * only while it is not open. */
 void dgx_ui_free(dgx_ui_t *ui);
 
 /** @brief The node of a number, free or not; NULL past the tree. */
@@ -659,6 +669,19 @@ void dgx_ui_focus(dgx_ui_t *ui, int i);
  * opaque, drawn straight on the screen. A popup may have a popup of its own, up to DGX_UI_POPUP_DEPTH over a tree:
  * a dialog, a list opened from it that hangs out of it, a question over the list. Each tree is drawn around every
  * popup over it; the pointer and the keys go to the top one first, and messages go to every tree, the bottom first.
+ *
+ * Where a tree is, told to its root: a tree is shown while no popup of DGX_UI_POPUP_SCREEN (a page) lies over it,
+ * anywhere above it; a dialog, a dropdown's list or any popup not of the screen covers nothing. Its root is told
+ * DGX_UI_SHOWN when it comes to the screen (a popup opened, a page over it closed) and DGX_UI_COVERED when it leaves it
+ * (a page opened over it, or it closed while shown), in pairs: a page keeps a ticker or a sensor's poll from SHOWN to
+ * COVERED and never has one left running. Told by the calls that open and close (the key back's too), at the call and
+ * not at a pass, once the chain of popups stands: first the trees closed that were shown, then the trees covered now,
+ * from the top down, then those come to the screen, from the bottom up; the chain is read again after each, as an on()
+ * may open or close in its turn. A popup opened again elsewhere stays as it was told. Home is shown from the start and
+ * told nothing then; a program that wants one path for all its screens tells it itself,
+ * `dgx_ui_tell(&home, 0, DGX_UI_SHOWN)`. A covered tree still takes messages. An on() told these two may close or
+ * free its own tree; it never opens, closes or frees another tree closed by the same call, which the library tells
+ * next, nor opens a tree being freed.
  */
 
 /**

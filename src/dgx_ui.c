@@ -83,13 +83,25 @@ void dgx_ui_init(dgx_ui_t *ui, dgx_ui_node_t *first, int first_size, int unit)
     ui->focus = ui->pressed = -1;
     ui->repeat_key   = -1;
     ui->needs_layout = true;
+    ui->shown_told   = true; /* home is shown; a popup is told SHOWN when it comes */
 }
 
-void dgx_ui_free(dgx_ui_t *ui)
+/* the freeing of a tree that lies in a chain of popups, named by dgx_ui_popup_open(): a program that opens no popup
+   carries none of it. Shared by the trees of every task, and harmless, as back_closing below */
+static void (*popup_freeing)(dgx_ui_t *ui, void (*wipe)(dgx_ui_t *ui));
+
+/* the blocks given back, the tree made anew */
+static void wipe(dgx_ui_t *ui)
 {
     for (int b = 0; b < ui->block_count; ++b) free(ui->blocks[b]);
     free(ui->blocks);
     dgx_ui_init(ui, ui->first, ui->first_size, ui->unit);
+}
+
+void dgx_ui_free(dgx_ui_t *ui)
+{
+    if (popup_freeing && (ui->under || ui->popup)) popup_freeing(ui, wipe); /* open as a popup, or with popups over it */
+    else wipe(ui);
 }
 
 /* a slot for a new widget: a free one, else the next, in a new block when the last is full; -1 no memory */
@@ -1003,19 +1015,137 @@ bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)
 
 /* ---- the popup ---- */
 
+/*
+ * ---- the trees on the screen ----
+ * A tree is shown while no popup of DGX_UI_POPUP_SCREEN lies over it, anywhere above it in its chain. Its root is told
+ * DGX_UI_SHOWN and DGX_UI_COVERED as that changes, in pairs, by the calls that open and close, once the chain stands;
+ * shown_told keeps what it was told last. Inner closes tell nothing: the call that changed the chain tells.
+ */
+enum { CHAIN = DGX_UI_POPUP_DEPTH + 1 }; /* the trees of a chain: home and its popups */
+
+static dgx_ui_rect_t hull(dgx_ui_rect_t a, dgx_ui_rect_t b);
+static bool          attach(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags, bool told_kept, dgx_ui_t **closed, int *count);
+
+/* the trees closed by a call, the top first, told COVERED where they were shown. Each one's bit cleared before its
+   on() is called, and nothing of it read after: that on() may free it */
+static void tell_closed(dgx_ui_t *const *closed, int count)
+{
+    for (int k = 0; k < count; ++k) {
+        dgx_ui_t *tree = closed[k];
+        if (!tree->shown_told) continue;
+        tree->shown_told = false;
+        if (live(tree, 0)) tell(tree, 0, DGX_UI_COVERED);
+    }
+}
+
+/* the chain from home up told as it stands: a tree told shown and covered now, from the top down, told COVERED; else
+   one told covered and shown now, from the bottom up, told SHOWN; one tell at a time, the chain read again after each,
+   as an on() may open or close in its turn */
+static void tell_chain(dgx_ui_t *home)
+{
+    for (;;) {
+        dgx_ui_t *trees[CHAIN];
+        bool      shown[CHAIN];
+        int       count = 0;
+        for (dgx_ui_t *tree = home; tree && count < CHAIN; tree = tree->popup) trees[count++] = tree;
+        bool covered = false; /* by a page above, from the top down */
+        for (int k = count - 1; k >= 0; --k) {
+            covered |= trees[k]->popup && (trees[k]->popup_flags & DGX_UI_POPUP_SCREEN);
+            shown[k] = !covered;
+        }
+        dgx_ui_t *told = NULL;
+        int       what = DGX_UI_COVERED;
+        for (int k = count - 1; k >= 0 && !told; --k)
+            if (trees[k]->shown_told && !shown[k]) told = trees[k];
+        for (int k = 0; k < count && !told; ++k)
+            if (!trees[k]->shown_told && shown[k]) told = trees[k], what = DGX_UI_SHOWN;
+        if (!told) return;
+        told->shown_told = what == DGX_UI_SHOWN;
+        if (live(told, 0)) tell(told, 0, what);
+    }
+}
+
+/* the tree at the bottom of a chain: home */
+static dgx_ui_t *home_of(dgx_ui_t *ui)
+{
+    while (ui->under) ui = ui->under;
+    return ui;
+}
+
+/* the popup over ui and those over it closed, telling nothing: each put into closed, the top first */
+static void close_untold(dgx_ui_t *ui, dgx_ui_t **closed, int *count)
+{
+    dgx_ui_t *pop = ui->popup;
+    if (!pop) return;
+    close_untold(pop, closed, count); /* the ones over it first */
+    if (pop->pressed >= 0) unpress(pop);
+    dgx_ui_focus(pop, -1);
+    /* where it lay, and the ones over it, drawn again from this tree up; two closed before a pass: the rectangle
+       that holds both */
+    ui->popup_was  = hull(ui->popup_was, hull(pop->root_rect, pop->popup_was));
+    pop->popup_was = dgx_ui_rect(0, 0, 0, 0);
+    pop->level     = 0;
+    pop->under     = NULL;
+    ui->popup      = NULL;
+    if (*count < CHAIN) closed[(*count)++] = pop;
+}
+
+void dgx_ui_popup_close(dgx_ui_t *ui)
+{
+    if (!ui->popup) return;
+    dgx_ui_t *home = home_of(ui), *closed[CHAIN];
+    int       count = 0;
+    close_untold(ui, closed, &count);
+    tell_closed(closed, count);
+    tell_chain(home);
+}
+
+/* dgx_ui_free() of a tree open as a popup, or with popups over it: it and what lies over it closed, telling nothing;
+   the trees closed told COVERED where they were shown, its own root still there; the tree closed again, untold, if an
+   on() opened it meanwhile, so that what is wiped lies in no chain; wiped; then the chain it lay in told, SHOWN to
+   what came to the screen. A tree freed is told COVERED if it was shown, never SHOWN: home freed with a page over it
+   is told nothing */
+static void free_from_chain(dgx_ui_t *ui, void (*wipe_tree)(dgx_ui_t *ui))
+{
+    dgx_ui_t *home = home_of(ui), *closed[CHAIN], *again[CHAIN];
+    int       count = 0, count_again = 0;
+    close_untold(ui->under ? ui->under : ui, closed, &count);
+    tell_closed(closed, count);
+    if (ui->under) close_untold(ui->under, again, &count_again);
+    else if (ui->popup) close_untold(ui, again, &count_again);
+    wipe_tree(ui);
+    if (home != ui) tell_chain(home);
+}
+
 bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags)
 {
     if (!popup || popup == ui) return false;
-    if (popup == ui->popup) dgx_ui_popup_close(ui); /* opened again, elsewhere: what was open over it goes too */
+    dgx_ui_t  *home = home_of(ui), *closed[CHAIN];
+    int        count = 0;
+    const bool moved = popup == ui->popup;
+    if (moved) close_untold(ui, closed, &count); /* opened again, elsewhere: what was open over it goes too */
+    const bool opened = attach(ui, popup, x, y, w, h, flags, moved, closed, &count);
+    if (moved && opened) /* a popup moved stays as it was told: not COVERED as one closed */
+        for (int k = 0; k < count; ++k)
+            if (closed[k] == popup) closed[k] = closed[--count];
+    tell_closed(closed, count);
+    tell_chain(home);
+    return opened;
+}
+
+/* the popup put over ui, what was open over it closed into closed; told_kept: a popup moved, as it was told; else it
+   comes anew, to be told SHOWN when it shows. false: refused */
+static bool attach(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h, unsigned flags, bool told_kept, dgx_ui_t **closed, int *count)
+{
     /* a tree open as a popup already, here or elsewhere, or with a popup of its own (under this one: a loop); and no
        deeper than the depth */
     if (popup->popup || popup->level || ui->level >= DGX_UI_POPUP_DEPTH) {
         ESP_LOGW(TAG, "a popup refused: %s", ui->level >= DGX_UI_POPUP_DEPTH ? "too deep" : "it is open already, or has one over it");
         return false;
     }
-    if (ui->popup) dgx_ui_popup_close(ui);
+    if (ui->popup) close_untold(ui, closed, count);
     if (ui->pressed >= 0) unpress(ui); /* the finger on the tree under it is spent */
-    back_closing = dgx_ui_popup_back;
+    back_closing = dgx_ui_popup_back, popup_freeing = free_from_chain;
     if (flags & DGX_UI_POPUP_SCREEN) {
         /* the tree's screen, its rectangle at once: a finger down on it before the next pass is its */
         popup->root_given = false;
@@ -1028,6 +1158,8 @@ bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h
     for (int i = 0; i < popup->count; ++i) NODE(popup, i)->marks |= DGX_UI_MARK_WHOLE;
     popup->level = (uint8_t)(ui->level + 1);
     ui->popup = popup, ui->popup_flags = (uint8_t)flags;
+    popup->under = ui;
+    if (!told_kept) popup->shown_told = false;
     return true;
 }
 
@@ -1041,17 +1173,3 @@ static dgx_ui_rect_t hull(dgx_ui_rect_t a, dgx_ui_rect_t b)
     return dgx_ui_rect(x0, y0, x1 - x0, y1 - y0);
 }
 
-void dgx_ui_popup_close(dgx_ui_t *ui)
-{
-    dgx_ui_t *pop = ui->popup;
-    if (!pop) return;
-    dgx_ui_popup_close(pop); /* the ones over it first */
-    if (pop->pressed >= 0) unpress(pop);
-    dgx_ui_focus(pop, -1);
-    /* where it lay, and the ones over it, drawn again from this tree up; two closed before a pass: the rectangle
-       that holds both */
-    ui->popup_was  = hull(ui->popup_was, hull(pop->root_rect, pop->popup_was));
-    pop->popup_was = dgx_ui_rect(0, 0, 0, 0);
-    pop->level     = 0;
-    ui->popup      = NULL;
-}

@@ -326,6 +326,11 @@ a stack of them, and a page's root is told `DGX_UI_BACK` before it goes. See
 [Pages and "back"](cookbook.md#pages-and-back). On a board with memory for two pictures of the screen a page may
 come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide).
 
+The root of a tree is told when the tree comes to the screen and when it leaves it, `DGX_UI_SHOWN` and
+`DGX_UI_COVERED`, in turn: a page keeps its ticker or the poll of a sensor only while it is seen. Only a page
+covers; a dialog or a list leaves the tree under it seen. See
+[A page that works only while it is seen](cookbook.md#a-page-that-works-only-while-it-is-seen).
+
 ## Memory and weight
 
 | What | Size on a 32-bit chip |
@@ -336,10 +341,11 @@ come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide)
 | a block of 64 nodes, when the program's array is full | 1792 bytes |
 | a message | 20 bytes |
 | a text box | 28 bytes and the program's buffer |
-| a tree, `dgx_ui_t` | 96 bytes |
+| a tree, `dgx_ui_t` | 104 bytes |
 | the code of the smallest program, one label fed by a message | about 8 KB |
 | the library's own RAM | a pointer of 4 bytes for each of three: a text set, keys or a popup, the loop calling `dgx_ui_time()`; and a byte in a look that warns once in the log |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB |
+| the roots told when their trees come to the screen and leave it, when the program opens a popup | about 0.65 KB |
 | the look of several lines, when named | about 2.5 KB |
 | a variant of a font | 16 bytes |
 | handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |

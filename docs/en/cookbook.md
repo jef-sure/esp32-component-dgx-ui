@@ -29,6 +29,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [Showing, hiding, disabling](#showing-hiding-disabling)
 - [A popup](#a-popup)
 - [Pages and "back"](#pages-and-back)
+- [A page that works only while it is seen](#a-page-that-works-only-while-it-is-seen)
 - [Pages that slide](#pages-that-slide)
 - [Settings that stay](#settings-that-stay)
 - [Buttons of the board](#buttons-of-the-board)
@@ -1177,6 +1178,65 @@ static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = 
 - **A page's root** covers the screen with the paper, a box, or with its fill, a frame.
 - Pages of one level that replace each other, tabs, need no popup: the children of one box, all hidden but one
   (`dgx_ui_show()`).
+
+## A page that works only while it is seen
+
+The root of a tree is told when the tree comes to the screen, `DGX_UI_SHOWN`, and when it leaves it,
+`DGX_UI_COVERED`. The two come in turn, so what a root starts at the first it stops at the second, and nothing is
+left running. Take the clock with a page "air" that asks a sensor every second:
+
+1. The user opens the page. The clock's root is told `DGX_UI_COVERED`, then the page's root `DGX_UI_SHOWN`: it
+   starts its ticker.
+2. A question opens over the page, a dialog: "reset the sensor?". The page is told nothing: it is still seen round
+   the dialog, and its ticker runs on. The dialog's root is told `DGX_UI_SHOWN`, and `DGX_UI_COVERED` when it closes.
+3. From the page the user opens "about", a second page. The first page is told `DGX_UI_COVERED` and stops its
+   ticker; "about" is told `DGX_UI_SHOWN`.
+4. Back: "about" is told `DGX_UI_COVERED`, the page `DGX_UI_SHOWN`, and its ticker runs again.
+5. Back once more: the page's root is told `DGX_UI_BACK` while the page is open, then `DGX_UI_COVERED` as it closes.
+   The clock is told `DGX_UI_SHOWN`.
+
+```c
+enum { MSG_AIR_POLL = 20 };
+static dgx_ui_ticker_t air_ticker;
+static QueueHandle_t   air_queue; /* the queue of the loop that owns the trees */
+
+void air_read(void); /* the program's: asks the sensor, whose answer comes as a message */
+
+/* the root of the page: its ticker runs from DGX_UI_SHOWN to DGX_UI_COVERED and at no other time */
+static void on_air_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_SHOWN) dgx_ui_ticker_start(&air_ticker, air_queue, MSG_AIR_POLL, 1000);
+    else if (what == DGX_UI_COVERED) dgx_ui_ticker_stop(&air_ticker);
+}
+
+static const dgx_ui_widget_t air_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .on = on_air_root};
+
+/* in the loop, for a message no widget claimed */
+static void air_message(const dgx_ui_msg_t *msg)
+{
+    if (msg->what == MSG_AIR_POLL) air_read();
+}
+```
+
+- **A page covers, a dialog does not.** A tree is shown while no popup of the whole screen
+  (`DGX_UI_POPUP_SCREEN`) lies over it. A dialog, a hint and a dropdown's list leave it seen.
+- **Told at the call.** The roots are told by the call that opens or closes, the key back's too, and not at a pass:
+  two pages opened one after another before anything was drawn are told just the same.
+- **The first tree** is shown from the start and is told nothing then. Start what it needs when it is built, or
+  tell it yourself to have one path for every screen: `dgx_ui_tell(&home, 0, DGX_UI_SHOWN)`.
+- **A covered page still takes messages**: its labels hold the last values when it shows again. What stops is what
+  the page started itself.
+- **A tick on its way** when the ticker is stopped still comes: `air_read()` may be called once more after
+  `DGX_UI_COVERED`.
+- **With a slide** ([Pages that slide](#pages-that-slide)) the roots are told at the start of the transition, before
+  the picture that comes in is made: what `DGX_UI_SHOWN` sets is in it.
+- **In the handler** a root may open and close pages, and close or free its own tree. It never opens, closes or
+  frees another tree closed by the same call: that one is told next. Nor does it open a tree that is being freed.
+- **Look at `what`.** A root's `on()` that took every call for `DGX_UI_BACK` now saves or closes at
+  `DGX_UI_SHOWN`.
+- **It is not `dgx_ui_show()`**: hiding and showing a widget tells nobody.
+- **What it costs**: about 0.65 KB in a program that opens popups, nothing in one that opens none; a tree is 104
+  bytes, 8 more than before.
 
 ## Pages that slide
 

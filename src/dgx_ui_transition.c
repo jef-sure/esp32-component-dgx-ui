@@ -51,26 +51,41 @@ static void begin(dgx_ui_t *home, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr
     tr->kind = (uint8_t)kind, tr->running = true, tr->started = false;
 }
 
+/* the top of the chain of popups over home */
+static const dgx_ui_t *top_of(const dgx_ui_t *home)
+{
+    while (home->popup) home = home->popup;
+    return home;
+}
+
 bool dgx_ui_page_open_by(dgx_ui_t *home, dgx_ui_t *page, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind)
 {
-    if (!ready(tr, paint, kind)) return dgx_ui_page_open(home, page);
+    /* from an on() told within another's setting up (a page's DGX_UI_SHOWN): the page at once, the outer one's pictures
+       holding it; or no transition to be had */
+    if (home->setting_up || !ready(tr, paint, kind)) return dgx_ui_page_open(home, page);
     compose_whole(home, paint, tr->from); /* the screen as it stands: what the display shows */
-    if (!dgx_ui_page_open(home, page)) return false;
-    begin(home, paint, tr, kind);
-    return true;
+    const dgx_ui_t *was = top_of(home);
+    home->setting_up    = true;
+    const bool opened   = dgx_ui_page_open(home, page);
+    home->setting_up    = false;
+    /* the trees as they are after every on() told: what comes in; nothing to slide to when an on() went back at once */
+    if (opened && top_of(home) != was) begin(home, paint, tr, kind);
+    return opened;
 }
 
 bool dgx_ui_page_back_by(dgx_ui_t *home, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind)
 {
-    /* from the root's on() within a back by a transition over this tree: that one closes and runs. The mark is the
-       tree's own: a back over a tree of another task is made meanwhile */
-    if (home->backing) return true;
-    if (!ready(tr, paint, kind)) return dgx_ui_page_back(home);
+    /* from an on() told within another's setting up (the page's DGX_UI_BACK, a tree's DGX_UI_SHOWN): the page back at
+       once, the outer one's pictures holding it; or no transition to be had. The mark is the tree's own: a back over a
+       tree of another task is made meanwhile */
+    if (home->setting_up || !ready(tr, paint, kind)) return dgx_ui_page_back(home);
     compose_whole(home, paint, tr->from); /* the top page still open */
-    home->backing     = true;
-    const bool closed = dgx_ui_page_back(home);
-    home->backing     = false;
-    if (closed) begin(home, paint, tr, kind);
+    const dgx_ui_t *was = top_of(home);
+    home->setting_up    = true;
+    const bool closed   = dgx_ui_page_back(home);
+    home->setting_up    = false;
+    /* the trees as they are after every on() told: what comes in; nothing to slide to when an on() opened it again */
+    if (closed && top_of(home) != was) begin(home, paint, tr, kind);
     return closed;
 }
 

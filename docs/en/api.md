@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.27: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.28: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -170,9 +170,12 @@ of every member.
 | `DGX_UI_BACK` | "cancel" was typed into a field; told to the root of a page, or of a popup the key back closes, before it is closed |
 | `DGX_UI_NO_MEMORY` | the canvas of the widget could not be had: told once for that size, after the pass; it is tried again whenever its look asks |
 | `DGX_UI_EDIT` | a field was clicked, or activated by a key while it has the focus: the program opens its editor, a keyboard |
+| `DGX_UI_SHOWN` | told to the root of a tree: the tree came to the screen. It opened as a popup with no page over it, or the page over it closed. Never told to the first tree at the start, nor for `dgx_ui_show()` of a widget |
+| `DGX_UI_COVERED` | told to the root of a tree: the tree left the screen. A page opened over it, or it closed while it was shown |
 
-`on()` is told only what the user did, never what the program set. It may change and remove widgets, the one it is
-called for too.
+`on()` is told only what the user did, never what the program set. The two events of a root, `DGX_UI_SHOWN` and
+`DGX_UI_COVERED`, are the exception: they are told whoever opened or closed the popups, the program too; see
+[A popup](#a-popup). `on()` may change and remove widgets, the one it is called for too.
 
 ### A picture
 
@@ -230,7 +233,7 @@ A widget in a tree, 28 bytes of RAM on a 32-bit chip. The program reads it and d
 
 ### The tree
 
-`dgx_ui_t` is a tree and what the pointer and the keys are doing to it, 96 bytes. The program fills it by
+`dgx_ui_t` is a tree and what the pointer and the keys are doing to it, 104 bytes. The program fills it by
 `dgx_ui_init()` and changes it by the calls only. Members a program may read: `focus`, the number of the focused
 widget, and `pressed`, the one the pointer is held on, both -1 for none; `popup`, the popup open over it; `level`,
 how many popups lie under it, 0 for a tree that is no popup.
@@ -240,7 +243,7 @@ how many popups lie under it, 0 for a tree that is no popup.
 | Call | What it does |
 | ---- | ------------ |
 | `void dgx_ui_init(dgx_ui_t *ui, dgx_ui_node_t *first, int first_size, int unit)` | A tree in the program's array of `first_size` nodes; `NULL` and 0 when all nodes are to come in blocks. `unit` is the pixels of a point. |
-| `void dgx_ui_free(dgx_ui_t *ui)` | Every widget removed and the blocks given back. |
+| `void dgx_ui_free(dgx_ui_t *ui)` | Every widget removed and the blocks given back. A tree open as a popup is closed first, and so are the popups open over a tree, their roots told as a close tells them. The tree being freed is told `DGX_UI_COVERED` when it was shown and never `DGX_UI_SHOWN`; the trees that come to the screen are told after it is wiped. A tree is built again by `dgx_ui_init()` only while it is not open. |
 | `int dgx_ui_add(dgx_ui_t *ui, int parent, const dgx_ui_widget_t *w)` | A widget added as the last child of `parent`; the first one added is the root, whatever `parent` is. It returns its number; -1 for no such parent or no memory for a block. The tree keeps the pointer: the widget must live as long as it is in the tree. |
 | `int dgx_ui_insert(dgx_ui_t *ui, int parent, int before, const dgx_ui_widget_t *w)` | The same, before the child `before`; -1: as the last. |
 | `void dgx_ui_remove(dgx_ui_t *ui, int i)` | A widget removed with everything under it. A focus or a press inside it is dropped, and nothing is told. Its number is given to a widget added later. |
@@ -428,6 +431,31 @@ Code points typed go to a `DGX_UI_INPUT` only. The widget is hit in its whole re
 | `DGX_UI_POPUP_SCREEN` | it lies on the whole screen of the tree and is laid again when the screen turns; `x`, `y`, `w`, `h` are not read |
 
 `DGX_UI_POPUP_DEPTH` is 8: at most so many popups stand one over another over a tree.
+
+**Where a tree is.** A tree is shown while no popup of `DGX_UI_POPUP_SCREEN`, a page, lies over it, anywhere
+above it. A dialog, a dropdown's list, any popup that is not of the whole screen covers nothing. The root of a tree
+is told `DGX_UI_SHOWN` when the tree comes to the screen and `DGX_UI_COVERED` when it leaves it:
+
+| What happens | Who is told |
+| ------------ | ----------- |
+| a popup is opened | when it is a page, the roots of the trees it covers `DGX_UI_COVERED`, from the top down; then its own root `DGX_UI_SHOWN` |
+| a popup is closed | its root `DGX_UI_COVERED`, when it was shown; when it was a page, then the roots of the trees it covered `DGX_UI_SHOWN`, from the bottom up |
+| several are closed by one call | first those of them that were shown `DGX_UI_COVERED`, from the top down; then the trees that came to the screen |
+| a popup is opened again elsewhere | nobody: it stays as it was told |
+
+- The two come in turn for every tree: what a root starts at `DGX_UI_SHOWN` it stops at `DGX_UI_COVERED`.
+- They are told by the calls that open and close, the key back's too: at the call, not at a pass, once the popups
+  stand as the call leaves them.
+- The first tree is shown from the start and is told nothing then. A program that wants one path for all its
+  screens tells it itself: `dgx_ui_tell(&home, 0, DGX_UI_SHOWN)`.
+- A covered tree still takes messages.
+- An `on()` told one of the two may open and close popups: the popups are read again after each `on()`. It may
+  close or free its own tree. It never opens, closes or frees another tree closed by the same call, which is told
+  next, and never opens a tree that is being freed.
+- What a root was told last the tree keeps for the library, and it is not to be read: a tree never opened says
+  "shown". A program that wants to ask keeps a flag of its own, set in the two events.
+
+The recipe: [A page that works only while it is seen](cookbook.md#a-page-that-works-only-while-it-is-seen).
 
 ### Pages
 
@@ -1060,6 +1088,10 @@ a transition takes. The rest is the module's; the program reads `running`: frame
 
 - While a transition runs the loop calls `dgx_ui_transition_frame()` in place of `dgx_ui_paint()`, and gives the
   trees no finger and no key. What changes in the trees meanwhile is drawn by the first pass after the last frame.
+- `DGX_UI_SHOWN` and `DGX_UI_COVERED` are told when the page is opened or closed, at the start of the transition
+  and before `to` is composed: what an `on()` sets then is in the picture that comes in. An `on()` told so that
+  calls `dgx_ui_page_open_by()` or `dgx_ui_page_back_by()` itself changes the pages at once, with no pictures of its
+  own; the transition goes from what the display showed to the trees as they stand when every `on()` has been told.
 - A page changes at once, and that is no error: no pictures or `ms` 0; a picture not of the screen's size and depth;
   the keyboard's band open; a crossfade on a display that cannot be read when the paint's buffer does not hold a row.
 - A crossfade is mixed in the frame buffer of a display that reads it, and strip by strip in the paint's buffer on

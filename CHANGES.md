@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.28 - 2026-11-20
+
+- A tree's root is told `DGX_UI_SHOWN` when the tree comes to the screen and `DGX_UI_COVERED` when a page covers it or
+  it closes, in pairs, so that a page keeps its ticker only while it is seen.
+- A root's `on()` is told two more events: one that took every call for `DGX_UI_BACK` must look at `what`.
+- `dgx_ui_free()` closes the popups over a tree, or the tree itself when it is open as one, first. A tree is 104 bytes,
+  was 96; about 650 bytes more for a program with popups, nothing for one without.
+
 ## 0.0.27 - 2026-11-20
 
 - The focus is never shown in the accent: a button, a dropdown, a radio and a checkbox show it by a frame of a point
