@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.38: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.39: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -73,7 +73,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.38"
+    version: "0.0.39"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.6 or a later 0.11; DGX comes by itself, from the registry. Start with
@@ -98,6 +98,8 @@ worked by a finger and by the keys, on a board taken from
 
 - **A tree of widgets** in an array the program gives, and in blocks of 64 past it. What the program says of a
   widget is constant and may lie in flash; the tree keeps 28 bytes of RAM a widget.
+- **A tree from a description**: the same widgets made while the program runs from a text in JSON, the format a
+  builder writes; every pointer is a name of tables the program gives, and a description reaches nothing else.
 - **Rows and columns**: a box stacks its children as a column or a row, with a padding and a gap, in points that are
   so many pixels; a child may take all that is left. The layout is made again only when the screen, the widgets or
   their sizes change, and then only what moved is drawn.
@@ -160,6 +162,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | `dgx_ui_changed()`, when the program calls it | about 0.6 KB more |
 | transitions between pages, when the program names them | about 2 KB more, and two pictures of the screen in RAM |
 | the statistics of painting, when the program names them | about 1.8 KB more |
+| a tree from a description in JSON, when the program loads one | about 7 KB more |
 | a button of a picture, when a widget names the look | about 0.8 KB more beside buttons with a text and pictures; 2.8 KB in a program with no picture yet, the drawing of pictures coming with it |
 | a level bar, when a widget names the look | about 0.9 KB more |
 | a ring scale, when a widget names the look | about 3.8 KB more |

@@ -16,9 +16,10 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_dropdown.h`](#dgx_ui_dropdownh) | the list of a dropdown, opened as a popup |
 | [`dgx_ui_transition.h`](#dgx_ui_transitionh) | pages that change by a slide or a crossfade |
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
+| [`dgx_ui_load.h`](#dgx_ui_loadh) | a tree made from a description in JSON |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.38: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.39: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1408,6 +1409,118 @@ chip. Each of the others named adds to it: `dgx_ui_changed_measured()` about 0.2
 0.3 KB and 16 bytes of RAM a widget, the frames about 0.5 KB and their struct.
 
 The recipe: [How long a pass takes](cookbook.md#how-long-a-pass-takes).
+
+## dgx_ui_load.h
+
+A tree of widgets made while the program runs, from a description in JSON, the format a builder writes. Every
+pointer of C is a name in the description, found in tables the program gives; the widgets, their text boxes and
+their strings are laid in memory of the program's. A program on C constants names none of it and carries none of
+it. A recipe: [A page from a description](cookbook.md#a-page-from-a-description).
+
+```c
+#include "dgx_ui_load.h"
+
+enum { DGX_UI_LOAD_DEPTH = 24, DGX_UI_LOAD_IDS = 256 };
+
+typedef struct dgx_ui_look_name_t    { const char *name; const dgx_ui_look_t *look; } dgx_ui_look_name_t;
+typedef struct dgx_ui_value_name_t   { const char *name; int32_t *value; } dgx_ui_value_name_t;
+typedef struct dgx_ui_picture_name_t { const char *name; const dgx_ui_picture_t *picture; uint16_t count; } dgx_ui_picture_name_t;
+typedef struct dgx_ui_style_name_t   { const char *name; const dgx_ui_text_style_t *style; } dgx_ui_style_name_t;
+typedef struct dgx_ui_on_name_t {
+    const char *name;
+    void (*on)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
+    bool takes_number; /* its ctx is a number, never read as a pointer */
+} dgx_ui_on_name_t;
+typedef struct dgx_ui_take_name_t    { const char *name; bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg); } dgx_ui_take_name_t;
+typedef struct dgx_ui_context_name_t { const char *name; void *ctx; } dgx_ui_context_name_t;
+typedef struct dgx_ui_id_t           { const char *name; int *index; } dgx_ui_id_t;
+
+typedef struct dgx_ui_load_names_t {
+    const dgx_ui_look_name_t    *looks;
+    const dgx_ui_value_name_t   *values;
+    const dgx_ui_picture_name_t *pictures;
+    const dgx_ui_style_name_t   *styles;
+    const dgx_ui_on_name_t      *handlers;
+    const dgx_ui_take_name_t    *takes;
+    const dgx_ui_context_name_t *contexts;
+    const dgx_ui_id_t           *ids;
+    uint16_t look_count, value_count, picture_count, style_count, handler_count, take_count, context_count, id_count;
+} dgx_ui_load_names_t;
+
+typedef struct dgx_ui_load_need_t  { size_t bytes; int nodes; int depth; } dgx_ui_load_need_t;
+typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_ui_load_error_t;
+```
+
+| Call | What it does |
+| ---- | ------------ |
+| `bool dgx_ui_load_need(const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_need_t *need, dgx_ui_load_error_t *err)` | The description checked whole, against the tables too, and what it takes: the bytes of the memory, the nodes of the tree, its depth. `false`: an error, in `err`. |
+| `int dgx_ui_load(dgx_ui_t *ui, int parent, const char *json, size_t len, const dgx_ui_load_names_t *names, void *memory, size_t size, dgx_ui_load_error_t *err)` | The description's tree added under `parent`, -1 as the tree's root, its widgets laid in `memory` of `size` bytes, aligned as a pointer (as `malloc()` aligns). Returns the index of the widget at its top; -1 on an error, in `err`, and the tree is as it was. |
+| `DGX_UI_LOOK_NAME(word)` | A look of the library by its own word, for the looks' table: `DGX_UI_LOOK_NAME(slider)` is `{"slider", &dgx_ui_look_slider}`. |
+| `DGX_UI_ACTION_NAME(word)` | An action of a button with no code of the program's, for the handlers' table: `DGX_UI_ACTION_NAME(back)` goes back a page, `DGX_UI_ACTION_NAME(page)` opens the page that is the button's `"ctx"`, a tree of the contexts' table. A program that lists neither carries neither. |
+| `void dgx_ui_load_on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)`, `void dgx_ui_load_on_page(...)` | The handlers of those two actions; a program names them by the macro. |
+
+**The tables.** Each is a constant array of the program's with its count; a table may be `NULL` with the count 0.
+A picture's entry says how many pictures stand there, 0 or 1 meaning one. A handler's entry says whether it takes
+its ctx for a number. An id's entry is where the index of the widget of that id is written, when the description
+has it and the whole load succeeded; an id the table has not is passed over, so one table serves several pages, and
+at most `DGX_UI_LOAD_IDS` ids are in a table.
+
+**The format, version 1**: one object of two keys, `"dgx-ui": 1` and `"tree"`, a widget. A widget is an object of
+these keys, in any order, each at most once:
+
+| Key | Its value |
+| --- | --------- |
+| `"kind"` | `"box"`, `"frame"`, `"label"`, `"picture"`, `"icon"`, `"list"`, `"switch"`, `"slider"`, `"button"`, `"input"`, `"dropdown"`, `"own"` or `"radio"`. A column or a row is a box with the flag `"column"` or `"row"`. |
+| `"flags"` | a list of `"column"`, `"row"`, `"stretch"`, `"swipe"`, `"drag"`, `"canvas"`, `"rest"`, `"repeat"` |
+| `"state"` | a list of `"hidden"`, `"disabled"` |
+| `"pad"`, `"gap"` | 0 to 255, for a box, a frame and a widget of the program's own |
+| `"at"`, `"want"` | `[x, y]` and `[w, h]`, in points |
+| `"min"`, `"max"`, `"step"`, `"value"` | the range, and the name of the place of the value in the values' table: for a list, a switch, a slider, a dropdown, a radio, an icon and a widget of the program's own |
+| `"tag"` | a number of the program's |
+| `"look"` | a name of the looks' table, or `null`: none. Not said: none for a box, a frame and a label, else the look the table names by the kind's own word, `"button"` for a button; its absence is an error, not a widget nobody sees. |
+| `"picture"` | a name of the pictures' table: for a picture, an icon, a button, a switch and a radio |
+| `"text"`, `"style"`, `"lines"`, `"text_size"` | the text, the name of its style (the first of the styles' table when none is said), its lines (1), and, when the program is to write it by `dgx_ui_text_set()`, the bytes of its buffer; without `"text_size"` the text is constant. For a label, a button, a list, an input, a dropdown, a radio and a switch. |
+| `"on"`, `"take"` | names of the handlers' and the takes' tables |
+| `"ctx"` | a name of the contexts' table, or an integer for a handler whose entry says it takes a number: a stepper's 5 and -5 |
+| `"id"` | a name the program finds the widget by; an id of the table on two widgets is an error |
+| `"children"` | a list of widgets, for a box, a frame and a widget of the program's own |
+
+Numbers are integers. Names are of letters, digits, `_`, `.` and `-`, at most 23 characters. A key the format does
+not know is an error, so a typo is not passed over; the keys `"styles"`, `"looks"`, `"fonts"` and `"pages"` of the
+top are kept for a later version and refused in this one.
+
+**What a description cannot do.** It may only name what the program listed: no number of it becomes a pointer, or
+an index into the program's memory, that the program did not give. An integer `"ctx"` goes only to a handler that
+takes a number; an icon's range, and the two pictures of a switch or a radio, stay within the count the pictures'
+table gives. A look's parameters and its colours, fonts and text styles are not in a description: they are C the
+program names. The text may come from a file or over the air: nothing is read past `len`, which need not end in 0,
+its UTF-8 is checked, the depth is at most `DGX_UI_LOAD_DEPTH`, and the whole is checked before the first widget is
+added. The text may be freed after the load; the memory may not while the widgets are in the tree. The tree once
+loaded is changed by the calls of `dgx_ui.h` as any tree.
+
+**The errors**, `err.code`, with `err.offset`, the byte of the text, and `err.name`, the name or the key it is
+about when there is one:
+
+| Code | What went wrong |
+| ---- | --------------- |
+| `DGX_UI_LOAD_OK` | nothing |
+| `DGX_UI_LOAD_SYNTAX` | not JSON, a string that is not well-formed UTF-8, or a value of the wrong type for its key |
+| `DGX_UI_LOAD_VERSION` | no `"dgx-ui"`, or one above 1 |
+| `DGX_UI_LOAD_KEY` | a key unknown, or twice in one object |
+| `DGX_UI_LOAD_KIND` | no kind, or one unknown |
+| `DGX_UI_LOAD_FIELD` | a key of no meaning for the kind; an integer `"ctx"` with no handler that takes a number |
+| `DGX_UI_LOAD_RANGE` | a number out of its field, a fraction, an exponent; fewer pictures in the table than the widget shows |
+| `DGX_UI_LOAD_NAME_BAD` | a name of a character not allowed, or longer than 23 |
+| `DGX_UI_LOAD_UNKNOWN` | a name its table has not |
+| `DGX_UI_LOAD_NO_LOOK` | no look said, and the looks' table names none for the kind |
+| `DGX_UI_LOAD_NO_STYLE` | a text, and the styles' table empty |
+| `DGX_UI_LOAD_DEPTH_MAX` | nested deeper than `DGX_UI_LOAD_DEPTH` |
+| `DGX_UI_LOAD_MEMORY` | the memory smaller than the need, or not aligned |
+| `DGX_UI_LOAD_NODES` | `dgx_ui_add()` refused, no memory for a block of nodes; what was begun is removed |
+| `DGX_UI_LOAD_ID` | an id of the table on a second widget, or a table of more than `DGX_UI_LOAD_IDS` ids |
+
+A program that loads a description carries about 7 KB more, 2 KB of it the reader of JSON; one that does not,
+nothing.
 
 ## dgx_ui_di.h
 

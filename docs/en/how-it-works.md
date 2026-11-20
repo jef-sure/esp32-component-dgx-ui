@@ -356,6 +356,7 @@ covers; a dialog or a list leaves the tree under it seen. See
 | a variant of a font | 16 bytes |
 | handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
 | handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
+| a tree from a description in JSON, when the program loads one | about 7 KB, and in RAM the widgets it describes, 56 bytes each beside their nodes, with their texts |
 | the statistics of painting, when the program names them | about 1.8 KB for the measured pass and its line, and 104 bytes of the program's RAM |
 | a picture button, when a widget names the look | about 0.8 KB beside buttons with a text and pictures; 2.8 KB in a program with no picture yet, the drawing of pictures coming with it |
 | a level bar, when a widget names the look | about 0.9 KB |

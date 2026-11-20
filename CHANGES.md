@@ -1,5 +1,12 @@
 # Changes
 
+## 0.0.39 - 2026-11-21
+
+- A tree from a description in JSON, `dgx_ui_load()`: every pointer is a name of the program's tables, the widgets are
+  laid in the program's memory, and the whole is checked before the first widget is added; `dgx_ui_load_need()` tells
+  the bytes, the nodes and the depth it takes. A description reaches only what the tables give: a number for `ctx` only
+  to a handler marked to take one, pictures no fewer than the widget shows, an id of the table on one widget.
+
 ## 0.0.38 - 2026-11-20
 
 - The user's idle, `dgx_ui_idle()`: after so long with no finger, key or button, home is told by a message of the

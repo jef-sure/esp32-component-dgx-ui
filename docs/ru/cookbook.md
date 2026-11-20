@@ -2164,6 +2164,95 @@ static void alarm_set(dgx_ui_t *ui, int parent, const char *text)
 - Виджет, который программа держит в своей памяти, можно менять: его размеры, его картинку. После этого вызовите
   `dgx_ui_relayout()` и для него `dgx_ui_redraw()`.
 
+## Страница из описания
+
+Страница настроек здесь не C, а текст: JSON, который пишет построитель и который лежит в файле программы или
+приходит к ней. `dgx_ui_load()` делает из него виджеты, пока программа работает. Всё, что в C указатель, в тексте —
+имя, а что стоит за каждым именем, программа говорит таблицами.
+
+```c
+#include <stdlib.h>
+
+#include "dgx_ui_load.h"
+
+/* страница, как её пишет построитель; здесь строка, но так же файл, встроенный в программу или прочитанный с карты */
+static const char described_json[] =
+    "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 4, \"gap\": 4, \"children\": ["
+    "  {\"kind\": \"label\", \"text\": \"Sound\", \"id\": \"title\", \"text_size\": 24},"
+    "  {\"kind\": \"slider\", \"value\": \"volume\", \"max\": 100, \"step\": 5, \"want\": [0, 12]},"
+    "  {\"kind\": \"switch\", \"value\": \"mute\", \"text\": \"Mute\", \"look\": \"checkbox\"},"
+    "  {\"kind\": \"button\", \"text\": \"Back\", \"on\": \"back\"}]}}";
+
+static int32_t       described_volume = 40, described_mute;
+static int           described_title  = -1; /* индекс надписи, его пишет загрузка */
+static dgx_ui_t      described_page;
+static dgx_ui_node_t described_nodes[8];
+static void         *described_memory;
+
+/* что стоит за именами описания: из него можно дотянуться только до этого */
+static const dgx_ui_look_name_t  described_looks[]    = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(checkbox), DGX_UI_LOOK_NAME(button)};
+static const dgx_ui_value_name_t described_values[]   = {{"volume", &described_volume}, {"mute", &described_mute}};
+static const dgx_ui_style_name_t described_styles[]   = {{"text", &st_left}};
+static const dgx_ui_on_name_t    described_handlers[] = {DGX_UI_ACTION_NAME(back)};
+static const dgx_ui_id_t         described_ids[]      = {{"title", &described_title}};
+static const dgx_ui_load_names_t described_names      = {
+    .looks = described_looks, .look_count = 3, .values = described_values, .value_count = 2, .styles = described_styles, .style_count = 1,
+    .handlers = described_handlers, .handler_count = 1, .ids = described_ids, .id_count = 1};
+
+/* страница из её описания; false — описание неверно, err говорит, что и на каком байте */
+static bool described_page_load(dgx_ui_load_error_t *err)
+{
+    dgx_ui_load_need_t need;
+    if (!dgx_ui_load_need(described_json, sizeof described_json - 1, &described_names, &need, err)) return false;
+    if (need.nodes > 8 || !(described_memory = malloc(need.bytes))) return false;
+    dgx_ui_init(&described_page, described_nodes, 8, 1);
+    if (dgx_ui_load(&described_page, -1, described_json, sizeof described_json - 1, &described_names, described_memory, need.bytes, err) < 0) {
+        free(described_memory), described_memory = NULL;
+        return false;
+    }
+    dgx_ui_text_set(&described_page, described_title, "Sound of the room"); /* надпись найдена по её id */
+    return true;
+}
+```
+
+Что происходит:
+
+1. `dgx_ui_load_need()` читает весь текст и проверяет его, в том числе по таблицам: `"volume"` ползунка есть в
+   таблице значений, `"back"` кнопки — среди обработчиков. Она отвечает, сколько требует страница: байты, пять
+   узлов, глубину два.
+2. Программа даёт эту память, и `dgx_ui_load()` раскладывает в ней пять виджетов, три текстовых поля и их строки и
+   добавляет их в дерево. Значение ползунка — `described_volume`, как если бы в константе стояло
+   `.value = &described_volume`.
+3. У надписи есть `"id": "title"`, поэтому её индекс записан в `described_title`, и программа задаёт её текст так
+   же, как у виджета, который добавила сама.
+4. Программа открывает страницу вызовом `dgx_ui_page_open(home, &described_page)`. У кнопки «Back» нет кода
+   программы: страницу закрывает `DGX_UI_ACTION_NAME(back)`.
+
+Что стоит знать:
+
+- **Облик, который не сказан,** — это облик, названный в таблице словом самого вида: `"slider"` у ползунка,
+  `"button"` у кнопки. Переключатель говорит `"look": "checkbox"`. Контейнеру, рамке и надписи облик не нужен.
+  Облик, которого программа не перечислила, — ошибка с видом в качестве имени, а не виджет, которого никто не видит.
+- **Неверное описание ничего не добавляет.** `err.code` говорит, что не так, `err.offset` — байт текста,
+  `err.name` — имя или ключ: опечатка `"sldier"` даёт `DGX_UI_LOAD_KIND` на её байте с этим словом.
+- **Дотянуться можно только до того, что перечислила программа.** Описание не может назвать обработчик, значение
+  или картинку, которых нет ни в одной таблице, и ни одно его число не становится указателем. Поэтому текст,
+  пришедший по сети, в худшем случае неверно расставит собственные виджеты программы.
+- **Текст после загрузки можно освободить**, память — нет, пока страница жива. Чтобы убрать страницу:
+  `dgx_ui_free(&described_page)`, потом `free(described_memory)`.
+- **Тексту, который пишет программа,** нужен `"text_size"` — размер его буфера в байтах; без него текст
+  постоянный, как подпись из строковой константы.
+- **Цветов и шрифтов в описании нет.** Облик с параметрами программы, стиль текста, картинка — программа делает
+  их на C и даёт им имена.
+- **Несколько страниц**: одна таблица идентификаторов служит всем; загрузка заполняет те `id`, которые есть в её
+  описании, и не трогает остальные. `DGX_UI_ACTION_NAME(page)` открывает страницу, которая стоит в `"ctx"`
+  кнопки, — дерево, названное в таблице контекстов.
+- **Буквы шрифтов**: шрифт, который собирается под тексты файла, берёт и строки файла JSON, так что само описание
+  можно назвать в `TEXTS` нужды.
+- **Сколько это стоит**: около 7 КБ кода в программе, которая загружает описание, а в ОЗУ — то, что говорит
+  `dgx_ui_load_need()`: здесь по 56 байт на виджет, его узел, как у любого виджета, и текстовое поле с текстом у
+  тех, у кого он есть. Дерево на константах лежит во флеше, описанное — в ОЗУ.
+
 ## Большие данные: сообщение по ссылке
 
 Больше 12 байт идут по ссылке. Сообщение владеет данными от отправки до того, как цикл вызовет

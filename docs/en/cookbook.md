@@ -2138,6 +2138,95 @@ static void alarm_set(dgx_ui_t *ui, int parent, const char *text)
 - A widget the program keeps in its own RAM may be changed: its sizes, its picture. Then call `dgx_ui_relayout()`
   and `dgx_ui_redraw()` for it.
 
+## A page from a description
+
+A page of settings is not C here but a text: the JSON a builder writes, kept in a file of the program or sent to
+it. `dgx_ui_load()` makes the widgets from it while the program runs. Everything that is a pointer in C is a name
+in the text, and the program says in tables what each name stands for.
+
+```c
+#include <stdlib.h>
+
+#include "dgx_ui_load.h"
+
+/* the page as a builder writes it; here a string, as well a file embedded in the program or read from a card */
+static const char described_json[] =
+    "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 4, \"gap\": 4, \"children\": ["
+    "  {\"kind\": \"label\", \"text\": \"Sound\", \"id\": \"title\", \"text_size\": 24},"
+    "  {\"kind\": \"slider\", \"value\": \"volume\", \"max\": 100, \"step\": 5, \"want\": [0, 12]},"
+    "  {\"kind\": \"switch\", \"value\": \"mute\", \"text\": \"Mute\", \"look\": \"checkbox\"},"
+    "  {\"kind\": \"button\", \"text\": \"Back\", \"on\": \"back\"}]}}";
+
+static int32_t       described_volume = 40, described_mute;
+static int           described_title  = -1; /* the label's index, written by the load */
+static dgx_ui_t      described_page;
+static dgx_ui_node_t described_nodes[8];
+static void         *described_memory;
+
+/* what the description's names stand for: only these can be reached from it */
+static const dgx_ui_look_name_t  described_looks[]    = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(checkbox), DGX_UI_LOOK_NAME(button)};
+static const dgx_ui_value_name_t described_values[]   = {{"volume", &described_volume}, {"mute", &described_mute}};
+static const dgx_ui_style_name_t described_styles[]   = {{"text", &st_left}};
+static const dgx_ui_on_name_t    described_handlers[] = {DGX_UI_ACTION_NAME(back)};
+static const dgx_ui_id_t         described_ids[]      = {{"title", &described_title}};
+static const dgx_ui_load_names_t described_names      = {
+    .looks = described_looks, .look_count = 3, .values = described_values, .value_count = 2, .styles = described_styles, .style_count = 1,
+    .handlers = described_handlers, .handler_count = 1, .ids = described_ids, .id_count = 1};
+
+/* the page made from its description; false: the description is wrong, err says what and at which byte */
+static bool described_page_load(dgx_ui_load_error_t *err)
+{
+    dgx_ui_load_need_t need;
+    if (!dgx_ui_load_need(described_json, sizeof described_json - 1, &described_names, &need, err)) return false;
+    if (need.nodes > 8 || !(described_memory = malloc(need.bytes))) return false;
+    dgx_ui_init(&described_page, described_nodes, 8, 1);
+    if (dgx_ui_load(&described_page, -1, described_json, sizeof described_json - 1, &described_names, described_memory, need.bytes, err) < 0) {
+        free(described_memory), described_memory = NULL;
+        return false;
+    }
+    dgx_ui_text_set(&described_page, described_title, "Sound of the room"); /* the label found by its id */
+    return true;
+}
+```
+
+What happens:
+
+1. `dgx_ui_load_need()` reads the whole text and checks it, against the tables too: the slider's `"volume"` is in
+   the values' table, the button's `"back"` among the handlers. It answers what the page takes: the bytes, five
+   nodes, a depth of two.
+2. The program gives that memory, and `dgx_ui_load()` lays the five widgets, the three text boxes and their strings
+   in it and adds them to the tree. The slider's value is `described_volume`, as if the constant said
+   `.value = &described_volume`.
+3. The label has `"id": "title"`, so its index is written to `described_title`, and the program sets its text as
+   it would for a widget it added itself.
+4. The program opens the page by `dgx_ui_page_open(home, &described_page)`. The button "Back" has no code of the
+   program's: `DGX_UI_ACTION_NAME(back)` closes the page.
+
+What to know of it:
+
+- **A look not said** is the look the table names by the kind's own word: the slider's `"slider"`, the button's
+  `"button"`. The switch says `"look": "checkbox"`. A box, a frame and a label need none. A look the program did
+  not list is an error with the kind for its name, not a widget nobody sees.
+- **A wrong description adds nothing.** `err.code` says what, `err.offset` the byte of the text, `err.name` the
+  name or the key: a typo in `"sldier"` is `DGX_UI_LOAD_KIND` at its byte with that word.
+- **Only what the program listed can be reached.** A description cannot name a handler, a value or a picture that
+  is in no table, and no number of it becomes a pointer. So a text that came over the air can at worst show the
+  program's own widgets wrongly arranged.
+- **The text may be freed after the load**, the memory not while the page lives. To take the page away:
+  `dgx_ui_free(&described_page)`, then `free(described_memory)`.
+- **A text the program writes** needs `"text_size"`, the bytes of its buffer; without it the text is constant, as
+  a caption from a string constant is.
+- **Colours and fonts are not in the description.** A look with parameters of the program's, a text style, a
+  picture: the program makes them in C and gives them names.
+- **Several pages**: one table of ids serves them all; a load fills the ids its description has and leaves the
+  others. `DGX_UI_ACTION_NAME(page)` opens the page that is the button's `"ctx"`, a tree named in the contexts'
+  table.
+- **The letters of the fonts**: a font made at build time for the texts of a file takes the strings of a JSON file
+  as well, so the description itself can be named in the need's `TEXTS`.
+- **What it costs**: about 7 KB of code in a program that loads a description, and in RAM what
+  `dgx_ui_load_need()` says: here 56 bytes a widget, its node as for any widget, a text box and the text for each
+  that has one. A constant tree lies in flash; a described one in RAM.
+
 ## Large data: a message by reference
 
 More than 12 bytes go by reference. The message owns the data from the sending until the loop calls

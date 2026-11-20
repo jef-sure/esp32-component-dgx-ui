@@ -1686,6 +1686,44 @@ int main(int argc, char **argv)
         dgx_screen_destroy(&rest_screen);
     }
 
+    /* a page from a description: loaded, its label found by the id and set, the slider's value the program's place, the
+       page opened over a home and closed by its button's action; a description with a typo adds nothing and says where */
+    {
+        static dgx_ui_node_t         described_home_nodes[2];
+        static const dgx_ui_widget_t described_home_w = {.kind = DGX_UI_BOX};
+        dgx_ui_t                     described_home;
+        dgx_screen_t                *described_screen = dgx_vscreen_init(160, 100, 16, DgxScreenRGB);
+        dgx_ui_paint_t               described_paint  = {.scr = described_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_load_error_t          load_err         = {0};
+        dgx_ui_init(&described_home, described_home_nodes, 2, 1);
+        dgx_ui_add(&described_home, -1, &described_home_w);
+        const bool loaded = described_page_load(&load_err);
+        dgx_ui_paint(&described_home, &described_paint, 0);
+        const bool opened = loaded && dgx_ui_page_open(&described_home, &described_page);
+        dgx_ui_paint(&described_home, &described_paint, 10);
+        /* the widgets as described: 0 the column, 1 the label, 2 the slider, 3 the switch, 4 the button */
+        const char *title_text = loaded ? dgx_ui_widget(&described_page, described_title)->text->buf : "";
+        dgx_ui_focus(&described_page, 2);
+        dgx_ui_key(&described_home, DGX_UI_KEY_MORE);
+        const int            volume_after = (int)described_volume;
+        const dgx_ui_node_t *back         = dgx_ui_node(&described_page, 4);
+        const int16_t        back_x = (int16_t)(back->x + back->w / 2), back_y = (int16_t)(back->y + back->h / 2);
+        dgx_ui_pointer(&described_home, &(dgx_ui_pointer_t){.x = back_x, .y = back_y, .down = true, .pressed = true, .ms = 100});
+        dgx_ui_pointer(&described_home, &(dgx_ui_pointer_t){.x = back_x, .y = back_y, .released = true, .ms = 150});
+        const bool closed = described_home.popup == NULL;
+        static const char   wrong[]   = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"sldier\"}}";
+        dgx_ui_load_need_t  wrong_need;
+        dgx_ui_load_error_t wrong_err = {0};
+        const bool          wrong_ok  = dgx_ui_load_need(wrong, sizeof wrong - 1, &described_names, &wrong_need, &wrong_err);
+        printf("described: loaded %d (error %d), the label at %d reads \"%s\", %d widgets; opened as a page %d; MORE on its slider: the program's volume %d (from 40 by 5); "
+               "a tap on Back closes it %d; a kind \"sldier\": taken %d, code %d (KIND %d) at byte %d, \"%s\"\n",
+               loaded, load_err.code, described_title, title_text, described_page.count, opened, volume_after, closed, wrong_ok, wrong_err.code, DGX_UI_LOAD_KIND, wrong_err.offset,
+               wrong_err.name);
+        dgx_ui_paint_free(&described_paint), dgx_ui_free(&described_page), dgx_ui_free(&described_home);
+        free(described_memory);
+        dgx_screen_destroy(&described_screen);
+    }
+
     puts("cookbook: ran to the end");
     return 0;
 }
