@@ -519,9 +519,12 @@ static const dgx_ui_level_look_t charge_colors  = {.bar = ACCENT, .rest = FILL, 
 static const dgx_ui_look_t       look_charge    = {.draw = dgx_ui_draw_level, .params = &charge_colors, .fill = -1};
 static const dgx_ui_widget_t     charge_w       = {.kind = DGX_UI_OWN, .max = 100, .want_h = 6, .value = &charge_percent, .look = &look_charge};
 
-/* a tank filled from the bottom: 0 to 200 litres in a box 12 points wide and 40 high */
+/* a tank filled from the bottom: 0 to 200 litres in a box 12 points wide and 40 high; what stands above 160 litres
+   is of another colour, a zone at the top that keeps its place */
 static int32_t                   tank_litres;
-static const dgx_ui_level_look_t tank_colors = {.bar = ACCENT, .rest = FILL, .from = DGX_UI_FROM_BOTTOM};
+static const dgx_ui_band_t       tank_bands[] = {{160, ACCENT}};
+static const dgx_ui_level_look_t tank_colors  = {.bar = ACCENT_DOWN, .rest = FILL, .from = DGX_UI_FROM_BOTTOM, .band_count = 1,
+                                                 .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = tank_bands};
 static const dgx_ui_look_t       look_tank   = {.draw = dgx_ui_draw_level, .params = &tank_colors, .fill = -1};
 static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, .want_w = 12, .want_h = 40, .value = &tank_litres, .look = &look_tank};
 ```
@@ -532,7 +535,10 @@ static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, 
   `DGX_UI_FROM_TOP`.
 - **Bands.** A value below a band's `below` takes that band's colour, the lowest band first; a value past the last
   band takes `bar`. Here 10 is `ACCENT_DOWN`, 20 and 30 are `BORDER`, 50 and 80 are `ACCENT`. All of the filled part
-  is of one colour, the value's.
+  is of one colour, the value's: that is `bands_by` 0, `DGX_UI_BANDS_BY_VALUE`.
+- **Bands by place**, `DGX_UI_BANDS_BY_PLACE`, colour each part of the bar by the values it stands for: the tank is
+  `ACCENT` up to 160 litres and `ACCENT_DOWN` above, whatever its level, a zone that shows only when the level
+  reaches it.
 - **What is written.** When only the value moved, the part between the length that was filled and the new one:
   a bar 200 pixels long that grows by one percent sends two columns of pixels. When the colour changed, the filled
   part and what emptied. Every pixel once.
@@ -2287,51 +2293,20 @@ kind that holds the others as its children, as a frame does. It needs no popup. 
 mark what the layout gave: the square the ring's pad leaves inside the circle, and in it the boxes of the number, of
 its unit, of the empty box that takes the rest, and of the row with its two labels.
 
-The ring's look draws a `dgx_gauge_t` of DGX:
+The ring is the library's look `dgx_ui_look_ring` with parameters of the program's:
 
 ```c
-#include "dgx_gauge.h"
+/* the scale's colours: four more in the table the painter is given, after the recipes' own */
+enum { RING_OFF = COLORS, RING_LOW, RING_MID, RING_HIGH, RING_COLORS };
+static uint32_t ring_table[RING_COLORS]; /* the paint's on this screen: .colors = ring_table, .color_count = RING_COLORS */
 
-/* the colours of the scale, packed for the screen at the start */
-static uint32_t ring_low, ring_mid, ring_high, ring_off;
-
-static uint32_t ring_color(int ppm)
-{
-    return ppm < 800 ? ring_low : ppm < 1200 ? ring_mid : ring_high;
-}
-
-typedef struct {
-    uint8_t width; /* of the ring, in points */
-} ring_look_t;
-
-/* what the ring remembers: the gauge of DGX, which draws only the steps that changed */
-typedef struct {
-    dgx_gauge_t gauge;
-    bool        made;
-} ring_t;
-
-static bool ring_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
-{
-    const dgx_ui_node_t   *n = dgx_ui_node(ui, i);
-    const dgx_ui_widget_t *w = n->widget;
-    const ring_look_t     *p = look->params;
-    ring_t                *r = w->own;
-    const int thick = p->width * ui->unit, outer = (n->w < n->h ? n->w : n->h) / 2 - 2;
-    if (paint->whole || !r->made) {
-        /* nothing of it is on this screen: its paper around the children, the empty ring, the steps up to the value */
-        dgx_gauge_t fresh;
-        dgx_ui_fill_around(paint, ui, i, dgx_ui_rect(n->x, n->y, n->w, n->h), dgx_ui_color(paint, paint->paper));
-        dgx_gauge_init(&fresh, paint->scr, n->x + n->w / 2 - paint->ox, n->y + n->h / 2 - paint->oy, outer - thick, thick, 225.0f, 270,
-                       w->min, w->max, ring_off, ring_color);
-        dgx_gauge_set_value(&fresh, dgx_ui_value_of(n));
-        if (!paint->composing) r->gauge = fresh, r->made = true; /* remembered only by the painter's own pass */
-    } else if (paint->part == 0) {
-        dgx_gauge_set_value(&r->gauge, dgx_ui_value_of(n)); /* only the steps that changed */
-    } else {
-        dgx_gauge_redraw(&r->gauge); /* another part of it, beside a popup: all of the ring there */
-    }
-    return false;
-}
+/* up to 800 ppm in one colour, up to 1200 in another, from there in a third, each part of the arc by its own place;
+   14 points wide, from half past seven round to half past four */
+static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID}};
+static const dgx_ui_ring_look_t ring_params  = {
+    .on = RING_HIGH, .off = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
+    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
+static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = -1};
 ```
 
 The widgets. One message of the value feeds both the ring and the number; the two labels at the bottom are those of
@@ -2363,14 +2338,11 @@ static bool ppm_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 static char                ppm_buf[8], ring_temp_buf[12], ring_rh_buf[8];
 static dgx_ui_textbox_t    ppm_box, ppm_unit_box = DGX_UI_TEXT_CONST("ppm CO2", 1, &st_centre);
 static dgx_ui_text_style_t st_ring_right;
-static ring_t              ring_data;
-static const ring_look_t   ring_params = {.width = 14};
-static const dgx_ui_look_t ring_look   = {.draw = ring_draw, .params = &ring_params, .fill = -1};
 
 /* the ring is a column: its pad keeps its children inside the circle */
 static const dgx_ui_widget_t ring_w = {
-    .kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 47, .gap = 2, .min = 400, .max = 2000, .value = &ring_ppm,
-    .look = &ring_look, .own = &ring_data, .take = ring_take};
+    .kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 46, .gap = 2, .min = 400, .max = 2000, .value = &ring_ppm,
+    .look = &ring_look, .take = ring_take};
 static const dgx_ui_widget_t ppm_w       = {.kind = DGX_UI_LABEL, .text = &ppm_box, .want_h = 44, .take = ppm_take};
 static const dgx_ui_widget_t ppm_unit_w  = {.kind = DGX_UI_LABEL, .text = &ppm_unit_box};
 static const dgx_ui_widget_t ring_rest_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
@@ -2381,10 +2353,10 @@ static const dgx_ui_widget_t ring_rh_w   = {.kind = DGX_UI_LABEL, .text = &rh_bo
 /* the tree of a round screen of 240: the ring is its root */
 static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
 {
-    ring_low  = dgx_screen_rgb(scr, 60, 200, 90);
-    ring_mid  = dgx_screen_rgb(scr, 240, 200, 40);
-    ring_high = dgx_screen_rgb(scr, 230, 60, 50);
-    ring_off  = dgx_screen_rgb(scr, 40, 46, 60);
+    ring_table[RING_LOW]  = dgx_screen_rgb(scr, 60, 200, 90);
+    ring_table[RING_MID]  = dgx_screen_rgb(scr, 240, 200, 40);
+    ring_table[RING_HIGH] = dgx_screen_rgb(scr, 230, 60, 50);
+    ring_table[RING_OFF]  = dgx_screen_rgb(scr, 40, 46, 60);
     st_ring_right = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
     dgx_ui_textbox_init(&ppm_box, ppm_buf, sizeof ppm_buf, 1, &st_city); /* the large font, or the small one */
     dgx_ui_textbox_init(&temp_box, ring_temp_buf, sizeof ring_temp_buf, 1, &st_left);
@@ -2400,18 +2372,25 @@ static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
 }
 ```
 
-- **The pad** keeps the children inside the circle. On a screen of 240 the ring's outer radius is 118 and its width
-  14, so the inner circle has a radius of 104. The square inside that circle has a side of 104 x 1.41 = 147, and the
-  pad is (240 - 147) / 2 = 47.
-- **A new value** calls the ring's look once, and the gauge of DGX draws only the steps that changed. The number
-  writes its own field. Nothing else is touched.
-- **Drawn whole**, at the first paint and after a turn, the ring fills its box around its children by
-  `dgx_ui_fill_around()` and draws itself over that paper: the pixels of the ring are written twice then, the
-  children's once.
-- **Under a popup** a part of the ring may show beside it. The look is then called for each part; the gauge remembers
-  its steps after the first, so the other parts are drawn whole.
-- A child hidden or shown makes a ring be drawn whole with its children: only a box and a frame fill around what
-  stayed.
+- **The pad** keeps the children inside the circle. The ring is as large as the lesser side of its box: on a screen
+  of 240 its outer radius is 120 and its width 14, so the inner circle has a radius of 106. The square inside that
+  circle has a side of 106 x 1.41 = 149, and the pad is (240 - 149) / 2 = 46.
+- **The angles** are degrees clockwise from the top: a start of -135 is half past seven, and a sweep of 270 ends at
+  half past four. DGX counts the other way, counter-clockwise from the right. A negative sweep goes
+  counter-clockwise.
+- **The bands by place** give each part of the arc the colour of the values it stands for: a scale with zones. With
+  `DGX_UI_BANDS_BY_VALUE` all of the arc takes one colour, that of the value shown.
+- **A new value** calls the ring's look once: it writes the pixels of the arc between the old value and the new, and
+  no others. The edge of the arc is a straight line from the middle. The number writes its own field.
+- **Drawn whole**, at the first paint and after a turn, every pixel of the ring's box is written once: the rows of
+  the ring and of its paper are cut by the boxes of the children, which draw themselves.
+- **Under a popup** a part of the ring may show beside it. It is the same pixels as without the popup: the colour of
+  a pixel depends only on where it lies and on the value.
+- A child hidden or shown makes the ring be drawn whole with its children.
+- **What it takes.** About 3.3 KB of code in a program that names the look. Of the look's own work, the display's
+  apart: a step of the value on this ring takes 0.9 ms on an ESP32 at 240 MHz, and the ring whole 22 ms; a ring of
+  800 pixels on an ESP32-P4 at 400 MHz, 2.5 ms and 88 ms. On a display of 18 or 24 bits with the strips named a
+  widget is drawn whole at every change, a ring too.
 
 ## A display of 18 or 24 bits
 

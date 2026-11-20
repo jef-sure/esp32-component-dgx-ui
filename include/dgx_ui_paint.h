@@ -350,30 +350,68 @@ typedef struct dgx_ui_band_t {
     uint8_t color; ///< index of the table
 } dgx_ui_band_t;
 
+/**
+ * How the bands colour what is filled: dgx_ui_level_look_t::bands_by, dgx_ui_ring_look_t::bands_by. By the value
+ * shown, all of it takes one colour, that of the value (a charge red when low); by place, each part takes the colour of
+ * the value its own place stands for (a meter with a red zone at its end).
+ */
+enum { DGX_UI_BANDS_BY_VALUE, DGX_UI_BANDS_BY_PLACE };
+
 /** Where a level bar fills from: dgx_ui_level_look_t::from. */
 enum { DGX_UI_FROM_LEFT, DGX_UI_FROM_BOTTOM, DGX_UI_FROM_RIGHT, DGX_UI_FROM_TOP };
 
 /**
  * Parameters of a level bar: the value of the widget's place, within min..max, as the filled part of its box from one
- * edge; max not above min shows it empty. The filled part's colour is `bar`, or by the value from `bands`; all of the
- * filled part takes one colour, that of the value.
+ * edge; max not above min shows it empty. The filled part's colour is `bar`, or from `bands`, by the value shown or by
+ * place (`bands_by`).
  */
 typedef struct dgx_ui_level_look_t {
     uint8_t              bar;        ///< the filled part; with bands, a value past the last of them
     uint8_t              rest;       ///< the rest of the box; DGX_UI_PAPER: what lies under the widget
     uint8_t              from;       ///< DGX_UI_FROM_LEFT, _BOTTOM, _RIGHT, _TOP
     uint8_t              band_count; ///< bands; 0: `bar` alone
-    const dgx_ui_band_t *bands;      ///< the filled part's colour by the value, the lowest band first; may lie in flash
+    uint8_t              bands_by;   ///< DGX_UI_BANDS_BY_VALUE (0), DGX_UI_BANDS_BY_PLACE
+    const dgx_ui_band_t *bands;      ///< the filled part's colours, the lowest band first; may lie in flash
 } dgx_ui_level_look_t;
 
 /**
  * The look of a level bar, `dgx_ui_look_level`, of the colours 3 filled and 2 the rest, from the left, on a widget of
  * DGX_UI_OWN with no behaviour, which nothing works: `.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 6,
  * .look = &dgx_ui_look_level`. Every pixel of the box once; when only its value changed, only the part between the
- * filled length drawn and the new one is written, or all of the filled part when its colour changed. A program that
- * names it not carries none of it.
+ * filled length drawn and the new one is written, or, by the value shown, all of the filled part when its colour
+ * changed. A program that names it not carries none of it.
  */
 extern const dgx_ui_look_t dgx_ui_look_level;
+
+/**
+ * Parameters of a ring scale: the value of the widget's place, within min..max, as an arc of a ring standing in the
+ * middle of its box, as large as the box's lesser side. The angles are degrees clockwise from the top, which is not
+ * DGX's way (counter-clockwise from the right): DGX's gauge at 225 and 270 is a start of -135 and a sweep of 270
+ * here. A negative sweep goes counter-clockwise; a sweep of 0 is no scale, all of the box `paper`. The arc runs from
+ * the start to the value, all of the sweep at max, none at min; its edge is a straight line from the middle. What lies
+ * outside the sweep, and around the ring and inside it, is `paper`, laid less the widget's children: widgets stand
+ * inside the ring as in a box. A program's own look of this draw whose `paper` is an index names the same index as
+ * its look's `fill`, so that its children's paper is the ring's.
+ */
+typedef struct dgx_ui_ring_look_t {
+    uint8_t              on, off;    ///< the arc up to the value, with no bands or past the last band; the rest of the ring
+    uint8_t              paper;      ///< around the ring and inside it; DGX_UI_PAPER: what lies under the widget
+    uint8_t              width;      ///< of the ring, in points; not less than the radius: a disc
+    int16_t              start;      ///< the angle the arc starts at, in degrees clockwise from the top
+    int16_t              sweep;      ///< all of the scale, in degrees, -360..360: clockwise, or counter-clockwise when negative
+    uint8_t              band_count; ///< bands; 0: `on` alone
+    uint8_t              bands_by;   ///< DGX_UI_BANDS_BY_PLACE (the arc by the value of each point) or DGX_UI_BANDS_BY_VALUE
+    const dgx_ui_band_t *bands;      ///< the arc's colours, the lowest band first; may lie in flash
+} dgx_ui_ring_look_t;
+
+/**
+ * The look of a ring scale, `dgx_ui_look_ring`: of the colours 3 the arc, 2 the rest of the ring, the paper what lies
+ * under the widget, 3 points wide, from -135 over 270, on a widget of DGX_UI_OWN with no behaviour, children inside it
+ * as in a column or a row. Every pixel of the box once, its children's too; when only its value changed, only the
+ * pixels of the arc whose colour changed are written. A child hidden, shown or moved draws the ring whole with its
+ * children. A program that names it not carries none of it.
+ */
+extern const dgx_ui_look_t dgx_ui_look_ring;
 
 /**
  * The looks of the controls and pictures, of the colours 0 the paper, 1 the ink, 2 a fill, 3 a border:
@@ -454,6 +492,7 @@ bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
 bool dgx_ui_draw_radio(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_checkbox(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_level(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_ring(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 
 /**
  * @brief The tree drawn on the screen, and every popup open over it one over another: laid out first if they have to

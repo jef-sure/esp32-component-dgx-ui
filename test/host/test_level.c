@@ -2,12 +2,12 @@
  * The level bar, dgx_ui_look_level: the value of the widget's place within min..max as the filled part of its box. From
  * each of the four edges; a value past max and below min, a place written with any int32; max equal to min and below
  * it, drawn empty; a box of no width; the widest box with the widest range. When only the value moves, only the part
- * between the filled length drawn and the new one is written, to the far edge's side too; a band of colour changed,
- * all of the filled part. Its second users: a slider of the same place; a part under a popup and under the keyboard's
- * band while the value changes, the cover gone in the same pass; a composing between two passes; the strips of 18
- * bits; the rest of the paper over a drawn background, a bar that shrinks showing the picture. After each pass on a
- * panel behind a bus (16 bits straight, 18 through the strips: PANEL_BITS, by the Makefile): no pixel written twice,
- * and the panel as a fresh paint composes the tree.
+ * between the filled length drawn and the new one is written, to the far edge's side too; a band of colour changed, all
+ * of the filled part; by place, each part in its own band, the span alone written. Its second users: a slider of the
+ * same place; a part under a popup and under the keyboard's band while the value changes, the cover gone in the same
+ * pass; a composing between two passes; the strips of 18 bits; the rest of the paper over a drawn background, a bar
+ * that shrinks showing the picture. After each pass on a panel behind a bus (16 bits straight, 18 through the strips:
+ * PANEL_BITS, by the Makefile): no pixel written twice, and the panel as a fresh paint composes the tree.
  */
 #include <string.h>
 
@@ -198,6 +198,26 @@ int main(void)
         CHECK(pass(&tree, 25) == 0 && count_in(n, fill) == n->w * 20 / 100 * n->h);
         level = 90; /* past the last band: bar */
         CHECK(pass(&tree, 30) == 0 && count_in(n, accent) == n->w * 90 / 100 * n->h);
+        done();
+    }
+
+    /* bands by place: each part in the band its place stands for; a value moved writes the span alone, no colour
+       moves */
+    {
+        static const dgx_ui_band_t       bands[] = {{.below = 30, .color = 1}, {.below = 70, .color = 0}};
+        static const dgx_ui_level_look_t params  = {.bar = 3, .rest = 2, .from = DGX_UI_FROM_LEFT, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands};
+        static const dgx_ui_look_t       look    = {.draw = dgx_ui_draw_level, .params = &params, .fill = -1};
+        static const dgx_ui_widget_t     bar_w   = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 10, .look = &look};
+        level                                    = 100;
+        const int            i                   = make_with(&bar_w, NULL, NULL);
+        const dgx_ui_node_t *n                   = dgx_ui_node(&tree, i);
+        const uint32_t       paper               = panel_color(0);
+        CHECK(pass(&tree, 0) == 0 && count_in(n, ink) == n->w * 30 / 100 * n->h && count_in(n, paper) == (n->w * 70 / 100 - n->w * 30 / 100) * n->h);
+        CHECK(count_in(n, accent) == (n->w - n->w * 70 / 100) * n->h);
+        level = 50;
+        CHECK(pass(&tree, 10) == 0 && wrote((n->w - n->w * 50 / 100) * n->h) && count_in(n, ink) == n->w * 30 / 100 * n->h);
+        level = 60;
+        CHECK(pass(&tree, 20) == 0 && wrote((n->w * 60 / 100 - n->w * 50 / 100) * n->h));
         done();
     }
 

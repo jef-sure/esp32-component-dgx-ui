@@ -178,9 +178,9 @@ static void ring_pictures(const char *dir)
     static dgx_ui_node_t nodes[8];
     dgx_ui_t             ui;
     dgx_screen_t        *scr = dgx_vscreen_init(240, 240, 16, DgxScreenRGB);
-    static uint32_t      table[COLORS];
-    table[PAPER] = dgx_screen_rgb(scr, 12, 14, 20), table[INK] = dgx_screen_rgb(scr, 235, 235, 225);
-    dgx_ui_paint_t paint = {.scr = scr, .colors = table, .color_count = COLORS, .background = PAPER};
+    /* the recipe's own table: its ring_add() fills the scale's four colours, the paper and the ink are filled here */
+    ring_table[PAPER] = dgx_screen_rgb(scr, 12, 14, 20), ring_table[INK] = dgx_screen_rgb(scr, 235, 235, 225);
+    dgx_ui_paint_t paint = {.scr = scr, .colors = ring_table, .color_count = RING_COLORS, .background = PAPER};
     dgx_ui_init(&ui, nodes, 8, 1);
     const int ring = ring_add(&ui, scr);
     dgx_ui_msg_t    msg;
@@ -190,7 +190,7 @@ static void ring_pictures(const char *dir)
     dgx_ui_msg_value(&msg, MSG_CLIMATE, &c, sizeof c), dgx_ui_take(&ui, &msg), dgx_ui_msg_done(&msg);
     dgx_ui_paint(&ui, &paint, 0);
     shot(scr, dir, "ring.ppm");
-    /* a second value: only the steps that changed and the number's field */
+    /* a second value: only the arc between the two and the number's field */
     const ppm_t v2 = {.ppm = 1350};
     dgx_ui_msg_value(&msg, MSG_PPM, &v2, sizeof v2), dgx_ui_take(&ui, &msg), dgx_ui_msg_done(&msg);
     dgx_ui_paint(&ui, &paint, 1000);
@@ -1447,8 +1447,21 @@ int main(int argc, char **argv)
         tank_litres = 100;
         dgx_ui_paint(&levels, &level_paint, 11);
         const dgx_ui_node_t *box = dgx_ui_node(&levels, tank);
-        int                  filled_rows = 0;
+        int                  filled_rows = 0, zone_rows = 0, below_zone_rows = 0;
         for (int y = 0; y < box->h; ++y) filled_rows += panel->mem[box->y + y][box->x] == level_table[ACCENT];
+        /* full: the zone above 160 litres in its own colour, what is under it as it was */
+        uint32_t half[PANEL_H];
+        for (int y = 0; y < box->h; ++y) half[y] = panel->mem[box->y + y][box->x];
+        panel_count_from_now(panel);
+        tank_litres = 200;
+        dgx_ui_paint(&levels, &level_paint, 12);
+        const int full_written = panel_written(panel), full_twice = panel_twice(panel);
+        for (int y = 0; y < box->h; ++y) zone_rows += panel->mem[box->y + y][box->x] == level_table[ACCENT_DOWN], below_zone_rows += panel->mem[box->y + y][box->x] == level_table[ACCENT];
+        (void)half;
+        printf("level: the tank full: %d rows of the zone above 160 litres, %d under it; 100 to 200 wrote %d pixels, %d row(s) of %d, %d twice\n", zone_rows, below_zone_rows,
+               full_written, full_written / box->w, box->w, full_twice);
+        tank_litres = 100;
+        dgx_ui_paint(&levels, &level_paint, 13);
         printf("level: the charge at 10, 20, 30, 50, 80: the colour of its band %d of 5, the length right %d of 5; 80 to 81 in a bar of %d pixels: %d pixels written, "
                "%d column(s) of %d rows, %d twice; the tank %dx%d at 100 of 200: %d rows filled, the lowest filled %d, the top empty %d\n",
                right_colors, right_lengths, bar->w, grown, columns, bar->h, grown_twice, box->w, box->h, filled_rows,

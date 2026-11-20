@@ -527,9 +527,12 @@ static const dgx_ui_level_look_t charge_colors  = {.bar = ACCENT, .rest = FILL, 
 static const dgx_ui_look_t       look_charge    = {.draw = dgx_ui_draw_level, .params = &charge_colors, .fill = -1};
 static const dgx_ui_widget_t     charge_w       = {.kind = DGX_UI_OWN, .max = 100, .want_h = 6, .value = &charge_percent, .look = &look_charge};
 
-/* a tank filled from the bottom: 0 to 200 litres in a box 12 points wide and 40 high */
+/* a tank filled from the bottom: 0 to 200 litres in a box 12 points wide and 40 high; what stands above 160 litres
+   is of another colour, a zone at the top that keeps its place */
 static int32_t                   tank_litres;
-static const dgx_ui_level_look_t tank_colors = {.bar = ACCENT, .rest = FILL, .from = DGX_UI_FROM_BOTTOM};
+static const dgx_ui_band_t       tank_bands[] = {{160, ACCENT}};
+static const dgx_ui_level_look_t tank_colors  = {.bar = ACCENT_DOWN, .rest = FILL, .from = DGX_UI_FROM_BOTTOM, .band_count = 1,
+                                                 .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = tank_bands};
 static const dgx_ui_look_t       look_tank   = {.draw = dgx_ui_draw_level, .params = &tank_colors, .fill = -1};
 static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, .want_w = 12, .want_h = 40, .value = &tank_litres, .look = &look_tank};
 ```
@@ -540,7 +543,11 @@ static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, 
   `DGX_UI_FROM_RIGHT`, `DGX_UI_FROM_TOP`.
 - **Диапазоны.** Значение меньше `below` диапазона получает цвет этого диапазона; диапазоны перебираются от меньшего
   к большему, а значение за последним получает цвет `bar`. Здесь 10 — это `ACCENT_DOWN`, 20 и 30 — `BORDER`, 50 и
-  80 — `ACCENT`. Вся закрашенная часть одного цвета — цвета значения.
+  80 — `ACCENT`. Вся закрашенная часть одного цвета — цвета значения: это `bands_by`, равный 0,
+  `DGX_UI_BANDS_BY_VALUE`.
+- **Диапазоны по месту**, `DGX_UI_BANDS_BY_PLACE`, красят каждую часть полосы по тем значениям, которым она
+  соответствует: бак до 160 литров цвета `ACCENT`, а выше — `ACCENT_DOWN`, каким бы ни был уровень; зона видна, только
+  когда уровень до неё дошёл.
 - **Что пишется на дисплей.** Если изменилось только значение — часть между прежней закрашенной длиной и новой:
   полоса длиной 200 пикселей, выросшая на один процент, отправляет два столбца пикселей. Если сменился цвет —
   закрашенная часть и то, что опустело. Каждый пиксель один раз.
@@ -2315,51 +2322,20 @@ static void trace_add(int ppm)
 картинке показывают, что дала раскладка: квадрат, который отступ кольца оставляет внутри круга, и в нём прямоугольники
 числа, его единицы, пустого контейнера, который занимает остаток, и строки с двумя надписями.
 
-Облик кольца рисует `dgx_gauge_t` из DGX:
+Кольцо — облик библиотеки `dgx_ui_look_ring` с параметрами программы:
 
 ```c
-#include "dgx_gauge.h"
+/* the scale's colours: four more in the table the painter is given, after the recipes' own */
+enum { RING_OFF = COLORS, RING_LOW, RING_MID, RING_HIGH, RING_COLORS };
+static uint32_t ring_table[RING_COLORS]; /* the paint's on this screen: .colors = ring_table, .color_count = RING_COLORS */
 
-/* the colours of the scale, packed for the screen at the start */
-static uint32_t ring_low, ring_mid, ring_high, ring_off;
-
-static uint32_t ring_color(int ppm)
-{
-    return ppm < 800 ? ring_low : ppm < 1200 ? ring_mid : ring_high;
-}
-
-typedef struct {
-    uint8_t width; /* of the ring, in points */
-} ring_look_t;
-
-/* what the ring remembers: the gauge of DGX, which draws only the steps that changed */
-typedef struct {
-    dgx_gauge_t gauge;
-    bool        made;
-} ring_t;
-
-static bool ring_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
-{
-    const dgx_ui_node_t   *n = dgx_ui_node(ui, i);
-    const dgx_ui_widget_t *w = n->widget;
-    const ring_look_t     *p = look->params;
-    ring_t                *r = w->own;
-    const int thick = p->width * ui->unit, outer = (n->w < n->h ? n->w : n->h) / 2 - 2;
-    if (paint->whole || !r->made) {
-        /* nothing of it is on this screen: its paper around the children, the empty ring, the steps up to the value */
-        dgx_gauge_t fresh;
-        dgx_ui_fill_around(paint, ui, i, dgx_ui_rect(n->x, n->y, n->w, n->h), dgx_ui_color(paint, paint->paper));
-        dgx_gauge_init(&fresh, paint->scr, n->x + n->w / 2 - paint->ox, n->y + n->h / 2 - paint->oy, outer - thick, thick, 225.0f, 270,
-                       w->min, w->max, ring_off, ring_color);
-        dgx_gauge_set_value(&fresh, dgx_ui_value_of(n));
-        if (!paint->composing) r->gauge = fresh, r->made = true; /* remembered only by the painter's own pass */
-    } else if (paint->part == 0) {
-        dgx_gauge_set_value(&r->gauge, dgx_ui_value_of(n)); /* only the steps that changed */
-    } else {
-        dgx_gauge_redraw(&r->gauge); /* another part of it, beside a popup: all of the ring there */
-    }
-    return false;
-}
+/* up to 800 ppm in one colour, up to 1200 in another, from there in a third, each part of the arc by its own place;
+   14 points wide, from half past seven round to half past four */
+static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID}};
+static const dgx_ui_ring_look_t ring_params  = {
+    .on = RING_HIGH, .off = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
+    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
+static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = -1};
 ```
 
 Виджеты. Одно сообщение со значением получают и кольцо, и число. Две надписи внизу — те же, что в рецепте
@@ -2391,14 +2367,11 @@ static bool ppm_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 static char                ppm_buf[8], ring_temp_buf[12], ring_rh_buf[8];
 static dgx_ui_textbox_t    ppm_box, ppm_unit_box = DGX_UI_TEXT_CONST("ppm CO2", 1, &st_centre);
 static dgx_ui_text_style_t st_ring_right;
-static ring_t              ring_data;
-static const ring_look_t   ring_params = {.width = 14};
-static const dgx_ui_look_t ring_look   = {.draw = ring_draw, .params = &ring_params, .fill = -1};
 
 /* the ring is a column: its pad keeps its children inside the circle */
 static const dgx_ui_widget_t ring_w = {
-    .kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 47, .gap = 2, .min = 400, .max = 2000, .value = &ring_ppm,
-    .look = &ring_look, .own = &ring_data, .take = ring_take};
+    .kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 46, .gap = 2, .min = 400, .max = 2000, .value = &ring_ppm,
+    .look = &ring_look, .take = ring_take};
 static const dgx_ui_widget_t ppm_w       = {.kind = DGX_UI_LABEL, .text = &ppm_box, .want_h = 44, .take = ppm_take};
 static const dgx_ui_widget_t ppm_unit_w  = {.kind = DGX_UI_LABEL, .text = &ppm_unit_box};
 static const dgx_ui_widget_t ring_rest_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
@@ -2409,10 +2382,10 @@ static const dgx_ui_widget_t ring_rh_w   = {.kind = DGX_UI_LABEL, .text = &rh_bo
 /* the tree of a round screen of 240: the ring is its root */
 static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
 {
-    ring_low  = dgx_screen_rgb(scr, 60, 200, 90);
-    ring_mid  = dgx_screen_rgb(scr, 240, 200, 40);
-    ring_high = dgx_screen_rgb(scr, 230, 60, 50);
-    ring_off  = dgx_screen_rgb(scr, 40, 46, 60);
+    ring_table[RING_LOW]  = dgx_screen_rgb(scr, 60, 200, 90);
+    ring_table[RING_MID]  = dgx_screen_rgb(scr, 240, 200, 40);
+    ring_table[RING_HIGH] = dgx_screen_rgb(scr, 230, 60, 50);
+    ring_table[RING_OFF]  = dgx_screen_rgb(scr, 40, 46, 60);
     st_ring_right = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
     dgx_ui_textbox_init(&ppm_box, ppm_buf, sizeof ppm_buf, 1, &st_city); /* the large font, or the small one */
     dgx_ui_textbox_init(&temp_box, ring_temp_buf, sizeof ring_temp_buf, 1, &st_left);
@@ -2428,18 +2401,25 @@ static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
 }
 ```
 
-- **Отступ** держит детей внутри круга. На экране 240 внешний радиус кольца 118, ширина 14, значит, радиус
-  внутреннего круга 104. У квадрата внутри этого круга сторона 104 x 1,41 = 147, поэтому отступ равен
-  (240 - 147) / 2 = 47.
-- **Новое значение** вызывает облик кольца один раз, и шкала DGX рисует только те деления, которые изменились.
-  Число пишет своё поле. Больше ничего не трогается.
-- **Целиком**, при первой отрисовке и после поворота, кольцо заливает свой прямоугольник вокруг детей вызовом
-  `dgx_ui_fill_around()` и рисует себя поверх этой бумаги: пиксели кольца в этом случае пишутся дважды, пиксели
-  детей — один раз.
-- **Под всплывающим окном** часть кольца может быть видна рядом с ним. Тогда облик вызывается для каждой части;
-  после первой шкала уже помнит свои деления, поэтому остальные части рисуются целиком.
-- Если ребёнка скрыли или показали, кольцо рисуется целиком вместе с детьми: вокруг оставшихся на месте заливают
-  только контейнер и рамка.
+- **Отступ** держит детей внутри круга. Кольцо занимает меньшую сторону своего прямоугольника: на экране 240 его
+  внешний радиус 120, ширина 14, значит, радиус внутреннего круга 106. У квадрата внутри этого круга сторона
+  106 x 1,41 = 149, поэтому отступ равен (240 - 149) / 2 = 46.
+- **Углы** задаются в градусах по часовой стрелке от верха: начало -135 — это «половина восьмого», а размах 270
+  кончается на «половине пятого». В DGX отсчёт другой: против часовой стрелки от правого луча. Отрицательный размах
+  идёт против часовой стрелки.
+- **Диапазоны по месту** дают каждой части дуги цвет тех значений, которым она соответствует: шкала с зонами. С
+  `DGX_UI_BANDS_BY_VALUE` вся дуга одного цвета — цвета показанного значения.
+- **Новое значение** вызывает облик кольца один раз: он пишет пиксели дуги между прежним значением и новым и никакие
+  другие. Край дуги — прямая линия из центра. Число пишет своё поле.
+- **Целиком**, при первой отрисовке и после поворота, каждый пиксель прямоугольника кольца пишется один раз: строки
+  кольца и его бумаги обрезаются по прямоугольникам детей, а дети рисуют себя сами.
+- **Под всплывающим окном** часть кольца может быть видна рядом с ним. Это те же пиксели, что и без окна: цвет
+  пикселя зависит только от того, где он лежит, и от значения.
+- Если ребёнка скрыли или показали, кольцо рисуется целиком вместе с детьми.
+- **Чего это стоит.** Около 3,3 КБ кода в программе, которая называет облик. Работа самого облика, без дисплея: шаг
+  значения на этом кольце занимает 0,9 мс на ESP32 при 240 МГц, кольцо целиком — 22 мс; кольцо в 800 пикселей на
+  ESP32-P4 при 400 МГц — 2,5 мс и 88 мс. На дисплее в 18 или 24 бита с названными полосами виджет рисуется целиком
+  при каждом изменении, кольцо тоже.
 
 ## Дисплей на 18 или 24 бита
 

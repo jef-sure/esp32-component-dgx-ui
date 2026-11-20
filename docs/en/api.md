@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.29: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.30: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -145,7 +145,7 @@ of every member.
 | `DGX_UI_BUTTON` | clicked: activated |
 | `DGX_UI_INPUT` | a field typed into |
 | `DGX_UI_DROPDOWN` | a button that shows the option chosen: its options the lines of its text, its value the one chosen. Activated, the program opens its list by `dgx_ui_dropdown_open()` |
-| `DGX_UI_OWN` | drawn by a look of the program's, its data in `own`; worked by the finger and the keys when its look names a behaviour. The library's level bar, `dgx_ui_look_level`, is a look for it too |
+| `DGX_UI_OWN` | drawn by a look of the program's, its data in `own`; worked by the finger and the keys when its look names a behaviour. The library's level bar, `dgx_ui_look_level`, and ring scale, `dgx_ui_look_ring`, are looks for it too |
 | `DGX_UI_RADIO` | a radio button, one of a group. The group is a place: every button of it names the same `value`. A button stands for the number in its `step` and is chosen while the place holds that number; one of no place never is. A click, or the key that activates while it has the focus, writes its number: its `on()` is told `DGX_UI_CHANGED` when the place changed, and the button that was chosen is told nothing. Its value is the group's, not bound by `min` and `max` |
 
 **Flags**
@@ -858,6 +858,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_dropdown` | a dropdown: a flat face with the option chosen and an arrow pointing down | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_look_input` | a field: its text in one line, at the top or with `DGX_UI_TEXT_MIDDLE` in the middle of its height, and, focused, a caret after it | `dgx_ui_input_look_t` |
 | `dgx_ui_look_level` | a level bar, on a widget of `DGX_UI_OWN`: the value of its place as the filled part of its box from one edge, its colour by bands of value | `dgx_ui_level_look_t` |
+| `dgx_ui_look_ring` | a ring scale, on a widget of `DGX_UI_OWN`: the value of its place as an arc of a ring, coloured by bands of value, widgets inside it | `dgx_ui_ring_look_t` |
 | `dgx_ui_look_picture` | a picture or an icon of 1 bit, in the middle of the box | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table; one of 1 bit too. It needs `CONFIG_DGX_ENABLE_VSCREEN`, the paint's buffer of a row of the picture at least, and a 16-bit screen; without them the widget is paper | `dgx_ui_picture_look_t` |
@@ -886,6 +887,7 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_list` | `dgx_ui_look_list` | `dgx_ui_list_look_t` |
 | `dgx_ui_draw_dropdown` | `dgx_ui_look_dropdown` | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_draw_level` | `dgx_ui_look_level` | `dgx_ui_level_look_t` |
+| `dgx_ui_draw_ring` | `dgx_ui_look_ring` | `dgx_ui_ring_look_t` |
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_indexed` | `dgx_ui_look_indexed` | `dgx_ui_picture_look_t` |
@@ -967,8 +969,22 @@ typedef struct dgx_ui_level_look_t {
     uint8_t              rest;       /* the rest of the box; DGX_UI_PAPER: what lies under the widget */
     uint8_t              from;       /* the edge it fills from: DGX_UI_FROM_LEFT, _BOTTOM, _RIGHT, _TOP */
     uint8_t              band_count; /* how many bands; 0: `bar` alone */
-    const dgx_ui_band_t *bands;      /* the colour of the filled part by the value, the lowest band first */
+    uint8_t              bands_by;   /* DGX_UI_BANDS_BY_VALUE (0) or DGX_UI_BANDS_BY_PLACE */
+    const dgx_ui_band_t *bands;      /* the colours of the filled part, the lowest band first */
 } dgx_ui_level_look_t;
+
+enum { DGX_UI_BANDS_BY_VALUE, DGX_UI_BANDS_BY_PLACE };
+
+typedef struct dgx_ui_ring_look_t {
+    uint8_t              on, off;    /* the arc up to the value, with no bands or past the last band; the rest of the ring */
+    uint8_t              paper;      /* around the ring and inside it; DGX_UI_PAPER: what lies under the widget */
+    uint8_t              width;      /* of the ring, in points; not less than the radius: a disc */
+    int16_t              start;      /* the angle the scale starts at, in degrees clockwise from the top */
+    int16_t              sweep;      /* all of the scale, in degrees, -360..360: clockwise, counter-clockwise when negative */
+    uint8_t              band_count; /* how many bands; 0: `on` alone */
+    uint8_t              bands_by;   /* DGX_UI_BANDS_BY_VALUE (0) or DGX_UI_BANDS_BY_PLACE */
+    const dgx_ui_band_t *bands;      /* the colours of the arc, the lowest band first */
+} dgx_ui_ring_look_t;
 ```
 
 The rows of a list and the options of a dropdown are the lines of the widget's text, parted by `\n`:
@@ -1030,10 +1046,34 @@ A level bar is a widget of `DGX_UI_OWN` that names `dgx_ui_look_level` and the p
 `.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 6, .look = &dgx_ui_look_level`. Nothing works it. The
 value, kept within `min`..`max`, is the filled part of the box from the edge `from`; `max` not above `min` shows it
 empty. By default the filled part is colour 3 and the rest colour 2, from the left. With `bands` the filled part
-takes its colour by the value: that of the first band whose `below` is above the value, the lowest band first; a
-value past the last band takes `bar`. All of the filled part is of one colour. When only the value moved, the look
-writes the part between the length it drew and the new one; when the colour changed, the filled part and what
-emptied. The recipe: [A level bar](cookbook.md#a-level-bar).
+takes its colour from them: that of the first band whose `below` is above the value, the lowest band first; a
+value past the last band takes `bar`. By the value shown all of the filled part is of one colour; by place each
+part has its own (`bands_by`, below). When only the value moved, the look writes the part between the length it
+drew and the new one; when the colour of all of it changed, the filled part and what emptied. The recipe:
+[A level bar](cookbook.md#a-level-bar).
+
+A ring scale is a widget of `DGX_UI_OWN` that names `dgx_ui_look_ring` and the place of its value. Nothing works it,
+and it may hold children as a box does: widgets inside the ring. The ring stands in the middle of its box, as large
+as the box's lesser side, `width` points thick. The scale starts at the angle `start` and goes `sweep` degrees
+round, clockwise from the top, which is not DGX's way (counter-clockwise from the right): DGX's 225 and 270 are a
+start of -135 and a sweep of 270 here. A negative sweep goes counter-clockwise; a sweep of 0 is no scale, and all
+of the box is `paper`. The value, kept within `min`..`max`,
+is the arc from the start: none of it at `min`, all of the sweep at `max`, its edge a straight line from the middle.
+The arc is `on`, the rest of the ring `off`; around the ring, inside it and outside the sweep is `paper`. By default
+the arc is colour 3 and the rest colour 2, 3 points wide, from -135 over 270.
+
+With `bands`, `bands_by` says how they colour, in the level bar and in the ring alike. `DGX_UI_BANDS_BY_VALUE`, 0:
+all that is filled takes one colour, that of the value shown (a charge that turns red when low).
+`DGX_UI_BANDS_BY_PLACE`: each part takes the colour of the values its own place stands for (a scale with a red zone
+at its end).
+
+Every pixel of the ring's box is written once, the children's by the children: the ring's rows are cut by their
+boxes. When only the value moved, only the pixels of the arc between the two values are written. A pixel's colour
+depends on where it lies in the tree and on the value alone, so a part beside a popup and a strip give the same
+pixels, and a value reached by steps is the same picture as that value drawn whole. A child hidden, shown or moved
+draws the ring whole with its children. A look of the program's by `dgx_ui_draw_ring` whose `paper` is an index
+names the same index as its `fill`, so that its children's paper is the ring's. The recipe:
+[A ring scale with widgets inside](cookbook.md#a-ring-scale-with-widgets-inside).
 
 By default the bar of a list is colour 3 and the text on it colour 0; while the list has the focus the bar is colour
 1, so the pick shows in a frame too, whose fill is colour 2. The rows of a disabled list are colour 2, and the mark

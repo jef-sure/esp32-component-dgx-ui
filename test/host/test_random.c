@@ -4,7 +4,7 @@
  * slider, a group of radio buttons chosen by a click, by a key and by the program, a checkbox ticked, the row of them
  * shown and hidden, a radio of the group in the popup, a caption over a constant pointed at another and told, a page
  * opened and gone back from, the popup opened over the top of the chain, a popup closed from the middle of it; a level
- * bar of the library on the slider's place. Each seed in two modes: on the paper straight, and over a drawn background with the strips
+ * bar of the library on the slider's place, and a ring scale with a child in it. Each seed in two modes: on the paper straight, and over a drawn background with the strips
  * named. After every pass: no pixel written twice, and the panel is the tree composed anew by a fresh paint, the
  * band's own rows left out. At the end of each seed, with the band gone, the popup closed and the finger up, a pass,
  * then the look at the places marks nothing shown and the next pass writes nothing. After every step: each tree's
@@ -67,6 +67,8 @@ static const dgx_ui_widget_t note_w   = {.kind = DGX_UI_LABEL, .text = &note_box
 static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &level, .look = &dgx_ui_look_slider};
 static const dgx_ui_widget_t bar_w    = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level, .look = &bar_look};
 static const dgx_ui_widget_t gauge_w  = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level, .look = &dgx_ui_look_level};
+static const dgx_ui_widget_t ring_w   = {.kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 5, .min = 0, .max = 100, .want_w = 16, .value = &level, .look = &dgx_ui_look_ring};
+static const dgx_ui_widget_t dot_w    = {.kind = DGX_UI_FRAME, .want_h = 6, .look = &dgx_ui_look_frame}; /* a child inside the ring */
 static const dgx_ui_widget_t line_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 4, .want_h = 16};
 static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .text = &button_box, .want_w = 50, .look = &dgx_ui_look_button};
 static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .value = &flag, .look = &dgx_ui_look_switch};
@@ -147,19 +149,20 @@ int main(void)
             }
             colors[0] = dgx_screen_rgb(paint.scr, 18, 22, 30), colors[1] = dgx_screen_rgb(paint.scr, 232, 232, 222);
             colors[2] = dgx_screen_rgb(paint.scr, 44, 60, 86), colors[3] = dgx_screen_rgb(paint.scr, 240, 160, 60);
-            static dgx_ui_node_t nodes[16], popup_nodes[4];
+            static dgx_ui_node_t nodes[20], popup_nodes[4];
             dgx_ui_t             ui, popup;
             level = row = flag = popup_level = choice = ticked = 0;
             dgx_ui_textbox_init(&note_box, note_text, sizeof note_text, 2, &style);
             dgx_ui_textbox_init(&list_box, list_text, sizeof list_text, 1, &style);
             dgx_ui_textbox_init(&ask_box, ask_text, sizeof ask_text, 1, &style);
             dgx_ui_textbox_init(&button_box, button_text, sizeof button_text, 1, &style);
-            dgx_ui_init(&ui, nodes, 16, 1);
+            dgx_ui_init(&ui, nodes, 20, 1);
             dgx_ui_add(&ui, -1, &root_w);
             const int note = dgx_ui_add(&ui, 0, &note_w), slider = dgx_ui_add(&ui, 0, &slider_w), bar = dgx_ui_add(&ui, 0, &bar_w);
             dgx_ui_add(&ui, 0, &gauge_w); /* the library's level bar of the slider's place */
             const int line = dgx_ui_add(&ui, 0, &line_w), button = dgx_ui_add(&ui, line, &button_w), toggle = dgx_ui_add(&ui, line, &switch_w);
             const int caption = dgx_ui_add(&ui, line, &caption_w);
+            dgx_ui_add(&ui, dgx_ui_add(&ui, line, &ring_w), &dot_w); /* the library's ring scale of the slider's place, a child in it */
             caption_box.buf   = (char *)captions[0];
             const int list = dgx_ui_add(&ui, 0, &list_w), group = dgx_ui_add(&ui, 0, &group_w);
             int       radio[3];

@@ -2,9 +2,10 @@
  * dgx_ui_level_look.c
  *
  *  The look of a level bar: the value of the widget's place within min..max as the filled part of its box from one
- *  edge, in one colour, that of the value's band. Two rectangles, every pixel once; when only the value changed, only
- *  the part between the filled length drawn and the new one is written, or, its colour changed, all of the filled part
- *  and what emptied. A program that names it not carries none of it.
+ *  edge, in one colour, that of the value's band, or each part in the band of the value its place stands for. Its parts
+ *  do not overlap, every pixel once; when only the value changed, only the part between the filled length drawn and
+ *  the new one is written, or, by the value shown, all of the filled part and what emptied when its colour changed. A
+ *  program that names it not carries none of it.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -31,6 +32,23 @@ static uint8_t color_of(const dgx_ui_level_look_t *p, int32_t value)
 }
 
 /* a part along the bar, from `a` to `b` pixels from the edge it fills from, laid in a colour or the paper */
+static void lay_along(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int from, int a, int b, uint8_t color);
+
+/* the filled part from `a` to `b` along: one colour, the value's; or by place, each band from where its values begin */
+static void lay_filled(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dgx_ui_level_look_t *p, int length, int a, int b, uint8_t color)
+{
+    if (p->bands_by != DGX_UI_BANDS_BY_PLACE) {
+        lay_along(paint, n, p->from, a, b, color);
+        return;
+    }
+    int at = a;
+    for (int k = 0; k < p->band_count && at < b; ++k) {
+        const int end = filled(n->widget, p->bands[k].below, length); /* the band's values end there */
+        if (end > at) lay_along(paint, n, p->from, at, end < b ? end : b, p->bands[k].color), at = end;
+    }
+    lay_along(paint, n, p->from, at, b, p->bar);
+}
+
 static void lay_along(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int from, int a, int b, uint8_t color)
 {
     if (b <= a) return;
@@ -58,11 +76,12 @@ bool dgx_ui_draw_level(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     if (!paint->whole && n->state.bits == n->state_drawn.bits) {
         /* only the value moved: the part between the length drawn and the new one; its colour changed, all of the
            filled part, and what emptied */
-        const int was_filled = filled(w, drawn, length);
-        b = was_filled < now_filled ? now_filled : was_filled;
-        a = color_of(p, drawn) != bar ? 0 : was_filled < now_filled ? was_filled : now_filled;
+        const int  was_filled = filled(w, drawn, length);
+        const bool recolored  = p->bands_by != DGX_UI_BANDS_BY_PLACE && color_of(p, drawn) != bar; /* by place the colours stay */
+        b                     = was_filled < now_filled ? now_filled : was_filled;
+        a                     = recolored ? 0 : was_filled < now_filled ? was_filled : now_filled;
     }
-    lay_along(paint, n, p->from, a, b < now_filled ? b : now_filled, bar);
+    lay_filled(paint, n, p, length, a, b < now_filled ? b : now_filled, bar);
     lay_along(paint, n, p->from, a > now_filled ? a : now_filled, b, p->rest);
     return false;
 }

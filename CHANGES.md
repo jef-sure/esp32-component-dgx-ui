@@ -1,5 +1,12 @@
 # Changes
 
+## 0.0.30 - 2026-11-20
+
+- A ring scale, `dgx_ui_look_ring`: the value of a widget's place as an arc of a ring, coloured by bands of value,
+  widgets inside it; every pixel once, the same pixels in any part and any strip, and when the value moves only the
+  arc between the two values is written. About 3.3 KB for a program that names it.
+- Bands colour by the value shown or by place (`bands_by`), in the level bar too.
+
 ## 0.0.29 - 2026-11-20
 
 - A level bar, `dgx_ui_look_level`: the value of a widget's place as the filled part of its box from one edge, its
