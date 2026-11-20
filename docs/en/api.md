@@ -650,7 +650,7 @@ any number of boxes.
 | `void dgx_ui_text_written(dgx_ui_t *ui, int i)` | The program wrote the buffer of the widget's text box itself, or pointed the box at another string: the widget is fitted and drawn again, its text begun anew, and a list open over its tree that shows the box is told, as by `dgx_ui_text_set()`. It does not look whether the text differs. A buffer with no 0 within its size is ended at `size - 1`, on a whole letter. |
 | `DGX_UI_TEXT_CONST(text, line_count, text_style)` | The initializer of a text box over a string constant: `static dgx_ui_textbox_t yes = DGX_UI_TEXT_CONST("Yes", 1, &style);`. No buffer, no call. It names every member in its order, so C++ takes it too. |
 | `void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms)` | The text appears letter by letter from the next pass, a letter every so many ms; 0: all at once. A text set later appears too. For `dgx_ui_look_lines`. |
-| `void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines)` | A text that is not important moved so many lines up, or down when negative, as far as there are lines. For `dgx_ui_look_lines`. Of a list that scrolls: its window moved so many rows, within its rows, the pick staying; the next change of the value brings the window back to the pick. |
+| `void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines)` | The lines of a text that is not important moved so many up, so that the lines after them come into view, or down when negative, as far as there are lines. For `dgx_ui_look_lines`. Of a list that scrolls: its window moved so many rows, within its rows, the pick staying; the next change of the value brings the window back to the pick. |
 
 Setting a text draws and measures nothing: the painter fits and draws it at its next pass.
 
@@ -1235,6 +1235,8 @@ typedef struct dgx_ui_transition_t {
     bool          running;
     bool          started;
     uint32_t      start_ms;
+    dgx_ui_rect_t area;    /* where the frames move: the screen, or the place of a page in home's place */
+    dgx_ui_rect_t outside; /* what else changed outside the area: written by the last frame alone */
 } dgx_ui_transition_t;
 ```
 
@@ -1401,7 +1403,7 @@ Of the frames:
 - The start of a transition, the two screens composed by `dgx_ui_page_open_by()`, is not a frame.
 - A struct is one transition's.
 
-A program that names the measured pass and its line carries about 1.8 KB more, and its struct, 92 bytes on a 32-bit
+A program that names the measured pass and its line carries about 1.8 KB more, and its struct, 104 bytes on a 32-bit
 chip. Each of the others named adds to it: `dgx_ui_changed_measured()` about 0.2 KB, the lines of each widget about
 0.3 KB and 16 bytes of RAM a widget, the frames about 0.5 KB and their struct.
 

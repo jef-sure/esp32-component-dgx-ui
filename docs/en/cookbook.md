@@ -566,8 +566,8 @@ static void air_add(dgx_ui_t *ui, int parent)
 - **The focus and the finger are seen**: while the widget has the focus a frame of a point goes round it, in
   colour 1, and while a finger is on it the inside of the ring or the square is colour 2. Colours of your own are a
   `dgx_ui_check_look_t` in a look drawn by `dgx_ui_draw_radio` or `dgx_ui_draw_checkbox`.
-- **What it costs**: a program that names the look of a checkbox carries about 1.7 KB more, the look of a radio
-  button 1.5 KB, both 1.9 KB; and 0.5 KB once for the frame of the focus, which the looks of a button and of a
+- **What it costs**: a program that names the look of a checkbox carries about 1.9 KB more, the look of a radio
+  button 1.7 KB, both 2.1 KB; and 0.5 KB once for the frame of the focus, which the looks of a button and of a
   dropdown share. One that names neither, nothing of them.
 - **Do not give a radio `min` and `max`**: its number is in `step`. `dgx_ui_radio_chosen(node)` tells whether a
   button is the chosen one; `dgx_ui_value()` of any button of a group is the number chosen.
@@ -613,7 +613,7 @@ static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, 
   part and what emptied. Every pixel once.
 - **`rest`** may be `DGX_UI_PAPER`: over a drawn background the empty part shows the picture.
 - **Nothing works it**: it takes no finger and no focus. A bar the user moves is a slider.
-- **What it costs**: about 0.6 KB in a program that names it.
+- **What it costs**: about 0.9 KB in a program that names it.
 
 ## An icon that shows a state
 
@@ -715,7 +715,8 @@ static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int wha
   `{.draw = dgx_ui_draw_picture_button, .params = &my_colours, .fill = -1}`.
 - **Other pictures.** One of 4 or 8 bits or of RGB565 is not drawn, and the log says so once: the face is plain. A
   text beside the picture is not drawn either.
-- **What it costs**: about 0.3 KB more in a program that has buttons with a text.
+- **What it costs**: about 0.8 KB more in a program that has buttons with a text and pictures; 2.8 KB in one
+  with no picture yet, as the drawing of pictures comes with it.
 
 ## A picture from flash
 
@@ -882,7 +883,8 @@ static void texts_add(dgx_ui_t *ui, int parent)
 - While a text scrolls or its letters come, `dgx_ui_paint()` returns `true` and the loop keeps coming back. When the
   text reached its end and all letters came, it asks no more.
 - A new text starts from its first line, and appears again if it was told to.
-- `dgx_ui_text_scroll(ui, i, 1)` moves a text that is not important a line up by hand, `-1` a line down.
+- `dgx_ui_text_scroll(ui, i, 1)` moves the lines of a text that is not important a line up by hand, so the next
+  line comes into view, `-1` a line down.
 - A word wider than the line is cut by its letters; `\n` ends a line.
 - A program that names this look carries about 2.5 KB more code; a program of one-line labels does not.
 
@@ -926,14 +928,14 @@ static void log_add(dgx_ui_t *ui, int log, const char *line)
     memcpy(log_buf + have, line, length);
     log_buf[have + length] = 0;
     dgx_ui_text_written(ui, log);        /* the buffer was written in place */
-    dgx_ui_text_scroll(ui, log, 0x7fff); /* down to the last lines: the painter stops at the last window */
+    dgx_ui_text_scroll(ui, log, 0x7fff); /* the lines up as far as they go: the painter stops at the last window */
 }
 ```
 
 - **The buffer is written in place**, and `dgx_ui_text_written()` says so: the widget is fitted and drawn again, and
   its text begins from its first line, as after `dgx_ui_text_set()`. So the lines are kept once: 240 bytes hold
   about ten lines of 20 letters.
-- `dgx_ui_text_scroll()` with a number larger than any count of rows then moves the text down as far as there are
+- `dgx_ui_text_scroll()` with a number larger than any count of rows then moves the lines up as far as there are
   rows, so the last `LOG_ROWS` rows are shown, however many rows a long line took when it was laid into the box.
 - To look back, `dgx_ui_text_scroll(ui, log, -1)` shows a row older, as far as the lines kept go. The next line
   added brings the end back.
@@ -2596,7 +2598,7 @@ static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
 - **Under a popup** a part of the ring may show beside it. It is the same pixels as without the popup: the colour of
   a pixel depends only on where it lies and on the value.
 - A child hidden or shown makes the ring be drawn whole with its children.
-- **What it takes.** About 3.6 KB of code in a program that names the look. Of the look's own work, the display's
+- **What it takes.** About 3.8 KB of code in a program that names the look. Of the look's own work, the display's
   apart, built as ESP-IDF builds by default (`-Og`): a step of the value on this ring takes 0.3 ms on an ESP32 at
   240 MHz, and the ring whole 5 ms; a ring of 800 pixels on an ESP32-P4 at 400 MHz, 0.5 ms and 20 ms, three quarters
   of that the writing of its 640,000 pixels. With `-O2` a step and the ring of 240 take about a third less. On a
@@ -2858,7 +2860,7 @@ What to know of it:
 - The line is written when a pass comes: a loop that sleeps writes none while it sleeps.
 - Showing the line on the screen draws it, and that draw is counted too.
 - The measured pass reads the clock twice for every part it draws, so it is a few microseconds longer than the plain
-  one. A program that names none of this carries none; one that does, about 1.8 KB and the struct, 92 bytes.
+  one. A program that names none of this carries none; one that does, about 1.8 KB and the struct, 104 bytes.
 
 **Each widget.** The slowest draw names one widget; an array of the program's keeps a count for each of them.
 

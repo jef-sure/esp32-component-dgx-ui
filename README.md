@@ -110,9 +110,11 @@ worked by a finger and by the keys, on a board taken from
 - **Texts**: one line, or several laid word by word; the font picked from a list so that the text goes in; a text
   too long cut with an ellipsis or scrolled; letters that appear one by one. A text in a handwritten font of DGX,
   of one line or several, written by a pen stroke by stroke.
-- **Controls**: a button with a shadow and a pressed face, a switch, a checkbox, radio buttons, a slider, a list, a dropdown
-  with its list, a
-  field typed into, pictures and icons of 1, 4 and 8 bits and of RGB565. A control names its look, so a program
+- **Controls**: a button with a shadow and a pressed face, a button of a picture, a switch, a checkbox, radio
+  buttons, a slider, a list, a dropdown with its list, a field typed into, pictures and icons of 1, 4 and 8 bits and
+  of RGB565.
+- **Scales** that show a value: a level bar and a ring scale, each with bands of colour, drawn by the library in
+  whole pixels, with no memory for pixels. A control names its look, so a program
   carries only the looks it uses.
 - **Controls of the program's own**: a widget drawn by the program's look becomes a control when the look names a
   behaviour, what the finger and the keys do with it; the core does the hit, the press, the focus and the click.
@@ -145,7 +147,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | | |
 | --- | --- |
 | code of dgx-ui in the program | about 8 KB |
-| RAM of dgx-ui itself | none; 4 bytes once the program's loop calls `dgx_ui_time()` |
+| RAM of dgx-ui itself | a few pointers of 4 bytes: 20 bytes in the program of Getting started |
 | a widget | 28 bytes of RAM and 56 bytes of flash |
 | a message | 20 bytes |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB more |
@@ -158,7 +160,11 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | `dgx_ui_changed()`, when the program calls it | about 0.6 KB more |
 | transitions between pages, when the program names them | about 2 KB more, and two pictures of the screen in RAM |
 | the statistics of painting, when the program names them | about 1.8 KB more |
-| a checkbox or radio buttons, when a widget names the look | about 1.5 KB more; both, 1.7 KB |
+| a button of a picture, when a widget names the look | about 0.8 KB more beside buttons with a text and pictures; 2.8 KB in a program with no picture yet, the drawing of pictures coming with it |
+| a level bar, when a widget names the look | about 0.9 KB more |
+| a ring scale, when a widget names the look | about 3.8 KB more |
+| a checkbox or radio buttons, when a widget names the look | about 1.9 KB more for a checkbox, 1.7 KB for radio buttons; both, 2.1 KB |
+| the frame of the focus, once in a program that names the look of a button, a dropdown, a radio button or a checkbox | about 0.5 KB more |
 
 ## License
 
