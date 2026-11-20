@@ -509,8 +509,8 @@ int main(int argc, char **argv)
         static dgx_ui_textbox_t      dial_button_box, dial_list_box;
         static const dgx_ui_widget_t dial_button_w = {.kind = DGX_UI_BUTTON, .text = &dial_button_box, .want_h = 14, .look = &dgx_ui_look_button};
         static int32_t               dial_volume, dial_page_volume, dial_row, dial_switched; /* the places of the dial's widgets */
-        static const dgx_ui_widget_t dial_volume_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &dial_volume, .look = &dial_slider_look};
-        static const dgx_ui_widget_t dial_page_volume_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &dial_page_volume, .look = &dial_slider_look};
+        static const dgx_ui_widget_t dial_volume_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &dial_volume, .look = &dgx_ui_look_slider};
+        static const dgx_ui_widget_t dial_page_volume_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &dial_page_volume, .look = &dgx_ui_look_slider};
         static const dgx_ui_widget_t dial_list_w   = {.kind = DGX_UI_LIST, .min = 0, .max = 2, .text = &dial_list_box, .want_h = 42, .value = &dial_row, .look = &dgx_ui_look_list};
         static const dgx_ui_widget_t dial_switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .want_h = 12, .value = &dial_switched, .look = &dgx_ui_look_switch};
         dgx_screen_t                *dial_screen   = dgx_vscreen_init(160, 120, 16, DgxScreenRGB);
@@ -844,7 +844,7 @@ int main(int argc, char **argv)
         for (int yy = 0; yy < pn->h; ++yy)
             for (int xx = 0; xx < pn->w; ++xx) {
                 const uint32_t c = dgx_get_pixel(xs, pn->x + xx, pn->y + yy);
-                if (c == table[ACCENT]) ++knob, kx0 = xx < kx0 ? xx : kx0, ky0 = yy < ky0 ? yy : ky0;
+                if (c == table[ACCENT_DOWN]) ++knob, kx0 = xx < kx0 ? xx : kx0, ky0 = yy < ky0 ? yy : ky0;
                 else if (c == table[FILL]) ++field;
             }
         printf("own: drawn pressed: %d pixels of the knob from %d,%d, %d of the field, of %d\n", knob, kx0, ky0, field, pn->w * pn->h);
@@ -855,6 +855,12 @@ int main(int argc, char **argv)
         point_calls = 0;
         dgx_ui_pointer(&x, &(dgx_ui_pointer_t){.x = (int16_t)(pn->x - 10), .y = (int16_t)(pn->y + 70), .released = true, .ms = 1100});
         printf("own: let go: pressed %d, on() told %d more time(s)\n", !!(pn->state.bits & DGX_UI_PRESSED), point_calls);
+        /* let go, the pad keeps the focus: the knob hollow, its border of 6 by 6 pixels in the ink */
+        dgx_ui_paint(&x, &xp, 1100);
+        int border = 0, inside = 0;
+        for (int yy = 0; yy < pn->h; ++yy)
+            for (int xx = 0; xx < pn->w; ++xx) border += dgx_get_pixel(xs, pn->x + xx, pn->y + yy) == table[INK], inside += dgx_get_pixel(xs, pn->x + xx, pn->y + yy) == table[FILL];
+        printf("own: drawn focused: %d pixels of the knob's border, %d of the field and the knob's inside, of %d\n", border, inside, pn->w * pn->h);
         /* step 4: the keys */
         const bool more = dgx_ui_key(&x, DGX_UI_KEY_MORE);
         printf("own: MORE taken %d, value %d; ACTIVATE taken %d; NEXT taken %d, the focus stays on the pad (nobody else takes it) %d\n", more,

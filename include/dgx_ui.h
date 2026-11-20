@@ -257,8 +257,9 @@ typedef struct dgx_ui_widget_t {
     uint8_t        flags;          ///< DGX_UI_COLUMN, ROW, STRETCH, SWIPE, DRAG, CANVAS
     uint8_t        pad, gap;       ///< inside a box: around its children and between them, in points
     int16_t        at_x, at_y;     ///< asked: from the parent's inside edge, in points; negative from the far edge
-    int16_t        want_w, want_h; ///< asked, in points; 0: the content's (a picture's size, a text's lines: of any widget with a text box, a checkbox and a radio
-                                   ///< too; a text has no width of its own, nor a box any size), or across the stacking all of the box
+    int16_t        want_w, want_h; ///< asked, in points; 0: the content's (a picture's size, a text's lines: of any widget with a text box; a button's, a
+                                   ///< dropdown's, a radio's and a checkbox's a point more above and below, the room of the frame of the focus; a text
+                                   ///< has no width of its own, nor a box any size), or across the stacking all of the box
     int16_t        min, max, step; ///< the range of a control; a list's first row and its last, and its step the least height of a row in points (0: a line of its text);
                                    ///< a RADIO's step the number it stands for
     int16_t        tag;            ///< the program's: found by dgx_ui_find(), kept and nothing more

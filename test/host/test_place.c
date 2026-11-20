@@ -47,6 +47,16 @@ static int differ(dgx_screen_t *a, dgx_screen_t *b)
     return n;
 }
 
+/* the panel against the same tree composed on a screen in the state it is in (a finger on it, the focus) */
+static int differ_from_composed(const panel_t *p, dgx_ui_t *ui, dgx_screen_t *v)
+{
+    dgx_ui_paint_t composing = {.scr = v, .colors = colors, .color_count = 4};
+    dgx_fill_rectangle(v, 0, 0, PANEL_W, PANEL_H, 0x1234);
+    dgx_ui_paint_area_to(ui, &composing, v, NULL, 0, 0, PANEL_W, PANEL_H);
+    dgx_ui_paint_free(&composing);
+    return panel_differ(p, v);
+}
+
 /* a tree of two widgets under the root, drawn whole on a screen: what the memory looks like drawn from nothing */
 static void fresh(dgx_screen_t *v, const dgx_ui_widget_t *first, const dgx_ui_widget_t *second)
 {
@@ -431,14 +441,12 @@ int main(void)
         level = 9; /* a message, meanwhile */
         panel_count_from_now(panel);
         dgx_ui_paint(&ui, &paint, 20);
-        fresh(v, &level_w, NULL);
-        CHECK(panel_twice(panel) == 0 && panel_differ(panel, v) == 0);
+        CHECK(panel_twice(panel) == 0 && differ_from_composed(panel, &ui, v) == 0 && dgx_ui_node(&ui, l)->state_drawn.value == 9);
         dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(n->x + n->w / 2), .y = (int16_t)(n->y + n->h / 2), .down = true, .ms = 30});
         const int32_t moved = level;
         panel_count_from_now(panel);
         dgx_ui_paint(&ui, &paint, 30);
-        fresh(v, &level_w, NULL);
-        CHECK(moved != 9 && panel_twice(panel) == 0 && panel_differ(panel, v) == 0);
+        CHECK(moved != 9 && panel_twice(panel) == 0 && differ_from_composed(panel, &ui, v) == 0 && dgx_ui_node(&ui, l)->state_drawn.value == moved);
         dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = (int16_t)(n->x + n->w / 2), .y = (int16_t)(n->y + n->h / 2), .released = true, .ms = 40});
         dgx_ui_paint_free(&paint), dgx_ui_free(&ui);
     }

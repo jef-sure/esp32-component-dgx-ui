@@ -77,5 +77,5 @@ bool dgx_ui_draw_input(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     return ((const dgx_ui_input_look_t *)look->params)->secret ? draw_secret(look, paint, ui, i, text) : draw(look, paint, ui, i, text);
 }
 
-static const dgx_ui_input_look_t input_default = {.ink = 1, .paper = DGX_UI_PAPER, .caret = 3};
+static const dgx_ui_input_look_t input_default = {.ink = 1, .paper = DGX_UI_PAPER, .caret = 1};
 const dgx_ui_look_t              dgx_ui_look_input = {.draw = dgx_ui_draw_input, .params = &input_default, .fill = -1};

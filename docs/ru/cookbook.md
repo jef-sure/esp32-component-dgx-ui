@@ -18,7 +18,7 @@
 - [Список](#список)
 - [Выпадающий список](#выпадающий-список)
 - [Одно из нескольких и галочка](#одно-из-нескольких-и-галочка)
-- [Значок который показывает состояние](#значок-который-показывает-состояние)
+- [Значок, который показывает состояние](#значок-который-показывает-состояние)
 - [Картинка из флеша](#картинка-из-флеша)
 - [Картинка под виджетами](#картинка-под-виджетами)
 - [Текст в несколько строк](#текст-в-несколько-строк)
@@ -27,7 +27,7 @@
 - [Сглаженные буквы](#сглаженные-буквы)
 - [Рукописный текст](#рукописный-текст)
 - [Свои цвета и ночной режим](#свои-цвета-и-ночной-режим)
-- [Показать скрыть отключить](#показать-скрыть-отключить)
+- [Показать, скрыть, отключить](#показать-скрыть-отключить)
 - [Всплывающее окно](#всплывающее-окно)
 - [Страницы и «назад»](#страницы-и-назад)
 - [Страницы, которые сдвигаются](#страницы-которые-сдвигаются)
@@ -38,7 +38,7 @@
 - [Касание по прерыванию](#касание-по-прерыванию)
 - [Поле ввода и клавиатура](#поле-ввода-и-клавиатура)
 - [Ввод в полосе над клавиатурой](#ввод-в-полосе-над-клавиатурой)
-- [Виджеты которые появляются и исчезают](#виджеты-которые-появляются-и-исчезают)
+- [Виджеты, которые появляются и исчезают](#виджеты-которые-появляются-и-исчезают)
 - [Большие данные: сообщение по ссылке](#большие-данные-сообщение-по-ссылке)
 - [Сообщение из прерывания](#сообщение-из-прерывания)
 - [Свой облик](#свой-облик)
@@ -213,8 +213,8 @@ static int save_add(dgx_ui_t *ui, int parent)
 }
 ```
 
-- Кнопка с текстом высотой в одну строку текста, если не сказано иначе: задайте `want_h`, а в строке — флаг
-  `DGX_UI_STRETCH`, с ним кнопка высотой со строку.
+- Кнопка с текстом высотой в одну строку текста и ещё по точке сверху и снизу, это место для рамки фокуса, если не
+  сказано иначе: задайте `want_h`, а в строке — флаг `DGX_UI_STRETCH`, с ним кнопка высотой со строку.
 - `dgx_ui_set_state(ui, b, DGX_UI_PRESSED, true)` рисует кнопку нажатой и ничего не запускает: так кнопка платы
   может отражаться на экране.
 - `on()` может удалять виджеты, и саму кнопку тоже: диалог может закрыть себя прямо там.
@@ -358,7 +358,7 @@ static int mode_add(dgx_ui_t *ui, int parent)
   вниз на полстроки, он двигает выбор — на строку за каждую высоту строки, вверх значит дальше по списку, — а окно
   идёт за выбором. Палец, отпущенный без сдвига, — это нажатие на строку под ним: строка выбирается, и `on()`
   сообщаются `DGX_UI_CHANGED` и `DGX_UI_ACTIVATED`.
-- **Клавиши.** «Дальше» и «назад» сначала ведут выбор по строкам, с `DGX_UI_CHANGED` на каждой, и окно идёт за
+- **Клавиши.** «Следующий» и «предыдущий» сначала ведут выбор по строкам, с `DGX_UI_CHANGED` на каждой, и окно идёт за
   ним, а с последней строки фокус уходит к следующему виджету. Клавиша «активировать» сообщает
   `DGX_UI_ACTIVATED`.
 - **Окно** всегда содержит выбранную строку после того, как выбор изменился: клавишей, пальцем или вызовом
@@ -498,17 +498,18 @@ static void air_add(dgx_ui_t *ui, int parent)
   есть.
 - **Список или выпадающий список той же переменной** идёт за кнопками, а они за ним: одно место, несколько
   виджетов.
-- **Кнопка высотой в строку своего текста**; под палец ей дают `want_h`. Нажимается весь прямоугольник, и текст
-  тоже.
-- **Фокус и палец видны**: кольцо и квадрат получают цвет 3, пока виджет в фокусе, а их середина — цвет 2, пока на
-  нём палец. Свои цвета — это `dgx_ui_check_look_t` в облике, который рисует `dgx_ui_draw_radio` или
-  `dgx_ui_draw_checkbox`.
-- **Цена**: программа, которая назвала один из двух обликов, несёт ещё около 1,5 КБ, оба — 1,7 КБ; та, что не
-  назвала ни одного, ничего из них не несёт.
+- **Кнопка высотой в строку своего текста и по точке сверху и снизу**, это место для рамки фокуса; под палец ей
+  дают `want_h`. Нажимается весь прямоугольник, и текст тоже.
+- **Фокус и палец видны**: пока виджет в фокусе, по его краю идёт рамка в одну точку цветом 1, а пока на нём палец,
+  середина кольца или квадрата — цвет 2. Свои цвета — это `dgx_ui_check_look_t` в облике, который рисует
+  `dgx_ui_draw_radio` или `dgx_ui_draw_checkbox`.
+- **Цена**: программа, которая назвала облик флажка, несёт ещё около 1,7 КБ, облик радиокнопки — 1,5 КБ, оба —
+  1,9 КБ; и один раз 0,5 КБ за рамку фокуса, общую с обликами кнопки и выпадающего списка. Та, что не назвала ни
+  одного, ничего из них не несёт.
 - **Радиокнопке не дают `min` и `max`**: её число лежит в `step`. `dgx_ui_radio_chosen(node)` говорит, выбрана ли
   кнопка; `dgx_ui_value()` любой кнопки группы — выбранное число.
 
-## Значок который показывает состояние
+## Значок, который показывает состояние
 
 Значок — виджет постоянного размера, картинку которого выбирает значение. При значении вне `min..max` картинки нет,
 а место за виджетом остаётся, поэтому вокруг ничего не сдвигается, когда значок появляется и исчезает.
@@ -1004,7 +1005,8 @@ static const dgx_ui_widget_t note_w = {.kind = DGX_UI_LABEL, .text = &note_box, 
 
 ```c
 static const dgx_ui_button_look_t blue_button = {
-    .face = ACCENT, .pressed = ACCENT_DOWN, .focused = ACCENT_DOWN, .disabled = FILL,
+    .face = ACCENT, .pressed = ACCENT_DOWN, .disabled = FILL,
+    .focused = INK, /* the frame round the face while the button has the focus */
     .text = INK, .text_disabled = DIM, .shadow = SHADOW, .depth = 1};
 /* the library's drawing of a button, in these colours */
 static const dgx_ui_look_t look_blue_button = {.draw = dgx_ui_draw_button, .params = &blue_button, .fill = -1};
@@ -1024,7 +1026,7 @@ static void colors_set(dgx_ui_t *ui, dgx_ui_paint_t *paint, const uint32_t *tabl
 
 Таблица заполняется под экран вызовами `dgx_screen_rgb(scr, r, g, b)`, как в [Начале работы](getting-started.md).
 
-## Показать скрыть отключить
+## Показать, скрыть, отключить
 
 ```c
 static void advanced_show(dgx_ui_t *ui, int box, int button, bool expert)
@@ -1434,7 +1436,7 @@ static void dialog_keys(dgx_ui_t *ui, bool buttons_in_a_row)
 - В таблице 8 записей, по одной на кнопку, в порядке битов `DGX_UI_PAD_*`: LEFT, RIGHT, UP, DOWN, A, START, BACK, B.
 - Запись — это `DGX_UI_KEY_*` или 0xff: кнопка не даёт клавиши и остаётся программе.
 - Дерево запоминает указатель и ничего не копирует: дайте константу.
-- Таблицу можно задать заново в любой момент, например когда диалог-столбец сменился диалогом-строкой. `NULL`
+- Таблицу можно задать заново в любой момент, например, когда диалог-столбец сменился диалогом-строкой. `NULL`
   возвращает таблицу по умолчанию.
 - Это таблица того дерева, которое передано в `dgx_ui_buttons()`. Клавиши, которые она даёт, идут и в окна над этим
   деревом, как любая клавиша.
@@ -1453,20 +1455,6 @@ typedef struct {
     bool   clicked; /* pushed and let go */
 } dial_t;
 DGX_UI_MESSAGE(dial, MSG_DIAL, dial_t)
-
-/* a slider that shows it is being changed: the library's slider drawn with other parameters while it is pressed */
-static const dgx_ui_slider_look_t dial_slider_plain   = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = ACCENT, .disabled = DIM, .track_h = 2};
-static const dgx_ui_slider_look_t dial_slider_changed = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = ACCENT_DOWN, .disabled = DIM, .track_h = 4};
-static const dgx_ui_look_t        dial_look_plain     = {.draw = dgx_ui_draw_slider, .params = &dial_slider_plain, .fill = -1};
-static const dgx_ui_look_t        dial_look_changed   = {.draw = dgx_ui_draw_slider, .params = &dial_slider_changed, .fill = -1};
-
-static bool dial_slider_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
-{
-    const bool changed = dgx_ui_node(ui, i)->state.bits & DGX_UI_PRESSED;
-    return dgx_ui_draw_slider(changed ? &dial_look_changed : &dial_look_plain, paint, ui, i, now_ms);
-}
-
-static const dgx_ui_look_t dial_slider_look = {.draw = dial_slider_draw, .fill = -1};
 
 /* the slider the dial changes now: its tree, its index and its widget; -1: the dial moves the focus */
 static dgx_ui_t              *dial_tree;
@@ -1522,10 +1510,9 @@ static void dial_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg)
 - **Списку и выпадающему списку** режим не нужен. Повороты идут по строкам списка и с крайних строк уходят с него.
   Щелчок на выпадающем списке открывает его список, повороты идут по нему, щелчок выбирает. Щелчок переключает
   переключатель и нажимает кнопку.
-- **Ползунок, который сейчас меняют, помечен битом `DGX_UI_PRESSED`**, а ползунок библиотеки его не рисует. Поэтому
-  облик выше рисует ползунок библиотеки с другими параметрами, пока тот нажат: дорожка толще и другая ручка.
-  Палец, который держит ползунок, показывает то же. Этот облик дают ползункам, до которых доходит ручка:
-  `.look = &dial_slider_look`.
+- **Ползунок, который сейчас меняют, помечен битом `DGX_UI_PRESSED`**, и ползунок библиотеки это показывает: его
+  ручка, пустая, пока ползунок в фокусе, на точку шире с каждой стороны, пока он нажат. Палец, который держит
+  ползунок, показывает то же.
 - **Изменение кончается само,** когда ползунок перестал быть ручкиным: палец нажал другой виджет или взял этот и
   отпустил; над ним открылось окно; его страница закрылась. Это делает `dial_tidy()`: у дерева, которое могло
   закрыться, она сравнивает только адрес, а читает дерево, только если нашла его среди открытых.
@@ -1739,7 +1726,7 @@ extern const uint8_t keypad[];
 extern const size_t  keypad_size;
 
 /* a secret field: a star for each letter; the text box keeps the letters */
-static const dgx_ui_input_look_t pin_colors = {.ink = INK, .caret = ACCENT, .paper = DGX_UI_PAPER, .secret = true};
+static const dgx_ui_input_look_t pin_colors = {.ink = INK, .caret = INK, .paper = DGX_UI_PAPER, .secret = true};
 static const dgx_ui_look_t       look_pin   = {.draw = dgx_ui_draw_input, .params = &pin_colors, .fill = -1};
 
 static void strip_on(dgx_ui_t *strip, int i, const dgx_ui_node_t *node, int what, void *ctx);
@@ -1828,7 +1815,7 @@ static const dgx_ui_widget_t pin_w  = {.kind = DGX_UI_INPUT, .text = &pin_box, .
   `dgx_ui_buttons()` не видела, на следующем тике станет новым нажатием: клавишей «активировать» на поле, которое
   в фокусе, — и полоса откроется снова.
 
-## Виджеты которые появляются и исчезают
+## Виджеты, которые появляются и исчезают
 
 ```c
 enum { TAG_ALARM = 7 };
@@ -1996,14 +1983,19 @@ static bool xy_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *
     const xy_data_t     *d = n->widget->own;
     const int            x = n->x - paint->ox, y = n->y - paint->oy;
     const int            kx = (n->w - XY_KNOB) * dgx_ui_value_of(n) / 100, ky = (n->h - XY_KNOB) * d->y / 100;
-    const bool           lit   = n->state.bits & (DGX_UI_PRESSED | DGX_UI_FOCUSED);
-    const uint32_t       field = dgx_ui_color(paint, FILL), knob = dgx_ui_color(paint, lit ? ACCENT : INK);
+    const unsigned       bits  = n->state.bits;
+    const uint32_t       field = dgx_ui_color(paint, FILL), ink = dgx_ui_color(paint, INK);
     /* the field in four rectangles round the knob, then the knob: every pixel once */
     if (ky > 0) dgx_fill_rectangle(paint->scr, x, y, n->w, ky, field);
     if (ky + XY_KNOB < n->h) dgx_fill_rectangle(paint->scr, x, y + ky + XY_KNOB, n->w, n->h - ky - XY_KNOB, field);
     if (kx > 0) dgx_fill_rectangle(paint->scr, x, y + ky, kx, XY_KNOB, field);
     if (kx + XY_KNOB < n->w) dgx_fill_rectangle(paint->scr, x + kx + XY_KNOB, y + ky, n->w - kx - XY_KNOB, XY_KNOB, field);
-    dgx_fill_rectangle(paint->scr, x + kx, y + ky, XY_KNOB, XY_KNOB, knob);
+    /* the knob: of another colour under a finger; hollow while the pad has the focus, as the library's knobs are */
+    if (bits & DGX_UI_PRESSED) dgx_fill_rectangle(paint->scr, x + kx, y + ky, XY_KNOB, XY_KNOB, dgx_ui_color(paint, ACCENT_DOWN));
+    else if (bits & DGX_UI_FOCUSED) {
+        dgx_draw_rectangle(paint->scr, x + kx, y + ky, XY_KNOB, XY_KNOB, ink);
+        dgx_fill_rectangle(paint->scr, x + kx + 1, y + ky + 1, XY_KNOB - 2, XY_KNOB - 2, field);
+    } else dgx_fill_rectangle(paint->scr, x + kx, y + ky, XY_KNOB, XY_KNOB, ink);
     return false;
 }
 

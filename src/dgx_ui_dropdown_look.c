@@ -3,7 +3,8 @@
  *
  *  The look of a dropdown: a flat face of the colour of its state, the option chosen (the line value - min of its text
  *  box, as a list's) on the left in the middle of the face, and an arrow pointing down on the right. Every pixel of
- *  the box once, in any state.
+ *  the box once, in any state. Focused, a frame of a point round the box in the colour `focused`, the inside drawn the
+ *  same under the clip less the frame.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -41,7 +42,7 @@ static void line_of(const char *text, int k, char *line)
     memcpy(line, text, (size_t)len), line[len] = 0;
 }
 
-bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i)
 {
     const dgx_ui_node_t          *n = dgx_ui_node(ui, i);
     const dgx_ui_widget_t        *w = n->widget;
@@ -50,7 +51,7 @@ bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
     dgx_ui_tell_no_place(i, w, "a dropdown", &told);
     const unsigned                bits = n->state.bits;
     const bool                    off  = bits & DGX_UI_DISABLED;
-    const uint32_t face = dgx_ui_color(paint, off ? p->disabled : (bits & DGX_UI_PRESSED) ? p->pressed : (bits & DGX_UI_FOCUSED) ? p->focused : p->face);
+    const uint32_t face = dgx_ui_color(paint, off ? p->disabled : (bits & DGX_UI_PRESSED) ? p->pressed : p->face);
     const uint32_t ink = dgx_ui_color(paint, off ? p->text_disabled : p->text), arrow = dgx_ui_color(paint, off ? p->text_disabled : p->arrow);
     const dgx_ui_textbox_t *box = w->text;
     dgx_font_t             *f   = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
@@ -66,7 +67,7 @@ bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
         dgx_screen_clip_get(paint->scr, &px, &py, &pw, &ph);
         fill(paint, n->x, n->y, tw, top - n->y, face);
         fill(paint, n->x, bottom, tw, n->y + n->h - bottom, face);
-        const int pad = cell / 4; /* the text away from the left edge */
+        const int pad = cell / 4 > 2 * ui->unit ? cell / 4 : 2 * ui->unit; /* the text away from the left edge, past the focus's frame */
         char      line[DGX_UI_LINE + 1];
         line_of(box->buf ? box->buf : "", dgx_ui_value_of(n) - w->min, line);
         const int y0 = (top > n->y ? top : n->y) - paint->oy, y1 = (bottom < n->y + n->h ? bottom : n->y + n->h) - paint->oy;
@@ -93,8 +94,17 @@ bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
         fill(paint, cx - hw, y, 2 * hw, 1, arrow);
         fill(paint, cx + hw, y, ax + aw - cx - hw, 1, face);
     }
+}
+
+bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    const dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    dgx_ui_frame_t       frame; /* the focus: a frame round the box */
+    if (dgx_ui_frame_begin(paint, ui, i, dgx_ui_rect(n->x, n->y, n->w, n->h), ((const dgx_ui_dropdown_look_t *)look->params)->focused, &frame))
+        draw_inside(look, paint, ui, i);
+    dgx_ui_frame_end(paint, ui, &frame);
     return false;
 }
 
-static const dgx_ui_dropdown_look_t dropdown_default = {.face = 2, .pressed = 3, .focused = 3, .disabled = 0, .text = 1, .text_disabled = 2, .arrow = 1};
+static const dgx_ui_dropdown_look_t dropdown_default = {.face = 2, .pressed = 3, .focused = 1, .disabled = 0, .text = 1, .text_disabled = 2, .arrow = 1};
 const dgx_ui_look_t dgx_ui_look_dropdown = {.draw = dgx_ui_draw_dropdown, .params = &dropdown_default, .fill = -1};

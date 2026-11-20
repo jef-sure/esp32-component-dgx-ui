@@ -66,6 +66,25 @@ void dgx_ui_field_text(dgx_ui_paint_t *paint, const dgx_font_context_t *ctx, int
    background shows (dgx_ui_background_changed()), nothing within a widget whose look fills */
 void dgx_ui_compose(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area, bool background);
 
+/*
+ * The focus of a widget, drawn by a look as a frame of a point round a rectangle of its box (the box, or a button's
+ * face), inside it. dgx_ui_frame_begin() narrows the screen's clip to the rectangle less the frame while the widget has
+ * the focus, so that the look draws its inside as it does without the focus; dgx_ui_frame_end() gives the clip back
+ * and lays the frame's four sides in its colour, every pixel once. Without the focus, or with a colour of DGX_UI_PAPER
+ * (the parameters' word for "no focus shown"), neither does anything.
+ *
+ * Between them the look may narrow the clip it finds and give back the one it found, as the text's field and
+ * dgx_ui_lay_paper() do; it may not set a clip of its own choosing, nor draw outside the rectangle's part of the box.
+ * begin() returns false when nothing of the inside lies within the clip: the look draws nothing then.
+ */
+typedef struct dgx_ui_frame_t {
+    dgx_ui_rect_t rect;    /* the rectangle framed, in pixels of the tree's screen; w 0: no focus, no frame */
+    int           clip[4]; /* the clip as it was */
+    uint8_t       color;   /* the frame's: an index of the table */
+} dgx_ui_frame_t;
+bool dgx_ui_frame_begin(dgx_ui_paint_t *paint, const dgx_ui_t *ui, int i, dgx_ui_rect_t rect, uint8_t color, dgx_ui_frame_t *frame);
+void dgx_ui_frame_end(dgx_ui_paint_t *paint, const dgx_ui_t *ui, const dgx_ui_frame_t *frame);
+
 /* a control drawn with no place for its value (its widget's .value NULL), told in the log by the look that draws it,
    once a look: its number, its tag and its kind in words (dgx_ui_control_looks.c). A program of no control carries
    none of the words */

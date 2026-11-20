@@ -243,12 +243,19 @@ static int want_w(const dgx_ui_t *ui, const dgx_ui_widget_t *w)
     return 0;
 }
 
+/* a control with a text whose look frames it while it has the focus: a button, a dropdown, a radio, a checkbox */
+static bool framed_with_text(const dgx_ui_widget_t *w)
+{
+    enum { FRAMED = 1u << DGX_UI_BUTTON | 1u << DGX_UI_DROPDOWN | 1u << DGX_UI_RADIO | 1u << DGX_UI_SWITCH };
+    return w->kind < 32 && ((1u << w->kind) & FRAMED);
+}
+
 static int want_h(const dgx_ui_t *ui, const dgx_ui_widget_t *w)
 {
     int pw, ph;
     if (w->want_h) return w->want_h * ui->unit;
     if (w->picture && (w->kind == DGX_UI_PICTURE || w->kind == DGX_UI_ICON)) return dgx_ui_picture_size(w->picture, &pw, &ph), ph;
-    if (w->text) return dgx_ui_textbox_height(w->text);
+    if (w->text) return dgx_ui_textbox_height(w->text) + (framed_with_text(w) ? 2 * ui->unit : 0); /* the frame's room */
     return 0;
 }
 

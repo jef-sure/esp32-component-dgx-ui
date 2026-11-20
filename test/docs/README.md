@@ -30,7 +30,7 @@ make -C test/host -f ../docs/run.mk run-cookbook OUT=/tmp   # and the pictures o
 The pictures but the ring's and the strip's are drawn by `pictures.c`, as PPM, and made PNG of the same pixels:
 
 ```sh
-make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # first, settings, popup, lines, list, dropdown, background
+make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # first, settings, popup, lines, list, dropdown, background, states
 python3 -c "from PIL import Image; import sys; [Image.open(f'/tmp/pictures/{n}.ppm').convert('P', palette=Image.ADAPTIVE, colors=16).save(f'docs/images/{n}.png', optimize=True) for n in sys.argv[1:]]" list dropdown
 ```
 

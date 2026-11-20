@@ -183,7 +183,8 @@ int main(void)
         CHECK(once_in_box(panel, &pp, dd, 7) && panel->mem[d->y][d->x] == colors[3]);
         dgx_ui_set_state(&ui, dd, DGX_UI_PRESSED, false);
         dgx_ui_focus(&ui, dd);
-        CHECK(once_in_box(panel, &pp, dd, 8) && panel->mem[d->y][d->x] == colors[3]);
+        /* the focus: a frame of the ink round the box, the face inside it as it was */
+        CHECK(once_in_box(panel, &pp, dd, 8) && panel->mem[d->y][d->x] == colors[1] && panel->mem[d->y + 1][d->x + 1] == colors[2]);
         dgx_ui_set_state(&ui, dd, DGX_UI_DISABLED, true);
         CHECK(once_in_box(panel, &pp, dd, 9) && panel->mem[d->y][d->x] == colors[0] && panel->mem[ay][ax] == colors[2]);
         dgx_ui_set_state(&ui, dd, DGX_UI_DISABLED, false);

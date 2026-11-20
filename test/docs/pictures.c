@@ -123,9 +123,9 @@ static const dgx_ui_picture_t signal_pic[4] = {{.image = &signal_im[0]}, {.image
 
 /* looks in the program's own colours: the library's drawing, parameters of its own, constants */
 static const dgx_ui_button_look_t my_button = {
-    .face = ACCENT, .pressed = ACCENT_DOWN, .focused = ACCENT_DOWN, .disabled = FILL, .text = INK, .text_disabled = DIM, .shadow = SHADOW, .depth = 1};
-static const dgx_ui_slider_look_t my_slider = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = BORDER, .disabled = DIM, .track_h = 2};
-static const dgx_ui_switch_look_t my_switch = {.off = FILL, .on = ACCENT, .knob = INK, .focused = BORDER, .disabled = DIM};
+    .face = ACCENT, .pressed = ACCENT_DOWN, .focused = INK, .disabled = FILL, .text = INK, .text_disabled = DIM, .shadow = SHADOW, .depth = 1};
+static const dgx_ui_slider_look_t my_slider = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = INK, .disabled = DIM, .track_h = 2};
+static const dgx_ui_switch_look_t my_switch = {.off = FILL, .on = ACCENT, .knob = INK, .focused = INK, .disabled = DIM};
 static const dgx_ui_look_t look_button = {.draw = dgx_ui_draw_button, .params = &my_button, .fill = -1};
 static const dgx_ui_look_t look_slider = {.draw = dgx_ui_draw_slider, .params = &my_slider, .fill = -1};
 static const dgx_ui_look_t look_switch = {.draw = dgx_ui_draw_switch, .params = &my_switch, .fill = -1};
@@ -356,6 +356,92 @@ static void scene_background(dgx_screen_t *scr, const char *out)
     dgx_ui_paint_free(&paint);
 }
 
+/* the states of the library's own looks by their default colours: a value in the accent; the focus a frame in the ink,
+   or a hollow knob; a finger on the widget. A cell is a tree of one widget drawn on a screen of its own and put into the
+   picture */
+static void scene_states(dgx_screen_t *scr, const char *out)
+{
+    enum { CELL_W = 84, CELL_H = 34, NAMES_W = 62, HEADS_H = 18, KINDS = 6, STATES = 3 };
+    const uint32_t           four[4] = {colors[PAPER], colors[INK], colors[FILL], colors[BORDER]};
+    static const char *const names[KINDS]  = {"button", "dropdown", "switch", "slider", "radio", "checkbox"};
+    static const char *const heads[STATES] = {"plain", "the focus", "a finger"};
+    /* the names of the rows and the heads of the columns: labels placed over the whole picture */
+    static const dgx_ui_widget_t free_w = {.kind = DGX_UI_BOX};
+    static dgx_ui_node_t         name_nodes[KINDS + STATES + 1];
+    static dgx_ui_textbox_t      name_box[KINDS + STATES];
+    static dgx_ui_widget_t       name_w[KINDS + STATES];
+    dgx_ui_t                     names_tree;
+    dgx_ui_paint_t               names_paint = {.scr = scr, .colors = four, .color_count = 4, .background = 0};
+    dgx_ui_init(&names_tree, name_nodes, KINDS + STATES + 1, 1);
+    dgx_ui_add(&names_tree, -1, &free_w);
+    for (int k = 0; k < KINDS + STATES; ++k) {
+        const bool head = k >= KINDS;
+        name_box[k]     = (dgx_ui_textbox_t)DGX_UI_TEXT_CONST(head ? heads[k - KINDS] : names[k], 1, &st_left);
+        name_w[k]       = (dgx_ui_widget_t){.kind   = DGX_UI_LABEL,
+                                            .text   = &name_box[k],
+                                            .at_x   = (int16_t)(head ? NAMES_W + (k - KINDS) * (CELL_W + 2) + 6 : 4),
+                                            .at_y   = (int16_t)(head ? 3 : HEADS_H + k * (CELL_H + 2) + 11),
+                                            .want_w = (int16_t)(head ? CELL_W - 6 : NAMES_W - 4),
+                                            .want_h = 12};
+        dgx_ui_add(&names_tree, 0, &name_w[k]);
+    }
+    dgx_ui_paint(&names_tree, &names_paint, 0);
+    dgx_ui_paint_free(&names_paint), dgx_ui_free(&names_tree);
+    /* the cells */
+    dgx_screen_t *cell = dgx_vscreen_init(CELL_W, CELL_H, 16, DgxScreenRGB);
+    for (int kind = 0; kind < KINDS; ++kind)
+        for (int state = 0; state < STATES; ++state) {
+            static int32_t          value;
+            static dgx_ui_textbox_t caption;
+            static dgx_ui_widget_t  widget;
+            static dgx_ui_node_t    cell_nodes[2];
+            dgx_ui_t                tree;
+            dgx_ui_paint_t          paint = {.scr = cell, .colors = four, .color_count = 4, .background = 0};
+            switch (kind) {
+            case 0:
+                caption = (dgx_ui_textbox_t)DGX_UI_TEXT_CONST("OK", 1, &st_centre);
+                widget  = (dgx_ui_widget_t){.kind = DGX_UI_BUTTON, .text = &caption, .at_x = 3, .at_y = 2, .want_w = 34, .want_h = 12, .look = &dgx_ui_look_button};
+                break;
+            case 1:
+                caption = (dgx_ui_textbox_t)DGX_UI_TEXT_CONST("Auto\nDay", 1, &st_left), value = 0;
+                widget  = (dgx_ui_widget_t){.kind = DGX_UI_DROPDOWN, .text = &caption, .max = 1, .value = &value, .at_x = 3, .at_y = 2, .want_w = 34, .want_h = 12,
+                                            .look = &dgx_ui_look_dropdown};
+                break;
+            case 2:
+                value  = 1; /* on: its track in the accent */
+                widget = (dgx_ui_widget_t){.kind = DGX_UI_SWITCH, .max = 1, .value = &value, .at_x = 3, .at_y = 5, .want_w = 16, .want_h = 7, .look = &dgx_ui_look_switch};
+                break;
+            case 3:
+                value  = 60;
+                widget = (dgx_ui_widget_t){.kind = DGX_UI_SLIDER, .max = 100, .value = &value, .at_x = 3, .at_y = 5, .want_w = 34, .want_h = 7, .look = &dgx_ui_look_slider};
+                break;
+            case 4:
+                caption = (dgx_ui_textbox_t)DGX_UI_TEXT_CONST("Auto", 1, &st_left), value = 1; /* chosen */
+                widget  = (dgx_ui_widget_t){.kind = DGX_UI_RADIO, .step = 1, .text = &caption, .value = &value, .at_x = 3, .at_y = 4, .want_w = 34, .look = &dgx_ui_look_radio};
+                break;
+            default:
+                caption = (dgx_ui_textbox_t)DGX_UI_TEXT_CONST("Beep", 1, &st_left), value = 1; /* ticked */
+                widget  = (dgx_ui_widget_t){.kind = DGX_UI_SWITCH, .max = 1, .text = &caption, .value = &value, .at_x = 3, .at_y = 4, .want_w = 34,
+                                            .look = &dgx_ui_look_checkbox};
+                break;
+            }
+            dgx_ui_init(&tree, cell_nodes, 2, 2);
+            dgx_ui_add(&tree, -1, &free_w);
+            const int shown = dgx_ui_add(&tree, 0, &widget);
+            dgx_fill_rectangle(cell, 0, 0, CELL_W, CELL_H, four[0]);
+            dgx_ui_paint(&tree, &paint, 0);
+            const dgx_ui_node_t *node = dgx_ui_node(&tree, shown);
+            if (state == 1) dgx_ui_focus(&tree, shown);
+            if (state == 2) /* a finger put on it: pressed, and the focus with it */
+                dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(node->x + node->w * 3 / 5), .y = (int16_t)(node->y + node->h / 2), .down = true, .pressed = true, .ms = 10});
+            dgx_ui_paint(&tree, &paint, 20);
+            dgx_vscreen_region_to_screen(scr, NAMES_W + state * (CELL_W + 2), HEADS_H + kind * (CELL_H + 2), cell, 0, 0, CELL_W, CELL_H, 0);
+            dgx_ui_paint_free(&paint), dgx_ui_free(&tree);
+        }
+    dgx_screen_destroy(&cell);
+    shot(scr, out);
+}
+
 int main(int argc, char **argv)
 {
     const char   *dir = argc > 1 ? argv[1] : ".";
@@ -371,6 +457,8 @@ int main(int argc, char **argv)
     snprintf(a, sizeof a, "%s/list.ppm", dir), snprintf(b, sizeof b, "%s/dropdown.ppm", dir), scene_pick(scr, a, b);
     dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
     snprintf(a, sizeof a, "%s/background.ppm", dir), scene_background(scr, a);
+    dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
+    snprintf(a, sizeof a, "%s/states.ppm", dir), scene_states(scr, a);
     printf("sizes on this machine: widget %zu, node %zu, msg %zu, saved %d\n", sizeof(dgx_ui_widget_t), sizeof(dgx_ui_node_t), sizeof(dgx_ui_msg_t), saved);
     return 0;
 }

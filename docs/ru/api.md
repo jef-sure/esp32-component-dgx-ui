@@ -19,7 +19,7 @@
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | статистика отрисовки: измеренный проход |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | касание DGX-DI как указатель дерева |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.26:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.27:
 имена и сигнатуры ещё могут измениться.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -119,8 +119,8 @@ typedef struct dgx_ui_widget_t {
 | `flags` | как он устроен: см. флаги ниже |
 | `pad`, `gap` | у контейнера: сколько точек от его краёв до детей и между детьми |
 | `at_x`, `at_y` | где он просит стоять, в точках от внутреннего края родителя; отрицательное — от дальнего края. В столбце учитывается только `at_x`, в строке — только `at_y` |
-| `want_w`, `want_h` | размер в точках; 0 — по содержимому, а поперёк укладки — во весь контейнер |
-| `min`, `max`, `step` | диапазон элемента управления и его шаг; первая и последняя строка списка, а в `step` — наименьшая высота его строк в пунктах, 0 — строка текста; значения картинок значка; в `step` радиокнопки — число, которому она соответствует |
+| `want_w`, `want_h` | размер в точках; 0 — по содержимому, а поперёк укладки — во весь контейнер. Содержимое виджета с текстом — строки его текста; кнопка, выпадающий список, радиокнопка и флажок на точку выше них сверху и снизу: это место для рамки фокуса |
+| `min`, `max`, `step` | диапазон элемента управления и его шаг; первая и последняя строка списка, а в `step` — наименьшая высота его строк в точках, 0 — строка текста; значения картинок значка; в `step` радиокнопки — число, которому она соответствует |
 | `tag` | номер, который дала ему программа; по нему ищет `dgx_ui_find()`. 0 — тега нет |
 | `state` | состояние, с которого он начинает: `.state = {.bits = DGX_UI_HIDDEN}` или `DGX_UI_DISABLED` |
 | `value` | где живёт его значение, переменная программы типа `int32_t`: `.value = &volume`; `NULL` — значения нет. См. «Значение» выше |
@@ -314,7 +314,7 @@ typedef struct dgx_ui_pointer_t {
 | Вызов | Что делает |
 | ----- | ---------- |
 | `bool dgx_ui_key(dgx_ui_t *ui, int key)` | Передаёт клавишу дереву, а сначала его окну; `true`, если её взял виджет. |
-| `bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)` | Кнопки, которые удерживаются сейчас. Каждая, которую только что нажали, становится своей клавишей; «дальше», «назад», «больше» и «меньше» повторяются, пока удерживаются. Вызывайте на каждом тике со всеми удерживаемыми кнопками, даже когда программа сама обработала одну из них: кнопка, нажатия которой вызов не видел, при следующем вызове станет новым нажатием. `true`, если клавишу взял виджет. |
+| `bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms)` | Кнопки, которые удерживаются сейчас. Каждая, которую только что нажали, становится своей клавишей; «следующий», «предыдущий», «больше» и «меньше» повторяются, пока удерживаются. Вызывайте на каждом тике со всеми удерживаемыми кнопками, даже когда программа сама обработала одну из них: кнопка, нажатия которой вызов не видел, при следующем вызове станет новым нажатием. `true`, если клавишу взял виджет. |
 | `bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)` | Шаг времени логики: удерживаемая клавиша повторяется, когда пришло её время. `true`, пока такая клавиша удерживается: цикл просит время. |
 | `void dgx_ui_focus(dgx_ui_t *ui, int i)` | Ставит фокус на виджет, которому сообщается `DGX_UI_FOCUS`; -1 — ни на какой. Виджет, который взять фокус не может (скрытый, выключенный, свой без `DGX_UI_BEHAVIOR_FOCUS`), — тоже ни на какой. |
 
@@ -366,7 +366,7 @@ static const uint8_t row_keys[8] = {
 - В таблице 8 записей, по одной на кнопку, в порядке битов `DGX_UI_PAD_*`: LEFT, RIGHT, UP, DOWN, A, START, BACK, B.
 - Запись — это `DGX_UI_KEY_*` или 0xff: кнопка не даёт клавиши и остаётся программе.
 - Дерево запоминает указатель и ничего не копирует: дайте константу.
-- Таблицу можно задать заново в любой момент, например когда диалог-столбец сменился диалогом-строкой. `NULL`
+- Таблицу можно задать заново в любой момент, например, когда диалог-столбец сменился диалогом-строкой. `NULL`
   возвращает таблицу по умолчанию.
 - Это таблица того дерева, которое передано в `dgx_ui_buttons()`. Клавиши, которые она даёт, идут и в окна над этим
   деревом, как любая клавиша.
@@ -831,8 +831,8 @@ typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, in
 | `dgx_ui_look_button` | кнопка и выпадающий список: лицевая сторона над тенью, текст посередине | `dgx_ui_button_look_t` |
 | `dgx_ui_look_switch` | переключатель: дорожка с ручкой на одном конце | `dgx_ui_switch_look_t` |
 | `dgx_ui_look_slider` | ползунок: дорожка, закрашенная до ручки | `dgx_ui_slider_look_t` |
-| `dgx_ui_look_radio` | радиокнопка: кольцо высотой в строку её текста, точка в нём, пока кнопка выбрана, текст справа | `dgx_ui_check_look_t` |
-| `dgx_ui_look_checkbox` | переключатель в виде флажка: квадрат, галочка в нём, пока значение не 0, текст справа | `dgx_ui_check_look_t` |
+| `dgx_ui_look_radio` | радиокнопка: кольцо в двух точках от краёв виджета, высотой в строку её текста, если виджет оставляет ему столько места: не больше высоты виджета и его ширины без четырёх точек. Точка в кольце, пока кнопка выбрана, текст справа | `dgx_ui_check_look_t` |
+| `dgx_ui_look_checkbox` | переключатель в виде флажка: квадрат там же, где кольцо у радиокнопки, галочка в нём, пока значение не 0, текст справа | `dgx_ui_check_look_t` |
 | `dgx_ui_look_list` | список: его строки — строки его текста, выбранная выделена полосой | `dgx_ui_list_look_t` |
 | `dgx_ui_look_dropdown` | выпадающий список: плоская кнопка с выбранным вариантом и стрелкой вниз | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_look_input` | поле ввода: текст в одну строку, у верхнего края или с `DGX_UI_TEXT_MIDDLE` посередине высоты, и, когда оно в фокусе, курсор после него | `dgx_ui_input_look_t` |
@@ -882,25 +882,25 @@ typedef struct dgx_ui_text_look_t {
 } dgx_ui_text_look_t;
 
 typedef struct dgx_ui_button_look_t {
-    uint8_t face, pressed, focused, disabled; /* the face in each state */
+    uint8_t face, pressed, focused, disabled; /* the face, the face under a finger, the frame of the focus (DGX_UI_PAPER: none shown), the face disabled */
     uint8_t text, text_disabled;              /* the text */
     uint8_t shadow;                           /* right of the face and below it */
     uint8_t depth;                            /* of the shadow, in points; 0: a flat button */
 } dgx_ui_button_look_t;
 
 typedef struct dgx_ui_switch_look_t {
-    uint8_t off, on, knob, focused; /* the track off and on, the knob, the knob when focused */
+    uint8_t off, on, knob, focused; /* the track off and on, the knob, the border of the knob while it has the focus (DGX_UI_PAPER: none shown) */
     uint8_t disabled;               /* the knob when disabled */
 } dgx_ui_switch_look_t;
 
 typedef struct dgx_ui_slider_look_t {
-    uint8_t track, fill, knob, focused; /* the track, its filled part, the knob, the knob when focused */
+    uint8_t track, fill, knob, focused; /* the track, its filled part, the knob, the border of the knob while it has the focus (DGX_UI_PAPER: none shown) */
     uint8_t disabled;                   /* the knob when disabled */
     uint8_t track_h;                    /* the height of the track, in points */
 } dgx_ui_slider_look_t;
 
 typedef struct dgx_ui_check_look_t {
-    uint8_t mark, focused, disabled; /* the ring or the square in each state */
+    uint8_t mark, focused, disabled; /* the ring or the square, the frame of the focus (DGX_UI_PAPER: none shown), the mark disabled */
     uint8_t sign;                    /* the dot or the tick; when disabled, the colour disabled */
     uint8_t inside, pressed;         /* inside the mark, and there while a finger is on the widget; DGX_UI_PAPER: what lies under it */
     uint8_t ink, ink_disabled;       /* the text */
@@ -913,7 +913,7 @@ typedef struct dgx_ui_picture_look_t {
 } dgx_ui_picture_look_t;
 
 typedef struct dgx_ui_input_look_t {
-    uint8_t ink, caret; /* the text, and the mark where the next letter goes */
+    uint8_t ink, caret; /* the text, and the mark where the next letter goes, shown while the field has the focus */
     uint8_t paper;      /* under them; DGX_UI_PAPER: what lies under the widget */
     bool    secret;     /* a star for each letter */
 } dgx_ui_input_look_t;
@@ -927,7 +927,7 @@ typedef struct dgx_ui_list_look_t {
 } dgx_ui_list_look_t;
 
 typedef struct dgx_ui_dropdown_look_t {
-    uint8_t face, pressed, focused, disabled; /* the face in each state */
+    uint8_t face, pressed, focused, disabled; /* the face, the face under a finger, the frame of the focus (DGX_UI_PAPER: none shown), the face disabled */
     uint8_t text, text_disabled;              /* the option chosen */
     uint8_t arrow;                            /* the arrow; disabled, it is text_disabled */
 } dgx_ui_dropdown_look_t;
@@ -945,10 +945,49 @@ typedef struct dgx_ui_dropdown_look_t {
 вверх или вниз двигает выбор на строку за каждую высоту строки (вверх — дальше по списку), а отпущенный без
 сдвига нажимает строку под собой.
 
-По умолчанию кольцо радиокнопки и квадрат флажка — цвет 1, цвет 3, пока виджет в фокусе, и цвет 2, пока он
-отключён; точка и галочка — цвет 1; середина отметки — то, что лежит под виджетом, и цвет 2, пока на нём палец; текст —
-цвет 1, а у отключённого — 2. Отметка пишется по строкам, каждый пиксель один раз, а в группе, где выбор сменился,
-рисуются только две кнопки, которых он коснулся.
+### Значение, фокус и палец
+
+Элемент управления показывает три разные вещи, и каждую по-своему. Цвет 3 таблицы говорит о значении: включённый
+переключатель, закрашенная часть ползунка, выбранная строка списка. Фокус — виджет, которому идут клавиши, — этим
+цветом не показывается никогда, а палец на виджете выглядит иначе, чем фокус:
+
+| Облик | Фокус | Палец на виджете |
+| ----- | ----- | ---------------- |
+| `dgx_ui_look_button` | рамка в одну точку вокруг лицевой стороны, цветом `focused` | лицевая сторона цветом `pressed`, сдвинутая на тень, и рамка вместе с ней |
+| `dgx_ui_look_dropdown` | рамка в одну точку по краю виджета, цветом `focused` | лицевая сторона цветом `pressed` |
+| `dgx_ui_look_switch` | ручка пустая: контур в одну точку цветом `focused`, внутри цвет дорожки | ручка на точку шире, в сторону середины дорожки |
+| `dgx_ui_look_slider` | ручка пустая: контур в одну точку цветом `focused`, внутри бумага | ручка на точку шире с каждой стороны, но не дальше краёв виджета |
+| `dgx_ui_look_radio`, `dgx_ui_look_checkbox` | рамка в одну точку по краю виджета, цветом `focused`; между ней и отметкой точка бумаги | середина отметки цветом `pressed` |
+| `dgx_ui_look_list` | полоса выбранной строки цветом `focused` | |
+| `dgx_ui_look_input` | курсор цветом `caret` | |
+
+![Кнопка, выпадающий список, переключатель, ползунок, радиокнопка и флажок: обычные, в фокусе и под пальцем](../images/states.png)
+
+По умолчанию `focused` и `caret` — цвет 1, цвет текста; `pressed` — цвет 3 у лицевой стороны и цвет 2 у середины
+отметки. Рамка лежит внутри прямоугольника виджета, а то, что она окружает, рисуется так же, как без фокуса: когда
+фокус приходит или уходит, ничего не сдвигается.
+
+Палец даёт фокус виджету, которого коснулся, поэтому на дисплее без клавиш знак фокуса остаётся на виджете,
+которого коснулись последним. Программа, где есть только палец, может его убрать: параметры, у которых `focused`
+равен `DGX_UI_PAPER`, фокус не показывают, и так у каждого из шести обликов. Рамки тогда нет, а ручка сплошная:
+
+```c
+/* a switch for a display with no keys: the library's colours, and no mark of the focus */
+static const dgx_ui_switch_look_t touch_switch      = {.off = 2, .on = 3, .knob = 1, .focused = DGX_UI_PAPER, .disabled = 2};
+static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switch, .params = &touch_switch, .fill = -1};
+```
+
+Кнопка и выпадающий список, у которых `focused` — цвет лицевой стороны, тоже его не показывают: рамку на лицевой
+стороне не видно.
+
+Кнопка, выпадающий список, радиокнопка и флажок с текстом и без `want_h` на точку выше своего текста сверху и снизу:
+это место для рамки. Надпись, поставленная рядом с таким виджетом в строке, стоит на точку выше его текста; `.at_y = 1`
+у надписи выравнивает их.
+
+По умолчанию кольцо радиокнопки и квадрат флажка — цвет 1 и цвет 2, пока виджет отключён; точка и галочка —
+цвет 1; середина отметки — то, что лежит под виджетом, и цвет 2, пока на нём палец; текст — цвет 1, а у отключённого —
+2. Отметка пишется по строкам, каждый пиксель один раз, а в группе, где выбор сменился, рисуются только две кнопки,
+которых он коснулся.
 
 По умолчанию полоса списка — цвет 3, текст на ней — цвет 0; пока список в фокусе, полоса — цвет 1, так что выбор
 виден и в рамке, заливка которой — цвет 2. Строки отключённого списка — цвет 2, а отметка окна, `bar`, — цвет 3.
@@ -979,7 +1018,7 @@ typedef struct dgx_ui_dropdown_t {
 
 | Вызов | Что делает |
 | ----- | ---------- |
-| `bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_ui_look_t *frame_look, const dgx_ui_look_t *list_look)` | Открывает список выпадающего списка `i` всплывающим окном над его деревом; дерево само может быть окном. Облики — рамки окна, с границей в один пункт, и его списка; `NULL` значит облик библиотеки. `false`, ничего не открыто: `i` — не выпадающий список, у него нет вариантов (`max` меньше `min`), `dd` уже показывает список, дерево ещё не знает свой экран (его сообщает отрисовка или `dgx_ui_screen()`), у строки не было бы высоты, или окно не открылось. |
+| `bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_ui_look_t *frame_look, const dgx_ui_look_t *list_look)` | Открывает список выпадающего списка `i` всплывающим окном над его деревом; дерево само может быть окном. Облики — рамки окна, с границей в одну точку, и его списка; `NULL` значит облик библиотеки. `false`, ничего не открыто: `i` — не выпадающий список, у него нет вариантов (`max` меньше `min`), `dd` уже показывает список, дерево ещё не знает свой экран (его сообщает отрисовка или `dgx_ui_screen()`), у строки не было бы высоты, или окно не открылось. |
 
 Программа вызывает его, когда `on()` выпадающего списка получает `DGX_UI_ACTIVATED`.
 

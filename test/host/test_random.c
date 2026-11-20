@@ -57,7 +57,7 @@ static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .text = &button_
 static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .value = &flag, .look = &dgx_ui_look_switch};
 static const dgx_ui_widget_t caption_w = {.kind = DGX_UI_LABEL, .want_w = 60, .text = &caption_box};
 static const dgx_ui_widget_t list_w   = {.kind = DGX_UI_LIST, .min = 0, .max = 5, .text = &list_box, .want_h = 30, .value = &row, .look = &dgx_ui_look_list};
-static const dgx_ui_widget_t group_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 14};
+static const dgx_ui_widget_t group_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
 static const dgx_ui_widget_t radio_w[3] = {
     {.kind = DGX_UI_RADIO, .value = &choice, .step = 0, .text = &one_box, .want_w = 44, .look = &dgx_ui_look_radio},
     {.kind = DGX_UI_RADIO, .value = &choice, .step = 1, .text = &two_box, .want_w = 44, .look = &dgx_ui_look_radio},

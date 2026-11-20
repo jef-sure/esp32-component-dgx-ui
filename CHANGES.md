@@ -1,5 +1,17 @@
 # Changes
 
+## 0.0.27 - 2026-11-20
+
+- The focus is never shown in the accent: a button, a dropdown, a radio and a checkbox show it by a frame of a point
+  round the widget (a button's round its face), a switch and a slider by their knob drawn hollow, in the colour
+  `.focused` of their parameters, the ink by default. `.focused = DGX_UI_PAPER` shows no focus, for a program of the
+  finger alone.
+- A finger on a slider's or a switch's knob widens it by a point. A field's caret is in the ink.
+- A button, a dropdown, a radio and a checkbox are by default a point higher above and below their text, the room of
+  the frame; a radio's and a checkbox's mark stands two points in from the box's edges.
+- About 50 bytes more for every program, 550 for one with a button, a dropdown, a radio or a checkbox, and 100 to 300
+  for each look of a control it names.
+
 ## 0.0.26 - 2026-11-20
 
 - The painter's look at the variables at the start of a pass takes about half the time: 17 us for a hundred widgets on

@@ -21,6 +21,41 @@ void dgx_ui_lay_paper(dgx_ui_paint_t *paint, uint8_t paper, int x, int y, int w,
     else dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, dgx_ui_color(paint, paper == DGX_UI_PAPER ? paint->paper : paper));
 }
 
+bool dgx_ui_frame_begin(dgx_ui_paint_t *paint, const dgx_ui_t *ui, int i, dgx_ui_rect_t rect, uint8_t color, dgx_ui_frame_t *frame)
+{
+    const dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    frame->rect = dgx_ui_rect(0, 0, 0, 0), frame->color = color;
+    if (!n || !(n->state.bits & DGX_UI_FOCUSED) || color == DGX_UI_PAPER || dgx_ui_rect_empty(&rect)) return true;
+    frame->rect = rect;
+    int *was    = frame->clip;
+    dgx_screen_clip_get(paint->scr, &was[0], &was[1], &was[2], &was[3]);
+    /* the inside within the clip, in pixels of the paint's screen */
+    const int point = ui->unit, left = rect.x + point - paint->ox, top = rect.y + point - paint->oy;
+    const int right = left + rect.w - 2 * point, bottom = top + rect.h - 2 * point;
+    const int x0 = left > was[0] ? left : was[0], y0 = top > was[1] ? top : was[1];
+    const int x1 = right < was[0] + was[2] ? right : was[0] + was[2], y1 = bottom < was[1] + was[3] ? bottom : was[1] + was[3];
+    if (x1 <= x0 || y1 <= y0) return false;
+    dgx_screen_clip(paint->scr, x0, y0, x1 - x0, y1 - y0);
+    return true;
+}
+
+void dgx_ui_frame_end(dgx_ui_paint_t *paint, const dgx_ui_t *ui, const dgx_ui_frame_t *frame)
+{
+    const uint8_t color = frame->color;
+    const dgx_ui_rect_t r = frame->rect;
+    if (dgx_ui_rect_empty(&r)) return;
+    dgx_screen_clip(paint->scr, frame->clip[0], frame->clip[1], frame->clip[2], frame->clip[3]);
+    const int point = ui->unit;
+    if (r.w <= 2 * point || r.h <= 2 * point) { /* no inside: the frame is all of it */
+        dgx_ui_lay_paper(paint, color, r.x, r.y, r.w, r.h);
+        return;
+    }
+    dgx_ui_lay_paper(paint, color, r.x, r.y, r.w, point);                               /* above */
+    dgx_ui_lay_paper(paint, color, r.x, r.y + r.h - point, r.w, point);                 /* below */
+    dgx_ui_lay_paper(paint, color, r.x, r.y + point, point, r.h - 2 * point);           /* left */
+    dgx_ui_lay_paper(paint, color, r.x + r.w - point, r.y + point, point, r.h - 2 * point); /* right */
+}
+
 void dgx_ui_field_text(dgx_ui_paint_t *paint, const dgx_font_context_t *ctx, int x, int y, const char *text, uint8_t paper)
 {
     if (dgx_ui_paper_drawn(paint, paper)) paint->drawn->text(paint, ctx, x, y, text, paper); /* over the picture */

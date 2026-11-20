@@ -211,8 +211,9 @@ static int save_add(dgx_ui_t *ui, int parent)
 }
 ```
 
-- A button with a text is as high as a line of the text unless it is told: give it `want_h`, or in a row the flag
-  `DGX_UI_STRETCH`, which makes it as high as the row.
+- A button with a text is as high as a line of the text and a point above and below it, the room of the frame of
+  the focus, unless it is told: give it `want_h`, or in a row the flag `DGX_UI_STRETCH`, which makes it as high as
+  the row.
 - `dgx_ui_set_state(ui, b, DGX_UI_PRESSED, true)` draws it pressed and activates nothing: so a key of the board may
   show on the screen.
 - `on()` may remove widgets, the button itself too: a dialog may close itself there.
@@ -489,12 +490,14 @@ static void air_add(dgx_ui_t *ui, int parent)
   button that was chosen and the one that is are drawn, the others not.
 - **A number no button stands for** shows none chosen, and the variable is left as it is.
 - **A list or a dropdown of the same variable** follows the buttons and they follow it: one place, several widgets.
-- **A button is as high as a line of its text**; for a finger give it `want_h`. The whole box is hit, the text too.
-- **The focus and the finger are seen**: the ring and the square take colour 3 while the widget has the focus, and
-  their inside colour 2 while a finger is on it. Colours of your own are a `dgx_ui_check_look_t` in a look drawn by
-  `dgx_ui_draw_radio` or `dgx_ui_draw_checkbox`.
-- **What it costs**: a program that names one of the two looks carries about 1.5 KB more, both 1.7 KB; one that
-  names neither, nothing of them.
+- **A button is as high as a line of its text and a point above and below**, the room of the frame of the focus;
+  for a finger give it `want_h`. The whole box is hit, the text too.
+- **The focus and the finger are seen**: while the widget has the focus a frame of a point goes round it, in
+  colour 1, and while a finger is on it the inside of the ring or the square is colour 2. Colours of your own are a
+  `dgx_ui_check_look_t` in a look drawn by `dgx_ui_draw_radio` or `dgx_ui_draw_checkbox`.
+- **What it costs**: a program that names the look of a checkbox carries about 1.7 KB more, the look of a radio
+  button 1.5 KB, both 1.9 KB; and 0.5 KB once for the frame of the focus, which the looks of a button and of a
+  dropdown share. One that names neither, nothing of them.
 - **Do not give a radio `min` and `max`**: its number is in `step`. `dgx_ui_radio_chosen(node)` tells whether a
   button is the chosen one; `dgx_ui_value()` of any button of a group is the number chosen.
 
@@ -876,7 +879,7 @@ static void greeting_say(dgx_ui_t *ui, int greeting, const char *text)
 What happens in a label 200 pixels wide:
 
 1. `"Hello"` is 50 pixels wide at the height of 32: the first variant, as it is.
-2. `"Good afternoon to you"` is 213 pixels: too wide. `narrow = 70` lets the letters be narrowed across down to 70%
+2. `"Good afternoon to you"` is 213 pixels: too wide. `narrow = 70` lets the letters be made narrower, to as little as 70%
    of their width. The narrowing goes in whole percents, and the widest that goes in is taken. The height stays, and
    the pen keeps its width.
 3. `"Good afternoon, dear guests of the house"` is 390 pixels, too wide even at 70%: the second variant, 20 pixels
@@ -989,7 +992,8 @@ other colours is the library's drawing with parameters of its own. It is a const
 
 ```c
 static const dgx_ui_button_look_t blue_button = {
-    .face = ACCENT, .pressed = ACCENT_DOWN, .focused = ACCENT_DOWN, .disabled = FILL,
+    .face = ACCENT, .pressed = ACCENT_DOWN, .disabled = FILL,
+    .focused = INK, /* the frame round the face while the button has the focus */
     .text = INK, .text_disabled = DIM, .shadow = SHADOW, .depth = 1};
 /* the library's drawing of a button, in these colours */
 static const dgx_ui_look_t look_blue_button = {.draw = dgx_ui_draw_button, .params = &blue_button, .fill = -1};
@@ -1433,20 +1437,6 @@ typedef struct {
 } dial_t;
 DGX_UI_MESSAGE(dial, MSG_DIAL, dial_t)
 
-/* a slider that shows it is being changed: the library's slider drawn with other parameters while it is pressed */
-static const dgx_ui_slider_look_t dial_slider_plain   = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = ACCENT, .disabled = DIM, .track_h = 2};
-static const dgx_ui_slider_look_t dial_slider_changed = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = ACCENT_DOWN, .disabled = DIM, .track_h = 4};
-static const dgx_ui_look_t        dial_look_plain     = {.draw = dgx_ui_draw_slider, .params = &dial_slider_plain, .fill = -1};
-static const dgx_ui_look_t        dial_look_changed   = {.draw = dgx_ui_draw_slider, .params = &dial_slider_changed, .fill = -1};
-
-static bool dial_slider_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
-{
-    const bool changed = dgx_ui_node(ui, i)->state.bits & DGX_UI_PRESSED;
-    return dgx_ui_draw_slider(changed ? &dial_look_changed : &dial_look_plain, paint, ui, i, now_ms);
-}
-
-static const dgx_ui_look_t dial_slider_look = {.draw = dial_slider_draw, .fill = -1};
-
 /* the slider the dial changes now: its tree, its index and its widget; -1: the dial moves the focus */
 static dgx_ui_t              *dial_tree;
 static int                    dial_slider = -1;
@@ -1500,10 +1490,9 @@ static void dial_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg)
   `dgx_ui_paint()`.
 - **A list and a dropdown** need no mode. Turns walk the rows of a list and leave it at its ends. A click on a
   dropdown opens its list, turns walk it, and a click chooses. A click turns a switch and presses a button.
-- **The slider being changed is marked by `DGX_UI_PRESSED`**, which the library's slider does not draw. So the look
-  above draws the library's slider with other parameters while it is pressed: a thicker track and another knob. A
-  finger that holds the slider shows the same. Give the look to the sliders the dial reaches:
-  `.look = &dial_slider_look`.
+- **The slider being changed is marked by `DGX_UI_PRESSED`**, and the library's slider shows it: its knob, hollow
+  while the slider has the focus, is a point wider on each side while it is pressed. A finger that holds the slider
+  shows the same.
 - **The change ends by itself** when the slider is the dial's no longer: a finger pressed another widget, or took
   this one and let it go; a popup opened over it; its page closed. That is `dial_tidy()`: of a tree that may have
   closed it compares the address alone, and reads the tree only when it is among the open ones.
@@ -1642,7 +1631,7 @@ What to know of it:
 
 ## A field and a keyboard
 
-A field is an `DGX_UI_INPUT` with the look `dgx_ui_look_input`. What is typed goes to the field that has the focus.
+A field is a `DGX_UI_INPUT` with the look `dgx_ui_look_input`. What is typed goes to the field that has the focus.
 
 ```c
 #include "dgx_di_keyboard.h"
@@ -1718,7 +1707,7 @@ extern const uint8_t keypad[];
 extern const size_t  keypad_size;
 
 /* a secret field: a star for each letter; the text box keeps the letters */
-static const dgx_ui_input_look_t pin_colors = {.ink = INK, .caret = ACCENT, .paper = DGX_UI_PAPER, .secret = true};
+static const dgx_ui_input_look_t pin_colors = {.ink = INK, .caret = INK, .paper = DGX_UI_PAPER, .secret = true};
 static const dgx_ui_look_t       look_pin   = {.draw = dgx_ui_draw_input, .params = &pin_colors, .fill = -1};
 
 static void strip_on(dgx_ui_t *strip, int i, const dgx_ui_node_t *node, int what, void *ctx);
@@ -1972,14 +1961,19 @@ static bool xy_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *
     const xy_data_t     *d = n->widget->own;
     const int            x = n->x - paint->ox, y = n->y - paint->oy;
     const int            kx = (n->w - XY_KNOB) * dgx_ui_value_of(n) / 100, ky = (n->h - XY_KNOB) * d->y / 100;
-    const bool           lit   = n->state.bits & (DGX_UI_PRESSED | DGX_UI_FOCUSED);
-    const uint32_t       field = dgx_ui_color(paint, FILL), knob = dgx_ui_color(paint, lit ? ACCENT : INK);
+    const unsigned       bits  = n->state.bits;
+    const uint32_t       field = dgx_ui_color(paint, FILL), ink = dgx_ui_color(paint, INK);
     /* the field in four rectangles round the knob, then the knob: every pixel once */
     if (ky > 0) dgx_fill_rectangle(paint->scr, x, y, n->w, ky, field);
     if (ky + XY_KNOB < n->h) dgx_fill_rectangle(paint->scr, x, y + ky + XY_KNOB, n->w, n->h - ky - XY_KNOB, field);
     if (kx > 0) dgx_fill_rectangle(paint->scr, x, y + ky, kx, XY_KNOB, field);
     if (kx + XY_KNOB < n->w) dgx_fill_rectangle(paint->scr, x + kx + XY_KNOB, y + ky, n->w - kx - XY_KNOB, XY_KNOB, field);
-    dgx_fill_rectangle(paint->scr, x + kx, y + ky, XY_KNOB, XY_KNOB, knob);
+    /* the knob: of another colour under a finger; hollow while the pad has the focus, as the library's knobs are */
+    if (bits & DGX_UI_PRESSED) dgx_fill_rectangle(paint->scr, x + kx, y + ky, XY_KNOB, XY_KNOB, dgx_ui_color(paint, ACCENT_DOWN));
+    else if (bits & DGX_UI_FOCUSED) {
+        dgx_draw_rectangle(paint->scr, x + kx, y + ky, XY_KNOB, XY_KNOB, ink);
+        dgx_fill_rectangle(paint->scr, x + kx + 1, y + ky + 1, XY_KNOB - 2, XY_KNOB - 2, field);
+    } else dgx_fill_rectangle(paint->scr, x + kx, y + ky, XY_KNOB, XY_KNOB, ink);
     return false;
 }
 

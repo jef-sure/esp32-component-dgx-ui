@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.26: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.27: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -117,7 +117,7 @@ of every member.
 | `flags` | how it is built: see the flags below |
 | `pad`, `gap` | of a box: points from its edges to its children, and between them |
 | `at_x`, `at_y` | where it asks to be, in points from the inner edge of its parent; negative: from the far edge. In a column only `at_x` is used, in a row only `at_y` |
-| `want_w`, `want_h` | its size in points; 0: the size of its content, or across the stacking all of the box |
+| `want_w`, `want_h` | its size in points; 0: the size of its content, or across the stacking all of the box. The content of a widget with a text is the lines of its text; a button, a dropdown, a radio button and a checkbox are a point higher above and below them, the room of the frame of the focus |
 | `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list, and in `step` the least height of its rows in points, 0 a line of its text; the values of an icon's pictures; in `step` of a radio button the number it stands for |
 | `tag` | the program's number of it, found by `dgx_ui_find()`; 0 for none |
 | `state` | the state it starts with: `.state = {.bits = DGX_UI_HIDDEN}`, or `DGX_UI_DISABLED` |
@@ -482,7 +482,7 @@ a font of bitmaps or of dots the other members stay 0. For a handwritten font (`
 | Member | Meaning |
 | ------ | ------- |
 | `height` | the height of a line in pixels |
-| `narrow` | the letters may be narrowed across down to so many percent to go in, in whole percents, the widest that goes in taken; 0: never |
+| `narrow` | how narrow the letters may be made for the text to fit: down to this many percent of their width; 0: never. The narrowing goes by whole percents, and the widest text that fits is taken |
 | `joined` | the letters joined |
 | `pen` | the width of the pen in pixels, 0 a hairline; `DGX_PEN_SOFT` of DGX added for a soft pen |
 | `hand` | `&dgx_ui_handwriting`: written straight on the screen, by a hard pen. `&dgx_ui_handwriting_canvas`: the same, and on a widget of `DGX_UI_CANVAS` into its canvas, where a soft pen is soft; it needs the virtual screens of DGX. `NULL`: the variant is passed over |
@@ -824,8 +824,8 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_button` | a button or a dropdown: a face over a shadow, its text in the middle | `dgx_ui_button_look_t` |
 | `dgx_ui_look_switch` | a switch: a track with a knob at one end | `dgx_ui_switch_look_t` |
 | `dgx_ui_look_slider` | a slider: a track filled up to a knob | `dgx_ui_slider_look_t` |
-| `dgx_ui_look_radio` | a radio button: a ring as high as a line of its text, a dot in it while it is chosen, its text to the right | `dgx_ui_check_look_t` |
-| `dgx_ui_look_checkbox` | a switch as a checkbox: a square, a tick in it while the value is not 0, its text to the right | `dgx_ui_check_look_t` |
+| `dgx_ui_look_radio` | a radio button: a ring two points in from the edges of its box, as high as a line of its text where the box leaves it that: at most the height of the box and its width, each less four points. A dot in it while it is chosen, its text to the right | `dgx_ui_check_look_t` |
+| `dgx_ui_look_checkbox` | a switch as a checkbox: a square where a radio button has its ring, a tick in it while the value is not 0, its text to the right | `dgx_ui_check_look_t` |
 | `dgx_ui_look_list` | a list: its rows the lines of its text, the row picked on a bar | `dgx_ui_list_look_t` |
 | `dgx_ui_look_dropdown` | a dropdown: a flat face with the option chosen and an arrow pointing down | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_look_input` | a field: its text in one line, at the top or with `DGX_UI_TEXT_MIDDLE` in the middle of its height, and, focused, a caret after it | `dgx_ui_input_look_t` |
@@ -875,25 +875,25 @@ typedef struct dgx_ui_text_look_t {
 } dgx_ui_text_look_t;
 
 typedef struct dgx_ui_button_look_t {
-    uint8_t face, pressed, focused, disabled; /* the face in each state */
+    uint8_t face, pressed, focused, disabled; /* the face, the face under a finger, the frame of the focus (DGX_UI_PAPER: none shown), the face disabled */
     uint8_t text, text_disabled;              /* the text */
     uint8_t shadow;                           /* right of the face and below it */
     uint8_t depth;                            /* of the shadow, in points; 0: a flat button */
 } dgx_ui_button_look_t;
 
 typedef struct dgx_ui_switch_look_t {
-    uint8_t off, on, knob, focused; /* the track off and on, the knob, the knob when focused */
+    uint8_t off, on, knob, focused; /* the track off and on, the knob, the border of the knob while it has the focus (DGX_UI_PAPER: none shown) */
     uint8_t disabled;               /* the knob when disabled */
 } dgx_ui_switch_look_t;
 
 typedef struct dgx_ui_slider_look_t {
-    uint8_t track, fill, knob, focused; /* the track, its filled part, the knob, the knob when focused */
+    uint8_t track, fill, knob, focused; /* the track, its filled part, the knob, the border of the knob while it has the focus (DGX_UI_PAPER: none shown) */
     uint8_t disabled;                   /* the knob when disabled */
     uint8_t track_h;                    /* the height of the track, in points */
 } dgx_ui_slider_look_t;
 
 typedef struct dgx_ui_check_look_t {
-    uint8_t mark, focused, disabled; /* the ring or the square in each state */
+    uint8_t mark, focused, disabled; /* the ring or the square, the frame of the focus (DGX_UI_PAPER: none shown), the mark disabled */
     uint8_t sign;                    /* the dot or the tick; when disabled, the colour disabled */
     uint8_t inside, pressed;         /* inside the mark, and there while a finger is on the widget; DGX_UI_PAPER: what lies under it */
     uint8_t ink, ink_disabled;       /* the text */
@@ -906,7 +906,7 @@ typedef struct dgx_ui_picture_look_t {
 } dgx_ui_picture_look_t;
 
 typedef struct dgx_ui_input_look_t {
-    uint8_t ink, caret; /* the text, and the mark where the next letter goes */
+    uint8_t ink, caret; /* the text, and the mark where the next letter goes, shown while the field has the focus */
     uint8_t paper;      /* under them; DGX_UI_PAPER: what lies under the widget */
     bool    secret;     /* a star for each letter */
 } dgx_ui_input_look_t;
@@ -920,7 +920,7 @@ typedef struct dgx_ui_list_look_t {
 } dgx_ui_list_look_t;
 
 typedef struct dgx_ui_dropdown_look_t {
-    uint8_t face, pressed, focused, disabled; /* the face in each state */
+    uint8_t face, pressed, focused, disabled; /* the face, the face under a finger, the frame of the focus (DGX_UI_PAPER: none shown), the face disabled */
     uint8_t text, text_disabled;              /* the option chosen */
     uint8_t arrow;                            /* the arrow; disabled, it is text_disabled */
 } dgx_ui_dropdown_look_t;
@@ -937,10 +937,49 @@ follows the pick. With all its rows shown a finger picks the row under it; on a 
 down picks nothing, moved up or down it moves the pick a row for each row's height, up going on down the list, and
 let go without a move it clicks the row under it.
 
-By default the ring of a radio button and the square of a checkbox are colour 1, colour 3 while the widget has the
-focus and colour 2 while it is disabled; the dot and the tick are colour 1; the inside of the mark is what lies under
-the widget, and colour 2 while a finger is on it; the text is colour 1, and 2 while disabled. The mark is written
-row by row, every pixel once, and of a group whose choice changed only the two buttons it touched are drawn.
+### A value, the focus and a finger
+
+A control shows three things, each in its own way. Colour 3 of the table says a value: a switch that is on, the
+filled part of a slider, the row picked in a list. The focus, the widget the keys go to, is never shown in that
+colour, and a finger on a widget is shown otherwise than the focus:
+
+| Look | The focus | A finger on it |
+| ---- | --------- | -------------- |
+| `dgx_ui_look_button` | a frame of a point round the face, in `focused` | the face in `pressed`, moved onto the shadow, and the frame with it |
+| `dgx_ui_look_dropdown` | a frame of a point round the box, in `focused` | the face in `pressed` |
+| `dgx_ui_look_switch` | the knob hollow: a border of a point in `focused`, inside it the colour of the track | the knob a point wider, toward the middle of the track |
+| `dgx_ui_look_slider` | the knob hollow: a border of a point in `focused`, inside it the paper | the knob a point wider on each side, kept within the box |
+| `dgx_ui_look_radio`, `dgx_ui_look_checkbox` | a frame of a point round the box, in `focused`, a point of paper between it and the mark | the inside of the mark in `pressed` |
+| `dgx_ui_look_list` | the bar of the row picked, in `focused` | |
+| `dgx_ui_look_input` | the caret, in `caret` | |
+
+![A button, a dropdown, a switch, a slider, a radio button and a checkbox: plain, with the focus, with a finger on them](../images/states.png)
+
+By default `focused` and `caret` are colour 1, the colour of the text; `pressed` is colour 3 for a face and colour 2
+for the inside of a mark. A frame lies inside the box of its widget, and what it frames is drawn as it is without
+the focus: nothing moves when the focus comes or goes.
+
+A finger gives the widget it touches the focus, so on a display with no keys the widget touched last keeps the
+mark of it. A program of the finger alone asks for none: parameters whose `focused` is `DGX_UI_PAPER` show no focus,
+in each of the six looks. There is no frame then, and the knob is solid:
+
+```c
+/* a switch for a display with no keys: the library's colours, and no mark of the focus */
+static const dgx_ui_switch_look_t touch_switch      = {.off = 2, .on = 3, .knob = 1, .focused = DGX_UI_PAPER, .disabled = 2};
+static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switch, .params = &touch_switch, .fill = -1};
+```
+
+A button or a dropdown whose `focused` is the colour of its face shows none either: the frame is not seen on the
+face.
+
+A button, a dropdown, a radio button and a checkbox with a text and no `want_h` are a point higher above and below
+their text, the room of the frame. A label laid beside one in a row stands a point above its text; `.at_y = 1` on the
+label puts the two level.
+
+By default the ring of a radio button and the square of a checkbox are colour 1, and colour 2 while the widget is
+disabled; the dot and the tick are colour 1; the inside of the mark is what lies under the widget, and colour 2
+while a finger is on it; the text is colour 1, and 2 while disabled. The mark is written row by row, every pixel
+once, and of a group whose choice changed only the two buttons it touched are drawn.
 
 By default the bar of a list is colour 3 and the text on it colour 0; while the list has the focus the bar is colour
 1, so the pick shows in a frame too, whose fill is colour 2. The rows of a disabled list are colour 2, and the mark

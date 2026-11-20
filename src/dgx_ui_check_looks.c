@@ -4,8 +4,11 @@
  *  The looks of a radio button and of a checkbox: a mark as high as a line of the text at the left (a ring, a square),
  *  in it a sign while chosen or on (a dot, a tick), and the widget's text to the right. The mark's square is written
  *  row by row in runs of one colour, each pixel classed once by where it lies, so every pixel of the box is written
- *  once in any state. Each look is a function of its own; a program that names neither carries neither, as the linker
- *  keeps of an archive only what is named (-ffunction-sections).
+ *  once in any state. The mark stands two points in from the box's edges, so that the focus, a frame of a point round
+ *  the box in the colour `focused`, has a point of paper between it and the mark; the inside is drawn the same under the
+ *  clip less the frame. The layout gives the box a point more above and below its line for that frame. Each look is a
+ *  function of its own; a program that names neither carries neither, as the linker keeps of an archive only what is
+ *  named (-ffunction-sections).
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -65,7 +68,7 @@ static int square_class(int x, int y, int side, bool on)
 
 /* ---- the box: the mark's column, a gap, the text's field ---- */
 
-static void draw_checked(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, class_fn class_of, bool on)
+static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, class_fn class_of, bool on)
 {
     const dgx_ui_node_t       *n    = dgx_ui_node(ui, i);
     const dgx_ui_check_look_t *p    = look->params;
@@ -75,34 +78,38 @@ static void draw_checked(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     dgx_font_t                *font = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
     if (!dgx_ui_variant_usable(font)) font = NULL;
     const int cell = font ? font->yBottomMax - font->yOffsetLowest : n->h;
-    int       side = cell < n->h ? cell : n->h;
-    if (side > n->w) side = n->w;
+    /* the mark two points in from the edges: the frame of the focus, then a point of paper */
+    const int point = ui->unit, margin = 2 * point;
+    int       side  = cell < n->h - 2 * margin ? cell : n->h - 2 * margin;
+    if (side > n->w - 2 * margin) side = n->w - 2 * margin; /* the margin on the right too, where there is no text */
     if (side < 0) side = 0;
-    const int     mark_y = n->y + (n->h - side) / 2, gap = side / 2;
+    const int     mark_x = n->x + margin, mark_y = n->y + (n->h - side) / 2, gap = side / 2;
     const uint8_t index[CLASSES] = {
         [AROUND] = p->paper,
-        [MARK]   = off ? p->disabled : (bits & DGX_UI_FOCUSED) ? p->focused : p->mark,
+        [MARK]   = off ? p->disabled : p->mark,
         [INSIDE] = (bits & DGX_UI_PRESSED) && !off ? p->pressed : p->inside,
         [SIGN]   = off ? p->disabled : p->sign,
     };
     int clip_x, clip_y, clip_w, clip_h;
     dgx_screen_clip_get(paint->scr, &clip_x, &clip_y, &clip_w, &clip_h);
-    /* the mark's column: paper above and below, the square row by row in runs, the rows the clip leaves out skipped */
-    dgx_ui_lay_paper(paint, p->paper, n->x, n->y, side, mark_y - n->y);
-    dgx_ui_lay_paper(paint, p->paper, n->x, mark_y + side, side, n->y + n->h - mark_y - side);
+    /* the two points before the mark, then the mark's column: paper above and below, the square row by row in runs,
+       the rows the clip leaves out skipped */
+    dgx_ui_lay_paper(paint, p->paper, n->x, n->y, margin < n->w ? margin : n->w, n->h);
+    dgx_ui_lay_paper(paint, p->paper, mark_x, n->y, side, mark_y - n->y);
+    dgx_ui_lay_paper(paint, p->paper, mark_x, mark_y + side, side, n->y + n->h - mark_y - side);
     for (int row = 0; row < side; ++row) {
         const int y = mark_y + row - paint->oy;
         if (y < clip_y || y >= clip_y + clip_h) continue;
         for (int start = 0, column = 1, run = class_of(0, row, side, on); column <= side; ++column) {
             const int next = column < side ? class_of(column, row, side, on) : -1;
             if (next == run) continue;
-            dgx_ui_lay_paper(paint, index[run], n->x + start, mark_y + row, column - start, 1);
+            dgx_ui_lay_paper(paint, index[run], mark_x + start, mark_y + row, column - start, 1);
             start = column, run = next;
         }
     }
     /* the gap and the text's column: the rows of the text in its field, paper above and below */
-    const int text_x = n->x + side + gap, text_w = n->x + n->w - text_x;
-    dgx_ui_lay_paper(paint, p->paper, n->x + side, n->y, (text_w > 0 ? gap : n->w - side), n->h);
+    const int text_x = mark_x + side + gap, text_w = n->x + n->w - text_x;
+    dgx_ui_lay_paper(paint, p->paper, mark_x + side, n->y, (text_w > 0 ? gap : n->x + n->w - mark_x - side), n->h);
     if (text_w <= 0) return;
     if (!font) {
         dgx_ui_lay_paper(paint, p->paper, text_x, n->y, text_w, n->h);
@@ -133,6 +140,16 @@ static void draw_checked(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     dgx_screen_clip(paint->scr, clip_x, clip_y, clip_w, clip_h);
 }
 
+/* the box, and round it the frame of the focus */
+static void draw_checked(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, class_fn class_of, bool on)
+{
+    const dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    dgx_ui_frame_t       frame;
+    if (dgx_ui_frame_begin(paint, ui, i, dgx_ui_rect(n->x, n->y, n->w, n->h), ((const dgx_ui_check_look_t *)look->params)->focused, &frame))
+        draw_inside(look, paint, ui, i, class_of, on);
+    dgx_ui_frame_end(paint, ui, &frame);
+}
+
 bool dgx_ui_draw_radio(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t *n = dgx_ui_node(ui, i);
@@ -152,6 +169,6 @@ bool dgx_ui_draw_checkbox(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
 }
 
 static const dgx_ui_check_look_t check_default = {
-    .mark = 1, .focused = 3, .disabled = 2, .sign = 1, .inside = DGX_UI_PAPER, .pressed = 2, .ink = 1, .ink_disabled = 2, .paper = DGX_UI_PAPER};
+    .mark = 1, .focused = 1, .disabled = 2, .sign = 1, .inside = DGX_UI_PAPER, .pressed = 2, .ink = 1, .ink_disabled = 2, .paper = DGX_UI_PAPER};
 const dgx_ui_look_t dgx_ui_look_radio    = {.draw = dgx_ui_draw_radio, .params = &check_default, .fill = -1};
 const dgx_ui_look_t dgx_ui_look_checkbox = {.draw = dgx_ui_draw_checkbox, .params = &check_default, .fill = -1};

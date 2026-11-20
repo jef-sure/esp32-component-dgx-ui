@@ -277,7 +277,7 @@ void app_main(void)
         dgx_screen_rgb(scr, 18, 22, 30),    /* 0 the paper */
         dgx_screen_rgb(scr, 232, 232, 222), /* 1 the ink */
         dgx_screen_rgb(scr, 44, 60, 86),    /* 2 a fill: a button's face, a track */
-        dgx_screen_rgb(scr, 240, 160, 60),  /* 3 the accent: pressed, focused, on */
+        dgx_screen_rgb(scr, 240, 160, 60),  /* 3 the accent: pressed, on, chosen; the focus is a frame of the ink */
     };
     variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
     left       = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_MIDDLE};

@@ -23,7 +23,7 @@
 static uint32_t       colors[4];
 static panel_t       *panel;
 static dgx_screen_t  *memory, *map, *probe;
-static uint8_t        buffer[PANEL_W * 3 * 8];
+static uint8_t        buffer[PANEL_W * 3 * 16]; /* a strip of 16 rows of the panel: a button of the column in one strip */
 static dgx_ui_paint_t paint;
 static bool           with_map;
 
@@ -115,8 +115,9 @@ static int64_t fake_clock(void)
 static dgx_ui_paint_stats_t stats = {.clock_us = fake_clock};
 
 static int mark_side(const dgx_ui_node_t *n);
+static int mark_left(const dgx_ui_node_t *n);
 
-/* pixels written twice in the columns of the marks, the ring's or the square's and the gap after it */
+/* pixels written twice in the columns of the marks: the point before it, the ring's or the square's, the gap after */
 static int twice_in_marks(void)
 {
     int count = 0;
@@ -126,7 +127,7 @@ static int twice_in_marks(void)
             if (!n || !n->widget || (n->widget->kind != DGX_UI_RADIO && n->widget->kind != DGX_UI_SWITCH) || dgx_ui_hidden(tree, i)) continue;
             const int side = mark_side(n);
             for (int y = n->y; y < n->y + n->h; ++y)
-                for (int x = n->x; x < n->x + side + side / 2 && x < n->x + n->w; ++x) count += panel->writes[y][x] > 1;
+                for (int x = n->x; x < mark_left(n) + side + side / 2 && x < n->x + n->w; ++x) count += panel->writes[y][x] > 1;
         }
     return count;
 }
@@ -188,12 +189,18 @@ static uint32_t panel_color(int k)
     return dgx_get_pixel(probe, 0, 0);
 }
 
-/* the mark's square of a radio or a checkbox, as the looks lay it with this font: its side and top */
+/* the mark's square of a radio or a checkbox, as the looks lay it with this font, two points (pixels here) in from the
+   box's edges: the frame of the focus, then a point of paper. Its side, its left */
 static int mark_side(const dgx_ui_node_t *n)
 {
     const dgx_font_t *f    = variant[0].font;
     int               side = f->yBottomMax - f->yOffsetLowest;
-    return side < n->h ? side : n->h;
+    if (side > n->h - 4) side = n->h - 4;
+    return side < n->w - 2 ? side : n->w - 2;
+}
+static int mark_left(const dgx_ui_node_t *n)
+{
+    return n->x + 2;
 }
 
 /* the pixel in the middle of the mark: the dot or the tick's, or the inside */
@@ -201,7 +208,7 @@ static uint32_t middle_of(const dgx_ui_t *ui, int i)
 {
     const dgx_ui_node_t *n    = dgx_ui_node(ui, i);
     const int            side = mark_side(n);
-    return panel->mem[n->y + (n->h - side) / 2 + side / 2][n->x + side / 2];
+    return panel->mem[n->y + (n->h - side) / 2 + side / 2][mark_left(n) + side / 2];
 }
 
 /* a pixel of the ring at the top of the mark */
@@ -209,7 +216,14 @@ static uint32_t ring_of(const dgx_ui_t *ui, int i)
 {
     const dgx_ui_node_t *n    = dgx_ui_node(ui, i);
     const int            side = mark_side(n);
-    return panel->mem[n->y + (n->h - side) / 2][n->x + side / 2];
+    return panel->mem[n->y + (n->h - side) / 2][mark_left(n) + side / 2];
+}
+
+/* the frame of the focus round the box: its two far corners in the ink */
+static bool framed(const dgx_ui_t *ui, int i, uint32_t ink)
+{
+    const dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    return panel->mem[n->y][n->x] == ink && panel->mem[n->y + n->h - 1][n->x + n->w - 1] == ink;
 }
 
 /* the pixels of the ink inside a checkbox's square, within its border: the tick's */
@@ -219,7 +233,7 @@ static int tick_ink(const dgx_ui_t *ui, int i, uint32_t ink)
     const int side = mark_side(n), top = n->y + (n->h - side) / 2, border = 1 + side / 12;
     int       count = 0;
     for (int y = top + border; y < top + side - border; ++y)
-        for (int x = n->x + border; x < n->x + side - border; ++x) count += panel->mem[y][x] == ink;
+        for (int x = mark_left(n) + border; x < mark_left(n) + side - border; ++x) count += panel->mem[y][x] == ink;
     return count;
 }
 
@@ -277,17 +291,18 @@ int main(void)
     for (int y = 0; y < PANEL_H; ++y)
         for (int x = 0; x < PANEL_W; ++x) dgx_set_pixel(map, x, y, (x / 4 + y / 4) % 2 ? colors[2] : colors[0]);
     variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
-    const uint32_t ink = panel_color(1), fill = panel_color(2), accent = panel_color(3);
+    const uint32_t ink = panel_color(1), fill = panel_color(2);
 
     for (int pictured = 0; pictured < 2; ++pictured) {
         with_map = pictured;
         make_home();
         uint32_t now = 0;
 
-        /* the first pass: button 0 of place 0 chosen, nothing told; each takes a line of its text, the checkbox too */
+        /* the first pass: button 0 of place 0 chosen, nothing told; each takes a line of its text and a point above and
+           below for the frame of the focus, the checkbox too */
         CHECK(pass(now += 10) == 0 && told_all() == 0);
         CHECK(middle_of(&home, radio[0]) == ink && middle_of(&home, radio[1]) != ink && middle_of(&home, radio[2]) != ink);
-        CHECK(dgx_ui_node(&home, tick)->h == dgx_ui_textbox_height(&tick_box) && dgx_ui_node(&home, radio[1])->h == dgx_ui_textbox_height(&two_box));
+        CHECK(dgx_ui_node(&home, tick)->h == dgx_ui_textbox_height(&tick_box) + 2 && dgx_ui_node(&home, radio[1])->h == dgx_ui_textbox_height(&two_box) + 2);
         CHECK(dgx_ui_node(&home, tick)->y + dgx_ui_node(&home, tick)->h <= PANEL_H);
         CHECK(idle(now += 10));
 
@@ -306,11 +321,12 @@ int main(void)
         CHECK(choice == 1 && told_all() == 1);
         CHECK(pass(now += 30) == 0 && idle(now += 10));
 
-        /* the keys: the focus walks the buttons, the ring in the accent; ACTIVATE chooses, as a knob's click does */
+        /* the keys: the focus walks the buttons, a frame round the one that has it, the ring in the ink; ACTIVATE
+           chooses, as a knob's click does */
         dgx_ui_focus(&home, radio[0]);
         CHECK(dgx_ui_key(&home, DGX_UI_KEY_NEXT) && home.focus == radio[1]);
         CHECK(dgx_ui_key(&home, DGX_UI_KEY_NEXT) && home.focus == radio[2]);
-        CHECK(pass(now += 10) == 0 && ring_of(&home, radio[2]) == accent && ring_of(&home, radio[1]) == ink);
+        CHECK(pass(now += 10) == 0 && framed(&home, radio[2], ink) && !framed(&home, radio[1], ink) && ring_of(&home, radio[2]) == ink);
         CHECK(dgx_ui_key(&home, DGX_UI_KEY_ACTIVATE) && choice == 2 && told[0][radio[2]] == 1);
         CHECK(pass(now += 10) == 0 && drew[0][radio[0]] == 0 && drew[0][radio[1]] == 1 && drew[0][radio[2]] == 1);
         CHECK(idle(now += 10));
@@ -392,7 +408,7 @@ int main(void)
         CHECK(ticked == 0 && told[0][tick] == 2 && pass(now += 30) == 0 && tick_ink(&home, tick, ink) == 0 && idle(now += 10));
         dgx_ui_focus(&home, tick);
         CHECK(dgx_ui_key(&home, DGX_UI_KEY_ACTIVATE) && ticked == 1);
-        CHECK(pass(now += 10) == 0 && ring_of(&home, tick) == accent && idle(now += 10));
+        CHECK(pass(now += 10) == 0 && framed(&home, tick, ink) && ring_of(&home, tick) == ink && idle(now += 10));
         CHECK(dgx_ui_key(&home, DGX_UI_KEY_LESS) && ticked == 0 && pass(now += 10) == 0 && idle(now += 10));
         dgx_ui_focus(&home, -1);
         CHECK(pass(now += 10) == 0 && idle(now += 10));

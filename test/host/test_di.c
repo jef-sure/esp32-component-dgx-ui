@@ -158,7 +158,7 @@ int main(void)
     const dgx_font_context_t m  = {.font = TerminusTTFMedium12()};
     const int                cx = n->x + dgx_font_bounds(&m, "ab", NULL, NULL);
     const int                cy = n->y - TerminusTTFMedium12()->yOffsetLowest - 2;
-    CHECK(panel->mem[cy][cx] == colors[3]);
+    CHECK(panel->mem[cy][cx] == colors[1]); /* the caret, in the ink */
     dgx_ui_focus(&ui, -1);
     dgx_ui_paint(&ui, &pp, 6002);
     CHECK(panel->mem[cy][cx] == colors[0]);
@@ -174,7 +174,7 @@ int main(void)
     dgx_font_t          *t12  = TerminusTTFMedium12();
     const int            cell = t12->yBottomMax - t12->yOffsetLowest, mtop = mn->y + (mn->h - cell) / 2;
     CHECK(mn->h > cell + 4 && panel_twice(panel) == 0 && panel_written(panel) == mn->w * mn->h);
-    CHECK(panel->mem[mtop + cell / 2][mn->x] == colors[3] && panel->mem[mn->y][mn->x] == colors[0] && panel->mem[mn->y + mn->h - 1][mn->x] == colors[0]);
+    CHECK(panel->mem[mtop + cell / 2][mn->x] == colors[1] && panel->mem[mn->y][mn->x] == colors[0] && panel->mem[mn->y + mn->h - 1][mn->x] == colors[0]);
 
     /* a secret field: "b\xd0\xb1" typed shows two stars, the caret after them; the text box keeps the letters */
     dgx_ui_textbox_init(&pin_box, pin_buf, sizeof pin_buf, 1, &style);

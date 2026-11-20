@@ -300,6 +300,11 @@ next, previous, more or less repeats after 500 ms, every 100 ms.
 **Typing.** `dgx_ui_typed()` gives code points to the focused field: characters, erase, done and cancel, as the
 keyboard of DGX-DI types them.
 
+**What shows it.** The looks of the library show a value, the focus and a finger each in its own way: a value in
+colour 3 of the table; the focus by a frame of a point round the widget, or by a hollow knob, in colour 1; a finger
+by another colour of the face or of the inside of a mark, or by a wider knob. See
+[A value, the focus and a finger](api.md#a-value-the-focus-and-a-finger).
+
 **Touch.** `dgx_ui_di.h` gives the first finger of DGX-DI's pointer to the tree and sorts the gestures. While a widget
 holds the finger, a plain swipe and a long press are its own. A swipe from an edge is the program's, unless the widget
 is dragged: a slider at the left edge is dragged to the right without opening a side panel.
@@ -340,7 +345,8 @@ come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide)
 | handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
 | handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
 | the statistics of painting, when the program names them | about 1.8 KB for the measured pass and its line, and 92 bytes of the program's RAM |
-| a checkbox or radio buttons, when a widget names the look | about 1.5 KB; both, 1.7 KB |
+| a checkbox or radio buttons, when a widget names the look | about 1.7 KB for a checkbox, 1.5 KB for radio buttons; both, 1.9 KB |
+| the frame of the focus, once in a program that names the look of a button, a dropdown, a radio button or a checkbox | about 0.5 KB |
 | a pass that draws nothing, of a tree of a hundred widgets, half of them controls with values | about 20 microseconds on an ESP32 at 240 MHz, 6 on an ESP32-P4 at 400 MHz; nearly all of it the look at the values |
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the

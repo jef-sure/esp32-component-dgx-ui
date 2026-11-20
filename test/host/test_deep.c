@@ -209,7 +209,7 @@ int main(void)
     {
         const dgx_ui_node_t *n = dgx_ui_node(&a.ui, fa);
         int                  caret = 0;
-        for (int y = n->y; y < n->y + n->h; ++y) caret += panel->mem[y][n->x] == colors[3];
+        for (int y = n->y; y < n->y + n->h; ++y) caret += panel->mem[y][n->x] == colors[1]; /* the caret, in the ink */
         CHECK(caret > 0);
     }
 
