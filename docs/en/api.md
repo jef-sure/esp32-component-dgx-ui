@@ -18,7 +18,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.34: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.35: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -117,12 +117,12 @@ of every member.
 | `flags` | how it is built: see the flags below |
 | `pad`, `gap` | of a box: points from its edges to its children, and between them |
 | `at_x`, `at_y` | where it asks to be, in points from the inner edge of its parent; negative: from the far edge. In a column only `at_x` is used, in a row only `at_y` |
-| `want_w`, `want_h` | its size in points; 0: the size of its content, or across the stacking all of the box. The content of a widget with a text is the lines of its text; a button, a dropdown, a radio button and a checkbox are a point higher above and below them, the room of the frame of the focus |
+| `want_w`, `want_h` | its size in points; 0: the size of its content, or across the stacking all of the box. The content of a widget with a text is the lines of its text; a button, a dropdown, a radio button and a checkbox are a point higher above and below them, the room of the frame of the focus. A button, a switch or a radio button with a picture, whatever look draws it, asks for its first picture's size and 5 points more across and down: a point of face and the frame's point on each side, and one for a shadow |
 | `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list, and in `step` the least height of its rows in points, 0 a line of its text; the values of an icon's pictures; in `step` of a radio button the number it stands for |
 | `tag` | the program's number of it, found by `dgx_ui_find()`; 0 for none |
 | `state` | the state it starts with: `.state = {.bits = DGX_UI_HIDDEN}`, or `DGX_UI_DISABLED` |
 | `value` | where its value lives, an `int32_t` of the program's: `.value = &volume`; `NULL`: it has none. See the value above |
-| `picture` | a picture: one; an icon: an array for the values `min..max` |
+| `picture` | a picture: one; an icon: an array for the values `min..max`; drawn by `dgx_ui_look_picture_button`, a button's one, a switch's or a radio button's two: off and on, not chosen and chosen |
 | `text` | its text box, in RAM |
 | `look` | how it is drawn; `NULL`: the look of its kind, which a box, a frame and a label have. Any other widget with no look is not drawn, and the painter logs it once |
 | `take` | called with every message offered to the tree; `true` claims the message |
@@ -884,6 +884,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_list` | a list: its rows the lines of its text, the row picked on a bar | `dgx_ui_list_look_t` |
 | `dgx_ui_look_dropdown` | a dropdown: a flat face with the option chosen and an arrow pointing down | `dgx_ui_dropdown_look_t` |
 | `dgx_ui_look_input` | a field: its text in one line, at the top or with `DGX_UI_TEXT_MIDDLE` in the middle of its height, and, focused, a caret after it | `dgx_ui_input_look_t` |
+| `dgx_ui_look_picture_button` | a button, a switch or a radio button with a picture of 1 bit on the button's face, pressed and framed as a button | `dgx_ui_button_look_t` |
 | `dgx_ui_look_level` | a level bar, on a widget of `DGX_UI_OWN`: the value of its place as the filled part of its box from one edge, its colour by bands of value | `dgx_ui_level_look_t` |
 | `dgx_ui_look_ring` | a ring scale, on a widget of `DGX_UI_OWN`: the value of its place as an arc of a ring, coloured by bands of value, widgets inside it | `dgx_ui_ring_look_t` |
 | `dgx_ui_look_picture` | a picture or an icon of 1 bit, in the middle of the box | `dgx_ui_picture_look_t` |
@@ -913,6 +914,7 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_checkbox` | `dgx_ui_look_checkbox` | `dgx_ui_check_look_t` |
 | `dgx_ui_draw_list` | `dgx_ui_look_list` | `dgx_ui_list_look_t` |
 | `dgx_ui_draw_dropdown` | `dgx_ui_look_dropdown` | `dgx_ui_dropdown_look_t` |
+| `dgx_ui_draw_picture_button` | `dgx_ui_look_picture_button` | `dgx_ui_button_look_t` |
 | `dgx_ui_draw_level` | `dgx_ui_look_level` | `dgx_ui_level_look_t` |
 | `dgx_ui_draw_ring` | `dgx_ui_look_ring` | `dgx_ui_ring_look_t` |
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
@@ -1068,6 +1070,16 @@ By default the ring of a radio button and the square of a checkbox are colour 1,
 disabled; the dot and the tick are colour 1; the inside of the mark is what lies under the widget, and colour 2
 while a finger is on it; the text is colour 1, and 2 while disabled. The mark is written row by row, every pixel
 once, and of a group whose choice changed only the two buttons it touched are drawn.
+
+A picture button is a `DGX_UI_BUTTON`, a `DGX_UI_SWITCH` or a `DGX_UI_RADIO` with a picture of 1 bit, drawn by
+`dgx_ui_look_picture_button` with the parameters of a button, `dgx_ui_button_look_t`: its `text` and
+`text_disabled` are the picture's ink. The picture stands in the middle of the face, cut to it, its zeros the face;
+pressed, it moves with the face, and the focus is the frame round the face. A button shows its one picture. A
+switch shows its first while off and its second while on, on being a value that is not 0, as the switch look and the
+checkbox take it: the three on one place always agree, whatever `min` and `max`. A radio button shows its first
+while not chosen and its second while chosen. With no picture, or one that is not of 1 bit (told once in the log),
+the face is plain, and a text beside the picture is not drawn. The recipe:
+[A button of a picture](cookbook.md#a-button-of-a-picture).
 
 A level bar is a widget of `DGX_UI_OWN` that names `dgx_ui_look_level` and the place of its value:
 `.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 6, .look = &dgx_ui_look_level`. Nothing works it. The

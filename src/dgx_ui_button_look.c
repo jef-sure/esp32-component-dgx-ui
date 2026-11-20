@@ -47,7 +47,7 @@ static void draw_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int
     }
 }
 
-bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+void dgx_ui_draw_button_face(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_face_fn inside)
 {
     const dgx_ui_node_t        *n = dgx_ui_node(ui, i);
     const dgx_ui_button_look_t *p = look->params;
@@ -77,8 +77,13 @@ bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     /* the face, and round it the frame of the focus, which moves with it */
     const int      fw = w - d, fh = h - d;
     dgx_ui_frame_t frame;
-    if (dgx_ui_frame_begin(paint, ui, i, dgx_ui_rect(fx, fy, fw, fh), p->focused, &frame)) draw_face(paint, n, fx, fy, fw, fh, face, ink);
+    if (dgx_ui_frame_begin(paint, ui, i, dgx_ui_rect(fx, fy, fw, fh), p->focused, &frame)) inside(paint, n, fx, fy, fw, fh, face, ink);
     dgx_ui_frame_end(paint, ui, &frame);
+}
+
+bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
+{
+    dgx_ui_draw_button_face(look, paint, ui, i, draw_face);
     return false;
 }
 

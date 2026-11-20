@@ -4,7 +4,8 @@
  * slider, a group of radio buttons chosen by a click, by a key and by the program, a checkbox ticked, the row of them
  * shown and hidden, a radio of the group in the popup, a caption over a constant pointed at another and told, a page
  * opened and gone back from, the popup opened over the top of the chain, a popup closed from the middle of it; a level
- * bar of the library on the slider's place, and a ring scale with a child in it; home's pages put in a place of it and
+ * bar of the library on the slider's place, and a ring scale with a child in it; a picture button and a toggle of two
+ * pictures on the switch's place; home's pages put in a place of it and
  * on the screen again, the place's box removed and added again, by the script and from within the roots' on(), the
  * slider above the place in the bar the pages leave. Each seed in two modes: on the paper straight, and over a drawn background with the strips
  * named. After every pass: no pixel written twice, and the panel is the tree composed anew by a fresh paint, the
@@ -21,6 +22,7 @@
 #define PANEL_H 140
 #include "check.h"
 #include "dgx_draw.h"
+#include "dgx_image.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_text.h"
 #include "dgx_vscreen.h"
@@ -96,6 +98,13 @@ static const dgx_ui_widget_t line_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW
 static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .text = &button_box, .want_w = 50, .look = &dgx_ui_look_button};
 static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .value = &flag, .look = &dgx_ui_look_switch};
 static const dgx_ui_widget_t caption_w = {.kind = DGX_UI_LABEL, .want_w = 60, .text = &caption_box};
+/* a picture button, and a toggle of two pictures of the switch's place */
+static const uint8_t          dot_bits[5] = {0x70, 0xf8, 0xf8, 0xf8, 0x70}, ring_bits[5] = {0x70, 0x88, 0x88, 0x88, 0x70};
+static const dgx_image_t      dot_im = {.width = 5, .height = 5, .format = DGX_IMAGE_1BPP, .data = dot_bits};
+static const dgx_image_t      ring_im = {.width = 5, .height = 5, .format = DGX_IMAGE_1BPP, .data = ring_bits};
+static const dgx_ui_picture_t dot_pic = {.image = &dot_im}, two_pics[2] = {{.image = &ring_im}, {.image = &dot_im}};
+static const dgx_ui_widget_t  pic_button_w = {.kind = DGX_UI_BUTTON, .picture = &dot_pic, .look = &dgx_ui_look_picture_button};
+static const dgx_ui_widget_t  pic_toggle_w = {.kind = DGX_UI_SWITCH, .value = &flag, .picture = two_pics, .look = &dgx_ui_look_picture_button};
 static const dgx_ui_widget_t list_w   = {.kind = DGX_UI_LIST, .min = 0, .max = 5, .text = &list_box, .want_h = 30, .value = &row, .look = &dgx_ui_look_list};
 static const dgx_ui_widget_t group_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
 static const dgx_ui_widget_t radio_w[3] = {
@@ -195,6 +204,7 @@ int main(void)
             dgx_ui_add(&ui, 0, &gauge_w); /* the library's level bar of the slider's place */
             const int line = dgx_ui_add(&ui, 0, &line_w), button = dgx_ui_add(&ui, line, &button_w), toggle = dgx_ui_add(&ui, line, &switch_w);
             const int caption = dgx_ui_add(&ui, line, &caption_w);
+            const int pic_button = dgx_ui_add(&ui, line, &pic_button_w), pic_toggle = dgx_ui_add(&ui, line, &pic_toggle_w);
             dgx_ui_add(&ui, dgx_ui_add(&ui, line, &ring_w), &dot_w); /* the library's ring scale of the slider's place, a child in it */
             caption_box.buf   = (char *)captions[0];
             home_tree = &ui, place_at = dgx_ui_add(&ui, 0, &place_w), roots_act = false;
@@ -266,8 +276,12 @@ int main(void)
                         break;
                     }
                     case 11: dgx_ui_show(&ui, list, chance(4) != 0); break;
-                    case 12: dgx_ui_set_state(&ui, button, DGX_UI_PRESSED, chance(2)); break;
-                    case 13: dgx_ui_focus(&ui, chance(2) ? slider : toggle); break;
+                    case 12: dgx_ui_set_state(&ui, chance(2) ? button : pic_button, DGX_UI_PRESSED, chance(2)); break;
+                    case 13: { /* the focus on the slider, the switch, the picture button or the picture toggle */
+                        const int focused[4] = {slider, toggle, pic_button, pic_toggle};
+                        dgx_ui_focus(&ui, focused[chance(4)]);
+                        break;
+                    }
                     /* the group: its place written, a radio clicked, focused and chosen by the key, shown and hidden,
                        disabled; the popup's radio clicked; the checkbox ticked by the program and by a click */
                     case 14: choice = chance(5); break; /* 4: no button's number */
@@ -284,8 +298,8 @@ int main(void)
                         if (!held && ui.popup == &popup) click(&ui, &popup, four, now);
                         break;
                     case 20:
-                        if (chance(2)) ticked = !ticked;
-                        else if (!held) click(&ui, &ui, tick, now);
+                        if (chance(3) == 0) ticked = !ticked;
+                        else if (!held) click(&ui, &ui, chance(2) ? tick : pic_toggle, now);
                         break;
                     case 21: dgx_ui_show(&ui, group, chance(3) != 0); break; /* the row of the group and the checkbox */
                     case 23: /* a page over the top page, or home */

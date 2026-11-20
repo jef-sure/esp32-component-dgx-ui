@@ -1,5 +1,12 @@
 # Changes
 
+## 0.0.35 - 2026-11-20
+
+- A picture button, `dgx_ui_look_picture_button`: a button, a switch or a radio with a picture of 1 bit on the
+  button's face, pressed and framed as a button; a switch shows its second picture while on, a radio while chosen.
+- A button, a switch or a radio with a picture and no size of its own now asks for the picture's size and 5 points more
+  across and down, whatever look draws it; before, it asked for none and took what its row or column gave it.
+
 ## 0.0.34 - 2026-11-20
 
 - Home's pages can lie over the box of one of its widgets, `dgx_ui_page_place()`: the rest of home, a bar shared by the

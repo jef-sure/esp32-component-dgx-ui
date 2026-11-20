@@ -20,6 +20,7 @@
 - [Одно из нескольких и галочка](#одно-из-нескольких-и-галочка)
 - [Полоса уровня](#полоса-уровня)
 - [Значок, который показывает состояние](#значок-который-показывает-состояние)
+- [Кнопка с картинкой](#кнопка-с-картинкой)
 - [Картинка из флеша](#картинка-из-флеша)
 - [Картинка под виджетами](#картинка-под-виджетами)
 - [Текст в несколько строк](#текст-в-несколько-строк)
@@ -599,6 +600,66 @@ static const dgx_ui_widget_t signal_w = {
 
 Размер виджета — размер первой картинки. Картинка рисуется непрозрачной: пишутся и её чернила, и её бумага, поэтому
 значок, нарисованный поверх себя, не мигает.
+
+## Кнопка с картинкой
+
+«Назад», «звук», вкладки — на маленьком экране кнопка часто бывает картинкой. Облик `dgx_ui_look_picture_button`
+рисует картинку в 1 бит на лицевой стороне кнопки: она так же вдавливается на свою тень и получает рамку фокуса, как
+кнопка с текстом. Он рисует три вида:
+
+```c
+/* 8x8, 1 bit: rows from a new byte, the leftmost pixel in the high bit */
+static const uint8_t icon_back_bits[8]     = {0x10, 0x30, 0x7F, 0xFF, 0x7F, 0x30, 0x10, 0x00}; /* an arrow to the left */
+static const uint8_t icon_sound_bits[8]    = {0x08, 0x18, 0x78, 0x78, 0x78, 0x78, 0x18, 0x08}; /* a speaker */
+static const uint8_t icon_muted_bits[8]    = {0x09, 0x1A, 0x7C, 0x78, 0x78, 0x7C, 0x1A, 0x09}; /* the speaker crossed */
+static const uint8_t icon_tab_bits[8]      = {0xFF, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0xFF}; /* a square, outlined */
+static const uint8_t icon_tab_here_bits[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; /* and filled */
+static const dgx_image_t icon_im[5] = {
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_back_bits},
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_muted_bits},
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_sound_bits},
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_tab_bits},
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_tab_here_bits},
+};
+static const dgx_ui_picture_t icon_back[1]  = {{.image = &icon_im[0]}};
+static const dgx_ui_picture_t icon_sound[2] = {{.image = &icon_im[1]}, {.image = &icon_im[2]}}; /* off, on */
+static const dgx_ui_picture_t icon_tab[2]   = {{.image = &icon_im[3]}, {.image = &icon_im[4]}}; /* not chosen, chosen */
+
+static int32_t icon_sound_on, icon_tab_shown = 1; /* the toggle's place; the tabs' place: the number of the tab shown */
+
+static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
+
+/* a button: one picture. A toggle: a switch of two. Tabs: radios of one place, two pictures each */
+static const dgx_ui_widget_t icon_back_w  = {.kind = DGX_UI_BUTTON, .picture = icon_back, .look = &dgx_ui_look_picture_button, .on = on_icon_back};
+static const dgx_ui_widget_t icon_sound_w = {.kind = DGX_UI_SWITCH, .picture = icon_sound, .value = &icon_sound_on, .look = &dgx_ui_look_picture_button};
+static const dgx_ui_widget_t icon_tab_w[2] = {
+    {.kind = DGX_UI_RADIO, .picture = icon_tab, .value = &icon_tab_shown, .step = 1, .look = &dgx_ui_look_picture_button},
+    {.kind = DGX_UI_RADIO, .picture = icon_tab, .value = &icon_tab_shown, .step = 2, .look = &dgx_ui_look_picture_button},
+};
+
+static int icon_backs; /* what "back" does is the program's; here it is counted */
+static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) ++icon_backs;
+}
+```
+
+- **Кнопка** показывает свою единственную картинку и по щелчку сообщает `DGX_UI_ACTIVATED`, как любая кнопка.
+- **Переключатель** — это виджет вида `DGX_UI_SWITCH` с двумя картинками: первая — пока он выключен, вторая — пока
+  включён. Включён он тогда же, когда и обычный переключатель: при значении не 0. Поэтому кнопка с картинкой,
+  переключатель и флажок на одной переменной всегда показывают одно и то же.
+- **Вкладки** — радиокнопки одной переменной, у каждой две картинки: первая — пока кнопка не выбрана, вторая — пока
+  выбрана. Щелчок записывает номер кнопки в переменную; из всей группы рисуются только две изменившиеся. В полосе
+  они открывают страницы: [Полоса над страницами](#полоса-над-страницами).
+- **Значение показывает картинка**, а не цвет: лицевая сторона во всех состояниях та же, что у кнопки.
+- **Размер.** Без `want_w` и `want_h` кнопка размером со свою первую картинку и ещё пять точек в ширину и в высоту:
+  точка лицевой стороны и точка рамки с каждой стороны и одна точка под тень. Под палец задайте размер: картинка
+  остаётся посередине лицевой стороны, а картинка больше лицевой стороны обрезается по ней.
+- **Цвета** — те же, что у кнопки, `dgx_ui_button_look_t`; её `text` — чернила картинки. Свой облик:
+  `{.draw = dgx_ui_draw_picture_button, .params = &my_colours, .fill = -1}`.
+- **Другие картинки.** Картинка в 4 или 8 бит и картинка RGB565 не рисуется, об этом один раз говорится в журнале, а
+  лицевая сторона остаётся пустой. Текст рядом с картинкой тоже не рисуется.
+- **Цена**: около 0,3 КБ сверх обычного в программе, где есть кнопки с текстом.
 
 ## Картинка из флеша
 

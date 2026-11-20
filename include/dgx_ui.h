@@ -262,14 +262,17 @@ typedef struct dgx_ui_widget_t {
     uint8_t        pad, gap;       ///< inside a box: around its children and between them, in points
     int16_t        at_x, at_y;     ///< asked: from the parent's inside edge, in points; negative from the far edge
     int16_t        want_w, want_h; ///< asked, in points; 0: the content's (a picture's size, a text's lines: of any widget with a text box; a button's, a
-                                   ///< dropdown's, a radio's and a checkbox's a point more above and below, the room of the frame of the focus; a text
-                                   ///< has no width of its own, nor a box any size), or across the stacking all of the box
+                                   ///< dropdown's, a radio's and a checkbox's a point more above and below, the room of the frame of the focus; a
+                                   ///< BUTTON's, a SWITCH's or a RADIO's with a picture, whatever look draws it, its first picture's and 5 points more
+                                   ///< across and down, a point of face and the frame's point each side and one of a shadow; a text has no width of
+                                   ///< its own, nor a box any size), or across the stacking all of the box
     int16_t        min, max, step; ///< the range of a control; a list's first row and its last, and its step the least height of a row in points (0: a line of its text);
                                    ///< a RADIO's step the number it stands for
     int16_t        tag;            ///< the program's: found by dgx_ui_find(), kept and nothing more
     dgx_ui_bits_t  state;          ///< the state it starts with: HIDDEN, DISABLED
     int32_t       *value;          ///< where its value lives, the program's memory; NULL: it has none (shows 0, nothing changes it)
-    const dgx_ui_picture_t *picture; ///< PICTURE: one; ICON: an array of min..max
+    const dgx_ui_picture_t *picture; ///< PICTURE: one; ICON: an array of min..max; drawn by dgx_ui_look_picture_button, a BUTTON's one,
+                                     ///< a SWITCH's or a RADIO's two: off and on, not chosen and chosen
     dgx_ui_textbox_t       *text;    ///< LABEL, BUTTON, LIST, INPUT, DROPDOWN, RADIO, a SWITCH drawn as a checkbox: the text box, in RAM
     const dgx_ui_look_t    *look;    ///< how it is drawn; NULL: the look of its kind
     bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg); ///< a message offered; true: claimed

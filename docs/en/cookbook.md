@@ -19,6 +19,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [One of several, and a tick](#one-of-several-and-a-tick)
 - [A level bar](#a-level-bar)
 - [An icon that shows a state](#an-icon-that-shows-a-state)
+- [A button of a picture](#a-button-of-a-picture)
 - [A picture from flash](#a-picture-from-flash)
 - [A picture under the widgets](#a-picture-under-the-widgets)
 - [A text of several lines](#a-text-of-several-lines)
@@ -589,6 +590,65 @@ static const dgx_ui_widget_t signal_w = {
 
 The size of the widget is the size of the first picture. The picture is drawn opaque: its ink and its paper are both
 written, so an icon drawn again over itself does not blink.
+
+## A button of a picture
+
+"Back", "sound", tabs: on a small screen a button is often a picture. The look `dgx_ui_look_picture_button` draws a
+picture of 1 bit on the face of a button: it is pressed onto its shadow and framed by the focus as a button with a
+text is. It draws three kinds:
+
+```c
+/* 8x8, 1 bit: rows from a new byte, the leftmost pixel in the high bit */
+static const uint8_t icon_back_bits[8]     = {0x10, 0x30, 0x7F, 0xFF, 0x7F, 0x30, 0x10, 0x00}; /* an arrow to the left */
+static const uint8_t icon_sound_bits[8]    = {0x08, 0x18, 0x78, 0x78, 0x78, 0x78, 0x18, 0x08}; /* a speaker */
+static const uint8_t icon_muted_bits[8]    = {0x09, 0x1A, 0x7C, 0x78, 0x78, 0x7C, 0x1A, 0x09}; /* the speaker crossed */
+static const uint8_t icon_tab_bits[8]      = {0xFF, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0xFF}; /* a square, outlined */
+static const uint8_t icon_tab_here_bits[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; /* and filled */
+static const dgx_image_t icon_im[5] = {
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_back_bits},
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_muted_bits},
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_sound_bits},
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_tab_bits},
+    {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_tab_here_bits},
+};
+static const dgx_ui_picture_t icon_back[1]  = {{.image = &icon_im[0]}};
+static const dgx_ui_picture_t icon_sound[2] = {{.image = &icon_im[1]}, {.image = &icon_im[2]}}; /* off, on */
+static const dgx_ui_picture_t icon_tab[2]   = {{.image = &icon_im[3]}, {.image = &icon_im[4]}}; /* not chosen, chosen */
+
+static int32_t icon_sound_on, icon_tab_shown = 1; /* the toggle's place; the tabs' place: the number of the tab shown */
+
+static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
+
+/* a button: one picture. A toggle: a switch of two. Tabs: radios of one place, two pictures each */
+static const dgx_ui_widget_t icon_back_w  = {.kind = DGX_UI_BUTTON, .picture = icon_back, .look = &dgx_ui_look_picture_button, .on = on_icon_back};
+static const dgx_ui_widget_t icon_sound_w = {.kind = DGX_UI_SWITCH, .picture = icon_sound, .value = &icon_sound_on, .look = &dgx_ui_look_picture_button};
+static const dgx_ui_widget_t icon_tab_w[2] = {
+    {.kind = DGX_UI_RADIO, .picture = icon_tab, .value = &icon_tab_shown, .step = 1, .look = &dgx_ui_look_picture_button},
+    {.kind = DGX_UI_RADIO, .picture = icon_tab, .value = &icon_tab_shown, .step = 2, .look = &dgx_ui_look_picture_button},
+};
+
+static int icon_backs; /* what "back" does is the program's; here it is counted */
+static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_ACTIVATED) ++icon_backs;
+}
+```
+
+- **A button** shows its one picture and tells `DGX_UI_ACTIVATED` at a click, as any button.
+- **A toggle** is a switch with two pictures: the first while it is off, the second while it is on. On is what a
+  switch calls on, a value that is not 0, so a toggle, a switch and a checkbox of one variable always agree.
+- **Tabs** are radio buttons of one variable with two pictures each: the first while not chosen, the second while
+  chosen. A click writes the button's number into the variable; of the group only the two that changed are drawn. In
+  a bar they open the pages: [A bar over the pages](#a-bar-over-the-pages).
+- **The value is shown by the picture**, not by a colour: the face is the button's own in every state.
+- **The size.** With no `want_w` and `want_h` the button is as large as its first picture and five points more
+  across and down: a point of face and the point of the frame on each side, and one for a shadow. For a finger give
+  it a size: the picture stays in the middle of the face, and one larger than the face is cut by it.
+- **The colours** are the button's, a `dgx_ui_button_look_t`; its `text` is the picture's ink. A look of your own is
+  `{.draw = dgx_ui_draw_picture_button, .params = &my_colours, .fill = -1}`.
+- **Other pictures.** One of 4 or 8 bits or of RGB565 is not drawn, and the log says so once: the face is plain. A
+  text beside the picture is not drawn either.
+- **What it costs**: about 0.3 KB more in a program that has buttons with a text.
 
 ## A picture from flash
 

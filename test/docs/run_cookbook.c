@@ -1507,6 +1507,48 @@ int main(int argc, char **argv)
         dgx_screen_destroy(&bar_screen);
     }
 
+    /* a button of a picture: a button, a toggle and two tabs in a row; their sizes, what a tap does, which picture shows */
+    {
+        static dgx_ui_node_t         icon_nodes[6];
+        static const dgx_ui_widget_t icon_row_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 3, .pad = 2};
+        dgx_ui_t                     icons;
+        dgx_screen_t                *icon_screen = dgx_vscreen_init(100, 40, 16, DgxScreenRGB);
+        dgx_ui_paint_t               icon_paint  = {.scr = icon_screen, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_ui_init(&icons, icon_nodes, 6, 1);
+        dgx_ui_add(&icons, -1, &icon_row_w);
+        const int back = dgx_ui_add(&icons, 0, &icon_back_w), sound = dgx_ui_add(&icons, 0, &icon_sound_w);
+        const int tab_one = dgx_ui_add(&icons, 0, &icon_tab_w[0]), tab_two = dgx_ui_add(&icons, 0, &icon_tab_w[1]);
+        icon_sound_on = 0, icon_tab_shown = 1, icon_backs = 0;
+        dgx_ui_paint(&icons, &icon_paint, 0);
+        const dgx_ui_node_t *nodes_of[4] = {dgx_ui_node(&icons, back), dgx_ui_node(&icons, sound), dgx_ui_node(&icons, tab_one), dgx_ui_node(&icons, tab_two)};
+        int                  ink[4][3]; /* the ink in each box: at the start, after the taps, after the key on the toggle */
+        int                  backs_told = 0, sound_after_tap = 0, tab_after_tap = 0;
+        for (int round = 0; round < 3; ++round) {
+            if (round == 1)
+                for (int k = 0; k < 4; ++k) {
+                    if (k == 2) continue; /* the first tab is not tapped: it loses the choice to the second */
+                    const int16_t x = (int16_t)(nodes_of[k]->x + nodes_of[k]->w / 2), y = (int16_t)(nodes_of[k]->y + nodes_of[k]->h / 2);
+                    dgx_ui_pointer(&icons, &(dgx_ui_pointer_t){.x = x, .y = y, .down = true, .pressed = true, .ms = 1000u * (unsigned)k});
+                    dgx_ui_pointer(&icons, &(dgx_ui_pointer_t){.x = x, .y = y, .released = true, .ms = 1000u * (unsigned)k + 50});
+                }
+            if (round == 1) backs_told = icon_backs, sound_after_tap = icon_sound_on != 0, tab_after_tap = (int)icon_tab_shown;
+            if (round == 2) dgx_ui_focus(&icons, sound), dgx_ui_key(&icons, DGX_UI_KEY_ACTIVATE); /* the toggle off again, by the key */
+            dgx_ui_focus(&icons, -1); /* no frame, so that the ink in a box is the picture's alone */
+            dgx_ui_paint(&icons, &icon_paint, 100u + (unsigned)round);
+            for (int k = 0; k < 4; ++k) {
+                ink[k][round] = 0;
+                for (int y = nodes_of[k]->y; y < nodes_of[k]->y + nodes_of[k]->h; ++y)
+                    for (int x = nodes_of[k]->x; x < nodes_of[k]->x + nodes_of[k]->w; ++x) ink[k][round] += dgx_get_pixel(icon_screen, x, y) == table[INK];
+            }
+        }
+        printf("icons: each %dx%d, a picture of 8 and 5 points; the taps: back told %d time(s), the sound on %d, the tab shown %d; the ink of the back's picture %d %d %d, of the "
+               "sound's %d (off) %d (on) %d (off again by the key, the place %d), of the tabs' %d and %d, then %d and %d\n",
+               nodes_of[0]->w, nodes_of[0]->h, backs_told, sound_after_tap, tab_after_tap, ink[0][0], ink[0][1], ink[0][2], ink[1][0], ink[1][1], ink[1][2], (int)icon_sound_on,
+               ink[2][0], ink[3][0], ink[2][1], ink[3][1]);
+        dgx_ui_paint_free(&icon_paint), dgx_ui_free(&icons);
+        dgx_screen_destroy(&icon_screen);
+    }
+
     puts("cookbook: ran to the end");
     return 0;
 }

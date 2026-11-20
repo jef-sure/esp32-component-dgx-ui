@@ -439,6 +439,14 @@ extern const dgx_ui_look_t dgx_ui_look_ring;
  *   its length the window's share of the rows and its place the window's;
  * - dgx_ui_look_dropdown: DROPDOWN, its options the lines of its text box as a list's, the one chosen (value - min)
  *   on a flat face with an arrow pointing down;
+ * - dgx_ui_look_picture_button: BUTTON, SWITCH and RADIO with a picture of 1 bit in place of a text, of the button's
+ *   parameters (dgx_ui_button_look_t, its `text` and `text_disabled` the picture's ink): the button's face over its
+ *   shadow, pressed onto it, the focus a frame round the face; the picture in the middle of the face, cut to it, its
+ *   zeros the face. A button shows its one picture; a switch its first while off and its second while on, on as the
+ *   switch look and the checkbox call it (its value not 0), so that the three on one place always agree, whatever its
+ *   min and max; a radio its first while not chosen and its second while chosen. With no picture, or one of 4 or 8 bits
+ *   or of RGB565 (told once in the log), the face is plain; a text beside the picture is not drawn. A program that
+ *   names it not carries none of it;
  * - dgx_ui_look_picture: PICTURE and ICON of a dgx_image_t of 1 bit (of 4 and 8 bits, dgx_ui_look_indexed below),
  *   in the middle of the box, the rest of it paper; an ICON of a value outside min..max shows none;
  * - dgx_ui_look_rgb565: PICTURE and ICON of RGB565, by a virtual screen over its pixels kept by the paint
@@ -459,7 +467,8 @@ extern const dgx_ui_look_t dgx_ui_look_ring;
  * slider's or a switch's knob: the knob a point wider; on a radio or a checkbox: its mark's inside in colour 2.
  */
 extern const dgx_ui_look_t dgx_ui_look_button, dgx_ui_look_input, dgx_ui_look_switch, dgx_ui_look_slider, dgx_ui_look_list,
-    dgx_ui_look_dropdown, dgx_ui_look_picture, dgx_ui_look_rgb565, dgx_ui_look_indexed, dgx_ui_look_radio, dgx_ui_look_checkbox;
+    dgx_ui_look_dropdown, dgx_ui_look_picture, dgx_ui_look_rgb565, dgx_ui_look_indexed, dgx_ui_look_radio, dgx_ui_look_checkbox,
+    dgx_ui_look_picture_button;
 
 /**
  * A look of a text of several lines, named by a widget that wants it (.look = &dgx_ui_look_lines): the text laid
@@ -491,6 +500,7 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
 bool dgx_ui_draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_hand_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_picture_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_input(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_switch(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_slider(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);

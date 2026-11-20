@@ -85,6 +85,13 @@ typedef struct dgx_ui_frame_t {
 bool dgx_ui_frame_begin(dgx_ui_paint_t *paint, const dgx_ui_t *ui, int i, dgx_ui_rect_t rect, uint8_t color, dgx_ui_frame_t *frame);
 void dgx_ui_frame_end(dgx_ui_paint_t *paint, const dgx_ui_t *ui, const dgx_ui_frame_t *frame);
 
+/* a button's face over its shadow, the face's inside drawn by `inside` at fx, fy, fw by fh, in the face's colour and the
+   ink of the state (DGX_UI_PRESSED, DGX_UI_DISABLED): pressed, the face moves onto the shadow; the focus a frame round
+   the face, moving with it (dgx_ui_button_look_t, dgx_ui_draw_button()). Shared by the looks of a button and of a
+   picture button */
+typedef void (*dgx_ui_face_fn)(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int fy, int fw, int fh, uint32_t face, uint32_t ink);
+void dgx_ui_draw_button_face(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_face_fn inside);
+
 /* a control drawn with no place for its value (its widget's .value NULL), told in the log by the look that draws it,
    once a look: its number, its tag and its kind in words (dgx_ui_control_looks.c). A program of no control carries
    none of the words */

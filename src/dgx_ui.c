@@ -255,12 +255,24 @@ bool dgx_ui_hidden(const dgx_ui_t *ui, int i)
 }
 
 /* the size a widget asks for, in pixels: its own, else its content's; LABEL has no width of its content */
+/* the size a widget's picture asks for, across or down: a picture's and an icon's its own; a button's, a switch's and a
+   radio's 5 points more, a point of face and the frame's point each side and one of a shadow (a picture button's,
+   dgx_ui_look_picture_button); -1 none */
+static int picture_wants(const dgx_ui_t *ui, const dgx_ui_widget_t *w, bool across)
+{
+    enum { OWN = 1u << DGX_UI_PICTURE | 1u << DGX_UI_ICON, ROOMED = 1u << DGX_UI_BUTTON | 1u << DGX_UI_SWITCH | 1u << DGX_UI_RADIO };
+    const unsigned kind = w->picture && w->kind < 32 ? 1u << w->kind : 0;
+    if (!(kind & (OWN | ROOMED))) return -1;
+    int pw, ph;
+    dgx_ui_picture_size(w->picture, &pw, &ph);
+    return (across ? pw : ph) + (kind & ROOMED ? 5 * ui->unit : 0);
+}
+
 static int want_w(const dgx_ui_t *ui, const dgx_ui_widget_t *w)
 {
-    int pw, ph;
     if (w->want_w) return w->want_w * ui->unit;
-    if (w->picture && (w->kind == DGX_UI_PICTURE || w->kind == DGX_UI_ICON)) return dgx_ui_picture_size(w->picture, &pw, &ph), pw;
-    return 0;
+    const int pictured = picture_wants(ui, w, true);
+    return pictured >= 0 ? pictured : 0;
 }
 
 /* a control with a text whose look frames it while it has the focus: a button, a dropdown, a radio, a checkbox */
@@ -272,9 +284,9 @@ static bool framed_with_text(const dgx_ui_widget_t *w)
 
 static int want_h(const dgx_ui_t *ui, const dgx_ui_widget_t *w)
 {
-    int pw, ph;
     if (w->want_h) return w->want_h * ui->unit;
-    if (w->picture && (w->kind == DGX_UI_PICTURE || w->kind == DGX_UI_ICON)) return dgx_ui_picture_size(w->picture, &pw, &ph), ph;
+    const int pictured = picture_wants(ui, w, false);
+    if (pictured >= 0) return pictured;
     if (w->text) return dgx_ui_textbox_height(w->text) + (framed_with_text(w) ? 2 * ui->unit : 0); /* the frame's room */
     return 0;
 }
