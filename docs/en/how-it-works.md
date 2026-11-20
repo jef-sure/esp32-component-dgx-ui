@@ -341,6 +341,7 @@ come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide)
 | handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
 | the statistics of painting, when the program names them | about 1.8 KB for the measured pass and its line, and 92 bytes of the program's RAM |
 | a checkbox or radio buttons, when a widget names the look | about 1.5 KB; both, 1.7 KB |
+| a pass that draws nothing, of a tree of a hundred widgets, half of them controls with values | about 20 microseconds on an ESP32 at 240 MHz, 6 on an ESP32-P4 at 400 MHz; nearly all of it the look at the values |
 
 No memory is taken for pixels: everything is drawn straight on the display. Two things go through a buffer the
 program gives the painter: a picture of 4 or 8 bits, a row of the picture at least; and, when the program names the
