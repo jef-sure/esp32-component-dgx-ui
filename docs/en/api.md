@@ -21,7 +21,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
 | [`project_include.cmake`](#project_includecmake) | two calls of CMake: a description made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.44: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.45: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1566,8 +1566,9 @@ nothing.
 ## dgx_ui_appearance.h
 
 The appearance of a program's pages as data: its colours by name, its text styles and its looks, in one document
-of JSON for all the pages, loaded into the program's memory. The pages name its looks and its styles as they name
-the program's own; an appearance changed changes them all.
+of JSON for all the pages, loaded into the program's memory, or made C when the program is built, by
+`dgx_ui_appearance()` of [project_include.cmake](#project_includecmake). The pages name its looks and its styles as
+they name the program's own; an appearance changed changes them all.
 
 ```json
 {"dgx-ui": 1, "name": "day",
@@ -1718,14 +1719,17 @@ A recipe: [A description made C when the program is built](cookbook.md#a-descrip
 the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
 
 ```cmake
-dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [HEADERS <header>...])
-dgx_ui_names(<names file> [PREFIX <prefix>] [HEADERS <header>...])
+dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])
+dgx_ui_names(<names file> [PREFIX <prefix>] [APPEARANCE <appearance>] [HEADERS <header>...])
+dgx_ui_appearance(<appearance> [PREFIX <prefix>] [NAMES <names file>] [HEADERS <header>...])
 ```
 
 | Call | What it makes |
 | ---- | ------------- |
 | `dgx_ui_tree()` | The description's tree as constants, and `int <prefix>_add(dgx_ui_t *ui, int parent)`: the tree added under `parent`, -1 as the tree's root; the index of its top widget, or -1 when the tree had no room for it and what was added is removed. Two files, named by `PREFIX`, else by the description's file: `sound.json` gives `sound.c` and `sound.h`. The prefix of the C is `PREFIX`, else the tree's name, `"name"` of the description. |
 | `dgx_ui_names()` | The tables of `dgx_ui_load.h` of a names file, `const dgx_ui_load_names_t <prefix>_names`, declared by `<prefix>.h`. The prefix, and the files' name, is `PREFIX`, else the names file's own name: `vocab.txt` gives `vocab_names`. |
+| `dgx_ui_appearance()` | An appearance of `dgx_ui_appearance.h` as constants: `const dgx_ui_appearance_t <prefix>_appearance`, its looks `<prefix>_look[]` and styles `<prefix>_style[]`, `void <prefix>_start(void)`, which fills the fonts of its styles and is called once before the first paint, and a constant `<prefix>_color_<name>` for each colour whose name is a name of C. The files are named by `PREFIX`, else by the appearance's file; the C by `PREFIX`, else by its `"name"`. With `NAMES` its draws, fonts and hands are the file's `draw`, `font` and `hand` lines, and the file's looks and styles stand after its own. |
+| `APPEARANCE` | For `dgx_ui_tree()`: the tree made on the appearance, its looks and styles standing before those of the names file, so a widget that names no look takes the appearance's of its kind's word. For `dgx_ui_names()`: the loader's tables with the appearance's looks and styles first, and `const dgx_ui_appearance_names_t <prefix>_appearance_names` when the file has `draw`, `font` or `hand` lines. The appearance is given to `dgx_ui_appearance()` first, in the same component or in one it requires. A file made on an appearance holds its stamp and does not compile against another. |
 
 **Where the files go.** Into `dgx_ui_made` of the build directory of the component that calls. The `.c` is compiled
 into that component, and the directory is on the component's own include path, with the directory of each header

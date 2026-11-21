@@ -7,21 +7,23 @@ The project is copied into the work directory, and dgx-ui into its ext/dgx-ui, f
 unpacked (the tests, the examples and what was built left out), so that the copy is what the program takes and the
 steps may touch it. On the linux target of ESP-IDF:
 
-1. a clean build: the tool built once for the project, the five files made in three components, the program run: the
+1. a clean build: the tool built once for the project, the eight files made in three components, the program run: the
    tree loaded on the made tables and the tree added by its made function the same, and the others as made; a.json
    holding editors' objects, at the top and in a widget; the program's header in a directory of its own, which only
-   HEADERS puts on the made files' path;
+   HEADERS puts on the made files' path; an appearance made in the second component, a tree made on it there and a
+   tree and tables made on it in main, the main's tree loaded on those tables the same as added, of its looks and style;
 2. a description edited: its files made again, no other, no configure, the tool not built again;
 3. the tree renamed inside: the same files, the new function, no configure;
 4. the tool's source touched: the tool built again, then every file made again;
-5. the configure refusals, each by its words: one file name twice in a component, one prefix in two components, a
+5. the appearance edited: its files made again and those made on it, in both components, no other, no configure;
+6. the configure refusals, each by its words: one file name twice in a component, one prefix in two components, a
    prefix not of C, one of dgx_, a names file whose name is not of C, a description's file name no file may have, one
-   that begins with '-', a word not understood;
-6. a description the loader refuses: the build stops with the tool's words, the loader's code, byte and name;
-7. no compiler of the computer: the build stops with the words of dgx_ui_c.py;
-8. a clean build by make, not by ninja, where the rules of a component that does not depend on the one whose rule
+   that begins with '-', a word not understood, an appearance no dgx_ui_appearance() made;
+7. a description the loader refuses: the build stops with the tool's words, the loader's code, byte and name;
+8. no compiler of the computer: the build stops with the words of dgx_ui_c.py;
+9. a clean build by make, not by ninja, where the rules of a component that does not depend on the one whose rule
    builds the tool wait for the tool by its target;
-9. the program built for the chip as well, so that the made files are compiled by its compiler.
+10. the program built for the chip as well, so that the made files are compiled by its compiler.
 """
 import os
 import re
@@ -38,7 +40,8 @@ IDF_PY = [os.environ.get("IDF_PYTHON", "python"), os.path.join(os.environ["IDF_P
 TOOL_BUILT = "dgx-ui: dgx_ui_c built for the computer"
 MADE = {"a": "dgx-ui: pages/a.json made C, a.c and a.h", "b": "dgx-ui: b.json made C, other.c and other.h",
         "c": "dgx-ui: c.json made C, c.c and c.h", "d": "dgx-ui: d.json made C, third_page.c and third_page.h",
-        "vocab": "dgx-ui: vocab.txt made the loader's tables, vocab.c and vocab.h"}
+        "vocab": "dgx-ui: vocab.txt made the loader's tables, vocab.c and vocab.h", "look": "dgx-ui: look.json made C, look.c and look.h",
+        "framed": "dgx-ui: framed.json made C, framed.c and framed.h", "themed": "dgx-ui: vocab.txt made the loader's tables, themed.c and themed.h"}
 
 
 def idf(*args, build="build", target="linux", configure=False, env=None, timeout=1800, generator=None):
@@ -114,7 +117,12 @@ os.utime(tool_source)  # now: the copy keeps the checkout's older time
 status, output = idf("build")
 built_and_ran("4", output, status, set(MADE), 1, "noise")
 
-# 5. the configure refusals
+# 5. the appearance edited: its files and those made on it
+edit("components/second/look.json", '"accent": "#f0a03c"', '"accent": "#f0a03d"')
+status, output = idf("build")
+built_and_ran("5", output, status, {"look", "c", "framed", "themed"}, 0, "noise")
+
+# 6. the configure refusals
 for case, words in [("files_twice", "dgx_ui_tree(more/a.json): a.c and a.h are made of pages/a.json already in this component: give one of them a PREFIX"),
                     # in the order ESP-IDF takes the components: the second's first
                     ("prefix_twice", "dgx_ui_tree(b.json): the prefix other is taken already, by c.json of second: two of it would collide at link"),
@@ -123,35 +131,37 @@ for case, words in [("files_twice", "dgx_ui_tree(more/a.json): a.c and a.h are m
                     ("names_not_c", 'dgx_ui_names(my-vocab.txt): the names file\'s name "my-vocab" is not a name of C: give its tables a PREFIX'),
                     ("file_no_name", 'dgx_ui_tree(odd page.json): "odd page" is no name for the files made: give the tree a PREFIX'),
                     ("file_dash", 'dgx_ui_tree(-page.json): "-page" is no name for the files made: give the tree a PREFIX'),
-                    ("word", 'dgx_ui_tree(b.json): "PREFX other2" not understood: PREFIX <prefix>, NAMES <names file>, HEADERS <header>...')]:
+                    ("word", 'dgx_ui_tree(b.json): "PREFX other2" not understood: PREFIX <prefix>, NAMES <names file>, APPEARANCE <appearance>, HEADERS <header>...'),
+                    ("appearance_unmade", "dgx_ui_tree(framed.json): ../components/third/d.json is not made by dgx_ui_appearance() before: call it in this "
+                                          "component or in one it requires")]:
     status, output = idf(f"-DHOOK_CASE={case}", "reconfigure")
-    check(f"5: {case}", status != 0 and words in re.sub(r"\s+", " ", output), output)
+    check(f"6: {case}", status != 0 and words in re.sub(r"\s+", " ", output), output)
 
-# 6. a description the loader refuses
+# 7. a description the loader refuses
 status, output = idf("-DHOOK_CASE=refused", "build")
 with open(os.path.join(project, "main", "bad.json")) as bad:
     byte = bad.read().index('"loudness"')
-check("6: the loader's words", status != 0 and f'bad.json: byte {byte}: DGX_UI_LOAD_UNKNOWN "loudness"' in output, output)
+check("7: the loader's words", status != 0 and f'bad.json: byte {byte}: DGX_UI_LOAD_UNKNOWN "loudness"' in output, output)
 status, output = idf("-DHOOK_CASE=", "reconfigure")
-check("6: configured back", status == 0, output)
+check("7: configured back", status == 0, output)
 
-# 7. no compiler of the computer
+# 8. no compiler of the computer
 shutil.rmtree(os.path.join(project, "build", "dgx_ui_c"), ignore_errors=True)
 status, output = idf("build", env=dict(os.environ, CC="/nonexistent/cc"))
-check("7: the script's words", status != 0 and "dgx_ui_c.py: no C compiler of the computer (/nonexistent/cc; set CC to another)" in output, output)
+check("8: the script's words", status != 0 and "dgx_ui_c.py: no C compiler of the computer (/nonexistent/cc; set CC to another)" in output, output)
 status, output = idf("build")
-built_and_ran("7", output, status, set(MADE), 1, "noise")
+built_and_ran("8", output, status, set(MADE), 1, "noise")
 
-# 8. by make, as ESP-IDF may build: the rules of the trees in other components wait for the tool's target
+# 9. by make, as ESP-IDF may build: the rules of the trees in other components wait for the tool's target
 status, output = idf("build", build="build-make", configure=True, generator="Unix Makefiles")
 ran, said = program("build-make")
-check("8: the build by make", status == 0 and output.count(TOOL_BUILT) == 1 and ran == 0 and "hook: ok" in said, output + said)
+check("9: the build by make", status == 0 and output.count(TOOL_BUILT) == 1 and ran == 0 and "hook: ok" in said, output + said)
 
-# 9. for a chip
+# 10. for a chip
 status, output = idf("build", build="build-chip", target=chip, configure=True)
-check(f"9: the build for {chip}", status == 0 and output.count(TOOL_BUILT) == 1, output)
+check(f"10: the build for {chip}", status == 0 and output.count(TOOL_BUILT) == 1, output)
 
 for failure in failures:
     print("  " + failure, file=sys.stderr)
-print(f"test_hook.py: 9 steps held, dgx-ui of {dgx_ui}" if not failures else f"test_hook.py: {len(failures)} failed")
+print(f"test_hook.py: 10 steps held, dgx-ui of {dgx_ui}" if not failures else f"test_hook.py: {len(failures)} failed")
 sys.exit(1 if failures else 0)

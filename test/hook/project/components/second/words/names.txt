@@ -1,2 +1,6 @@
 look slider
 value level &level
+# the appearance's: its draws, its font
+draw frame
+draw slider
+font small TerminusTTFMedium12

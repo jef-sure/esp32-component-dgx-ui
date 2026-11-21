@@ -12,7 +12,7 @@ run-cookbook:
 	python3 ../docs/check_docs.py $(DGX) $(DGX_DI) $(BUILD)/docs
 	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) -DDGX_HOST_WINDOW -I../docs/stubs -I. $(CPPFLAGS) $(DGX_FLAGS) -I$(DGX)/host/window \
 		-I$(DGX_DI)/include -I$(BUILD)/docs -I$(BUILD)/docs/made_en -DMADE_DIR='"$(BUILD)/docs/made_en"' -o $(BUILD)/run_cookbook ../docs/run_cookbook.c \
-		$(BUILD)/docs/made_en/sound.c $(BUILD)/docs/made_en/vocab.c $(PAINT) $(ROOT)/src/dgx_ui_stats.c $(DGX_SRCS) $(DGX)/src/fonts/font0ss.c -lm
+		$(BUILD)/docs/made_en/sound.c $(BUILD)/docs/made_en/vocab.c $(BUILD)/docs/made_en/day.c $(BUILD)/docs/made_en/sound_day.c $(PAINT) $(ROOT)/src/dgx_ui_stats.c $(DGX_SRCS) $(DGX)/src/fonts/font0ss.c -lm
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/run_cookbook $(OUT)
 
 # The pictures of docs/images but the ring's and the strip's, as PPM in $(OUT): make ... pictures OUT=<directory>

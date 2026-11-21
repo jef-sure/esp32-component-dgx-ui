@@ -1,5 +1,6 @@
 /* The recipes of the cookbook run: its C blocks, as the checker joined them, with the program's own functions stubbed. */
 #include "docs_en_cookbook.md.c" /* written by check_docs.py into its build directory: give it with -I */
+#include "sound_day.h" /* the recipe's page made on its appearance, by check_docs.py */
 #include <stdio.h>
 #include "dgx_vscreen.h"
 #define PANEL_BITS 24 /* the model of a display behind a bus, of test/host: it counts the writes of each pixel */
@@ -1755,6 +1756,28 @@ int main(int argc, char **argv)
                "widgets %d\n",
                added, made_count, made_title, made_text, made_need.name, made_err.code, same);
         dgx_ui_free(&made_page), free(made_memory);
+    }
+
+    { /* an appearance made C when the program is built: day_take() and the page of the last recipe made on it, which
+         the checker makes under the prefix sound_day beside the page made with no appearance */
+        dgx_screen_t  *day_screen = dgx_vscreen_init(64, 48, 16, DgxScreenRGB);
+        dgx_ui_paint_t day_paint  = {.scr = day_screen};
+        day_take(day_screen, &day_paint);
+        static dgx_ui_t      day_page;
+        static dgx_ui_node_t day_nodes[8];
+        dgx_ui_init(&day_page, day_nodes, 8, 1);
+        const int top = sound_day_add(&day_page, -1);
+        int       of_the_appearance = 0, of_its_style = 0;
+        for (int k = 0; top >= 0 && k < day_page.count; ++k) {
+            const dgx_ui_widget_t *w = dgx_ui_widget(&day_page, k);
+            of_the_appearance += (w->kind == DGX_UI_SLIDER && w->look == &day_look[0]) || (w->kind == DGX_UI_BUTTON && w->look == &day_look[1]);
+            of_its_style += w->text && w->text->style == &day_style[0];
+        }
+        printf("appearance: day made C, %d colours, accent the index %d packed %s; its style's font %s; the page on it: added %d, a slider and a button of its looks %d, "
+               "texts of its style %d\n",
+               day_appearance.color_count, (int)day_color_accent, day_colors[day_color_accent] == dgx_screen_rgb(day_screen, 0xf0, 0xa0, 0x3c) ? "right" : "WRONG",
+               day_style[0].variants[0].font == TerminusTTFMedium12() ? "filled" : "NOT FILLED", top >= 0, of_the_appearance, of_its_style);
+        dgx_ui_free(&day_page), dgx_screen_destroy(&day_screen);
     }
 
     puts("cookbook: ran to the end");

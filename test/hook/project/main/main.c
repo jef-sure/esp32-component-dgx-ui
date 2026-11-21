@@ -1,13 +1,17 @@
 /*
  * hook: the tree of pages/a.json loaded at run time on the tables dgx_ui_names() made of vocab.txt, and the same tree
  * added by the function dgx_ui_tree() made of it: the same widgets, the same id. Then the trees made of b.json and of
- * the second component's description. "hook: ok" and 0 when all holds.
+ * the second component's description, made on its appearance; then framed.json, made on that appearance in this
+ * component, against the loader on the tables made with it. "hook: ok" and 0 when all holds.
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "a.h"
+#include "framed.h"
+#include "look.h"
+#include "themed.h"
 #include "dgx_ui_load.h"
 #include "other.h"
 #include "headers/program.h"
@@ -75,6 +79,19 @@ void app_main(void)
     if (other_add(&made, -1) != 0 || dgx_ui_node(&made, 0)->widget->on != on_saved) fail("b.json's tree not as made");
     if (second_count() != 2) fail("the second component's tree not as made");
     if (third_count() != 3) fail("the third component's tree not as made");
+    /* on the second component's appearance: the made tree against the loader on the tables made with it */
+    theme_start();
+    dgx_ui_free(&made);
+    dgx_ui_init(&made, made_nodes, 16, 1);
+    dgx_ui_init(&loaded, loaded_nodes, 16, 1);
+    json = read_page(PAGES_DIR "/../framed.json", &length);
+    if (!dgx_ui_load_need(json, length, &themed_names, &need, &err)) fail("framed.json refused by the loader");
+    void *framed_memory = malloc(need.bytes);
+    if (dgx_ui_load(&loaded, -1, json, length, &themed_names, framed_memory, need.bytes, &err) != 0) fail("framed.json not loaded");
+    if (framed_add(&made, -1) != 0 || !same(&loaded, &made)) fail("the tree made on the appearance is not the loaded one");
+    if (dgx_ui_node(&made, 0)->widget->look != &theme_look[0] || dgx_ui_node(&made, 1)->widget->look != &theme_look[1] ||
+        dgx_ui_node(&made, 2)->widget->text->style != &theme_style[0])
+        fail("the tree made on the appearance has not its looks and style");
     printf("hook: ok\n");
     exit(0);
 }

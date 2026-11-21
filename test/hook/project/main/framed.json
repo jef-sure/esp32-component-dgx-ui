@@ -1,0 +1,2 @@
+{"dgx-ui": 1, "name": "framed", "tree": {"kind": "frame", "look": "pane", "flags": ["column"], "children": [{"kind": "slider", "value": "volume", "max": 100},
+ {"kind": "label", "text": "Framed"}]}}

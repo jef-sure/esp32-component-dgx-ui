@@ -18,6 +18,7 @@ A program built by ESP-IDF does not run the tool itself. Two calls in the CMakeL
 ```cmake
 dgx_ui_tree(sound.json NAMES vocab.txt HEADERS program.h)   # sound.c, sound.h: int sound_add(dgx_ui_t *ui, int parent)
 dgx_ui_names(vocab.txt HEADERS program.h)                   # vocab.c, vocab.h: const dgx_ui_load_names_t vocab_names
+dgx_ui_appearance(day.json NAMES vocab.txt HEADERS program.h)   # day.c, day.h: const dgx_ui_appearance_t day_appearance
 ```
 
 The calls are in the API reference, [project_include.cmake](../docs/en/api.md#project_includecmake), and the
@@ -31,7 +32,7 @@ python3 tools/dgx_ui_c.py <path to DGX> <directory>    # <directory>/dgx_ui_c: t
 make -C tools                                          # the same into tools/build, DGX found as the host tests find it
 ```
 
-The tool is `tools/dgx_ui_c.c` and seven sources of the library, compiled against dgx-ui's headers and DGX's
+The tool is `tools/dgx_ui_c.c` and nine sources of the library, compiled against dgx-ui's headers and DGX's
 `include/` and `host/stubs/`: no source of DGX, no library but C's. The compiler is the computer's: `$CC` unless it
 is a chip's, else `cc`. The library's looks are read from `include/dgx_ui_paint.h` when it is built.
 
@@ -40,10 +41,12 @@ is a chip's, else `cc`. The library's looks are read from `include/dgx_ui_paint.
 ```sh
 tools/build/dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] [-f <files' name>] <description>
 tools/build/dgx_ui_c -n <names file> [-i <header>]... [-d <directory>] [-f <files' name>] -t <prefix>
+tools/build/dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] [-f <files' name>] -A <appearance>
 ```
 
 The first makes a tree C, the second the loader's tables of a names file,
-[below](#the-loaders-tables-from-the-names-file).
+[below](#the-loaders-tables-from-the-names-file), the third an appearance, [below](#an-appearance-made-c) too. A tree
+and the tables are made on an appearance by `-a <appearance>` with the first two.
 
 For a description it writes `<prefix>.c` and `<prefix>.h` into the directory (`.` when none is said). The prefix, a
 name of C, begins all the files declare. It is the tree's name, the `"name"` of the description: one that says
@@ -169,6 +172,53 @@ The file then means one thing to both: with `-n vocab.txt` the tool's word on a 
 `vocab_names`, the same tree, or the same error at the same byte with the same name. A program may load a
 description while it is being worked on and have it made C for its release, with one vocabulary.
 
+## An appearance made C
+
+```sh
+tools/build/dgx_ui_c -n vocab.txt -i program.h -A day.json
+```
+
+writes `day.c` and `day.h` from an appearance of `dgx_ui_appearance.h`, read by the appearance's own loader on
+stand-ins, as a tree is: a refusal is the loader's code, byte and name. The prefix is the appearance's `"name"`,
+or `-p`. The header declares:
+
+```c
+extern const dgx_ui_appearance_t day_appearance;   /* its colours, and the tables of its looks and styles */
+extern const dgx_ui_look_t       day_look[2];      /* its looks, constants in flash with their parameters */
+extern dgx_ui_text_style_t       day_style[1];     /* its styles, in RAM: day_start() fills their fonts */
+void day_start(void);                              /* once, before the first paint */
+enum { day_color_paper = 0, day_color_ink = 1, day_color_fill = 2, day_color_border = 3, day_color_accent = 4 };
+enum { day_stamp = 0x416f7392 };                   /* of its looks' and styles' names in their order */
+```
+
+A colour whose name is not a name of C has no constant: the header lists it in a comment, and
+`dgx_ui_appearance_color()` finds it. The tables hold the appearance's looks and styles first, then the looks and
+styles of the names file.
+
+What an appearance may name comes from the names file, by three more tables, or with none from a rule:
+
+```
+draw      slider                              # a draw of the library's, with no function
+draw      dial       draw_dial  &dial_described   # the program's own: its function, and its description for the tables of -t
+font      small      dgx_font_small           # a font of DGX; with no function, dgx_font_<name>
+font      script     dgx_font_script handwritten   # a handwritten font: its variant must say a hand
+hand      handwriting                         # handwriting or handwriting_canvas, the library's
+```
+
+With no names file every draw of the library and both hands may be named, a font `small` is `dgx_font_small`, and
+every font is taken for a bitmap one: the file made says that the hands of handwritten fonts were not checked. A
+draw of the program's own may get a look with a fill; a look that gives it `"params"` is refused, in the tool's
+words, since its parameters are described in the program's C, which the tool does not read.
+
+**A tree, or the tables, on an appearance**: `-a <appearance>`, with `-an <its names file>` when the appearance was
+made on one, `-ap <its prefix>` when it was made with `-p`, and `-af <its files' name>` when with `-f`. The
+appearance's looks and styles stand before those of the names file or of the rule, and are written
+`&day_look[0]`, `&day_style[0]`; the file made includes `day.h` and holds its stamp by a `_Static_assert`, so a
+file kept while its appearance changed stops the compile: "day.h is of another appearance than this file was made
+on: make it again". A text that names no style takes the appearance's first. With `-t`, the tables' looks and styles
+begin with the appearance's, and a names file with `draw`, `font` or `hand` lines also gives
+`const dgx_ui_appearance_names_t <prefix>_appearance_names`, the tables an appearance is loaded on.
+
 ## Tests
 
 `make -C test/host run-test_generate`, a part of the host suite (`test/host/test_generate.py` and
@@ -177,3 +227,8 @@ the descriptions the loader refuses. Each file made is compiled and its tree add
 widget by widget and field by field, the same ids, drawn the same pixel by pixel. Each refusal is the loader's, the
 same code, byte and name. The tables made of the names file are held against tables written by hand, entry by
 entry, and every case is loaded on them as well.
+
+`make -C test/host run-test_generate_appearance` does the same for appearances: one of every draw of the library,
+appearances made by chance from the library's descriptions of its draws, and the same spoiled. Each is made C,
+compiled, and held against its load on the tables `-t` makes, field by field and pixel by pixel on a page of a widget
+for each look; a tree made on one appearance is shown to stop at compile time against another.

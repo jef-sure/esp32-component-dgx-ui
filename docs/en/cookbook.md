@@ -2381,6 +2381,95 @@ What to know of it:
 - **The made files are not to be edited**: they are written again whenever the description or the names file
   changes.
 
+## An appearance made C when the program is built
+
+The colours, the text style and the looks of the last recipe's page in a document of their own, made C as the page
+is: the slider and the button take the looks the appearance gives, and the program carries no loader.
+
+The appearance, `main/day.json`:
+
+```json
+{"dgx-ui": 1, "name": "day",
+ "colors": {"paper": "#12161e", "ink": "#e8e8de", "fill": "#2c3c56", "border": "#44556a", "accent": "#f0a03c"},
+ "styles": {"text": {"fonts": ["small"], "flags": ["middle"]}},
+ "looks": {"slider": {"draw": "slider",
+                      "params": {"track": "border", "fill": "accent", "knob": "ink", "focused": "ink",
+                                 "disabled": "border", "track_h": 3}},
+           "button": {"draw": "button",
+                      "params": {"face": "fill", "pressed": "accent", "focused": null, "disabled": "border",
+                                 "text": "ink", "text_disabled": "border", "shadow": "paper", "depth": 1}}}}
+```
+
+Three lines more in `main/vocab.txt`, what an appearance may name: its draws and its font.
+
+```text
+# an appearance's own: draws and fonts
+draw      slider
+draw      button
+font      small     TerminusTTFMedium12
+```
+
+One line more in `main/program.h`, which declares the font: the made files include that header for everything the
+names file leads to.
+
+```c
+/* program.h, one line more: the font of vocab.txt */
+#include "fonts/TerminusTTFMedium12.h"
+```
+
+`main/CMakeLists.txt`: the appearance made C, and the page made on it.
+
+```cmake
+dgx_ui_appearance(day.json NAMES vocab.txt HEADERS program.h)                     # day.c, day.h: const dgx_ui_appearance_t day_appearance
+dgx_ui_tree(sound.json APPEARANCE day.json NAMES vocab.txt HEADERS program.h)     # sound.c, sound.h, on the appearance's looks and styles
+```
+
+And the program:
+
+```c
+#include "day.h" /* made when the program is built */
+
+static uint32_t day_colors[5]; /* the painter's table: the appearance's five colours, packed for the screen */
+
+/* the appearance taken, before the first paint: the fonts of its styles, and its colours for this screen */
+static void day_take(dgx_screen_t *scr, dgx_ui_paint_t *paint)
+{
+    day_start();
+    dgx_ui_appearance_pack(&day_appearance, dgx_ui_pack_screen, scr, day_colors);
+    paint->colors = day_colors, paint->color_count = day_appearance.color_count;
+}
+```
+
+What happens:
+
+1. When the program is built, `dgx_ui_c` reads `day.json` as the loader of appearances would, on the draws and
+   the fonts of `vocab.txt`, and writes `day.c` and `day.h`: the colours, each look with its parameters as a
+   constant, the style, and `day_appearance` over them.
+2. The page is made on it: its slider and its button, which name no look, take `"slider"` and `"button"` of the
+   appearance, which stand before the library's of `vocab.txt`; its texts, which name no style, take the
+   appearance's first. The page's file names them as `&day_look[0]` and `&day_style[0]`.
+3. The program calls `day_take()` once, before the first paint, and adds the page as before, by `sound_add()`.
+
+What to know of it:
+
+- **An edit of `day.json`** makes `day.c`, and every tree and table made on it, again when the program is built
+  next, and nothing else.
+- **A page's file is held to its appearance.** `day.h` carries a stamp of its looks' and styles' names in their
+  order, and a file made on it refuses to compile against another: "day.h is of another appearance than this file
+  was made on: make it again". Under the build it cannot happen; it is for a made file kept by hand.
+- **The fonts** of the styles are filled by `day_start()`: until it is called, a style of the appearance has none.
+- **The colours are packed by the program**, for each screen it draws on. A look of the program's own names a
+  colour of the appearance by the constant `day.h` gives, `day_color_accent`, not by a number.
+- **A draw of the program's own** may be named in `vocab.txt`, `draw dial draw_dial`, and an appearance may give it
+  a look with a fill; its parameters are described in the program's C, which the tool does not read, so a look with
+  `"params"` for it stays a look of C in the program's table.
+- **The tables for pages that are loaded**: `dgx_ui_names(vocab.txt APPEARANCE day.json ...)` makes the loader's
+  tables with the appearance's looks and styles first, and, of the `draw`, `font` and `hand` lines,
+  `vocab_appearance_names`, the tables a program loads an appearance on.
+- **What it costs**: on an ESP32 the appearance made C adds about 0.7 KB to the program whose page is made C: its
+  constants, `day_start()` and the packing. The same appearance loaded takes the 5 KB of its loader and its text
+  besides, and its looks' parameters then lie in RAM, not in flash.
+
 ## Large data: a message by reference
 
 More than 12 bytes go by reference. The message owns the data from the sending until the loop calls

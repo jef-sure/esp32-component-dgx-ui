@@ -1,0 +1,5 @@
+{"dgx-ui": 1, "name": "theme",
+ "colors": {"paper": "#12161e", "ink": "#e8e8de", "fill": "#2c3c56", "border": "#44556a", "accent": "#f0a03c"},
+ "styles": {"body": {"fonts": ["small"], "align": "left"}},
+ "looks": {"pane": {"draw": "frame", "fill": "fill", "params": {"border": "accent", "width": 1}},
+           "slider": {"draw": "slider", "params": {"track": "border", "fill": "accent", "knob": "ink", "focused": "ink", "disabled": "border", "track_h": 3}}}}

@@ -1,5 +1,14 @@
 # Changes
 
+## 0.0.45 - 2026-11-21
+
+- `dgx_ui_c -A`: an appearance made C, its looks and their parameters constants, its styles' fonts filled by
+  `<prefix>_start()`; `-a` makes a tree, or the loader's tables, on such an appearance, its looks and styles first,
+  held to that very appearance by a stamp at compile time.
+- A names file names an appearance's draws, fonts and hands too; with `-t` it gives the tables an appearance is loaded
+  on as well.
+- `dgx_ui_appearance()` in a component's CMakeLists, and `APPEARANCE` for `dgx_ui_tree()` and `dgx_ui_names()`.
+
 ## 0.0.44 - 2026-11-21
 
 - The appearance as data, `dgx_ui_appearance.h`: colours by name, text styles and looks in one document of JSON for a

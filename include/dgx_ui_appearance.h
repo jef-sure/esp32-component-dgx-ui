@@ -4,7 +4,7 @@
  *
  *  The appearance of a program's pages as data: its colours by name, its text styles and its looks, in one document
  *  of JSON for all the pages, the format of dgx_ui_load.h with other keys at the top, loaded into the program's
- *  memory.
+ *  memory, or made C by tools/dgx_ui_c as a tree is.
  *
  *      {"dgx-ui": 1, "name": "day",
  *       "colors": {"paper": "#12161e", "ink": "#e8e8de", "fill": "#2c3c56", "border": "#44556a", "accent": "#f0a03c"},
@@ -15,7 +15,7 @@
  *  - "colors": a name and "#rrggbb" each. "paper", "ink", "fill" and "border" are the indices 0, 1, 2 and 3 wherever
  *    they stand, as the library's own looks take them, and each must be there; the others follow from 4 in the order
  *    written, 255 at most. A program's own look that wants a colour of the appearance takes its index by its name
- *    (dgx_ui_appearance_color()) and fills its parameters at the start.
+ *    (dgx_ui_appearance_color(), or the constant the made C gives) and fills its parameters at the start.
  *  - "styles": a name and a style: "fonts", a list of its variants, the best first, each the name of a font of the
  *    program's table, or an object of a handwritten one, {"font", "hand", "height", "narrow", "joined", "pen",
  *    "soft"}; "align": "left", "center" or "right"; "flags": a list of "middle" and "important"; "scroll_ms".
@@ -172,8 +172,8 @@ typedef struct dgx_ui_appearance_need_t {
     char   name[24];
 } dgx_ui_appearance_need_t;
 
-/** An appearance laid: its colours by index, 0xRRGGBB, and their names; the tables of looks and styles, its own first
-    and the program's after. */
+/** An appearance laid, or made C: its colours by index, 0xRRGGBB, and their names; the tables of looks and styles, its
+    own first and the program's after. */
 typedef struct dgx_ui_appearance_t {
     const uint32_t            *rgb;
     const char *const         *color_names;

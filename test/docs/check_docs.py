@@ -34,7 +34,10 @@ CC = ['cc', '-std=gnu11', '-fsyntax-only', '-Wall', '-Wextra', '-Wno-unused-para
       '-Wno-unused-but-set-variable', '-Wno-missing-field-initializers', '-Werror=implicit-function-declaration', '-Werror=incompatible-pointer-types',
       '-DDGX_HOST_WINDOW', f'-I{here}/stubs', f'-I{repo}/include', f'-I{dgx}/include', f'-I{dgx}/host/stubs', f'-I{dgx}/host/window', f'-I{dgx_di}/include',
       '-include', f'{dgx}/host/stubs/esp_log.h']
-MADE_FILES = {'sound.json': r'^```json\n(\{"dgx-ui".*?)^```', 'vocab.txt': r'^```text\n(# table.*?)^```', 'program.h': r'^```c\n(/\* program\.h.*?)^```'}
+MADE_FILES = {'sound.json': r'^```json\n(\{"dgx-ui": 1, "name": "sound".*?)^```', 'vocab.txt': r'^```text\n(# table.*?)^```',
+              'program.h': r'^```c\n(/\* program\.h: .*?)^```', 'day.json': r'^```json\n(\{"dgx-ui": 1, "name": "day".*?)^```'}
+# what the recipe of an appearance adds to two of them
+MORE = {'vocab.txt': r'^```text\n(# an appearance.*?)^```', 'program.h': r'^```c\n(/\* program\.h, one line more.*?)^```'}
 
 
 def made_of(text, rel):
@@ -48,17 +51,25 @@ def made_of(text, rel):
         if len(found) != 1:
             return where, [f'the recipe of a description made C prints {name} {len(found)} times, not once']
         open(os.path.join(where, name), 'w').write(found[0])
+    for name, pattern in MORE.items():
+        more = re.findall(pattern, text, re.S | re.M)
+        if len(more) != 1:
+            return where, [f'the recipe of an appearance made C prints its lines of {name} {len(more)} times, not once']
+        open(os.path.join(where, name), 'a').write(more[0])
     tool_dir = os.path.join(build, 'tool')
     built = subprocess.run([sys.executable, os.path.join(repo, 'tools', 'dgx_ui_c.py'), dgx, tool_dir], capture_output=True, text=True)
     if built.returncode:
         return where, built.stderr.splitlines()[:6]
     tool = os.path.join(tool_dir, 'dgx_ui_c')
     said = []
-    for arguments in (['-f', 'sound', 'sound.json'], ['-t', 'vocab']):  # as dgx_ui_tree() and dgx_ui_names() run it
+    # as dgx_ui_tree(), dgx_ui_names() and dgx_ui_appearance() run it; the page of the recipe made a second time, on the
+    # appearance, under a prefix of its own, sound_day, so that both pages lie in one directory
+    for arguments in (['-f', 'sound', 'sound.json'], ['-t', 'vocab'], ['-f', 'day', '-A', 'day.json'],
+                      ['-p', 'sound_day', '-f', 'sound_day', '-a', 'day.json', '-an', 'vocab.txt', '-af', 'day', 'sound.json']):
         run = subprocess.run([tool, '-n', 'vocab.txt', '-i', 'program.h', '-d', '.'] + arguments, capture_output=True, text=True, cwd=where)
         said += run.stderr.splitlines()[:4] if run.returncode else []
     if not said:
-        for made in ('sound.c', 'vocab.c'):
+        for made in ('sound.c', 'vocab.c', 'day.c', 'sound_day.c'):
             run = subprocess.run(CC + [f'-I{where}', os.path.join(where, made)], capture_output=True, text=True)
             said += [line for line in run.stderr.splitlines() if 'error' in line or 'warning' in line][:4]
     return where, said

@@ -2408,6 +2408,96 @@ static int made_page_load(const char *json, size_t len, void *memory, size_t siz
   виджета, текстовые поля и буферы текстов, которые пишет программа.
 - **Сделанные файлы не правят**: они пишутся заново при каждом изменении описания или файла имён.
 
+## Внешний вид, переведённый на C при сборке
+
+Цвета, стиль текста и облики страницы из предыдущего рецепта — в отдельном документе, который переводится на C
+так же, как страница: ползунок и кнопка берут облики, которые даёт внешний вид, а загрузчика в программе нет.
+
+Внешний вид, `main/day.json`:
+
+```json
+{"dgx-ui": 1, "name": "day",
+ "colors": {"paper": "#12161e", "ink": "#e8e8de", "fill": "#2c3c56", "border": "#44556a", "accent": "#f0a03c"},
+ "styles": {"text": {"fonts": ["small"], "flags": ["middle"]}},
+ "looks": {"slider": {"draw": "slider",
+                      "params": {"track": "border", "fill": "accent", "knob": "ink", "focused": "ink",
+                                 "disabled": "border", "track_h": 3}},
+           "button": {"draw": "button",
+                      "params": {"face": "fill", "pressed": "accent", "focused": null, "disabled": "border",
+                                 "text": "ink", "text_disabled": "border", "shadow": "paper", "depth": 1}}}}
+```
+
+Ещё три строки в `main/vocab.txt` — то, что может назвать внешний вид: функции рисования и шрифт.
+
+```text
+# an appearance's own: draws and fonts
+draw      slider
+draw      button
+font      small     TerminusTTFMedium12
+```
+
+Ещё одна строка в `main/program.h` — она объявляет шрифт: сделанные файлы включают этот заголовок ради всего, к
+чему ведёт файл имён.
+
+```c
+/* program.h, one line more: the font of vocab.txt */
+#include "fonts/TerminusTTFMedium12.h"
+```
+
+`main/CMakeLists.txt`: внешний вид переводится на C, и страница делается на нём.
+
+```cmake
+dgx_ui_appearance(day.json NAMES vocab.txt HEADERS program.h)                     # day.c, day.h: const dgx_ui_appearance_t day_appearance
+dgx_ui_tree(sound.json APPEARANCE day.json NAMES vocab.txt HEADERS program.h)     # sound.c, sound.h, on the appearance's looks and styles
+```
+
+И программа:
+
+```c
+#include "day.h" /* made when the program is built */
+
+static uint32_t day_colors[5]; /* the painter's table: the appearance's five colours, packed for the screen */
+
+/* the appearance taken, before the first paint: the fonts of its styles, and its colours for this screen */
+static void day_take(dgx_screen_t *scr, dgx_ui_paint_t *paint)
+{
+    day_start();
+    dgx_ui_appearance_pack(&day_appearance, dgx_ui_pack_screen, scr, day_colors);
+    paint->colors = day_colors, paint->color_count = day_appearance.color_count;
+}
+```
+
+Что происходит:
+
+1. При сборке программы `dgx_ui_c` читает `day.json` так, как прочёл бы загрузчик внешнего вида, на функциях
+   рисования и шрифтах из `vocab.txt`, и пишет `day.c` и `day.h`: цвета, каждый облик с параметрами константой,
+   стиль и `day_appearance` поверх них.
+2. Страница делается на нём: ползунок и кнопка, которые облика не называют, берут `"slider"` и `"button"` из
+   внешнего вида — они стоят раньше библиотечных из `vocab.txt`; тексты, которые не называют стиля, берут первый
+   стиль внешнего вида. В файле страницы они названы `&day_look[0]` и `&day_style[0]`.
+3. Программа один раз, до первой отрисовки, вызывает `day_take()` и добавляет страницу, как раньше, вызовом
+   `sound_add()`.
+
+Что стоит знать:
+
+- **Правка `day.json`** при следующей сборке заново делает `day.c` и каждое дерево и таблицу, сделанные на нём, —
+  и больше ничего.
+- **Файл страницы привязан к своему внешнему виду.** В `day.h` лежит штамп — имена обликов и стилей в их порядке, и
+  файл, сделанный на одном внешнем виде, не компилируется с другим: «day.h is of another appearance than this file
+  was made on: make it again». При сборке так не бывает; это защита для сделанного файла, который хранят руками.
+- **Шрифты** стилей заполняет `day_start()`: пока она не вызвана, у стиля внешнего вида шрифта нет.
+- **Цвета упаковывает программа** — для каждого экрана, на котором рисует. Собственный облик программы называет
+  цвет внешнего вида константой из `day.h`, `day_color_accent`, а не числом.
+- **Собственную функцию рисования программы** можно назвать в `vocab.txt`: `draw dial draw_dial`, и внешний вид
+  может дать ей облик с заливкой. Её параметры описаны в C программы, которого инструмент не читает, поэтому облик
+  с `"params"` для неё остаётся обликом на C в таблице программы.
+- **Таблицы для страниц, которые загружаются на ходу**: `dgx_ui_names(vocab.txt APPEARANCE day.json ...)` делает
+  таблицы загрузчика, где облики и стили внешнего вида стоят первыми, а из строк `draw`, `font` и `hand` —
+  `vocab_appearance_names`, таблицы, на которых программа загружает внешний вид.
+- **Сколько это стоит**: на ESP32 внешний вид, переведённый на C, добавляет около 0,7 КБ к программе, у которой
+  страница на C: его константы, `day_start()` и упаковку цветов. Тот же внешний вид, загружаемый на ходу, стоит
+  ещё 5 КБ загрузчика и свой текст, а параметры обликов тогда лежат в ОЗУ, а не во флеше.
+
 ## Большие данные: сообщение по ссылке
 
 Больше 12 байт идут по ссылке. Сообщение владеет данными от отправки до того, как цикл вызовет

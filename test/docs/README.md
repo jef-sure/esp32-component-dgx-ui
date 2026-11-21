@@ -13,6 +13,9 @@ It checks that:
 - the C code of every page compiles against `include/`, with the stubs of `test/docs/stubs` for FreeRTOS;
 - the files the cookbook prints for its recipe of a description made C, the description, the names file and the
   program's header, are made C by `dgx_ui_c` itself, built here by `tools/dgx_ui_c.py`, and what it makes compiles;
+  so are those of the recipe of an appearance made C: the appearance, the lines it adds to the names file and to
+  the header, and the page of the first recipe made a second time on that appearance, under the prefix `sound_day`,
+  which the run of the recipes then adds and holds to the appearance's looks and style;
 - every `dgx_ui_` and `DGX_UI_` name a page prints is in a header or in `project_include.cmake`;
 - the API pages name every public function, type and constant of the headers and every call of
   `project_include.cmake`;
