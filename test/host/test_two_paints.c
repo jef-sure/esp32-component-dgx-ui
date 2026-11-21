@@ -41,12 +41,12 @@ enum { INTO_CANVAS, STRAIGHT, BITMAP };
    look */
 static void make(const dgx_ui_look_t *look, int width, int height, const char *text, bool important, bool soft, int way)
 {
-    variant[0] = (dgx_ui_font_variant_t){.font   = font0ss(),
+    variant[0] = (dgx_ui_font_variant_t){.font   = &font0ss,
                                          .height = 16,
                                          .joined = true,
                                          .pen    = 2 | (soft ? DGX_PEN_SOFT : 0),
                                          .hand   = way == INTO_CANVAS ? &dgx_ui_handwriting_canvas : &dgx_ui_handwriting};
-    if (way == BITMAP) variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    if (way == BITMAP) variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = important ? DGX_UI_TEXT_IMPORTANT : 0, .scroll_ms = important ? 300 : 0};
     dgx_ui_textbox_init(&box, buf, sizeof buf, 1, &style);
     label_w = (dgx_ui_widget_t){.kind   = DGX_UI_LABEL,
@@ -125,7 +125,7 @@ static void run(const case_t *c, dgx_screen_t *display, dgx_screen_t *second, dg
         second_off += differ_from_fresh(&ui, &second_paint, fresh, 1) > 0;
     }
     if (display_off || second_off) fprintf(stderr, "%s: the display off after %d passes, the second paint after %d\n", c->name, display_off, second_off);
-    const int rows = c->height / (c->way == BITMAP ? TerminusTTFMedium12()->yAdvance : variant[0].height);
+    const int rows = c->height / (c->way == BITMAP ? TerminusTTFMedium12.y_advance : variant[0].height);
     CHECK(display_off == 0 && second_off == 0 && !more && steps > 100);
     if (c->look && rows == 2) CHECK(box.total_lines > rows && (!c->important || box.top == box.total_lines - rows)); /* cut, or scrolled to its end */
     dgx_ui_paint_free(&display_paint), dgx_ui_paint_free(&second_paint), dgx_ui_free(&ui);

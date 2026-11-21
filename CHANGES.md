@@ -1,5 +1,14 @@
 # Changes
 
+## 0.0.46 - 2026-11-21
+
+- DGX 0.12.0 at least, whose fonts are constants. A font in a variant or in a table of fonts is `&Name` where it was
+  `Name()` or `Name`: a table of fonts holding `Name` no longer compiles, and `Name()` elsewhere builds with DGX's
+  warning until DGX 1.0. A variant and a style may now be constants in flash.
+- `dgx_ui_c -A` makes an appearance of constants alone: `<prefix>_start()` is gone, so delete its call, and
+  `<prefix>_style[]` is `const`, taken by a `const dgx_ui_text_style_t *`.
+- A names file's `font <name> <C name>` names the font's constant, as font2c makes it since DGX 0.12.
+
 ## 0.0.45 - 2026-11-21
 
 - `dgx_ui_c -A`: an appearance made C, its looks and their parameters constants, its styles' fonts filled by

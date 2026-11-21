@@ -21,7 +21,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
 | [`project_include.cmake`](#project_includecmake) | two calls of CMake: a description made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.45: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.46: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1629,7 +1629,7 @@ so that no colour is forgotten into paper on paper. So must a style's `"fonts"`,
 | Member | What it lists |
 | ------ | ------------- |
 | `draws`, `draw_count` | `dgx_ui_draw_name_t`: a draw by its word with its parameters described. `DGX_UI_DRAW_NAME(slider)` is `{"slider", dgx_ui_draw_slider, &dgx_ui_params_slider}`; a program carries only the draws it lists |
-| `fonts`, `font_count` | `dgx_ui_font_name_t`: a font of DGX by a name, `{"body", dgx_font_body}`; every need of the project's `dgx_fonts.h` at once by `#define FONT(need) {#need, dgx_font_##need},` and `{DGX_FONT_NEEDS(FONT)}` |
+| `fonts`, `font_count` | `dgx_ui_font_name_t`: a font of DGX by a name, `{"body", &dgx_font_body}`; every need of the project's `dgx_fonts.h` at once by `#define FONT(need) {#need, &dgx_font_##need},` and `{DGX_FONT_NEEDS(FONT)}` |
 | `hands`, `hand_count` | `dgx_ui_hand_name_t`: `DGX_UI_HAND_NAME(handwriting)`, `DGX_UI_HAND_NAME(handwriting_canvas)` |
 | `looks`, `look_count`, `styles`, `style_count` | the program's own looks and styles, of C, which stand after the appearance's in the tables it lays |
 
@@ -1648,7 +1648,7 @@ style a text takes when it names none is the appearance's first.
 
 ```c
 static const dgx_ui_draw_name_t        draws[] = {DGX_UI_DRAW_NAME(slider), DGX_UI_DRAW_NAME(button)};
-static const dgx_ui_font_name_t        fonts[] = {{"body", dgx_font_body}, {"small", dgx_font_small}};
+static const dgx_ui_font_name_t        fonts[] = {{"body", &dgx_font_body}, {"small", &dgx_font_small}};
 static const dgx_ui_look_name_t        own[]   = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(button)};
 static const dgx_ui_appearance_names_t appearance_names = {.draws = draws, .draw_count = 2, .fonts = fonts, .font_count = 2,
                                                            .looks = own, .look_count = 2};
@@ -1728,7 +1728,7 @@ dgx_ui_appearance(<appearance> [PREFIX <prefix>] [NAMES <names file>] [HEADERS <
 | ---- | ------------- |
 | `dgx_ui_tree()` | The description's tree as constants, and `int <prefix>_add(dgx_ui_t *ui, int parent)`: the tree added under `parent`, -1 as the tree's root; the index of its top widget, or -1 when the tree had no room for it and what was added is removed. Two files, named by `PREFIX`, else by the description's file: `sound.json` gives `sound.c` and `sound.h`. The prefix of the C is `PREFIX`, else the tree's name, `"name"` of the description. |
 | `dgx_ui_names()` | The tables of `dgx_ui_load.h` of a names file, `const dgx_ui_load_names_t <prefix>_names`, declared by `<prefix>.h`. The prefix, and the files' name, is `PREFIX`, else the names file's own name: `vocab.txt` gives `vocab_names`. |
-| `dgx_ui_appearance()` | An appearance of `dgx_ui_appearance.h` as constants: `const dgx_ui_appearance_t <prefix>_appearance`, its looks `<prefix>_look[]` and styles `<prefix>_style[]`, `void <prefix>_start(void)`, which fills the fonts of its styles and is called once before the first paint, and a constant `<prefix>_color_<name>` for each colour whose name is a name of C. The files are named by `PREFIX`, else by the appearance's file; the C by `PREFIX`, else by its `"name"`. With `NAMES` its draws, fonts and hands are the file's `draw`, `font` and `hand` lines, and the file's looks and styles stand after its own. |
+| `dgx_ui_appearance()` | An appearance of `dgx_ui_appearance.h` as constants: `const dgx_ui_appearance_t <prefix>_appearance`, its looks `<prefix>_look[]` and styles `<prefix>_style[]`, all constants in flash, and a constant `<prefix>_color_<name>` for each colour whose name is a name of C. The files are named by `PREFIX`, else by the appearance's file; the C by `PREFIX`, else by its `"name"`. With `NAMES` its draws, fonts and hands are the file's `draw`, `font` and `hand` lines, and the file's looks and styles stand after its own. |
 | `APPEARANCE` | For `dgx_ui_tree()`: the tree made on the appearance, its looks and styles standing before those of the names file, so a widget that names no look takes the appearance's of its kind's word. For `dgx_ui_names()`: the loader's tables with the appearance's looks and styles first, and `const dgx_ui_appearance_names_t <prefix>_appearance_names` when the file has `draw`, `font` or `hand` lines. The appearance is given to `dgx_ui_appearance()` first, in the same component or in one it requires. A file made on an appearance holds its stamp and does not compile against another. |
 
 **Where the files go.** Into `dgx_ui_made` of the build directory of the component that calls. The `.c` is compiled

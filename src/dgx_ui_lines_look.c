@@ -26,7 +26,7 @@ static const char ELLIPSIS[] = "...";
 
 /* the shared laying of lines, by the fonts' own measure; a variant of no bitmap or dot font is not drawn here */
 #define LINES_MEASURE(v, s, n) width_of((v)->font, s, n)
-#define LINES_HEIGHT(v)        (dgx_ui_variant_usable((v)->font) ? (v)->font->yAdvance : 0)
+#define LINES_HEIGHT(v)        (dgx_ui_variant_usable((v)->font) ? (v)->font->y_advance : 0)
 #include "dgx_ui_lines_layout.h"
 
 /* the clip of the screen cut to rows top .. bottom of the tree's screen; false when nothing of them is left */
@@ -70,8 +70,8 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     if (v != box->variant) paint->whole = true; /* another height: the rows around the fields too */
     const uint32_t since = (box->flags & DGX_UI_TEXTBOX_START) ? now_ms : box->since_ms;
     const dgx_ui_font_variant_t *var = &st->variants[v];
-    dgx_font_t                  *f = var->font, *f0 = dgx_ui_variant_usable(st->variants[0].font) ? st->variants[0].font : f;
-    const int      lh = f->yAdvance, cell_top = f->yOffsetLowest, cell = f->yBottomMax - f->yOffsetLowest;
+    const dgx_font_t            *f = var->font, *f0 = dgx_ui_variant_usable(st->variants[0].font) ? st->variants[0].font : f;
+    const int      lh = f->y_advance, cell_top = f->y_offset_lowest, cell = f->y_bottom_max - f->y_offset_lowest;
     const int      rows = w->h / lh > 0 ? w->h / lh : 1;
 
     /* the lines and letters of the text: counted again only when the text, the width or the variant changed */
@@ -127,7 +127,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const int  shown = total - top < rows ? total - top : rows;
 
     /* the base line of the first row: the first variant's, or the block of the rows shown in the middle */
-    int base0 = w->y + (first_rows >= 0 ? first_rows : -f0->yOffsetLowest);
+    int base0 = w->y + (first_rows >= 0 ? first_rows : -f0->y_offset_lowest);
     if (st->flags & DGX_UI_TEXT_MIDDLE) {
         const int block = shown > 0 ? (shown - 1) * lh + cell : cell;
         base0           = w->y + (w->h - block) / 2 - cell_top;

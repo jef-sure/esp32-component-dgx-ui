@@ -105,7 +105,7 @@ static void finger(dgx_ui_t *ui, int x, int y, bool pressed, bool released, uint
 
 int main(void)
 {
-    variant[0]     = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0]     = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style          = (dgx_ui_text_style_t){.variants = variant, .count = 1};
     const int line = dgx_ui_variant_line(&variant[0]);
     panel_t       *panel = panel_make();

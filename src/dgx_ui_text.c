@@ -17,7 +17,7 @@
 int dgx_ui_variant_line(const dgx_ui_font_variant_t *v)
 {
     if (!v || !v->font) return 0;
-    return v->font->f_type == DGX_FONT_HW ? v->height : v->font->yAdvance;
+    return v->font->f_type == DGX_FONT_HW ? v->height : v->font->y_advance;
 }
 
 int dgx_ui_textbox_height(const dgx_ui_textbox_t *box)

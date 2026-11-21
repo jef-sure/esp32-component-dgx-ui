@@ -56,16 +56,16 @@
  * With -A an appearance of dgx_ui_appearance.h is made C: <prefix>.c and <prefix>.h, its prefix its "name" unless -p
  * gives another. Its colours as constants and an enum <prefix>_color_<name> of those whose name is of C; each look's
  * parameters a constant written field by field by its draw's description; its looks, <prefix>_look[], and its styles,
- * <prefix>_style[], whose variants' fonts <prefix>_start() fills, as DGX gives fonts by functions; its tables, its own
- * first and the names file's looks and styles after, in const dgx_ui_appearance_t <prefix>_appearance; and
+ * <prefix>_style[], constants as their variants are, each font the address of its constant; its tables, its own first
+ * and the names file's looks and styles after, in const dgx_ui_appearance_t <prefix>_appearance; and
  * <prefix>_stamp, of the names of its looks and styles in their order. It is read by its loader on stand-ins of the
  * names file's draws, fonts and hands:
  *
  *     draw <name> [<C function> [<description>]]     a draw of the library by its word with no function; the program's
- *     font <name> [<C function>] [handwritten]       dgx_font_<name> with no function; a handwritten one so marked
+ *     font <name> [<C constant>] [handwritten]       &dgx_font_<name> with no constant; a handwritten one so marked
  *     hand <word>                                    the library's: handwriting or handwriting_canvas
  *
- * with no names file every draw of the library, both hands and the fonts its styles name, dgx_font_<name>, each taken
+ * with no names file every draw of the library, both hands and the fonts its styles name, &dgx_font_<name>, each taken
  * for a bitmap one, which the file made says. A look of a draw of the program's own is made with no "params": its
  * description is the program's C, which the tool cannot read. With -a a tree, and with -t the tables, are made on an
  * appearance -A made: its looks and styles first in the page's tables, each &<its prefix>_look[k] or _style[k], read on
@@ -163,7 +163,6 @@ static table_t     tables[TABLES], used[TABLES];
 enum { A_DRAW, A_FONT, A_HAND, APPEARANCE_TABLES };
 static const char *const appearance_words[APPEARANCE_TABLES] = {"draw", "font", "hand"};
 static table_t           appearance_tables[APPEARANCE_TABLES];
-enum { FONT_STANDS = 256 }; /* the fonts dgx_ui_c stands in for: a function each */
 static const char  DEFAULT_STYLE[] = "the default"; /* a space: no description names it */
 static const char *description_path, *prefix; /* with -t the names file's path, and the prefix -t gives */
 static bool        tables_mode;                /* -t: the names file alone made C, the loader's tables */
@@ -300,8 +299,7 @@ static void appearance_line(const char *path, int number, int table, char **word
     if (count < 2) fail_out("%s:%d: a %s with no name", path, number, words[0]);
     if (!loader_name(words[1])) fail_out("%s:%d: \"%s\" is not a name a description may have", path, number, words[1]);
     if (entry_of(&appearance_tables[table], words[1])) fail_out("%s:%d: the %s \"%s\" twice", path, number, words[0], words[1]);
-    if (appearance_tables[table].count == (table == A_FONT ? FONT_STANDS : 65535))
-        fail_out("%s:%d: a %s past the %d dgx_ui_c takes", path, number, words[0], table == A_FONT ? FONT_STANDS : 65535);
+    if (appearance_tables[table].count == 65535) fail_out("%s:%d: a %s past the 65535 dgx_ui_c takes", path, number, words[0]);
     entry_t *entry                     = entry_add(&appearance_tables[table], words[1]);
     appearance_tables[table].from_file = true;
     if (table == A_DRAW) {
@@ -315,8 +313,8 @@ static void appearance_line(const char *path, int number, int table, char **word
         entry->handwritten = count >= 3 && strcmp(words[count - 1], "handwritten") == 0;
         const int given    = count - entry->handwritten;
         if (given > 3) fail_out("%s:%d: \"%s\" means nothing for a font: an expression is written with no spaces", path, number, words[3]);
-        if (given == 2 && !c_name(words[1], false)) fail_out("%s:%d: the font \"%s\" with no C function, and dgx_font_%s is not a name of C", path, number, words[1], words[1]);
-        entry->c = given == 3 ? copy_of(words[2]) : printed("dgx_font_%s", words[1]);
+        if (given == 2 && !c_name(words[1], false)) fail_out("%s:%d: the font \"%s\" with no constant of C, and dgx_font_%s is not a name of C", path, number, words[1], words[1]);
+        entry->c = given == 3 ? printed("&%s", words[2]) : printed("&dgx_font_%s", words[1]);
     } else {
         if (count > 2 || !library_hand(words[1]))
             fail_out("%s:%d: the hand \"%s\": the library's alone, handwriting or handwriting_canvas, with no expression", path, number, words[1]);
@@ -1013,28 +1011,8 @@ static char *read_all(const char *path, size_t *length)
 
 /* ---- an appearance, read by its loader on stand-ins ---- */
 
-/* the fonts' stand-ins: the table holds functions, so a function each, of the font it returns; a handwritten one by its
-   type, which is what the loader asks of a font */
-static dgx_font_t font_stand[FONT_STANDS];
-#define FONT_STAND(high, low) \
-    static dgx_font_t *font_stand_##high##low(void) { return &font_stand[0x##high##low]; }
-#define FONT_STANDS_OF(high)                                                                                                       \
-    FONT_STAND(high, 0) FONT_STAND(high, 1) FONT_STAND(high, 2) FONT_STAND(high, 3) FONT_STAND(high, 4) FONT_STAND(high, 5)        \
-    FONT_STAND(high, 6) FONT_STAND(high, 7) FONT_STAND(high, 8) FONT_STAND(high, 9) FONT_STAND(high, a) FONT_STAND(high, b)        \
-    FONT_STAND(high, c) FONT_STAND(high, d) FONT_STAND(high, e) FONT_STAND(high, f)
-FONT_STANDS_OF(0) FONT_STANDS_OF(1) FONT_STANDS_OF(2) FONT_STANDS_OF(3) FONT_STANDS_OF(4) FONT_STANDS_OF(5) FONT_STANDS_OF(6) FONT_STANDS_OF(7)
-FONT_STANDS_OF(8) FONT_STANDS_OF(9) FONT_STANDS_OF(a) FONT_STANDS_OF(b) FONT_STANDS_OF(c) FONT_STANDS_OF(d) FONT_STANDS_OF(e) FONT_STANDS_OF(f)
-#define FONT_STAND_NAME(high, low) font_stand_##high##low,
-#define FONT_STAND_NAMES_OF(high)                                                                                                       \
-    FONT_STAND_NAME(high, 0) FONT_STAND_NAME(high, 1) FONT_STAND_NAME(high, 2) FONT_STAND_NAME(high, 3) FONT_STAND_NAME(high, 4)        \
-    FONT_STAND_NAME(high, 5) FONT_STAND_NAME(high, 6) FONT_STAND_NAME(high, 7) FONT_STAND_NAME(high, 8) FONT_STAND_NAME(high, 9)        \
-    FONT_STAND_NAME(high, a) FONT_STAND_NAME(high, b) FONT_STAND_NAME(high, c) FONT_STAND_NAME(high, d) FONT_STAND_NAME(high, e)        \
-    FONT_STAND_NAME(high, f)
-static dgx_font_t *(*const font_stands[FONT_STANDS])(void) = {FONT_STAND_NAMES_OF(0) FONT_STAND_NAMES_OF(1) FONT_STAND_NAMES_OF(2) FONT_STAND_NAMES_OF(3)
-    FONT_STAND_NAMES_OF(4) FONT_STAND_NAMES_OF(5) FONT_STAND_NAMES_OF(6) FONT_STAND_NAMES_OF(7) FONT_STAND_NAMES_OF(8) FONT_STAND_NAMES_OF(9)
-    FONT_STAND_NAMES_OF(a) FONT_STAND_NAMES_OF(b) FONT_STAND_NAMES_OF(c) FONT_STAND_NAMES_OF(d) FONT_STAND_NAMES_OF(e) FONT_STAND_NAMES_OF(f)};
-
 static uint8_t                  *draw_stand, *hand_stand;
+static dgx_font_t               *font_stand;      /* the fonts' stand-ins: a handwritten one by its type, what the loader asks of a font */
 static dgx_ui_look_t            *own_look_stand;  /* the names file's looks, after the appearance's */
 static dgx_ui_text_style_t      *own_style_stand; /* and its styles */
 static char                     *appearance_text;
@@ -1097,7 +1075,7 @@ static void collect_fonts(void)
                     if (!dgx_ui_json_string(&json, name, 23, &length)) return;
                     if (length <= 23 && !entry_of(&appearance_tables[A_FONT], (name[length] = 0, name))) {
                         entry_t *font = entry_add(&appearance_tables[A_FONT], name);
-                        font->offset = (long)at, font->ruled = true, font->c = printed("dgx_font_%s", name);
+                        font->offset = (long)at, font->ruled = true, font->c = printed("&dgx_font_%s", name);
                     }
                 } else {
                     for (bool inner = true; next_member(&json, &inner, key);) {
@@ -1106,7 +1084,7 @@ static void collect_fonts(void)
                             if (!dgx_ui_json_string(&json, name, 23, &length)) return;
                             if (length <= 23 && !entry_of(&appearance_tables[A_FONT], (name[length] = 0, name))) {
                                 entry_t *font = entry_add(&appearance_tables[A_FONT], name);
-                                font->offset = (long)value, font->ruled = true, font->c = printed("dgx_font_%s", name);
+                                font->offset = (long)value, font->ruled = true, font->c = printed("&dgx_font_%s", name);
                             }
                         } else if (!dgx_ui_json_skip(&json, 8)) {
                             return;
@@ -1163,12 +1141,12 @@ static void read_appearance(bool names_file, bool with_own)
         }
         for (int k = 0; k < 2; ++k) entry_add(&appearance_tables[A_HAND], library_hands[k])->c = printed("&dgx_ui_%s", library_hands[k]);
         collect_fonts();
-        if (appearance_tables[A_FONT].count > FONT_STANDS) fail_out("%s: more than the %d fonts dgx_ui_c takes", appearance_path, FONT_STANDS);
     }
     refuse_own_params();
     const table_t *draws_of = &appearance_tables[A_DRAW], *fonts_of = &appearance_tables[A_FONT], *hands_of = &appearance_tables[A_HAND];
     draw_stand              = zeroed(draws_of->count, 1);
     hand_stand              = zeroed(hands_of->count, 1);
+    font_stand              = zeroed(fonts_of->count, sizeof *font_stand);
     const int own_looks = with_own ? tables[T_LOOK].count : 0, own_styles = with_own ? tables[T_STYLE].count : 0;
     own_look_stand          = zeroed(own_looks, sizeof *own_look_stand);
     own_style_stand         = zeroed(own_styles, sizeof *own_style_stand);
@@ -1183,7 +1161,7 @@ static void read_appearance(bool names_file, bool with_own)
     }
     for (int k = 0; k < fonts_of->count; ++k) {
         font_stand[k] = (dgx_font_t){.f_type = fonts_of->entries[k].handwritten ? DGX_FONT_HW : DGX_FONT_BITMAP_LINES};
-        fonts[k]      = (dgx_ui_font_name_t){fonts_of->entries[k].name, font_stands[k]};
+        fonts[k]      = (dgx_ui_font_name_t){fonts_of->entries[k].name, &font_stand[k]};
     }
     for (int k = 0; k < hands_of->count; ++k) hands[k] = (dgx_ui_hand_name_t){hands_of->entries[k].name, (const dgx_ui_hand_t *)&hand_stand[k]};
     for (int k = 0; k < own_looks; ++k) looks[k] = (dgx_ui_look_name_t){tables[T_LOOK].entries[k].name, &own_look_stand[k]};
@@ -1204,7 +1182,7 @@ static void read_appearance(bool names_file, bool with_own)
     /* a font by the rule is the name made C: of C, or refused */
     for (int k = 0; k < fonts_of->count; ++k)
         if (fonts_of->entries[k].ruled && !c_name(fonts_of->entries[k].name, false))
-            fail_out("%s: byte %ld: the font \"%s\" is not a name of C: give it its function in a names file", appearance_path, fonts_of->entries[k].offset,
+            fail_out("%s: byte %ld: the font \"%s\" is not a name of C: give it its constant in a names file", appearance_path, fonts_of->entries[k].offset,
                      fonts_of->entries[k].name);
     /* the stamp: of the names of its own looks and styles in their order, what a tree made on it takes by index */
     uint32_t stamp = 2166136261u;
@@ -1274,7 +1252,7 @@ static const char *count_member(const char *type, const char *member)
     return NULL;
 }
 
-/* the appearance made C: its colours, its looks of constants, its styles filled at the start, its tables */
+/* the appearance made C, all constants: its colours, its looks, its styles, its tables */
 static void write_appearance(const char *directory, const char *const *headers, int header_count)
 {
     const char *p = appearance_prefix;
@@ -1297,8 +1275,7 @@ static void write_appearance(const char *directory, const char *const *headers, 
     if (others) out(&h_file, ". */\n");
     out(&h_file, "\n/** The appearance: its colours, and its looks and styles first in its tables. */\nextern const dgx_ui_appearance_t %s_appearance;\n", p);
     if (looks) out(&h_file, "extern const dgx_ui_look_t %s_look[%d];\n", p, looks);
-    if (styles) out(&h_file, "extern dgx_ui_text_style_t %s_style[%d];\n", p, styles);
-    out(&h_file, "\n/** Its styles' fonts filled, which DGX gives by functions: called before a text of it is drawn. */\nvoid %s_start(void);\n", p);
+    if (styles) out(&h_file, "extern const dgx_ui_text_style_t %s_style[%d];\n", p, styles);
     out(&h_file, "\n#ifdef __cplusplus\n}\n#endif\n");
 
     out_head(&c_file, base_name(c_path));
@@ -1368,21 +1345,22 @@ static void write_appearance(const char *directory, const char *const *headers, 
         }
         out(&c_file, "};\n");
     }
-    /* the styles: their variants, the fonts filled at the start */
+    /* the styles and their variants */
     for (int k = 0; k < styles; ++k) {
         const dgx_ui_text_style_t *style = appearance.styles[k].style;
-        out(&c_file, "\nstatic dgx_ui_font_variant_t %s_variants_%d[%d] = {\n", p, k, style->count);
+        out(&c_file, "\nstatic const dgx_ui_font_variant_t %s_variants_%d[%d] = {\n", p, k, style->count);
         for (int v = 0; v < style->count; ++v) {
             const dgx_ui_font_variant_t *variant = &style->variants[v];
+            const char *font = appearance_tables[A_FONT].entries[variant->font - font_stand].c;
             const char *hand = variant->hand ? appearance_tables[A_HAND].entries[(const uint8_t *)variant->hand - hand_stand].c : "NULL";
-            out(&c_file, "    {.font = NULL, .height = %d, .narrow = %u, .joined = %s, .pen = %u%s, .hand = %s},\n", variant->height, (unsigned)variant->narrow,
+            out(&c_file, "    {.font = %s, .height = %d, .narrow = %u, .joined = %s, .pen = %u%s, .hand = %s},\n", font, variant->height, (unsigned)variant->narrow,
                 variant->joined ? "true" : "false", (unsigned)(variant->pen & ~(uint32_t)DGX_PEN_SOFT), variant->pen & DGX_PEN_SOFT ? " | DGX_PEN_SOFT" : "", hand);
         }
         out(&c_file, "};\n");
     }
     if (styles) {
         static const char *const aligns[] = {"DGX_FONT_ALIGN_LEFT", "DGX_FONT_ALIGN_CENTER", "DGX_FONT_ALIGN_RIGHT"};
-        out(&c_file, "\ndgx_ui_text_style_t %s_style[%d] = {\n", p, styles);
+        out(&c_file, "\nconst dgx_ui_text_style_t %s_style[%d] = {\n", p, styles);
         for (int k = 0; k < styles; ++k) {
             const dgx_ui_text_style_t *style = appearance.styles[k].style;
             out(&c_file, "    {.variants = %s_variants_%d, .count = %u, .flags = %s%s%s, .align = %s, .scroll_ms = %u},  /* ", p, k, (unsigned)style->count,
@@ -1415,15 +1393,6 @@ static void write_appearance(const char *directory, const char *const *headers, 
     out(&c_file, "\nconst dgx_ui_appearance_t %s_appearance = {.rgb = %s_rgb, .color_names = %s_names_of_colors, .looks = %s%s, .styles = %s%s,\n", p, p, p,
         all_looks ? p : "NULL", all_looks ? "_looks" : "", all_styles ? p : "NULL", all_styles ? "_styles" : "");
     out(&c_file, "                                          .color_count = %d, .look_count = %d, .style_count = %d};\n", appearance.color_count, all_looks, all_styles);
-    out(&c_file, "\nvoid %s_start(void)\n{\n", p);
-    for (int k = 0; k < styles; ++k) {
-        const dgx_ui_text_style_t *style = appearance.styles[k].style;
-        for (int v = 0; v < style->count; ++v) {
-            const int font = (int)(style->variants[v].font - font_stand);
-            out(&c_file, "    %s_variants_%d[%d].font = %s();\n", p, k, v, appearance_tables[A_FONT].entries[font].c);
-        }
-    }
-    out(&c_file, "}\n");
     if (fclose(c_file.file) || fclose(h_file.file)) fail_out("%s: %s", c_path, strerror(errno));
 }
 

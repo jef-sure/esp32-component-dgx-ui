@@ -194,7 +194,7 @@ static void draw_background(dgx_ui_paint_t *paint, int x, int y, int w, int h, v
 
 int main(void)
 {
-    variant[0]    = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0]    = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style         = (dgx_ui_text_style_t){.variants = variant, .count = 1};
     painted_panel = panel_make(), telling_panel = panel_make();
     mirror        = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);

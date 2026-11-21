@@ -144,7 +144,7 @@ static void reset_told(void) { memset(told_back, 0, sizeof told_back), memset(to
 
 int main(void)
 {
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
     make_trees();
     dgx_screen_t  *screen = dgx_vscreen_init(96, 64, 16, DgxScreenRGB);

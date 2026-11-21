@@ -371,7 +371,7 @@ int main(void)
     colors[0] = dgx_screen_rgb(&panel->sbus.scr, 16, 20, 28), colors[1] = dgx_screen_rgb(&panel->sbus.scr, 232, 232, 222);
     colors[2] = dgx_screen_rgb(&panel->sbus.scr, 44, 60, 86), colors[3] = dgx_screen_rgb(&panel->sbus.scr, 240, 160, 60);
     for (int k = 0; k < 4; ++k) table[k] = panel_color(k);
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     for (int k = 0; k < (int)sizeof big_bits; ++k) big_bits[k] = (uint8_t)((k / 3) % 2 ? 0xa5 : 0x3c);
     for (int bands = 0; bands < 2; ++bands) {
         with_bands = bands;

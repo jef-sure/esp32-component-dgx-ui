@@ -110,7 +110,7 @@ int main(void)
         for (int x = 0; x < PANEL_W; ++x) dgx_set_pixel(map, x, y, (x / 4 + y / 4) % 2 ? colors[2] : colors[0]);
     static dgx_ui_font_variant_t variant[1];
     static dgx_ui_text_style_t   style;
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
 
     for (int pictured = 0; pictured < 2; ++pictured) {

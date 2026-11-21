@@ -40,9 +40,9 @@ static dgx_ui_font_variant_t big[2], small[1];
 static dgx_ui_text_style_t   st_big, st_left, st_right, st_centre, st_important, st_plain;
 static void make_styles(void)
 {
-    big[0]   = (dgx_ui_font_variant_t){.font = DejaVuSansBook32()};
-    big[1]   = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
-    small[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    big[0]   = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
+    big[1]   = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    small[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     st_big       = (dgx_ui_text_style_t){.variants = big, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     st_left      = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_right     = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};

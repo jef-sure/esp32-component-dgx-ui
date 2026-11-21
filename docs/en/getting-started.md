@@ -22,18 +22,18 @@ the program is explained where it appears.
 - ESP-IDF 5.2 or later.
 - A display that [DGX](https://github.com/jef-sure/esp32-component-dgx) drives, or no display at all: the same program
   runs in a window on the computer.
-- DGX 0.11.8 or a later 0.11. It comes by itself with dgx-ui.
+- DGX 0.12.0 or a later 0.12. It comes by itself with dgx-ui.
 
 ## 1. Add the component
 
-Version 0.0.45 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
+Version 0.0.46 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
 the project:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.45"
+    version: "0.0.46"
 ```
 
 The component manager takes dgx-ui from GitHub at the next build, and DGX from the registry, as dgx-ui asks for it.
@@ -117,8 +117,12 @@ whole.
 ```c
 static char                  co2_buf[24], clock_buf[16], note_buf[24];
 static dgx_ui_textbox_t      co2_box, clock_box, note_box;
-static dgx_ui_font_variant_t big[2], small[1]; /* the fonts are got by functions: filled at the start */
-static dgx_ui_text_style_t   st_big, st_left, st_right;
+/* the value in the large font, or in the small one when it does not go in */
+static const dgx_ui_font_variant_t big[2]   = {{.font = &DejaVuSansBook32}, {.font = &TerminusTTFMedium12}};
+static const dgx_ui_font_variant_t small[1] = {{.font = &TerminusTTFMedium12}};
+static const dgx_ui_text_style_t   st_big   = {.variants = big, .count = 2, .flags = DGX_UI_TEXT_MIDDLE, .align = DGX_FONT_ALIGN_CENTER};
+static const dgx_ui_text_style_t   st_left  = {.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+static const dgx_ui_text_style_t   st_right = {.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
 ```
 
 ### What each widget does with a message
@@ -210,13 +214,6 @@ void app_main(void)
         dgx_screen_rgb(scr, 120, 160, 220),
     };
 
-    /* the value in the large font, or in the small one when it does not go in */
-    big[0]   = (dgx_ui_font_variant_t){.font = DejaVuSansBook32()};
-    big[1]   = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
-    small[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
-    st_big   = (dgx_ui_text_style_t){.variants = big, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
-    st_left  = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    st_right = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
     dgx_ui_textbox_init(&co2_box, co2_buf, sizeof co2_buf, 1, &st_big);
     dgx_ui_textbox_init(&clock_box, clock_buf, sizeof clock_buf, 1, &st_left);
     dgx_ui_textbox_init(&note_box, note_buf, sizeof note_buf, 1, &st_right);

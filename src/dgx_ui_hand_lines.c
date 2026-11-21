@@ -33,7 +33,7 @@ static int measure_variant(const dgx_ui_font_variant_t *variant, const char *s, 
 static int line_height_of(const dgx_ui_font_variant_t *variant)
 {
     if (variant->hand) return dgx_ui_hand_base_rows(variant) >= 0 ? variant->height : 0;
-    return dgx_ui_variant_usable(variant->font) ? variant->font->yAdvance : 0;
+    return dgx_ui_variant_usable(variant->font) ? variant->font->y_advance : 0;
 }
 #define LINES_MEASURE(v, s, n) measure_variant(v, s, n)
 #define LINES_HEIGHT(v)        line_height_of(v)

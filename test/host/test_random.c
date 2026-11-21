@@ -188,7 +188,7 @@ static void click(dgx_ui_t *home, dgx_ui_t *tree, int i, uint32_t now)
 int main(void)
 {
     static uint8_t strip_buffer[8192];
-    font[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    font[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     static const char *const notes[] = {"The filter has worked for two thousand hours.", "Replace it and hold the button.", "", "Ready"};
     for (int drawn_background = 0; drawn_background < 2; ++drawn_background) {
         int faulty_seeds = 0, unquiet_seeds = 0, unsaid_seeds = 0;

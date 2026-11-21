@@ -33,7 +33,7 @@ static dgx_ui_t              ui;
 
 static int width(const char *s)
 {
-    const dgx_font_context_t m = {.font = TerminusTTFMedium12()};
+    const dgx_font_context_t m = {.font = &TerminusTTFMedium12};
     return dgx_font_bounds(&m, s, NULL, NULL);
 }
 
@@ -59,17 +59,17 @@ static int differ_box(dgx_screen_t *a, dgx_screen_t *b, const dgx_ui_node_t *n)
 /* the lines drawn one by one by the font, each a field of the box's width */
 static void reference(dgx_screen_t *e, const dgx_ui_node_t *n, const char *const *lines, int count, dgx_font_align_t align)
 {
-    dgx_font_t *f = TerminusTTFMedium12();
+    const dgx_font_t *f = &TerminusTTFMedium12;
     dgx_fill_rectangle(e, 0, 0, e->width, e->height, 0);
     for (int k = 0; k < count; ++k) {
         const dgx_font_context_t c = {.scr = e, .font = f, .color = 0xffff, .bg = 0, .field = n->w, .align = align};
-        dgx_font_draw(&c, n->x, n->y - f->yOffsetLowest + k * f->yAdvance, lines[k]);
+        dgx_font_draw(&c, n->x, n->y - f->y_offset_lowest + k * f->y_advance, lines[k]);
     }
 }
 
 int main(void)
 {
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     plain      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     important  = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 100};
     centred    = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
@@ -300,7 +300,7 @@ int main(void)
        of the rows whose letters changed and no more; in the middle a line more while they come, the block whole once; an
        important text scrolled in the middle, a step writes its rows, the passes between nothing */
     {
-        dgx_font_t                *font   = TerminusTTFMedium12();
+        const dgx_font_t          *font   = &TerminusTTFMedium12;
         static dgx_ui_text_style_t middle, important_middle;
         middle                            = plain, middle.flags = DGX_UI_TEXT_MIDDLE;
         important_middle                  = important, important_middle.flags |= DGX_UI_TEXT_MIDDLE;
@@ -311,7 +311,7 @@ int main(void)
             dgx_ui_text_set(&ui, id, "one two three four five six seven");
             dgx_ui_paint(&ui, &pp, 0);
             const dgx_ui_node_t *n = dgx_ui_node(&ui, id);
-            const int            field = n->w * (font->yBottomMax - font->yOffsetLowest);
+            const int            field = n->w * (font->y_bottom_max - font->y_offset_lowest);
             dgx_ui_text_appear(&ui, id, 40);
             int  most = 0, passes = 0;
             bool more = true;
@@ -344,7 +344,7 @@ int main(void)
         dgx_ui_text_set(&ui, id, "a\nb\nc\nd\ne\nf");
         dgx_ui_paint(&ui, &pp, 0);
         const dgx_ui_node_t *n     = dgx_ui_node(&ui, id);
-        const int            field = n->w * (font->yBottomMax - font->yOffsetLowest);
+        const int            field = n->w * (font->y_bottom_max - font->y_offset_lowest);
         int                  step_least = n->w * n->h, between_most = 0;
         for (uint32_t ms = 50; ms <= 400; ms += 50) {
             panel_count_from_now(panel);

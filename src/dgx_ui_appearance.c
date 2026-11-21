@@ -250,7 +250,7 @@ static bool list_of(appearance_load_t *A, const dgx_ui_field_t *field, uint8_t *
                     if (dgx_ui_json_peek(json) == '"') {
                         const int font = dgx_ui_read_find(&A->read, A->names->fonts, A->names->font_count, sizeof *A->names->fonts);
                         if (font < 0) return false;
-                        made.font = A->names->fonts[font].font();
+                        made.font = A->names->fonts[font].font;
                     } else if (!read_object(A, &dgx_ui_params_font_variant, (uint8_t *)&made, at)) {
                         return false;
                     }
@@ -301,7 +301,7 @@ static bool field_value(appearance_load_t *A, const dgx_ui_field_t *field, uint8
         const bool  font  = field->kind == DGX_UI_FIELD_FONT;
         const int   entry = font ? dgx_ui_read_find(&A->read, A->names->fonts, A->names->font_count, sizeof *A->names->fonts)
                                  : dgx_ui_read_find(&A->read, A->names->hands, A->names->hand_count, sizeof *A->names->hands);
-        const void *laid  = entry < 0 ? NULL : font ? (const void *)A->names->fonts[entry].font() : (const void *)A->names->hands[entry].hand;
+        const void *laid  = entry < 0 ? NULL : font ? (const void *)A->names->fonts[entry].font : (const void *)A->names->hands[entry].hand;
         if (entry < 0) return false;
         if (base) memcpy(base + field->offset, &laid, sizeof laid);
         return true;

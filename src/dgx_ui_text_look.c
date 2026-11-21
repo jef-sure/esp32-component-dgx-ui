@@ -18,7 +18,7 @@
 static const char ELLIPSIS[] = "...";
 
 /* how many bytes of a text go into a field with an ellipsis after them, in whole letters; and how many letters */
-static int cut_for(dgx_font_t *font, const char *text, int field, int *letters)
+static int cut_for(const dgx_font_t *font, const char *text, int field, int *letters)
 {
     const int dots = dgx_ui_width_of(font, ELLIPSIS, (int)sizeof ELLIPSIS - 1);
     int       n = 0, count = 0;
@@ -39,7 +39,7 @@ static int fit(const dgx_ui_text_style_t *st, const char *text, int field)
     int best = -1, most = -1;
     for (int v = 0; v < st->count; ++v) {
         const dgx_ui_font_variant_t *candidate = &st->variants[v];
-        dgx_font_t                  *f         = candidate->font;
+        const dgx_font_t            *f         = candidate->font;
         if (candidate->hand) {
             if (candidate->hand->width(candidate, text, field) <= field) return v;
             if (most < 0) best = v, most = 0;
@@ -78,13 +78,13 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     if (v != box->variant) paint->whole = true; /* another height: around it too */
     if (!paint->composing && paint->part + 1 >= paint->parts) box->variant = (uint8_t)v; /* stored by the last part only */
     if (st->variants[v].hand) return st->variants[v].hand->draw(look, paint, ui, i, now_ms, &st->variants[v]); /* the library's handwriting */
-    dgx_font_t *f = st->variants[v].font;
+    const dgx_font_t *f = st->variants[v].font;
     /* the base line: the first variant's, its own when the first cannot be drawn; or the middle of the box */
     const int first_rows = dgx_ui_first_base(st);
     /* the base line: the first variant's, or the middle of the box for a smaller one */
-    const int cell = f->yBottomMax - f->yOffsetLowest;
-    const int base = (st->flags & DGX_UI_TEXT_MIDDLE) ? w->y + (w->h - cell) / 2 - f->yOffsetLowest : w->y + (first_rows >= 0 ? first_rows : -f->yOffsetLowest);
-    const int top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
+    const int cell = f->y_bottom_max - f->y_offset_lowest;
+    const int base = (st->flags & DGX_UI_TEXT_MIDDLE) ? w->y + (w->h - cell) / 2 - f->y_offset_lowest : w->y + (first_rows >= 0 ? first_rows : -f->y_offset_lowest);
+    const int top = base + f->y_offset_lowest, bottom = base + f->y_bottom_max;
     if (paint->whole) {
         /* the rows of the box above and below the field: the field writes its own */
         if (top > w->y) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, top - w->y);

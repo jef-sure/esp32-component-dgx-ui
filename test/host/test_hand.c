@@ -189,8 +189,8 @@ static int narrowed(dgx_screen_t *drawn, dgx_screen_t *expected, const char *tex
 
 int main(void)
 {
-    variant[0]             = (dgx_ui_font_variant_t){.font = font0ss(), .height = 24, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
-    variant[1]             = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0]             = (dgx_ui_font_variant_t){.font = &font0ss, .height = 24, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+    variant[1]             = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style                  = (dgx_ui_text_style_t){.variants = variant, .count = 2};
     dgx_screen_t *drawn    = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB); /* what the look draws */
     dgx_screen_t *expected = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB); /* what DGX draws by hand */
@@ -238,8 +238,8 @@ int main(void)
         const dgx_ui_font_variant_t saved[2]   = {variant[0], variant[1]};
         const dgx_ui_text_style_t   saved_style = style;
         static tree_t               ladder;
-        variant[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 32, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
-        variant[1] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+        variant[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+        variant[1] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
         style      = (dgx_ui_text_style_t){.variants = variant, .count = 2};
         dgx_ui_paint_t ladder_paint = {.scr = drawn, .colors = colors, .color_count = 4};
         make(&ladder, 120, 40, false, "mmm");
@@ -254,7 +254,7 @@ int main(void)
         CHECK(differ(drawn, expected) == 0);
         dgx_ui_paint_free(&ladder_paint), dgx_ui_free(&ladder.ui);
         /* the handwriting first and a bitmap after it: the bitmap's letters on the handwriting's base line */
-        variant[1] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+        variant[1] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
         ladder_paint = (dgx_ui_paint_t){.scr = drawn, .colors = colors, .color_count = 4};
         make(&ladder, 120, 40, false, "mmm mmm mmm mmm mmm");
         dgx_ui_paint(&ladder.ui, &ladder_paint, 0);
@@ -268,22 +268,22 @@ int main(void)
         make(&ladder, 120, 40, false, "mmm mmm mmm mmm mmm");
         dgx_ui_paint(&ladder.ui, &ladder_paint, 0);
         ladder_node      = dgx_ui_node(&ladder.ui, 1);
-        const int alone  = ink_bottom(drawn, ladder_node) - (ladder_node->y - TerminusTTFMedium12()->yOffsetLowest);
+        const int alone  = ink_bottom(drawn, ladder_node) - (ladder_node->y - TerminusTTFMedium12.y_offset_lowest);
         CHECK(behind_variant == 1 && behind == alone);
         dgx_ui_paint_free(&ladder_paint), dgx_ui_free(&ladder.ui);
         style = (dgx_ui_text_style_t){.variants = variant, .count = 2};
-        variant[1] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+        variant[1] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
         /* a bitmap first: the handwriting on its base line */
-        variant[0] = (dgx_ui_font_variant_t){.font = DejaVuSansBook32()};
+        variant[0] = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
         ladder_paint = (dgx_ui_paint_t){.scr = drawn, .colors = colors, .color_count = 4};
         make(&ladder, 120, 40, false, "mmmmmm");
         dgx_ui_paint(&ladder.ui, &ladder_paint, 0);
         ladder_node = dgx_ui_node(&ladder.ui, 1);
-        reference_at(expected, &variant[1], ladder_node, ladder_node->y - DejaVuSansBook32()->yOffsetLowest, "mmmmmm");
+        reference_at(expected, &variant[1], ladder_node, ladder_node->y - DejaVuSansBook32.y_offset_lowest, "mmmmmm");
         CHECK(ladder.box.variant == 1 && differ(drawn, expected) == 0);
         dgx_ui_paint_free(&ladder_paint), dgx_ui_free(&ladder.ui);
         /* in the middle: one variant 24 high in a box 40 high */
-        variant[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 24, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+        variant[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 24, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
         style      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
         ladder_paint = (dgx_ui_paint_t){.scr = drawn, .colors = colors, .color_count = 4};
         make(&ladder, 120, 40, false, "mmm");
@@ -299,7 +299,7 @@ int main(void)
         const dgx_ui_font_variant_t saved       = variant[0];
         const dgx_ui_text_style_t   saved_style = style;
         const char                 *text        = "lmmmmmmmmmmmmmmmmmmmmmmml";
-        variant[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 24, .narrow = 90, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+        variant[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 24, .narrow = 90, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
         dgx_hw_context_t ctx   = context(&variant[0], (float)variant[0].height / variant[0].font->hw->symbol_size_y * 0.9f, NULL, 0, 2);
         int              width = 0;
         dgx_hw_bounds(&ctx, text, NULL, NULL, &width, NULL);

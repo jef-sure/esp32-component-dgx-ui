@@ -1,7 +1,6 @@
 /*
  * The appearances dgx_ui_c made C (-A), against the loader: each appearance loaded by dgx_ui_appearance_load() on the
- * tables dgx_ui_c made of the names file (-t), its fonts filled by the made start function, and the two held equal
- * field by field: the colours and their names, each look's draw, fill, parameters byte by byte by its draw's
+ * tables dgx_ui_c made of the names file (-t), and the two held equal field by field: the colours and their names, each look's draw, fill, parameters byte by byte by its draw's
  * description and bands, each style and its variants, the program's own looks and styles after; and a page of a widget
  * for each look of it, of a kind its draw draws, drawn on both pixel by pixel. The spoiled appearances are given to
  * the loader on the same tables, and its verdict printed for test_generate_appearance.py to hold against dgx_ui_c's.
@@ -21,31 +20,21 @@
 #include "fonts/font0ss.h"
 
 /* the program's objects, as the names file names them */
-int32_t                          volume = 40;
-static const dgx_ui_text_look_t  mine_colours = {.ink = 1, .paper = 0};
-const dgx_ui_look_t              mine         = {.draw = dgx_ui_draw_text, .params = &mine_colours, .fill = -1};
-static dgx_ui_font_variant_t     plain_variant[1];
-dgx_ui_text_style_t              plain;
+int32_t                            volume           = 40;
+static const dgx_ui_text_look_t    mine_colours     = {.ink = 1, .paper = 0};
+const dgx_ui_look_t                mine             = {.draw = dgx_ui_draw_text, .params = &mine_colours, .fill = -1};
+static const dgx_ui_font_variant_t plain_variant[1] = {{.font = &TerminusTTFMedium12}};
+const dgx_ui_text_style_t          plain            = {.variants = plain_variant, .count = 1};
 bool draw_dial(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t *node = dgx_ui_node(ui, i);
     dgx_fill_rectangle(paint->scr, node->x + paint->ox, node->y + paint->oy, node->w, node->h, dgx_ui_color(paint, look->fill < 0 ? 1 : look->fill));
     return false;
 }
-/* the fonts by the rule, dgx_font_<name>, for an appearance made with no names file */
-dgx_font_t *dgx_font_small(void)
-{
-    return TerminusTTFMedium12();
-}
-dgx_font_t *dgx_font_hand(void)
-{
-    return font0ss();
-}
 
 typedef struct appearance_case_t {
     const char                *name, *text;
     const dgx_ui_appearance_t *made;
-    void (*start)(void);
 } appearance_case_t;
 typedef struct appearance_refusal_t {
     const char *name, *text;
@@ -126,7 +115,6 @@ static dgx_screen_t *drawn(const dgx_ui_appearance_t *appearance, int own_looks,
 
 int main(void)
 {
-    plain_variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()}, plain = (dgx_ui_text_style_t){.variants = plain_variant, .count = 1};
     static uint8_t memory[65536] __attribute__((aligned(16)));
     int            held = 0;
     for (size_t c = 0; c < sizeof cases / sizeof *cases; ++c) {
@@ -137,7 +125,6 @@ int main(void)
         dgx_ui_appearance_need_t need;
         dgx_ui_load_error_t      err;
         dgx_ui_appearance_t      loaded;
-        one->start();
         if (!dgx_ui_appearance_need(one->text, strlen(one->text), &names, &need, &err) || need.bytes > sizeof memory ||
             !dgx_ui_appearance_load(one->text, strlen(one->text), &names, memory, need.bytes, &loaded, &err)) {
             fprintf(stderr, "  %s: the loader refused: %d at %d \"%s\"\n", one->name, err.code, err.offset, err.name);
@@ -176,7 +163,6 @@ int main(void)
 
     /* the page made with -a, against the loader on the tables -t -a made: the same widgets, their looks and styles */
     {
-        every_start();
         static dgx_ui_node_t loaded_nodes[16], made_nodes[16];
         static uint8_t       page_memory[2048] __attribute__((aligned(16)));
         dgx_ui_t             loaded_ui, made_ui;

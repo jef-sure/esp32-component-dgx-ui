@@ -25,13 +25,13 @@ static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
 static void draw_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int fy, int fw, int fh, uint32_t face, uint32_t ink)
 {
     const dgx_ui_textbox_t *box = n->widget->text;
-    dgx_font_t             *f   = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
+    const dgx_font_t       *f   = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
     if (!dgx_ui_variant_usable(f) || fw <= 0) {
         fill(paint, fx, fy, fw, fh, face);
         return;
     }
-    const int cell = f->yBottomMax - f->yOffsetLowest, base = fy + (fh - cell) / 2 - f->yOffsetLowest;
-    const int top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
+    const int cell = f->y_bottom_max - f->y_offset_lowest, base = fy + (fh - cell) / 2 - f->y_offset_lowest;
+    const int top = base + f->y_offset_lowest, bottom = base + f->y_bottom_max;
     fill(paint, fx, fy, fw, top - fy, face);
     fill(paint, fx, bottom, fw, fy + fh - bottom, face);
     /* the field kept to the rows of the face: in a button lower than the font it would write over the strips */

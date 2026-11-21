@@ -72,7 +72,7 @@ static int differ(const panel_t *p, dgx_screen_t *v)
 
 int main(void)
 {
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
     dgx_ui_textbox_init(&fruit_box, fruit_buf, sizeof fruit_buf, 1, &style);
     panel_t       *panel = panel_make();
@@ -103,8 +103,8 @@ int main(void)
     /* Apple in row 0, in the middle of the row, as the font draws it there */
     {
         dgx_screen_t *e    = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
-        dgx_font_t   *t12  = TerminusTTFMedium12();
-        const int     cell = t12->yBottomMax - t12->yOffsetLowest, base = n->y + (14 - cell) / 2 - t12->yOffsetLowest, pad = cell / 4;
+        const dgx_font_t *t12  = &TerminusTTFMedium12;
+        const int     cell = t12->y_bottom_max - t12->y_offset_lowest, base = n->y + (14 - cell) / 2 - t12->y_offset_lowest, pad = cell / 4;
         dgx_fill_rectangle(e, 0, 0, PANEL_W, PANEL_H, colors[0]);
         const dgx_font_context_t ec = {.scr = e, .font = t12, .color = colors[1], .bg = colors[0], .field = n->w - 2 * pad};
         dgx_font_draw(&ec, n->x + pad, base, "Apple"); /* a quarter of a line in, as the dropdown's face */
@@ -191,15 +191,15 @@ int main(void)
         dgx_ui_paint(&ui, &pp, 10);
         /* Cherry on the face: the row of the text as the font draws it there */
         dgx_screen_t *e = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
-        dgx_font_t   *t12 = TerminusTTFMedium12();
-        const int     cell = t12->yBottomMax - t12->yOffsetLowest, base = d->y + (d->h - cell) / 2 - t12->yOffsetLowest, pad = cell / 4;
+        const dgx_font_t *t12 = &TerminusTTFMedium12;
+        const int     cell = t12->y_bottom_max - t12->y_offset_lowest, base = d->y + (d->h - cell) / 2 - t12->y_offset_lowest, pad = cell / 4;
         dgx_fill_rectangle(e, 0, 0, PANEL_W, PANEL_H, colors[2]);
         const dgx_font_context_t ec = {.scr = e, .font = t12, .color = colors[1], .bg = colors[2]};
         dgx_font_draw(&ec, d->x + pad, base, "Cherry");
         const dgx_font_context_t m  = {.font = t12};
         const int                cw = dgx_font_bounds(&m, "Cherry", NULL, NULL);
         int                      off = 0;
-        for (int y = base + t12->yOffsetLowest; y < base + t12->yBottomMax; ++y)
+        for (int y = base + t12->y_offset_lowest; y < base + t12->y_bottom_max; ++y)
             for (int x = d->x + pad; x < d->x + pad + cw; ++x) off += panel->mem[y][x] != dgx_get_pixel(e, x, y);
         CHECK(off == 0);
         e->destroy(&e);

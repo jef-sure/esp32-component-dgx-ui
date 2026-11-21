@@ -45,10 +45,13 @@ typedef struct {
 DGX_UI_MESSAGE(co2, MSG_CO2, co2_t)
 
 /* the texts: their buffers and boxes in RAM, their styles and widgets constant */
-static char                  co2_buf[24], clock_buf[16], build_buf[24];
-static dgx_ui_textbox_t      co2_box, clock_box, build_box;
-static dgx_ui_font_variant_t vbig[2], vsmall[1]; /* the fonts are got by functions: filled at the start */
-static dgx_ui_text_style_t   st_big, st_left, st_right;
+static char                        co2_buf[24], clock_buf[16], build_buf[24];
+static dgx_ui_textbox_t            co2_box, clock_box, build_box;
+static const dgx_ui_font_variant_t vbig[2]   = {{.font = &dgx_font_large}, {.font = &dgx_font_small}};
+static const dgx_ui_font_variant_t vsmall[1] = {{.font = &dgx_font_small}};
+static const dgx_ui_text_style_t   st_big    = {.variants = vbig, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+static const dgx_ui_text_style_t   st_left   = {.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+static const dgx_ui_text_style_t   st_right  = {.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
 
 /* each widget catches its own value from the messages */
 static bool co2_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
@@ -98,11 +101,6 @@ void app_main(void)
         dgx_screen_rgb(scr, 32, 48, 72),    /* 2 the frame's fill */
         dgx_screen_rgb(scr, 120, 160, 220), /* 3 its border */
     };
-    vbig[0] = (dgx_ui_font_variant_t){.font = dgx_font_large()}, vbig[1] = (dgx_ui_font_variant_t){.font = dgx_font_small()};
-    vsmall[0] = (dgx_ui_font_variant_t){.font = dgx_font_small()};
-    st_big    = (dgx_ui_text_style_t){.variants = vbig, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
-    st_left   = (dgx_ui_text_style_t){.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    st_right  = (dgx_ui_text_style_t){.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
     dgx_ui_textbox_init(&co2_box, co2_buf, sizeof co2_buf, 1, &st_big);
     dgx_ui_textbox_init(&clock_box, clock_buf, sizeof clock_buf, 1, &st_left);
     dgx_ui_textbox_init(&build_box, build_buf, sizeof build_buf, 1, &st_right);

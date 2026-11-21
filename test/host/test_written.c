@@ -140,11 +140,11 @@ int main(void)
     memory = dgx_vscreen_init(PANEL_W, PANEL_H, PANEL_BITS, DgxScreenRGB);
     colors[0] = dgx_screen_rgb(&panel->sbus.scr, 16, 20, 28), colors[1] = dgx_screen_rgb(&panel->sbus.scr, 232, 232, 222);
     colors[2] = dgx_screen_rgb(&panel->sbus.scr, 44, 60, 86), colors[3] = dgx_screen_rgb(&panel->sbus.scr, 240, 160, 60);
-    terminus[0]    = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
-    ladder[0]      = (dgx_ui_font_variant_t){.font = DejaVuSansBook32()};
+    terminus[0]    = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    ladder[0]      = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
     ladder[1]      = terminus[0];
-    hand[0]        = (dgx_ui_font_variant_t){.font = font0ss(), .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
-    hand_canvas[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting_canvas};
+    hand[0]        = (dgx_ui_font_variant_t){.font = &font0ss, .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+    hand_canvas[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting_canvas};
 
     /* a constant caption: drawn; setting it changes nothing; pointed at another constant and told, drawn anew */
     {

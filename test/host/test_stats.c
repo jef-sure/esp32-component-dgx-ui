@@ -169,7 +169,7 @@ int main(void)
         static uint32_t              colors18[4] = {0x101820, 0xf0f0e8, 0x2c3c54, 0xf0a03c};
         static dgx_ui_font_variant_t variant[1];
         static dgx_ui_text_style_t   style;
-        variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+        variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
         style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
         static char                  label_bufs[2][24];
         static dgx_ui_textbox_t      label_boxes[2];
@@ -222,7 +222,7 @@ int main(void)
         static dgx_ui_textbox_t bar_box;
         static dgx_ui_font_variant_t bar_variant[1];
         static dgx_ui_text_style_t   bar_style;
-        bar_variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+        bar_variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
         bar_style      = (dgx_ui_text_style_t){.variants = bar_variant, .count = 1};
         dgx_ui_textbox_init(&bar_box, bar_buf, sizeof bar_buf, 1, &bar_style);
         static const dgx_ui_widget_t plain_root = {.kind = DGX_UI_BOX};

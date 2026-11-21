@@ -185,8 +185,7 @@ or `-p`. The header declares:
 ```c
 extern const dgx_ui_appearance_t day_appearance;   /* its colours, and the tables of its looks and styles */
 extern const dgx_ui_look_t       day_look[2];      /* its looks, constants in flash with their parameters */
-extern dgx_ui_text_style_t       day_style[1];     /* its styles, in RAM: day_start() fills their fonts */
-void day_start(void);                              /* once, before the first paint */
+extern const dgx_ui_text_style_t day_style[1];     /* its styles, constants as their variants and fonts are */
 enum { day_color_paper = 0, day_color_ink = 1, day_color_fill = 2, day_color_border = 3, day_color_accent = 4 };
 enum { day_stamp = 0x416f7392 };                   /* of its looks' and styles' names in their order */
 ```
@@ -200,7 +199,7 @@ What an appearance may name comes from the names file, by three more tables, or 
 ```
 draw      slider                              # a draw of the library's, with no function
 draw      dial       draw_dial  &dial_described   # the program's own: its function, and its description for the tables of -t
-font      small      dgx_font_small           # a font of DGX; with no function, dgx_font_<name>
+font      small      dgx_font_small           # a font of DGX by its constant; with none, dgx_font_<name>
 font      script     dgx_font_script handwritten   # a handwritten font: its variant must say a hand
 hand      handwriting                         # handwriting or handwriting_canvas, the library's
 ```

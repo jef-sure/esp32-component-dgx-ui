@@ -26,7 +26,7 @@ static inline int dgx_ui_next_char(const char *s, int i)
 }
 
 /* how wide n bytes of a text are in a font, as dgx_font_draw() would set them: at most DGX_UI_LINE bytes measured */
-static inline int dgx_ui_width_of(dgx_font_t *font, const char *s, int n)
+static inline int dgx_ui_width_of(const dgx_font_t *font, const char *s, int n)
 {
     char line[DGX_UI_LINE + 1];
     if (n > DGX_UI_LINE) n = DGX_UI_LINE;
@@ -64,9 +64,9 @@ struct dgx_ui_hand_canvas_t {
 bool dgx_ui_draw_lines_in(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, int chosen, int first_rows);
 
 /* a variant the looks can draw: a font of bitmaps or dots with an advance; handwriting not yet */
-static inline bool dgx_ui_variant_usable(dgx_font_t *font)
+static inline bool dgx_ui_variant_usable(const dgx_font_t *font)
 {
-    return font && font->f_type != DGX_FONT_HW && font->yAdvance > 0;
+    return font && font->f_type != DGX_FONT_HW && font->y_advance > 0;
 }
 
 /* the base line of a style's first variant, in rows under the box's top: a text in a smaller variant stands on it.
@@ -75,5 +75,5 @@ static inline int dgx_ui_first_base(const dgx_ui_text_style_t *style)
 {
     const dgx_ui_font_variant_t *first = &style->variants[0];
     if (first->hand) return first->hand->base_rows(first);
-    return dgx_ui_variant_usable(first->font) ? -first->font->yOffsetLowest : -1;
+    return dgx_ui_variant_usable(first->font) ? -first->font->y_offset_lowest : -1;
 }

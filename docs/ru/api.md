@@ -22,7 +22,7 @@
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | цвета, стили текста и облики из описания в JSON, одного на все страницы |
 | [`project_include.cmake`](#project_includecmake) | два вызова CMake: описание, переведённое на C при сборке программы |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.45:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.46:
 имена и сигнатуры ещё могут измениться.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -1645,7 +1645,7 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 | Член | Что в нём перечислено |
 | ---- | --------------------- |
 | `draws`, `draw_count` | `dgx_ui_draw_name_t`: функция рисования по её слову и описание её параметров. `DGX_UI_DRAW_NAME(slider)` — это `{"slider", dgx_ui_draw_slider, &dgx_ui_params_slider}`; программа несёт только те функции, которые перечислила |
-| `fonts`, `font_count` | `dgx_ui_font_name_t`: шрифт DGX по имени, `{"body", dgx_font_body}`; все заявки из `dgx_fonts.h` проекта разом: `#define FONT(need) {#need, dgx_font_##need},` и `{DGX_FONT_NEEDS(FONT)}` |
+| `fonts`, `font_count` | `dgx_ui_font_name_t`: шрифт DGX по имени, `{"body", &dgx_font_body}`; все заявки из `dgx_fonts.h` проекта разом: `#define FONT(need) {#need, &dgx_font_##need},` и `{DGX_FONT_NEEDS(FONT)}` |
 | `hands`, `hand_count` | `dgx_ui_hand_name_t`: `DGX_UI_HAND_NAME(handwriting)`, `DGX_UI_HAND_NAME(handwriting_canvas)` |
 | `looks`, `look_count`, `styles`, `style_count` | собственные облики и стили программы, написанные на C; в таблицах, которые кладёт загрузка, они стоят после обликов и стилей внешнего вида |
 
@@ -1664,7 +1664,7 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 
 ```c
 static const dgx_ui_draw_name_t        draws[] = {DGX_UI_DRAW_NAME(slider), DGX_UI_DRAW_NAME(button)};
-static const dgx_ui_font_name_t        fonts[] = {{"body", dgx_font_body}, {"small", dgx_font_small}};
+static const dgx_ui_font_name_t        fonts[] = {{"body", &dgx_font_body}, {"small", &dgx_font_small}};
 static const dgx_ui_look_name_t        own[]   = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(button)};
 static const dgx_ui_appearance_names_t appearance_names = {.draws = draws, .draw_count = 2, .fonts = fonts, .font_count = 2,
                                                            .looks = own, .look_count = 2};
@@ -1746,7 +1746,7 @@ dgx_ui_appearance(<appearance> [PREFIX <prefix>] [NAMES <names file>] [HEADERS <
 | ----- | ------------- |
 | `dgx_ui_tree()` | Дерево описания константами и `int <prefix>_add(dgx_ui_t *ui, int parent)`: дерево добавлено под `parent`, -1 — корнем дерева; возвращает индекс верхнего виджета или -1, если в дереве не хватило места, и тогда добавленное убрано. Два файла, названные по `PREFIX`, а без него по файлу описания: `sound.json` даёт `sound.c` и `sound.h`. Приставка C — `PREFIX`, а без него имя дерева, `"name"` описания. |
 | `dgx_ui_names()` | Таблицы `dgx_ui_load.h` из файла имён, `const dgx_ui_load_names_t <prefix>_names`, объявлена в `<prefix>.h`. Приставка и имя файлов — `PREFIX`, а без него имя самого файла имён: `vocab.txt` даёт `vocab_names`. |
-| `dgx_ui_appearance()` | Внешний вид из `dgx_ui_appearance.h` константами: `const dgx_ui_appearance_t <prefix>_appearance`, его облики `<prefix>_look[]` и стили `<prefix>_style[]`, `void <prefix>_start(void)` — она заполняет шрифты его стилей и вызывается один раз до первой отрисовки, и константа `<prefix>_color_<name>` для каждого цвета, чьё имя — имя C. Файлы называются по `PREFIX`, иначе по файлу внешнего вида; C — по `PREFIX`, иначе по его `"name"`. С `NAMES` его функции рисования, шрифты и почерки — строки `draw`, `font` и `hand` файла имён, а облики и стили файла стоят после его собственных. |
+| `dgx_ui_appearance()` | Внешний вид из `dgx_ui_appearance.h` константами: `const dgx_ui_appearance_t <prefix>_appearance`, его облики `<prefix>_look[]` и стили `<prefix>_style[]` — всё константы во флеше, и константа `<prefix>_color_<name>` для каждого цвета, чьё имя — имя C. Файлы называются по `PREFIX`, иначе по файлу внешнего вида; C — по `PREFIX`, иначе по его `"name"`. С `NAMES` его функции рисования, шрифты и почерки — строки `draw`, `font` и `hand` файла имён, а облики и стили файла стоят после его собственных. |
 | `APPEARANCE` | У `dgx_ui_tree()`: дерево делается на внешнем виде, его облики и стили стоят раньше обликов и стилей файла имён, так что виджет, который не называет облика, берёт облик внешнего вида по слову своего вида. У `dgx_ui_names()`: таблицы загрузчика с обликами и стилями внешнего вида впереди, а если в файле есть строки `draw`, `font` или `hand` — ещё и `const dgx_ui_appearance_names_t <prefix>_appearance_names`. Внешний вид сначала отдают `dgx_ui_appearance()`, в том же компоненте или в том, который этому компоненту нужен. Файл, сделанный на внешнем виде, хранит его штамп и с другим не компилируется. |
 
 **Куда кладутся файлы.** В `dgx_ui_made` каталога сборки того компонента, который зовёт. Файл `.c` компилируется

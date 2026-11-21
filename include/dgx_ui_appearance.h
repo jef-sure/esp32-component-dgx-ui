@@ -141,11 +141,11 @@ typedef struct dgx_ui_draw_name_t {
 } dgx_ui_draw_name_t;
 #define DGX_UI_DRAW_NAME(word) {#word, dgx_ui_draw_##word, &dgx_ui_params_##word}
 
-/** A font of DGX by its name: {"body", dgx_font_body}, or every need of dgx_fonts.h at once,
-    `#define FONT(need) {#need, dgx_font_##need},` and `{DGX_FONT_NEEDS(FONT)}`. */
+/** A font of DGX by its name: {"body", &dgx_font_body}, or every need of dgx_fonts.h at once,
+    `#define FONT(need) {#need, &dgx_font_##need},` and `{DGX_FONT_NEEDS(FONT)}`. */
 typedef struct dgx_ui_font_name_t {
-    const char *name;
-    dgx_font_t *(*font)(void);
+    const char       *name;
+    const dgx_font_t *font;
 } dgx_ui_font_name_t;
 
 /** A hand of the library's by its word: DGX_UI_HAND_NAME(handwriting), DGX_UI_HAND_NAME(handwriting_canvas). */

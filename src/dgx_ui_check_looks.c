@@ -75,9 +75,9 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const unsigned             bits = n->state.bits;
     const bool                 off  = bits & DGX_UI_DISABLED;
     const dgx_ui_textbox_t    *box  = n->widget->text;
-    dgx_font_t                *font = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
+    const dgx_font_t          *font = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
     if (!dgx_ui_variant_usable(font)) font = NULL;
-    const int cell = font ? font->yBottomMax - font->yOffsetLowest : n->h;
+    const int cell = font ? font->y_bottom_max - font->y_offset_lowest : n->h;
     /* the mark two points in from the edges: the frame of the focus, then a point of paper */
     const int point = ui->unit, margin = 2 * point;
     int       side  = cell < n->h - 2 * margin ? cell : n->h - 2 * margin;
@@ -115,8 +115,8 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
         dgx_ui_lay_paper(paint, p->paper, text_x, n->y, text_w, n->h);
         return;
     }
-    const int base = n->y + (n->h - cell) / 2 - font->yOffsetLowest;
-    const int top = base + font->yOffsetLowest, bottom = base + font->yBottomMax;
+    const int base = n->y + (n->h - cell) / 2 - font->y_offset_lowest;
+    const int top = base + font->y_offset_lowest, bottom = base + font->y_bottom_max;
     dgx_ui_lay_paper(paint, p->paper, text_x, n->y, text_w, top - n->y);
     dgx_ui_lay_paper(paint, p->paper, text_x, bottom, text_w, n->y + n->h - bottom);
     const int rows_top = (top > n->y ? top : n->y) - paint->oy, rows_bottom = (bottom < n->y + n->h ? bottom : n->y + n->h) - paint->oy;

@@ -194,7 +194,7 @@ static uint32_t panel_color(int k)
 static int mark_side(const dgx_ui_node_t *n)
 {
     const dgx_font_t *f    = variant[0].font;
-    int               side = f->yBottomMax - f->yOffsetLowest;
+    int               side = f->y_bottom_max - f->y_offset_lowest;
     if (side > n->h - 4) side = n->h - 4;
     return side < n->w - 2 ? side : n->w - 2;
 }
@@ -290,7 +290,7 @@ int main(void)
     colors[2] = dgx_screen_rgb(&panel->sbus.scr, 44, 60, 86), colors[3] = dgx_screen_rgb(&panel->sbus.scr, 240, 160, 60);
     for (int y = 0; y < PANEL_H; ++y)
         for (int x = 0; x < PANEL_W; ++x) dgx_set_pixel(map, x, y, (x / 4 + y / 4) % 2 ? colors[2] : colors[0]);
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     const uint32_t ink = panel_color(1), fill = panel_color(2);
 
     for (int pictured = 0; pictured < 2; ++pictured) {

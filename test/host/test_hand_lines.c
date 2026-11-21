@@ -177,8 +177,8 @@ static const char *const NOTE = "Dear friend, the garden is green and the sun is
 
 int main(void)
 {
-    variant[0]             = (dgx_ui_font_variant_t){.font = font0ss(), .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
-    variant[1]             = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0]             = (dgx_ui_font_variant_t){.font = &font0ss, .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+    variant[1]             = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style                  = (dgx_ui_text_style_t){.variants = variant, .count = 1};
     dgx_screen_t *drawn    = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     dgx_screen_t *expected = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);

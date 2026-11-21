@@ -80,7 +80,6 @@ void app_main(void)
     if (second_count() != 2) fail("the second component's tree not as made");
     if (third_count() != 3) fail("the third component's tree not as made");
     /* on the second component's appearance: the made tree against the loader on the tables made with it */
-    theme_start();
     dgx_ui_free(&made);
     dgx_ui_init(&made, made_nodes, 16, 1);
     dgx_ui_init(&loaded, loaded_nodes, 16, 1);

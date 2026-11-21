@@ -37,9 +37,9 @@ static dgx_ui_text_style_t        st_small, st_two;
 
 static void make_styles(void)
 {
-    small[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
-    two[0]   = (dgx_ui_font_variant_t){.font = DejaVuSansBook32()};
-    two[1]   = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    small[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    two[0]   = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
+    two[1]   = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     st_small = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
     st_two   = (dgx_ui_text_style_t){.variants = two, .count = 2, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_MIDDLE};
     style_small = &st_small, style_two = &st_two;
@@ -97,10 +97,10 @@ int main(void)
     panel_count_from_now(panel);
     CHECK(dgx_ui_text_set(&a.ui, a.text1, "98 ppm"));
     dgx_ui_paint(&a.ui, &pa, 20);
-    dgx_font_t *t12 = TerminusTTFMedium12();
-    const int   base = w1->y - t12->yOffsetLowest;
+    const dgx_font_t *t12 = &TerminusTTFMedium12;
+    const int   base = w1->y - t12->y_offset_lowest;
     CHECK(panel_twice(panel) == 0);
-    CHECK(panel_written_outside(panel, w1->x, base + t12->yOffsetLowest, w1->x + w1->w, base + t12->yBottomMax) == 0);
+    CHECK(panel_written_outside(panel, w1->x, base + t12->y_offset_lowest, w1->x + w1->w, base + t12->y_bottom_max) == 0);
     CHECK(panel_written(panel) > 0);
     tree_t *c = &b;
     make_tree(c);
@@ -134,7 +134,7 @@ int main(void)
     const dgx_ui_node_t *w2 = dgx_ui_node(&a.ui, a.text2);
     dgx_screen_t          *e  = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     dgx_fill_rectangle(e, 0, 0, PANEL_W, PANEL_H, 0);
-    const int base2 = w2->y + (w2->h - (t12->yBottomMax - t12->yOffsetLowest)) / 2 - t12->yOffsetLowest; /* middle */
+    const int base2 = w2->y + (w2->h - (t12->y_bottom_max - t12->y_offset_lowest)) / 2 - t12->y_offset_lowest; /* middle */
     int       shown = 0;
     for (int n = 1; n <= 26; ++n) {
         char s[40];
@@ -147,7 +147,7 @@ int main(void)
     const dgx_font_context_t ec = {.scr = e, .font = t12, .color = 0xffff, .bg = 0, .field = w2->w, .align = DGX_FONT_ALIGN_LEFT};
     dgx_font_draw(&ec, w2->x, base2, cut);
     int off = 0;
-    for (int y = base2 + t12->yOffsetLowest; y < base2 + t12->yBottomMax; ++y)
+    for (int y = base2 + t12->y_offset_lowest; y < base2 + t12->y_bottom_max; ++y)
         for (int x = w2->x; x < w2->x + w2->w; ++x) off += panel->mem[y][x] != dgx_get_pixel(e, x, y);
     CHECK(shown > 0 && off == 0);
 

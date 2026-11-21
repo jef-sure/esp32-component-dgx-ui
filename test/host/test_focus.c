@@ -231,7 +231,7 @@ int main(void)
     memory = dgx_vscreen_init(PANEL_W, PANEL_H, PANEL_BITS, DgxScreenRGB);
     colors[0] = dgx_screen_rgb(&panel->sbus.scr, 16, 20, 28), colors[1] = dgx_screen_rgb(&panel->sbus.scr, 232, 232, 222);
     colors[2] = dgx_screen_rgb(&panel->sbus.scr, 44, 60, 86), colors[3] = dgx_screen_rgb(&panel->sbus.scr, 240, 160, 60);
-    variant[0]         = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0]         = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     const uint32_t ink = panel_color(1);
 
     for (size_t c = 0; c < sizeof cases / sizeof *cases; ++c) {

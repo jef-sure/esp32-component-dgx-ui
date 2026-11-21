@@ -73,8 +73,9 @@ static uint32_t buttons_held(void)
 /* the colours of the painter: 0 the paper, 1 the ink, 2 a fill, 3 the accent */
 enum { MSG_TOUCH = 1 };
 
-static dgx_ui_font_variant_t variant[1];
-static dgx_ui_text_style_t   left, middle;
+static const dgx_ui_font_variant_t variant[1] = {{.font = &dgx_font_text}};
+static const dgx_ui_text_style_t   left       = {.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_MIDDLE};
+static const dgx_ui_text_style_t   middle     = {.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
 
 /* the texts, each in a box of its own */
 enum { T_TITLE, T_POPUP, T_MODE, T_SLIDER, T_CODE_LABEL, T_CODE, T_PIN_LABEL, T_PIN, T_STATUS, T_ASK, T_YES, T_NO, T_EDIT, TEXTS };
@@ -187,7 +188,7 @@ static void edit_open(int field)
 {
     if (editing >= 0) return;
     const dgx_di_rect_t top = {.x = 0, .y = 0, .w = (int16_t)scr->width, .h = 1}; /* a field at the top: the band under it */
-    if (!dgx_di_keyboard_open(&kb, scr, mm_w, mm_h, keypad, keypad_size, dgx_font_keys(), &top) || kb.y < 16) {
+    if (!dgx_di_keyboard_open(&kb, scr, mm_w, mm_h, keypad, keypad_size, &dgx_font_keys, &top) || kb.y < 16) {
         if (kb.open) dgx_di_keyboard_close(&kb);
         dgx_ui_text_set(&ui, status, "no room for the keypad");
         return;
@@ -284,9 +285,6 @@ void app_main(void)
         dgx_screen_rgb(scr, 44, 60, 86),    /* 2 a fill: a button's face, a track */
         dgx_screen_rgb(scr, 240, 160, 60),  /* 3 the accent: pressed, on, chosen; the focus is a frame of the ink */
     };
-    variant[0] = (dgx_ui_font_variant_t){.font = dgx_font_text()};
-    left       = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_MIDDLE};
-    middle     = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     for (int k = 0; k < TEXTS; ++k) {
         const bool centred = k == T_POPUP || k == T_YES || k == T_NO || k == T_ASK;
         if (k == T_EDIT) continue; /* the strip's own, below */

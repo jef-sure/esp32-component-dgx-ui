@@ -42,7 +42,7 @@ static const char *line_of(const char *text, int k, int *len)
 /* row r of the window of so many rows, each rh high and rw wide, showing the line `line`: its rows above and below the
    line's cell, then the line in a field as wide as the row, all under a clip of the row; its paper the index paper
    (DGX_UI_PAPER: what lies under the list) */
-static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, dgx_font_t *f, int align, int r, int rows, int rh, int rw, int line_k,
+static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dgx_font_t *f, int align, int r, int rows, int rh, int rw, int line_k,
                      const char *text, uint8_t paper, uint32_t fg)
 {
     const uint32_t bg = dgx_ui_color(paint, paper == DGX_UI_PAPER ? paint->paper : paper);
@@ -52,8 +52,8 @@ static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, dgx_font_t *
     const int y0 = y - paint->oy > py ? y - paint->oy : py, y1 = y + h - paint->oy < py + ph ? y + h - paint->oy : py + ph;
     if (y1 <= y0) return; /* the row out of the part drawn */
     dgx_screen_clip(paint->scr, px, y0, pw, y1 - y0);
-    const int cell = f->yBottomMax - f->yOffsetLowest, base = y + (h - cell) / 2 - f->yOffsetLowest;
-    const int top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
+    const int cell = f->y_bottom_max - f->y_offset_lowest, base = y + (h - cell) / 2 - f->y_offset_lowest;
+    const int top = base + f->y_offset_lowest, bottom = base + f->y_bottom_max;
     dgx_ui_lay_paper(paint, paper, n->x, y, rw, top - y);
     dgx_ui_lay_paper(paint, paper, n->x, bottom, rw, y + h - bottom);
     int         len;
@@ -80,7 +80,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     static bool               told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
     dgx_ui_tell_no_place(i, w, "a list", &told);
     dgx_ui_textbox_t         *box   = w->text;
-    dgx_font_t               *f     = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
+    const dgx_font_t         *f     = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
     const int                 all   = w->max - w->min + 1;
     int                       rh, top;
     const int                 rows = all > 0 ? dgx_ui_list_rows(ui, n, &rh, &top) : 0;

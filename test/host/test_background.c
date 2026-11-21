@@ -73,10 +73,10 @@ static dgx_ui_picture_t  pic1 = {.image = &im1}, pic4 = {.image = &im4, .map = m
 enum { AW = 5, AH = 4, BW = 6, BH = 5 };
 static const uint8_t levels_a[AH][AW] = {{0, 3, 15, 3, 0}, {2, 15, 0, 15, 2}, {15, 15, 15, 15, 15}, {15, 7, 0, 6, 15}};
 static const uint8_t levels_b[BH][BW] = {{1, 0, 0, 0, 0, 14}, {0, 8, 15, 15, 8, 0}, {0, 15, 0, 0, 15, 0}, {0, 8, 15, 15, 8, 0}, {14, 0, 0, 0, 0, 1}};
-static uint8_t       soft_bits[2][64];
-static glyph_t       soft_glyphs[2];
-static glyph_array_t soft_ranges[1];
-static dgx_font_t    soft_font;
+static uint8_t           soft_bits[2][64];
+static dgx_glyph_t       soft_glyphs[2];
+static dgx_glyph_array_t soft_ranges[1];
+static dgx_font_t        soft_font;
 
 static void make_soft_font(void)
 {
@@ -84,11 +84,11 @@ static void make_soft_font(void)
         const int w = k ? BW : AW, h = k ? BH : AH, pitch = (w * 4 + 7) / 8;
         for (int y = 0; y < h; ++y)
             for (int x = 0; x < w; ++x) soft_bits[k][y * pitch + x / 2] |= (uint8_t)((k ? levels_b[y][x] : levels_a[y][x]) << (x % 2 ? 0 : 4));
-        soft_glyphs[k] = (glyph_t){.bitmap = soft_bits[k], .width = (int16_t)w, .height = (int16_t)h, .xAdvance = 7, .xOffset = 0, .yOffset = (int16_t)(k ? -5 : -4)};
+        soft_glyphs[k] = (dgx_glyph_t){.bitmap = soft_bits[k], .width = (int16_t)w, .height = (int16_t)h, .x_advance = 7, .x_offset = 0, .y_offset = (int16_t)(k ? -5 : -4)};
     }
-    soft_ranges[0] = (glyph_array_t){.first = 'A', .number = 2, .glyphs = soft_glyphs};
-    soft_font      = (dgx_font_t){.glyph_ranges = soft_ranges, .yAdvance = 8, .yOffsetLowest = -5, .xWidest = BW, .xWidthAverage = 6,
-                                  .f_type = DGX_FONT_BITMAP_DEPTH4, .yBottomMax = 1, .xRightMax = 6, .number_of_ranges = 1};
+    soft_ranges[0] = (dgx_glyph_array_t){.first = 'A', .number = 2, .glyphs = soft_glyphs};
+    soft_font      = (dgx_font_t){.glyph_ranges = soft_ranges, .y_advance = 8, .y_offset_lowest = -5, .x_widest = BW, .x_width_average = 6,
+                                  .f_type = DGX_FONT_BITMAP_DEPTH4, .y_bottom_max = 1, .x_right_max = 6, .number_of_ranges = 1};
 }
 
 /* a look of the program's own: the paper laid on its left half, the accent on its right */
@@ -223,7 +223,7 @@ int main(void)
     for (int y = 0; y < 5; ++y)
         for (int x = 0; x < 6; ++x) bits4[y * 3 + x / 2] |= (uint8_t)(((x + y) % 4) << (x % 2 ? 0 : 4));
     for (int k = 0; k < 6 * 6; ++k) px565[k] = (uint16_t)(0xf81f - k); /* its bytes in memory: low first on this machine */
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE, .align = DGX_FONT_ALIGN_CENTER};
     map        = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     map_fill(0, 0, PANEL_W, PANEL_H, 0);

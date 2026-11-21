@@ -106,7 +106,7 @@ static void stroke(dgx_di_touch_t *touch, int x, int y, int x2, int y2, uint32_t
 
 int main(void)
 {
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
     dgx_ui_textbox_init(&field_box, field_buf, sizeof field_buf, 1, &style);
     middle = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
@@ -155,9 +155,9 @@ int main(void)
     dgx_ui_paint(&ui, &pp, 6001);
     const dgx_ui_node_t *n = dgx_ui_node(&ui, fi);
     CHECK(panel_twice(panel) == 0 && panel_written(panel) == n->w * n->h);
-    const dgx_font_context_t m  = {.font = TerminusTTFMedium12()};
+    const dgx_font_context_t m  = {.font = &TerminusTTFMedium12};
     const int                cx = n->x + dgx_font_bounds(&m, "ab", NULL, NULL);
-    const int                cy = n->y - TerminusTTFMedium12()->yOffsetLowest - 2;
+    const int                cy = n->y - TerminusTTFMedium12.y_offset_lowest - 2;
     CHECK(panel->mem[cy][cx] == colors[1]); /* the caret, in the ink */
     dgx_ui_focus(&ui, -1);
     dgx_ui_paint(&ui, &pp, 6002);
@@ -171,8 +171,8 @@ int main(void)
     panel_count_from_now(panel);
     dgx_ui_paint(&ui, &pp, 6004);
     const dgx_ui_node_t *mn   = dgx_ui_node(&ui, mi);
-    dgx_font_t          *t12  = TerminusTTFMedium12();
-    const int            cell = t12->yBottomMax - t12->yOffsetLowest, mtop = mn->y + (mn->h - cell) / 2;
+    const dgx_font_t    *t12  = &TerminusTTFMedium12;
+    const int            cell = t12->y_bottom_max - t12->y_offset_lowest, mtop = mn->y + (mn->h - cell) / 2;
     CHECK(mn->h > cell + 4 && panel_twice(panel) == 0 && panel_written(panel) == mn->w * mn->h);
     CHECK(panel->mem[mtop + cell / 2][mn->x] == colors[1] && panel->mem[mn->y][mn->x] == colors[0] && panel->mem[mn->y + mn->h - 1][mn->x] == colors[0]);
 
@@ -187,13 +187,13 @@ int main(void)
     panel_count_from_now(panel);
     dgx_ui_paint(&ui, &pp, 6006);
     const dgx_ui_node_t     *pn  = dgx_ui_node(&ui, pi);
-    const int                sx  = pn->x + dgx_font_bounds(&m, "**", NULL, NULL), sy = pn->y - t12->yOffsetLowest - 2;
+    const int                sx  = pn->x + dgx_font_bounds(&m, "**", NULL, NULL), sy = pn->y - t12->y_offset_lowest - 2;
     CHECK(panel_twice(panel) == 0 && panel_written(panel) == pn->w * pn->h && panel->mem[sy][sx] == colors[3]);
     /* the stars, not the letters: the row as "**" drawn by the font */
     dgx_screen_t *e = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     dgx_fill_rectangle(e, 0, 0, PANEL_W, PANEL_H, colors[0]);
     const dgx_font_context_t ec = {.scr = e, .font = t12, .color = colors[1], .bg = colors[0]};
-    dgx_font_draw(&ec, pn->x, pn->y - t12->yOffsetLowest, "**");
+    dgx_font_draw(&ec, pn->x, pn->y - t12->y_offset_lowest, "**");
     int off = 0;
     for (int y = pn->y; y < pn->y + pn->h; ++y)
         for (int x = pn->x; x < sx; ++x) off += panel->mem[y][x] != dgx_get_pixel(e, x, y);

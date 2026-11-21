@@ -23,17 +23,17 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 - ESP-IDF 5.2 или новее.
 - Дисплей, с которым работает [DGX](https://github.com/jef-sure/esp32-component-dgx). Можно и без дисплея: та же
   программа работает в окне на компьютере.
-- DGX 0.11.8 или новее из ветки 0.11. Она подтянется сама вместе с dgx-ui.
+- DGX 0.12.0 или новее из ветки 0.12. Она подтянется сама вместе с dgx-ui.
 
 ## 1. Подключите компонент
 
-Версия 0.0.45 — это тег в репозитории, в реестре компонентов ESP её пока нет. В `main/idf_component.yml` проекта:
+Версия 0.0.46 — это тег в репозитории, в реестре компонентов ESP её пока нет. В `main/idf_component.yml` проекта:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.45"
+    version: "0.0.46"
 ```
 
 При следующей сборке менеджер компонентов возьмёт dgx-ui с GitHub, а DGX — из реестра, потому что dgx-ui её
@@ -118,8 +118,12 @@ DGX_UI_MESSAGE(co2, MSG_CO2, co2_t)
 ```c
 static char                  co2_buf[24], clock_buf[16], note_buf[24];
 static dgx_ui_textbox_t      co2_box, clock_box, note_box;
-static dgx_ui_font_variant_t big[2], small[1]; /* the fonts are got by functions: filled at the start */
-static dgx_ui_text_style_t   st_big, st_left, st_right;
+/* the value in the large font, or in the small one when it does not go in */
+static const dgx_ui_font_variant_t big[2]   = {{.font = &DejaVuSansBook32}, {.font = &TerminusTTFMedium12}};
+static const dgx_ui_font_variant_t small[1] = {{.font = &TerminusTTFMedium12}};
+static const dgx_ui_text_style_t   st_big   = {.variants = big, .count = 2, .flags = DGX_UI_TEXT_MIDDLE, .align = DGX_FONT_ALIGN_CENTER};
+static const dgx_ui_text_style_t   st_left  = {.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+static const dgx_ui_text_style_t   st_right = {.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
 ```
 
 ### Что виджет делает с сообщением
@@ -212,13 +216,6 @@ void app_main(void)
         dgx_screen_rgb(scr, 120, 160, 220),
     };
 
-    /* the value in the large font, or in the small one when it does not go in */
-    big[0]   = (dgx_ui_font_variant_t){.font = DejaVuSansBook32()};
-    big[1]   = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
-    small[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
-    st_big   = (dgx_ui_text_style_t){.variants = big, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
-    st_left  = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    st_right = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
     dgx_ui_textbox_init(&co2_box, co2_buf, sizeof co2_buf, 1, &st_big);
     dgx_ui_textbox_init(&clock_box, clock_buf, sizeof clock_buf, 1, &st_left);
     dgx_ui_textbox_init(&note_box, note_buf, sizeof note_buf, 1, &st_right);

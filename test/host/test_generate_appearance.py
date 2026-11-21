@@ -150,6 +150,12 @@ def make(name, text, *options):
         failures.append(f"{name}: refused: {said}")
     else:
         cases.append((name, text))
+        # all of it constants, the fonts' addresses among them: nothing for the program to fill or call first
+        for suffix in (".h", ".c"):
+            with open(os.path.join(work, name + suffix)) as made:
+                for line in made:
+                    if "_start(" in line or re.match(r"(static |extern )*dgx_ui_\w+_t\s", line):
+                        failures.append(f"{name}{suffix}: not a constant: {line.strip()}")
     return status, said
 
 
@@ -234,7 +240,7 @@ with open(os.path.join(work, "appearance_cases.h"), "w") as out:
         out.write(f'#include "{name}.h"\n')
     out.write("static const appearance_case_t cases[] = {\n")
     for name, text in cases:
-        out.write(f'    {{"{name}", {c_literal(text)}, &{name}_appearance, {name}_start}},\n')
+        out.write(f'    {{"{name}", {c_literal(text)}, &{name}_appearance}},\n')
     out.write("};\nstatic const appearance_refusal_t refusals[] = {\n")
     for name, data, *_ in spoiled:
         out.write(f'    {{"{name}", {c_literal(data)}, {len(data)}}},\n')

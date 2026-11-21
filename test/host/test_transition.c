@@ -198,7 +198,7 @@ static int run_slide(uint32_t start, int *frames, int *wake_faults)
 
 int main(void)
 {
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
     make_trees();
     panel                  = panel_make();

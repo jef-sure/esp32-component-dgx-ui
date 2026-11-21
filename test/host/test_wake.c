@@ -47,7 +47,7 @@ static const dgx_ui_widget_t root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUM
 
 int main(void)
 {
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     important  = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
     plain      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
     dgx_screen_t *v = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);

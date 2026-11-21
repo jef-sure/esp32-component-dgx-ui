@@ -364,7 +364,7 @@ int main(void)
     {
         static dgx_ui_font_variant_t variant[1];
         static dgx_ui_text_style_t   style = {.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
-        variant[0]                         = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+        variant[0]                         = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
         static char                  number[8] = "42";
         static dgx_ui_textbox_t      box;
         dgx_ui_textbox_init(&box, number, sizeof number, 1, &style);

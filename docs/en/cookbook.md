@@ -83,7 +83,7 @@ static dgx_ui_text_style_t   st_left, st_centre;
 
 static void styles_init(void)
 {
-    small[0]  = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    small[0]  = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     st_left   = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_centre = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
 }
@@ -955,8 +955,8 @@ static dgx_ui_text_style_t   st_city;
 
 static void city_style_init(void)
 {
-    city_fonts[0] = (dgx_ui_font_variant_t){.font = DejaVuSansBook32()};
-    city_fonts[1] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    city_fonts[0] = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
+    city_fonts[1] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     st_city = (dgx_ui_text_style_t){.variants = city_fonts, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
 }
 ```
@@ -978,7 +978,7 @@ dgx_font_need(title POSTSCRIPT DejaVuSans SIZE 16px BITS 4 TEXTS strings.txt)
 ```
 
 ```c
-dgx_font_t *dgx_font_title(void); /* of dgx_fonts.h, which DGX makes at build time: the font of the need "title" */
+extern const dgx_font_t dgx_font_title; /* of dgx_fonts.h, which DGX makes at build time: the font of the need "title" */
 
 static dgx_ui_font_variant_t soft[1];
 static dgx_ui_text_style_t   st_soft;
@@ -989,7 +989,7 @@ static const dgx_ui_widget_t heading_w = {.kind = DGX_UI_LABEL, .text = &heading
 
 static int heading_add(dgx_ui_t *ui, int parent)
 {
-    soft[0] = (dgx_ui_font_variant_t){.font = dgx_font_title()};
+    soft[0] = (dgx_ui_font_variant_t){.font = &dgx_font_title};
     st_soft = (dgx_ui_text_style_t){.variants = soft, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&heading_box, heading_buf, sizeof heading_buf, 1, &st_soft);
     const int heading = dgx_ui_add(ui, parent, &heading_w);
@@ -1060,9 +1060,9 @@ static dgx_ui_textbox_t      greeting_box;
 static void greeting_init(void)
 {
     /* DGX's handwritten face at two heights, then a bitmap font for a text too long even so */
-    greeting_fonts[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 32, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
-    greeting_fonts[1] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 20, .narrow = 70, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
-    greeting_fonts[2] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    greeting_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
+    greeting_fonts[1] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .narrow = 70, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
+    greeting_fonts[2] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     greeting_style    = (dgx_ui_text_style_t){.variants = greeting_fonts, .count = 3, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&greeting_box, greeting_text, sizeof greeting_text, 1, &greeting_style);
 }
@@ -1119,7 +1119,7 @@ static dgx_ui_textbox_t      signature_box;
 
 static void signature_init(void)
 {
-    signature_fonts[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 32, .pen = 3 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting_canvas};
+    signature_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .pen = 3 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting_canvas};
     signature_style    = (dgx_ui_text_style_t){.variants = signature_fonts, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&signature_box, signature_text, sizeof signature_text, 1, &signature_style);
 }
@@ -1146,8 +1146,8 @@ static dgx_ui_textbox_t      note_box;
 static void note_init(void)
 {
     /* the hand at 20 pixels, then a bitmap font for a note too long for its lines */
-    note_fonts[0] = (dgx_ui_font_variant_t){.font = font0ss(), .height = 20, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
-    note_fonts[1] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    note_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
+    note_fonts[1] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     note_style    = (dgx_ui_text_style_t){.variants = note_fonts, .count = 2, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&note_box, note_text, sizeof note_text, 3, &note_style); /* three lines */
 }
@@ -2072,7 +2072,7 @@ static void edit_open(int field)
     if (edit_field >= 0) return;
     /* the keyboard keeps away from the field it is given: one at the very top sends its band to the bottom */
     const dgx_di_rect_t top = {.x = 0, .y = 0, .w = (int16_t)edit_scr->width, .h = 1};
-    if (!dgx_di_keyboard_open(&keypad_kb, edit_scr, edit_mm_w, edit_mm_h, keypad, keypad_size, TerminusTTFMedium12(), &top)) return;
+    if (!dgx_di_keyboard_open(&keypad_kb, edit_scr, edit_mm_w, edit_mm_h, keypad, keypad_size, &TerminusTTFMedium12, &top)) return;
     const dgx_ui_widget_t *w = dgx_ui_widget(edit_ui, field);
     /* the copy: no longer than the field's own buffer, in the field's style and look */
     const int size = w->text->size < sizeof edit_buf ? w->text->size : (int)sizeof edit_buf;
@@ -2431,10 +2431,9 @@ And the program:
 
 static uint32_t day_colors[5]; /* the painter's table: the appearance's five colours, packed for the screen */
 
-/* the appearance taken, before the first paint: the fonts of its styles, and its colours for this screen */
+/* the appearance taken, before the first paint: its colours packed for this screen */
 static void day_take(dgx_screen_t *scr, dgx_ui_paint_t *paint)
 {
-    day_start();
     dgx_ui_appearance_pack(&day_appearance, dgx_ui_pack_screen, scr, day_colors);
     paint->colors = day_colors, paint->color_count = day_appearance.color_count;
 }
@@ -2457,7 +2456,8 @@ What to know of it:
 - **A page's file is held to its appearance.** `day.h` carries a stamp of its looks' and styles' names in their
   order, and a file made on it refuses to compile against another: "day.h is of another appearance than this file
   was made on: make it again". Under the build it cannot happen; it is for a made file kept by hand.
-- **The fonts** of the styles are filled by `day_start()`: until it is called, a style of the appearance has none.
+- **All of it is constants in flash**: the looks with their parameters, the styles with their fonts. Nothing is
+  filled when the program starts but the painter's table of colours.
 - **The colours are packed by the program**, for each screen it draws on. A look of the program's own names a
   colour of the appearance by the constant `day.h` gives, `day_color_accent`, not by a number.
 - **A draw of the program's own** may be named in `vocab.txt`, `draw dial draw_dial`, and an appearance may give it
@@ -2466,8 +2466,8 @@ What to know of it:
 - **The tables for pages that are loaded**: `dgx_ui_names(vocab.txt APPEARANCE day.json ...)` makes the loader's
   tables with the appearance's looks and styles first, and, of the `draw`, `font` and `hand` lines,
   `vocab_appearance_names`, the tables a program loads an appearance on.
-- **What it costs**: on an ESP32 the appearance made C adds about 0.7 KB to the program whose page is made C: its
-  constants, `day_start()` and the packing. The same appearance loaded takes the 5 KB of its loader and its text
+- **What it costs**: on an ESP32 the appearance made C adds about 0.6 KB to the program whose page is made C: its
+  constants and the packing. The same appearance loaded takes the 5 KB of its loader and its text
   besides, and its looks' parameters then lie in RAM, not in flash.
 
 ## Large data: a message by reference

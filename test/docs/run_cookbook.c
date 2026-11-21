@@ -58,28 +58,17 @@ const uint16_t logo_pixels[64 * 32];
 const uint16_t map_pixels[320 * 240]  = {[0 ... 320 * 240 - 1] = 0x1084}; /* two maps of one colour each */
 const uint16_t rain_pixels[320 * 240] = {[0 ... 320 * 240 - 1] = 0x1f00};
 int64_t    esp_timer_get_time(void) { return 0; }
-/* the font of the need "title" of the recipe of soft letters: two letters, A and B, of 4 bits a pixel with levels of every kind */
+/* the font of the need "title" of the recipe of soft letters: two letters, A and B, of 4 bits a pixel with levels of every kind,
+   a constant as DGX makes a font; the levels of A: 0 3 15 3 0 / 2 15 0 15 2 / 15 15 15 15 15 / 15 7 0 6 15, of B: 1 0 0 0 0 14 /
+   0 8 15 15 8 0 / 0 15 0 0 15 0 / 0 8 15 15 8 0 / 14 0 0 0 0 1, the leftmost pixel in the high bits of a byte, a row to a whole byte */
 enum { SOFT_A_W = 5, SOFT_A_H = 4, SOFT_B_W = 6, SOFT_B_H = 5 };
-dgx_font_t *dgx_font_title(void)
-{
-    static const uint8_t levels_a[SOFT_A_H][SOFT_A_W] = {{0, 3, 15, 3, 0}, {2, 15, 0, 15, 2}, {15, 15, 15, 15, 15}, {15, 7, 0, 6, 15}};
-    static const uint8_t levels_b[SOFT_B_H][SOFT_B_W] = {{1, 0, 0, 0, 0, 14}, {0, 8, 15, 15, 8, 0}, {0, 15, 0, 0, 15, 0}, {0, 8, 15, 15, 8, 0}, {14, 0, 0, 0, 0, 1}};
-    static uint8_t       bits[2][64];
-    static glyph_t       glyphs[2];
-    static glyph_array_t ranges[1];
-    static dgx_font_t    font;
-    if (font.glyph_ranges) return &font;
-    for (int letter = 0; letter < 2; ++letter) {
-        const int width = letter ? SOFT_B_W : SOFT_A_W, height = letter ? SOFT_B_H : SOFT_A_H, pitch = (width * 4 + 7) / 8;
-        for (int y = 0; y < height; ++y)
-            for (int x = 0; x < width; ++x) bits[letter][y * pitch + x / 2] |= (uint8_t)((letter ? levels_b[y][x] : levels_a[y][x]) << (x % 2 ? 0 : 4));
-        glyphs[letter] = (glyph_t){.bitmap = bits[letter], .width = (int16_t)width, .height = (int16_t)height, .xAdvance = 7, .yOffset = (int16_t)(letter ? -5 : -4)};
-    }
-    ranges[0] = (glyph_array_t){.first = 'A', .number = 2, .glyphs = glyphs};
-    font      = (dgx_font_t){.glyph_ranges = ranges, .yAdvance = 8, .yOffsetLowest = -5, .xWidest = SOFT_B_W, .xWidthAverage = 6,
-                             .f_type = DGX_FONT_BITMAP_DEPTH4, .yBottomMax = 1, .xRightMax = 6, .number_of_ranges = 1};
-    return &font;
-}
+static const uint8_t           soft_bits_a[] = {0x03, 0xf3, 0x00, 0x2f, 0x0f, 0x20, 0xff, 0xff, 0xf0, 0xf7, 0x06, 0xf0};
+static const uint8_t           soft_bits_b[] = {0x10, 0x00, 0x0e, 0x08, 0xff, 0x80, 0x0f, 0x00, 0xf0, 0x08, 0xff, 0x80, 0xe0, 0x00, 0x01};
+static const dgx_glyph_t       soft_glyphs[2] = {{.bitmap = soft_bits_a, .width = SOFT_A_W, .height = SOFT_A_H, .x_advance = 7, .y_offset = -4},
+                                                 {.bitmap = soft_bits_b, .width = SOFT_B_W, .height = SOFT_B_H, .x_advance = 7, .y_offset = -5}};
+static const dgx_glyph_array_t soft_ranges[1] = {{.first = 'A', .number = 2, .glyphs = soft_glyphs}};
+const dgx_font_t               dgx_font_title = {.glyph_ranges = soft_ranges, .y_advance = 8, .y_offset_lowest = -5, .x_widest = SOFT_B_W, .x_width_average = 6,
+                                                 .f_type = DGX_FONT_BITMAP_DEPTH4, .y_bottom_max = 1, .x_right_max = 6, .number_of_ranges = 1};
 /* NVS for the recipe of settings that stay: one blob in memory, and how many times it was committed */
 static uint8_t nvs_blob[64];
 static size_t  nvs_blob_size;
@@ -135,7 +124,7 @@ int  dgx_di_keyboard_take(dgx_di_keyboard_t *kb, dgx_di_pointer_t *p, uint32_t n
 /* the keyboard of the strip's recipe: its band the lower part of the display, from 36 pixels down, as on a CYD */
 const uint8_t keypad[1];
 const size_t  keypad_size = sizeof keypad;
-bool dgx_di_keyboard_open(dgx_di_keyboard_t *kb, dgx_screen_t *d, int mm_w, int mm_h, const uint8_t *layout, size_t size, dgx_font_t *font,
+bool dgx_di_keyboard_open(dgx_di_keyboard_t *kb, dgx_screen_t *d, int mm_w, int mm_h, const uint8_t *layout, size_t size, const dgx_font_t *font,
                           const dgx_di_rect_t *field)
 {
     kb->open = true, kb->x = 0, kb->y = 36, kb->w = (int16_t)d->width, kb->h = (int16_t)(d->height - 36);
@@ -1773,10 +1762,10 @@ int main(int argc, char **argv)
             of_the_appearance += (w->kind == DGX_UI_SLIDER && w->look == &day_look[0]) || (w->kind == DGX_UI_BUTTON && w->look == &day_look[1]);
             of_its_style += w->text && w->text->style == &day_style[0];
         }
-        printf("appearance: day made C, %d colours, accent the index %d packed %s; its style's font %s; the page on it: added %d, a slider and a button of its looks %d, "
+        printf("appearance: day made C, %d colours, accent the index %d packed %s; its style's font %s with nothing called; the page on it: added %d, a slider and a button of its looks %d, "
                "texts of its style %d\n",
                day_appearance.color_count, (int)day_color_accent, day_colors[day_color_accent] == dgx_screen_rgb(day_screen, 0xf0, 0xa0, 0x3c) ? "right" : "WRONG",
-               day_style[0].variants[0].font == TerminusTTFMedium12() ? "filled" : "NOT FILLED", top >= 0, of_the_appearance, of_its_style);
+               day_style[0].variants[0].font == &TerminusTTFMedium12 ? "there" : "NOT THERE", top >= 0, of_the_appearance, of_its_style);
         dgx_ui_free(&day_page), dgx_screen_destroy(&day_screen);
     }
 

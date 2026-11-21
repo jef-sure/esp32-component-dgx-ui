@@ -161,7 +161,7 @@ int main(void)
     panel = panel_make();
     colors[0] = dgx_screen_rgb(&panel->sbus.scr, 16, 20, 28), colors[1] = dgx_screen_rgb(&panel->sbus.scr, 232, 232, 222);
     colors[2] = dgx_screen_rgb(&panel->sbus.scr, 44, 60, 86), colors[3] = dgx_screen_rgb(&panel->sbus.scr, 240, 160, 60);
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
 
     /* before any pad and any press of the program: named, stepped, the moment given; the time asks for none; told 1
        once at the step that crosses it; a loop that sleeps exactly what dgx_ui_wake() says is woken on it */

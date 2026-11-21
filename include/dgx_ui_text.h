@@ -31,7 +31,7 @@ typedef struct dgx_ui_hand_t dgx_ui_hand_t;
  * A handwritten font (DGX_FONT_HW) is drawn by the one-line look of a text when its variant names the library's
  * handwriting, so that a program of bitmap fonts carries none of it:
  *
- *     {.font = font0ss(), .height = 24, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting}
+ *     {.font = &font0ss, .height = 24, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting}
  *
  * a line 24 pixels high that may be narrowed to 70% across to go in, in whole percents, its letters joined, written
  * by a pen two pixels wide. For a soft pen, `.pen = 2 | DGX_PEN_SOFT` with `.hand = &dgx_ui_handwriting_canvas` on a
@@ -41,7 +41,7 @@ typedef struct dgx_ui_hand_t dgx_ui_hand_t;
  * letters of letter_ms.
  */
 typedef struct dgx_ui_font_variant_t {
-    dgx_font_t          *font;
+    const dgx_font_t    *font;
     int16_t              height; ///< a handwritten font: the height of a line in pixels; a bitmap font: 0, its own size
     uint8_t              narrow; ///< a handwritten font: its x may shrink to so many percent of y first; 0 never
     bool                 joined; ///< a handwritten font: its letters joined

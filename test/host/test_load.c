@@ -327,7 +327,7 @@ static void chance_widget(printer_t *p, int parent, int depth)
 
 int main(void)
 {
-    variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()};
+    variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     dgx_ui_init(&page, page_nodes, 4, 1);
     dgx_ui_add(&page, -1, &(dgx_ui_widget_t){.kind = DGX_UI_FRAME});
 

@@ -69,7 +69,7 @@ static panel_t *panel_make(void)
     dgx_screen_t *scr = &p->sbus.scr;
     scr->width = PANEL_W, scr->height = PANEL_H, scr->color_bits = PANEL_BITS, scr->screen_subtype = DgxPhysicalScreenWithBus;
     dgx_scr_init_slow_bus_optimized_funcs(scr);
-    scr->set_area = panel_set_area, scr->write_area = panel_write_area, scr->wait_buffer = panel_wait, scr->update_screen = panel_quiet;
+    scr->set_area = panel_set_area, scr->write_area = panel_write_area, scr->wait = panel_wait, scr->update_screen = panel_quiet;
     return p;
 }
 

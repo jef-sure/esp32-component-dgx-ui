@@ -54,15 +54,15 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const uint32_t face = dgx_ui_color(paint, off ? p->disabled : (bits & DGX_UI_PRESSED) ? p->pressed : p->face);
     const uint32_t ink = dgx_ui_color(paint, off ? p->text_disabled : p->text), arrow = dgx_ui_color(paint, off ? p->text_disabled : p->arrow);
     const dgx_ui_textbox_t *box = w->text;
-    dgx_font_t             *f   = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
+    const dgx_font_t       *f   = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
     /* the arrow's square on the right, as wide as the box is high (at most half of it) */
     const int aw = n->h < n->w / 2 ? n->h : n->w / 2, tw = n->w - aw;
     if (!dgx_ui_variant_usable(f) || n->h <= 0) {
         fill(paint, n->x, n->y, tw, n->h, face);
     } else {
         /* the option chosen, in the middle rows of the face: the rows above and below it, then its field */
-        const int cell = f->yBottomMax - f->yOffsetLowest, base = n->y + (n->h - cell) / 2 - f->yOffsetLowest;
-        const int top = base + f->yOffsetLowest, bottom = base + f->yBottomMax;
+        const int cell = f->y_bottom_max - f->y_offset_lowest, base = n->y + (n->h - cell) / 2 - f->y_offset_lowest;
+        const int top = base + f->y_offset_lowest, bottom = base + f->y_bottom_max;
         int       px, py, pw, ph;
         dgx_screen_clip_get(paint->scr, &px, &py, &pw, &ph);
         fill(paint, n->x, n->y, tw, top - n->y, face);

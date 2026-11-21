@@ -5,7 +5,7 @@
  * appearance's look and style where both have the name and the program's where only it has; the need's bytes exactly
  * what the load uses; the text overwritten after the load, the appearance as it was; two packers on one appearance;
  * a button of the appearance drawn as the same button of C constants, pixel by pixel; the whole appearance written as
- * dgx_ui_c is to make it, constants and its styles' fonts filled at the start, the same field by field, and a page of
+ * dgx_ui_c is to make it, all constants, the same field by field, and a page of
  * all its looks drawn on its tables as on the loaded ones, pixel by pixel. Each refusal with its code, its
  * byte and its name. Appearances made by chance from the descriptions themselves, every kind of field, their keys
  * shuffled, loaded and compared byte by byte; the same spoiled at one byte: never a fault, an error inside the text.
@@ -27,10 +27,11 @@ static const dgx_ui_draw_name_t draws[] = {DRAW(box),      DRAW(frame),         
                                            DRAW(input),    DRAW(switch),        DRAW(slider), DRAW(list),  DRAW(dropdown),   DRAW(picture), DRAW(rgb565),
                                            DRAW(indexed),  DRAW(radio),         DRAW(checkbox), DRAW(level), DRAW(ring)};
 enum { DRAW_COUNT = sizeof draws / sizeof *draws };
-static const dgx_ui_font_name_t        fonts[]      = {{"small", TerminusTTFMedium12}, {"hand", font0ss}};
+static const dgx_ui_font_name_t        fonts[]      = {{"small", &TerminusTTFMedium12}, {"hand", &font0ss}};
 static const dgx_ui_hand_name_t        hands[]      = {DGX_UI_HAND_NAME(handwriting), DGX_UI_HAND_NAME(handwriting_canvas)};
 static const dgx_ui_look_name_t        own_looks[]  = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(switch)};
-static dgx_ui_text_style_t             plain;
+static const dgx_ui_font_variant_t     plain_variant[1] = {{.font = &TerminusTTFMedium12}};
+static const dgx_ui_text_style_t       plain            = {.variants = plain_variant, .count = 1};
 static const dgx_ui_style_name_t       own_styles[] = {{"plain", &plain}};
 static const dgx_ui_appearance_names_t names        = {.draws = draws, .draw_count = DRAW_COUNT, .fonts = fonts, .font_count = 2, .hands = hands, .hand_count = 2,
                                                        .looks = own_looks, .look_count = 2, .styles = own_styles, .style_count = 1};
@@ -59,7 +60,7 @@ static dgx_screen_t *draw_tree(dgx_ui_t *ui, const uint32_t *colors, int count)
     return scr;
 }
 
-/* ---- the full appearance as dgx_ui_c is to make it: constants, the styles' fonts filled at the start ---- */
+/* ---- the full appearance as dgx_ui_c is to make it: all constants ---- */
 
 static const uint32_t             made_rgb[]         = {0x12161e, 0xe8e8de, 0x2c3c56, 0x44556a, 0xf0a03c, 0xff4000};
 static const char *const          made_color_names[] = {"paper", "ink", "fill", "border", "accent", "warn"};
@@ -72,18 +73,13 @@ static const dgx_ui_look_t        made_look[4]       = {{.draw = dgx_ui_draw_but
                                                         {.draw = dgx_ui_draw_slider, .params = &made_params_1, .fill = -1},
                                                         {.draw = dgx_ui_draw_level, .params = &made_params_2, .fill = -1},
                                                         {.draw = dgx_ui_draw_frame, .params = &made_params_3, .fill = 2}};
-static dgx_ui_font_variant_t      made_variants_0[2] = {{.font = NULL}, {.font = NULL, .height = 24, .narrow = 70, .joined = true, .pen = 2 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting}};
-static dgx_ui_text_style_t        made_style[1]      = {{.variants = made_variants_0, .count = 2, .flags = DGX_UI_TEXT_MIDDLE | DGX_UI_TEXT_IMPORTANT, .align = DGX_FONT_ALIGN_CENTER, .scroll_ms = 900}};
+static const dgx_ui_font_variant_t made_variants_0[2] = {{.font = &TerminusTTFMedium12}, {.font = &font0ss, .height = 24, .narrow = 70, .joined = true, .pen = 2 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting}};
+static const dgx_ui_text_style_t  made_style[1]      = {{.variants = made_variants_0, .count = 2, .flags = DGX_UI_TEXT_MIDDLE | DGX_UI_TEXT_IMPORTANT, .align = DGX_FONT_ALIGN_CENTER, .scroll_ms = 900}};
 static const dgx_ui_look_name_t   made_looks[]       = {{"big", &made_look[0]}, {"slider", &made_look[1]}, {"tank", &made_look[2]}, {"pane", &made_look[3]},
                                                         DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(switch)};
 static const dgx_ui_style_name_t  made_styles[]      = {{"body", &made_style[0]}, {"plain", &plain}};
 static const dgx_ui_appearance_t  made_appearance    = {.rgb = made_rgb, .color_names = made_color_names, .looks = made_looks, .styles = made_styles,
                                                         .color_count = 6, .look_count = 6, .style_count = 2};
-/* the fonts are functions of DGX until 0.12: filled at the start */
-static void made_start(void)
-{
-    made_variants_0[0].font = TerminusTTFMedium12(), made_variants_0[1].font = font0ss();
-}
 
 static bool same_variant(const dgx_ui_font_variant_t *a, const dgx_ui_font_variant_t *b);
 
@@ -214,12 +210,12 @@ static void chance_variant(printer_t *p, dgx_ui_font_variant_t *v)
 {
     *v = (dgx_ui_font_variant_t){0};
     if (chance(2)) {
-        v->font = TerminusTTFMedium12();
+        v->font = &TerminusTTFMedium12;
         print(p, "\"small\"");
         return;
     }
     const bool hand = chance(2);
-    v->font         = hand ? font0ss() : TerminusTTFMedium12();
+    v->font         = hand ? &font0ss : &TerminusTTFMedium12;
     print(p, "{\"font\": \"%s\"", hand ? "hand" : "small");
     if (hand || chance(3) == 0) v->hand = chance(2) ? &dgx_ui_handwriting : &dgx_ui_handwriting_canvas, print(p, ", \"hand\": \"%s\"", v->hand == &dgx_ui_handwriting ? "handwriting" : "handwriting_canvas");
     if (chance(2)) v->height = (int16_t)chance(40), print(p, ", \"height\": %d", v->height);
@@ -279,7 +275,7 @@ int main(void)
     const dgx_ui_text_style_t *body = appearance.styles[0].style;
     CHECK(strcmp(appearance.styles[0].name, "body") == 0 && body->count == 2 && body->align == DGX_FONT_ALIGN_CENTER &&
           body->flags == (DGX_UI_TEXT_MIDDLE | DGX_UI_TEXT_IMPORTANT) && body->scroll_ms == 900);
-    CHECK(body->variants[0].font == TerminusTTFMedium12() && body->variants[0].hand == NULL && body->variants[1].font == font0ss() &&
+    CHECK(body->variants[0].font == &TerminusTTFMedium12 && body->variants[0].hand == NULL && body->variants[1].font == &font0ss &&
           body->variants[1].hand == &dgx_ui_handwriting && body->variants[1].height == 24 && body->variants[1].narrow == 70 && body->variants[1].joined &&
           body->variants[1].pen == (2 | DGX_PEN_SOFT));
     CHECK(appearance.styles[1].style == &plain);
@@ -314,10 +310,7 @@ int main(void)
         static dgx_ui_textbox_t   go = DGX_UI_TEXT_CONST("Go", 1, NULL);
         static dgx_ui_look_t      constant_big;
         static dgx_ui_node_t      constant_nodes[2], loaded_nodes[2];
-        static dgx_ui_font_variant_t small[1];
-        static dgx_ui_text_style_t small_style;
-        small[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()}, small_style = (dgx_ui_text_style_t){.variants = small, .count = 1};
-        go.style     = &small_style;
+        go.style     = &plain;
         constant_big = (dgx_ui_look_t){.draw = dgx_ui_draw_button, .params = &big, .fill = -1};
         const dgx_ui_widget_t made_w = {.kind = DGX_UI_BUTTON, .text = &go, .look = &constant_big}, loaded_w = {.kind = DGX_UI_BUTTON, .text = &go, .look = appearance.looks[0].look};
         dgx_ui_t made_ui, loaded_ui;
@@ -334,7 +327,6 @@ int main(void)
     /* the appearance made C, by hand as dgx_ui_c is to make it: every field the loaded one's, a page on its tables drawn
        the same, pixel by pixel */
     {
-        made_start();
         CHECK(made_appearance.color_count == appearance.color_count && made_appearance.look_count == appearance.look_count &&
               made_appearance.style_count == appearance.style_count);
         for (int k = 0; k < appearance.color_count; ++k) CHECK(made_appearance.rgb[k] == appearance.rgb[k] && strcmp(made_appearance.color_names[k], appearance.color_names[k]) == 0);
@@ -362,8 +354,6 @@ int main(void)
                                    "{\"kind\": \"button\", \"look\": \"big\", \"text\": \"Go\", \"want\": [0, 16]}]}}";
         static dgx_ui_node_t made_nodes[8], loaded_nodes[8];
         static uint8_t       made_memory[2048] __attribute__((aligned(16))), loaded_memory[2048] __attribute__((aligned(16)));
-        static dgx_ui_font_variant_t plain_variant[1];
-        plain_variant[0] = (dgx_ui_font_variant_t){.font = TerminusTTFMedium12()}, plain = (dgx_ui_text_style_t){.variants = plain_variant, .count = 1};
         const dgx_ui_load_names_t made_tables   = {.looks = made_appearance.looks, .look_count = made_appearance.look_count, .styles = made_appearance.styles,
                                                    .style_count = made_appearance.style_count, .values = values, .value_count = 1};
         const dgx_ui_load_names_t loaded_tables = {.looks = appearance.looks, .look_count = appearance.look_count, .styles = appearance.styles,
