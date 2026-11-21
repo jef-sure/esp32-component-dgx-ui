@@ -1728,6 +1728,35 @@ int main(int argc, char **argv)
         dgx_screen_destroy(&described_screen);
     }
 
+    { /* a description made C when the program is built: the tree sound_add() adds beside the one the loader lays of the
+         very file on the tables made of the names file */
+        const bool   added = made_page_add();
+        const int    made_count = made_page.count, made_title = room_title;
+        char         made_text[40] = "";
+        if (added) snprintf(made_text, sizeof made_text, "%s", dgx_ui_widget(&made_page, room_title)->text->buf);
+        static dgx_ui_widget_t made_widgets[8];
+        for (int k = 0; k < made_count && k < 8; ++k) made_widgets[k] = *dgx_ui_widget(&made_page, k);
+        dgx_ui_free(&made_page);
+        FILE  *file = fopen(MADE_DIR "/sound.json", "rb");
+        char   json[2000];
+        size_t len = file ? fread(json, 1, sizeof json, file) : 0;
+        if (file) fclose(file);
+        dgx_ui_load_need_t  made_need = {0};
+        dgx_ui_load_error_t made_err  = {0};
+        void               *made_memory = dgx_ui_load_need(json, len, &vocab_names, &made_need, &made_err) ? malloc(made_need.bytes) : NULL;
+        const int           top = made_memory ? made_page_load(json, len, made_memory, made_need.bytes, &made_err) : -1;
+        int                 same = top >= 0 && made_page.count == made_count && room_title == made_title;
+        for (int k = 0; same && k < made_count; ++k) {
+            const dgx_ui_widget_t *a = &made_widgets[k], *b = dgx_ui_widget(&made_page, k);
+            same = a->kind == b->kind && a->flags == b->flags && a->pad == b->pad && a->gap == b->gap && a->want_w == b->want_w && a->want_h == b->want_h && a->min == b->min &&
+                   a->max == b->max && a->step == b->step && a->value == b->value && a->look == b->look && a->on == b->on && !a->text == !b->text;
+        }
+        printf("made: sound_add() added %d (%d widgets), the label at %d reads \"%s\"; the same file loaded on vocab_names: the tree named \"%s\", error %d, the same "
+               "widgets %d\n",
+               added, made_count, made_title, made_text, made_need.name, made_err.code, same);
+        dgx_ui_free(&made_page), free(made_memory);
+    }
+
     puts("cookbook: ran to the end");
     return 0;
 }

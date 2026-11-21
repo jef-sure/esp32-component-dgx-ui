@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.41 - 2026-11-21
+
+- `dgx_ui_tree()` and `dgx_ui_names()` in a component's CMakeLists: a description made C, or the loader's tables of a
+  names file, at build time, compiled into that component; `dgx_ui_c` comes in the package and is built once for the
+  project by the computer's C compiler.
+- `dgx_ui_c -t`: the loader's tables of a names file, so that one file names a program's objects for the loader and
+  for the trees made C.
+
 ## 0.0.40 - 2026-11-21
 
 - A description may name its tree, `"name"`, and `dgx_ui_load_need()` gives the name out; a description of a later

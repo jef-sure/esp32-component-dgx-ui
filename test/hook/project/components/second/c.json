@@ -1,0 +1,1 @@
+{"dgx-ui": 1, "name": "second_page", "tree": {"kind": "box", "children": [{"kind": "slider", "value": "level", "max": 9}]}}

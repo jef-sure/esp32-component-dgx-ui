@@ -388,20 +388,3 @@ int dgx_ui_load(dgx_ui_t *ui, int parent, const char *json, size_t len, const dg
         if (L.ids[k] >= 0) *names->ids[k].index = L.ids[k];
     return index;
 }
-
-/* the tree's home, the bottom of its chain */
-static dgx_ui_t *home_of(dgx_ui_t *ui)
-{
-    while (ui->under) ui = ui->under;
-    return ui;
-}
-
-void dgx_ui_load_on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
-{
-    if (what == DGX_UI_ACTIVATED) dgx_ui_page_back(home_of(ui));
-}
-
-void dgx_ui_load_on_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
-{
-    if (what == DGX_UI_ACTIVATED && ctx) dgx_ui_page_open(home_of(ui), (dgx_ui_t *)ctx);
-}

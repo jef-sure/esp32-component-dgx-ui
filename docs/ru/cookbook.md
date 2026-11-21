@@ -2283,6 +2283,122 @@ static bool described_page_load(dgx_ui_load_error_t *err)
   `dgx_ui_load_need()`: здесь по 56 байт на виджет, его узел, как у любого виджета, и текстовое поле с текстом у
   тех, у кого он есть. Дерево на константах лежит во флеше, описанное — в ОЗУ.
 
+## Описание, переведённое на C при сборке
+
+Страница предыдущего рецепта без загрузчика в программе. `dgx_ui_c`, инструмент компонента, который работает на
+компьютере, читает описание при сборке программы и пишет виджеты константами, а с ними функцию, которая их
+добавляет. Источником остаётся описание; программа не несёт ни читателя JSON, ни таблиц имён.
+
+Описание, `main/sound.json`:
+
+```json
+{"dgx-ui": 1, "name": "sound", "tree": {"kind": "box", "flags": ["column"], "pad": 4, "gap": 4, "children": [
+  {"kind": "label", "text": "Sound", "id": "title", "text_size": 24},
+  {"kind": "slider", "value": "volume", "max": 100, "step": 5, "want": [0, 12]},
+  {"kind": "switch", "value": "mute", "text": "Mute", "look": "checkbox"},
+  {"kind": "button", "text": "Back", "on": "back"}]}}
+```
+
+Файл имён, `main/vocab.txt`: что описание может назвать и к какому C ведёт каждое имя.
+
+```text
+# table   name      C expression
+look      slider
+look      checkbox
+look      button
+value     volume    &room_volume
+value     mute      &room_mute
+style     text      &room_style
+on        back
+id        title     room_title
+```
+
+Заголовок программы, который их объявляет, `main/program.h`:
+
+```c
+/* program.h: то, к чему ведут имена vocab.txt */
+#include "dgx_ui_text.h"
+
+extern int32_t             room_volume, room_mute;
+extern dgx_ui_text_style_t room_style;
+extern int                 room_title; /* индекс надписи, записывается при добавлении дерева */
+```
+
+Две строки в `main/CMakeLists.txt` после `idf_component_register()`:
+
+```cmake
+idf_component_register(SRCS "main.c" INCLUDE_DIRS ".")
+dgx_ui_tree(sound.json NAMES vocab.txt HEADERS program.h)   # sound.c, sound.h: int sound_add(dgx_ui_t *ui, int parent)
+dgx_ui_names(vocab.txt HEADERS program.h)                   # vocab.c, vocab.h: const dgx_ui_load_names_t vocab_names
+```
+
+И программа:
+
+```c
+#include "sound.h" /* сделан при сборке программы */
+#include "vocab.h"
+
+/* то, к чему ведут имена: собственное программы */
+int32_t             room_volume = 40, room_mute;
+dgx_ui_text_style_t room_style;
+int                 room_title = -1;
+
+static dgx_ui_t      made_page;
+static dgx_ui_node_t made_nodes[8];
+
+/* страница добавлена из своих констант; false: в дереве не хватило места */
+static bool made_page_add(void)
+{
+    room_style = st_left; /* стиль текстов, какой он у программы */
+    dgx_ui_init(&made_page, made_nodes, 8, 1);
+    if (sound_add(&made_page, -1) < 0) return false;
+    dgx_ui_text_set(&made_page, room_title, "Sound of the room"); /* надпись найдена по её id */
+    return true;
+}
+
+/* та же страница из текста, пришедшего извне, по тем же именам: на время работы над страницей */
+static int made_page_load(const char *json, size_t len, void *memory, size_t size, dgx_ui_load_error_t *err)
+{
+    room_style = st_left;
+    dgx_ui_init(&made_page, made_nodes, 8, 1);
+    return dgx_ui_load(&made_page, -1, json, len, &vocab_names, memory, size, err);
+}
+```
+
+Что происходит:
+
+1. `dgx_ui_tree()` заводит правило сборки: `dgx_ui_c` читает `sound.json` и `vocab.txt` и пишет `sound.c` и
+   `sound.h` в каталог сборки компонента, а те компилируются в него. Файлы названы по файлу описания, функция —
+   по имени дерева внутри него: `sound_add()`.
+2. Инструмент читает описание самим загрузчиком, поэтому проверяет то же, что `dgx_ui_load()`: ползунок со
+   значением `"loudness"` останавливает сборку словами
+   `dgx_ui_c: …/main/sound.json: byte 210: DGX_UI_LOAD_UNKNOWN "loudness"`.
+3. `sound_add()` добавляет пять виджетов — константы во флеше — и записывает индекс надписи в `room_title`, то
+   целое, которое файл имён даёт для id `title`.
+4. `dgx_ui_names()` делает из того же файла имён таблицы, которые берёт `dgx_ui_load()`, — `vocab_names`.
+   Программе, которая только показывает готовую страницу, они не нужны; с ними то же описание загружается таким,
+   каким пришло, и инструмент принимает ровно то, что принимает загрузчик.
+
+Что стоит знать:
+
+- **Компьютеру нужен компилятор C**: инструмент собирается из исходника, один раз на проект, при сборке
+  программы. Проект, который не зовёт ни одну из двух функций, ничего не собирает и ничего от компьютера не
+  требует.
+- **Имена сделанного.** Файлы дерева названы по `PREFIX`, а без него по файлу описания; его C — по `PREFIX`, а
+  без него по имени дерева, `"name"` описания. Таблицы названы по `PREFIX`, а без него по файлу имён:
+  `vocab.txt` даёт `vocab_names`. Изменённое описание делает заново свои файлы и больше ничего.
+- **С файлом имён описание называет только то, что в нём перечислено**, как с таблицами загрузчика: имя,
+  которого в файле нет, отвергается, а id, которого в нём нет, пропускается. Облик библиотеки и действия `back`
+  и `page` пишутся в файле без выражения. Выражение — это C без пробелов.
+- **Без `NAMES`** имена превращаются в C по правилу, `"settings.volume"` становится `&settings.volume`, а то,
+  чего у программы нет, находит компилятор. Правило и страница самого инструмента:
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
+- **`HEADERS`** — заголовки программы, которые включает сделанный файл: те, что объявляют названное в выражениях.
+- **Сколько это стоит**: только само дерево. На ESP32 программа с этой страницей, переведённой на C, на 6,7 КБ
+  меньше той, что её загружает. Виджеты — константы во флеше, по 56 байт; в ОЗУ лежат узлы, как у любого
+  виджета, текстовые поля и буферы текстов, которые пишет программа.
+- **Сделанные файлы не правят**: они пишутся заново при каждом изменении описания или файла имён.
+
 ## Большие данные: сообщение по ссылке
 
 Больше 12 байт идут по ссылке. Сообщение владеет данными от отправки до того, как цикл вызовет

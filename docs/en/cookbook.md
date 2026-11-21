@@ -2257,6 +2257,122 @@ What to know of it:
   `dgx_ui_load_need()` says: here 56 bytes a widget, its node as for any widget, a text box and the text for each
   that has one. A constant tree lies in flash; a described one in RAM.
 
+## A description made C when the program is built
+
+The page of the recipe before, with no loader in the program. `dgx_ui_c`, a tool of the component that runs on the
+computer, reads the description when the program is built and writes the widgets as constants and a function that
+adds them. The description stays the source; the program carries no reader of JSON and no tables of names.
+
+The description, `main/sound.json`:
+
+```json
+{"dgx-ui": 1, "name": "sound", "tree": {"kind": "box", "flags": ["column"], "pad": 4, "gap": 4, "children": [
+  {"kind": "label", "text": "Sound", "id": "title", "text_size": 24},
+  {"kind": "slider", "value": "volume", "max": 100, "step": 5, "want": [0, 12]},
+  {"kind": "switch", "value": "mute", "text": "Mute", "look": "checkbox"},
+  {"kind": "button", "text": "Back", "on": "back"}]}}
+```
+
+The names file, `main/vocab.txt`: what a description may name, and the C each name leads to.
+
+```text
+# table   name      C expression
+look      slider
+look      checkbox
+look      button
+value     volume    &room_volume
+value     mute      &room_mute
+style     text      &room_style
+on        back
+id        title     room_title
+```
+
+The program's header that declares them, `main/program.h`:
+
+```c
+/* program.h: what the names of vocab.txt lead to */
+#include "dgx_ui_text.h"
+
+extern int32_t             room_volume, room_mute;
+extern dgx_ui_text_style_t room_style;
+extern int                 room_title; /* the label's index, written when the tree is added */
+```
+
+Two lines of `main/CMakeLists.txt`, after `idf_component_register()`:
+
+```cmake
+idf_component_register(SRCS "main.c" INCLUDE_DIRS ".")
+dgx_ui_tree(sound.json NAMES vocab.txt HEADERS program.h)   # sound.c, sound.h: int sound_add(dgx_ui_t *ui, int parent)
+dgx_ui_names(vocab.txt HEADERS program.h)                   # vocab.c, vocab.h: const dgx_ui_load_names_t vocab_names
+```
+
+And the program:
+
+```c
+#include "sound.h" /* made when the program is built */
+#include "vocab.h"
+
+/* what the names lead to: the program's own */
+int32_t             room_volume = 40, room_mute;
+dgx_ui_text_style_t room_style;
+int                 room_title = -1;
+
+static dgx_ui_t      made_page;
+static dgx_ui_node_t made_nodes[8];
+
+/* the page added from its constants; false: the tree had no room for it */
+static bool made_page_add(void)
+{
+    room_style = st_left; /* the texts' style, as the program has it */
+    dgx_ui_init(&made_page, made_nodes, 8, 1);
+    if (sound_add(&made_page, -1) < 0) return false;
+    dgx_ui_text_set(&made_page, room_title, "Sound of the room"); /* the label found by its id */
+    return true;
+}
+
+/* the same page from a text that came from outside, by the very names: for the time the page is being worked on */
+static int made_page_load(const char *json, size_t len, void *memory, size_t size, dgx_ui_load_error_t *err)
+{
+    room_style = st_left;
+    dgx_ui_init(&made_page, made_nodes, 8, 1);
+    return dgx_ui_load(&made_page, -1, json, len, &vocab_names, memory, size, err);
+}
+```
+
+What happens:
+
+1. `dgx_ui_tree()` makes a rule of the build: `sound.json` and `vocab.txt` are read by `dgx_ui_c`, and `sound.c`
+   and `sound.h` are written into the build directory of the component and compiled into it. The files are named
+   by the description's file, the function by the tree's name inside it: `sound_add()`.
+2. The tool reads the description with the loader itself, so what it checks is what `dgx_ui_load()` checks: a
+   slider whose value is `"loudness"` stops the build with
+   `dgx_ui_c: …/main/sound.json: byte 210: DGX_UI_LOAD_UNKNOWN "loudness"`.
+3. `sound_add()` adds the five widgets, constants in flash, and writes the label's index to `room_title`, the int
+   the names file gives for the id `title`.
+4. `dgx_ui_names()` makes of the same names file the tables `dgx_ui_load()` takes, `vocab_names`. A program that
+   only shows the made page does not need them; with them the same description is loaded as it comes, and what
+   the tool takes is what the loader takes.
+
+What to know of it:
+
+- **The computer needs a C compiler**, since the tool is built from its source, once for a project, when the
+  program is built. A project that calls neither function builds nothing and asks nothing of the computer.
+- **The names of what is made.** A tree's files are named by `PREFIX`, else by the description's file; its C by
+  `PREFIX`, else by the tree's name, `"name"` of the description. The tables are named by `PREFIX`, else by the
+  names file: `vocab.txt` gives `vocab_names`. A changed description makes its files again and nothing else.
+- **With a names file a description names only what the file lists**, as with the loader's tables: a name the
+  file has not is refused, and an id the file has not is passed over. A look of the library's and the actions
+  `back` and `page` go in the file with no expression. An expression is C written with no spaces.
+- **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
+  compiler finds what the program has not. The rule and the tool's own page:
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
+- **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
+- **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 6.7 KB smaller than the
+  one that loads it. The widgets are constants in flash, 56 bytes each; in RAM are the nodes, as for any widget,
+  the text boxes and the buffers of the texts the program writes.
+- **The made files are not to be edited**: they are written again whenever the description or the names file
+  changes.
+
 ## Large data: a message by reference
 
 More than 12 bytes go by reference. The message owns the data from the sending until the loop calls

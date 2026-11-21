@@ -2,8 +2,11 @@
  * dgx_ui_c: a description of dgx_ui_load.h made C. It writes the constants of the very tree dgx_ui_load() builds of the
  * description and a function that adds them, so that a program shows the tree with no loader and no tables of names.
  *
- *     dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] <description>
- *     dgx_ui_c -n <names file> [-i <header>]... [-d <directory>] -t <prefix>
+ *     dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] [-f <files' name>] <description>
+ *     dgx_ui_c -n <names file> [-i <header>]... [-d <directory>] [-f <files' name>] -t <prefix>
+ *
+ * -f names the files made when they are not to be named by the prefix: dgx_ui_tree() of project_include.cmake names
+ * them by the description's file, which CMake knows with no reading of it.
  *
  * writes <prefix>.c and <prefix>.h into the directory ('.' when none is said); the prefix, a name of C, begins all they
  * declare. It is the tree's name, "name" of the description, unless -p gives another: -p is needed when the description
@@ -106,6 +109,7 @@ static table_t     tables[TABLES], used[TABLES];
 static const char  DEFAULT_STYLE[] = "the default"; /* a space: no description names it */
 static const char *description_path, *prefix; /* with -t the names file's path, and the prefix -t gives */
 static bool        tables_mode;                /* -t: the names file alone made C, the loader's tables */
+static const char *files_name;                 /* the made files' name, -f; the prefix when none is given */
 /* the words of the first comment: what a file was made of, and, last in its first paragraph, what to change */
 static const char TREE_WORDS[] = ", a description of format ", TABLES_WORDS[] = ", a names file: ", EDIT_WORDS[] = "Not to be edited: change the ";
 static char        tree_name[24]; /* the description's "name", as the loader told it; empty: none */
@@ -189,6 +193,15 @@ static bool c_name(const char *name, bool members)
         start = false;
     }
     return !start;
+}
+
+/* a name for the made files: letters, digits, '_', '-' and '.', not first, so that no directory is named */
+static bool file_name_of_files(const char *name)
+{
+    if (!name[0] || name[0] == '.' || strlen(name) > 200) return false;
+    for (const char *p = name; *p; ++p)
+        if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_' || *p == '-' || *p == '.')) return false;
+    return true;
 }
 
 /* ---- the names file ---- */
@@ -578,13 +591,13 @@ static void out_head(out_t *o, const char *file_name)
    the program's, and one of the other kind is the tool's for another use */
 static void refuse_others_file(const char *directory, const char *suffix)
 {
-    char *path = printed("%s/%s%s", directory, prefix, suffix);
+    char *path = printed("%s/%s%s", directory, files_name, suffix);
     FILE *file = fopen(path, "rb");
     if (!file) {
         free(path);
         return;
     }
-    char        *own    = printed("/*\n * %s%s: made by dgx_ui_c from ", prefix, suffix);
+    char        *own    = printed("/*\n * %s%s: made by dgx_ui_c from ", files_name, suffix);
     const size_t length = strlen(own);
     char         head[2048];
     const size_t got = fread(head, 1, sizeof head - 1, file);
@@ -610,7 +623,7 @@ static void refuse_others_file(const char *directory, const char *suffix)
 
 static FILE *open_out(const char *directory, const char *suffix, char **path)
 {
-    *path      = printed("%s/%s%s", directory, prefix, suffix);
+    *path      = printed("%s/%s%s", directory, files_name, suffix);
     FILE *file = fopen(*path, "w");
     if (!file) fail_out("%s: %s", *path, strerror(errno));
     return file;
@@ -819,9 +832,11 @@ int main(int argc, char **argv)
         else if (strcmp(argv[arg], "-d") == 0) directory = argv[arg + 1];
         else if (strcmp(argv[arg], "-p") == 0) prefix = argv[arg + 1];
         else if (strcmp(argv[arg], "-t") == 0) tables_prefix = argv[arg + 1];
+        else if (strcmp(argv[arg], "-f") == 0) files_name = argv[arg + 1];
         else if (strcmp(argv[arg], "-i") == 0 && header_count < 16) headers[header_count++] = argv[arg + 1];
-        else fail_out("%s: not an option; -n <names file>, -i <header>, -d <directory>, -p <prefix>, -t <prefix>", argv[arg]);
+        else fail_out("%s: not an option; -n <names file>, -i <header>, -d <directory>, -p <prefix>, -t <prefix>, -f <files' name>", argv[arg]);
     }
+    if (files_name && !file_name_of_files(files_name)) fail_out("-f \"%s\" is not a name for the files: letters, digits, '_', '-' and '.', not first", files_name);
     /* -t: the names file alone, made the loader's tables */
     if (tables_prefix) {
         if (argc - arg != 0) fail_out("-t makes the tables of a names file alone: no description with it");
@@ -830,6 +845,7 @@ int main(int argc, char **argv)
         if (!c_name(tables_prefix, false)) fail_out("-t \"%s\" is not a name of C", tables_prefix);
         if (strncmp(tables_prefix, "dgx_", 4) == 0) fail_out("-t \"%s\" begins with dgx_, as the libraries' names and headers do", tables_prefix);
         tables_mode = true, prefix = tables_prefix, description_path = names_path;
+        if (!files_name) files_name = prefix;
         names_file_read(names_path);
         refuse_others_file(directory, ".c");
         refuse_others_file(directory, ".h");
@@ -837,8 +853,8 @@ int main(int argc, char **argv)
         return 0;
     }
     if (argc - arg != 1)
-        fail_out("dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] <description>, or -t <prefix> for the tables of the "
-                 "names file");
+        fail_out("dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] [-f <files' name>] <description>, or -t <prefix> for the "
+                 "tables of the names file");
     description_path = argv[arg];
     if (prefix && !c_name(prefix, false)) fail_out("-p \"%s\" is not a name of C", prefix);
     if (prefix && strncmp(prefix, "dgx_", 4) == 0) fail_out("-p \"%s\" begins with dgx_, as the libraries' names and headers do", prefix);
@@ -865,11 +881,15 @@ int main(int argc, char **argv)
     }
     /* the prefix: the command's, else the tree's name, which must then be of C */
     memcpy(tree_name, need.name, sizeof tree_name);
-    if (!prefix && !tree_name[0]) fail_out("%s: the description has no \"name\": give the tree one there, or a prefix with -p", description_path);
-    if (!prefix && !c_name(tree_name, false)) fail_out("%s: the name \"%s\" is not a name of C: give the tree a prefix of C with -p", description_path, tree_name);
+    if (!prefix && !tree_name[0])
+        fail_out("%s: the description has no \"name\": give the tree one there, or a prefix with -p (PREFIX of dgx_ui_tree())", description_path);
+    if (!prefix && !c_name(tree_name, false))
+        fail_out("%s: the name \"%s\" is not a name of C: give the tree a prefix of C with -p (PREFIX of dgx_ui_tree())", description_path, tree_name);
     if (!prefix && strncmp(tree_name, "dgx_", 4) == 0)
-        fail_out("%s: the name \"%s\" begins with dgx_, as the libraries' names and headers do: give the tree a prefix with -p", description_path, tree_name);
+        fail_out("%s: the name \"%s\" begins with dgx_, as the libraries' names and headers do: give the tree a prefix with -p (PREFIX of dgx_ui_tree())",
+                 description_path, tree_name);
     if (!prefix) prefix = tree_name;
+    if (!files_name) files_name = prefix;
     /* a name the rule made must be of C */
     for (int table = 0; table < TABLES; ++table)
         for (int k = 0; k < tables[table].count; ++k) {

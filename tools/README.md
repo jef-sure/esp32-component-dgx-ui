@@ -7,24 +7,39 @@ with no loader and no tables of names, and the description stays the source: it 
 From a names file, the program's vocabulary, it also writes the tables of names `dgx_ui_load()` takes, so a program
 that loads descriptions and one that has them made C read the same names from one place.
 
-The tool is a program of the computer. It is not part of the component's package, and nothing of it goes on a chip.
+The tool is a program of the computer. It comes in the component's package as source and is built on the computer;
+nothing of it goes on a chip.
+
+## From CMake
+
+A program built by ESP-IDF does not run the tool itself. Two calls in the CMakeLists of a component, after
+`idf_component_register()`, build it once for the project and run it when the program is built:
+
+```cmake
+dgx_ui_tree(sound.json NAMES vocab.txt HEADERS program.h)   # sound.c, sound.h: int sound_add(dgx_ui_t *ui, int parent)
+dgx_ui_names(vocab.txt HEADERS program.h)                   # vocab.c, vocab.h: const dgx_ui_load_names_t vocab_names
+```
+
+The calls are in the API reference, [project_include.cmake](../docs/en/api.md#project_includecmake), and the
+cookbook has [a recipe](../docs/en/cookbook.md#a-description-made-c-when-the-program-is-built). The rest of this
+page is the tool as the calls run it, and as it is run by hand.
 
 ## Build
 
 ```sh
-make -C tools                      # tools/build/dgx_ui_c
-make -C tools DGX=<path to DGX>    # another copy of DGX
+python3 tools/dgx_ui_c.py <path to DGX> <directory>    # <directory>/dgx_ui_c: the one way it is built
+make -C tools                                          # the same into tools/build, DGX found as the host tests find it
 ```
 
-DGX is taken as the host tests take it: from the managed components of the project dgx-ui sits in, else from a
-checkout beside dgx-ui's (`../esp32-component-dgx`). It needs a C compiler of the computer; the library's looks are
-read from `include/dgx_ui_paint.h` when it is built.
+The tool is `tools/dgx_ui_c.c` and six sources of the library, compiled against dgx-ui's headers and DGX's
+`include/` and `host/stubs/`: no source of DGX, no library but C's. The compiler is the computer's: `$CC` unless it
+is a chip's, else `cc`. The library's looks are read from `include/dgx_ui_paint.h` when it is built.
 
 ## Use
 
 ```sh
-tools/build/dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] <description>
-tools/build/dgx_ui_c -n <names file> [-i <header>]... [-d <directory>] -t <prefix>
+tools/build/dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] [-f <files' name>] <description>
+tools/build/dgx_ui_c -n <names file> [-i <header>]... [-d <directory>] [-f <files' name>] -t <prefix>
 ```
 
 The first makes a tree C, the second the loader's tables of a names file,
@@ -35,7 +50,9 @@ name of C, begins all the files declare. It is the tree's name, the `"name"` of 
 `"name": "settings"` gives `settings.c`, `settings.h` and `settings_add()`. `-p` gives another prefix, and is needed
 when the description has no name, or one that is not a name of C, `"wifi-setup"`; the files then say both names in
 their first lines. A prefix may not begin with `dgx_`, as the libraries' names and headers do. `-i` names a header
-of the program the `.c` includes, the one that declares what the names lead to.
+of the program the `.c` includes, the one that declares what the names lead to. `-f` names the two files when they
+are not to be named by the prefix: `dgx_ui_tree()` names them by the description's file, which CMake knows without
+reading it, and leaves the prefix to the tree's name.
 
 A file that is already there is written over only when the tool made it, and made it of the same kind of source, by
 its first lines: a tree named `main` beside the program's `main.c` is refused, and so is a tree over the tables of

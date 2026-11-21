@@ -11,16 +11,20 @@ python3 test/docs/check_docs.py <DGX> <DGX-DI> <build dir>
 It checks that:
 
 - the C code of every page compiles against `include/`, with the stubs of `test/docs/stubs` for FreeRTOS;
-- every `dgx_ui_` and `DGX_UI_` name a page prints is in a header;
-- the API pages name every public function, type and constant of the headers;
+- the files the cookbook prints for its recipe of a description made C, the description, the names file and the
+  program's header, are made C by `dgx_ui_c` itself, built here by `tools/dgx_ui_c.py`, and what it makes compiles;
+- every `dgx_ui_` and `DGX_UI_` name a page prints is in a header or in `project_include.cmake`;
+- the API pages name every public function, type and constant of the headers and every call of
+  `project_include.cmake`;
 - the links between the pages lead to files that are there;
 - a number a page writes beside the name of a constant, as in "`DGX_UI_POPUP_DEPTH`, 8", is the header's value.
 
 The code blocks of a page, in their order, are one file of C: a block is whole declarations and functions, and the
 Russian pages hold the same blocks as the English ones.
 
-`run_cookbook.c` runs the recipes of the cookbook with the program's own functions stubbed; given a directory, it also
-draws there the pictures of the ring scale, `ring.ppm` and `ring-layout.ppm`, by the very code of the page.
+`run_cookbook.c` runs the recipes of the cookbook with the program's own functions stubbed, the made files of that
+recipe compiled in: the tree its function adds is held against the one loaded of the same file. Given a directory,
+it also draws there the pictures of the ring scale, `ring.ppm` and `ring-layout.ppm`, by the very code of the page.
 
 ```sh
 make -C test/host -f ../docs/run.mk run-cookbook            # the checker, then the recipes run

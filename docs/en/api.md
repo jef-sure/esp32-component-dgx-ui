@@ -18,8 +18,9 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_load.h`](#dgx_ui_loadh) | a tree made from a description in JSON |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
+| [`project_include.cmake`](#project_includecmake) | two calls of CMake: a description made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.40: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.41: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1530,6 +1531,73 @@ about when there is one:
 
 A program that loads a description carries about 7 KB more, 2 KB of it the reader of JSON; one that does not,
 nothing.
+
+## project_include.cmake
+
+Two calls for the `CMakeLists.txt` of a component, the program's `main` among them, after `idf_component_register()`;
+written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description C when the program is
+built, by `dgx_ui_c`, the component's tool that runs on the computer.
+A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
+
+```cmake
+dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [HEADERS <header>...])
+dgx_ui_names(<names file> [PREFIX <prefix>] [HEADERS <header>...])
+```
+
+| Call | What it makes |
+| ---- | ------------- |
+| `dgx_ui_tree()` | The description's tree as constants, and `int <prefix>_add(dgx_ui_t *ui, int parent)`: the tree added under `parent`, -1 as the tree's root; the index of its top widget, or -1 when the tree had no room for it and what was added is removed. Two files, named by `PREFIX`, else by the description's file: `sound.json` gives `sound.c` and `sound.h`. The prefix of the C is `PREFIX`, else the tree's name, `"name"` of the description. |
+| `dgx_ui_names()` | The tables of `dgx_ui_load.h` of a names file, `const dgx_ui_load_names_t <prefix>_names`, declared by `<prefix>.h`. The prefix, and the files' name, is `PREFIX`, else the names file's own name: `vocab.txt` gives `vocab_names`. |
+
+**Where the files go.** Into `dgx_ui_made` of the build directory of the component that calls. The `.c` is compiled
+into that component, and the directory is on the component's own include path, with the directory of each header
+`HEADERS` names. Paths are taken from the CMakeLists that gives them. A changed description, or names file, makes its
+files again when the program is built next, with no new configure.
+
+**`HEADERS`** are headers of the program the made `.c` includes: those that declare what the names lead to.
+
+**`NAMES`** is the names file: what a description may name, and the C each name leads to. A line is a name: the
+table, the name and a C expression written with no spaces; `#` to the end of a line is a comment.
+
+```text
+look      slider                          # a look of the library's goes with no expression
+look      tall       &tall_slider
+value     volume     &settings.volume
+picture   dots       dots            2
+style     text       &text_style          # the first style: the one of a text that names none
+on        step       on_step         number   # its ctx may be a number
+on        back                            # so do the actions back and page
+take      co2        take_co2
+ctx       settings   &settings_page
+id        title      title_index          # an int of the program's
+```
+
+The tables are `look`, `value`, `picture`, `style`, `on`, `take`, `ctx` and `id`, as the tables of
+`dgx_ui_load_names_t`. A picture's line may end with the count of pictures there, 1 when none is said; a handler's
+with the word `number`, when it takes its ctx for a number. The expression of an id is an int of the program's, which
+the made function writes the widget's index to; the others are constant expressions. A table has at most 65535
+names, the ids' `DGX_UI_LOAD_IDS`.
+
+With a names file a description names only what the file lists, as with the tables of `dgx_ui_load()`: a name the
+file has not is refused, a table it does not name is empty, and an id it has not is passed over. So what the tool
+takes of a description with `NAMES` is what the loader takes of it on the tables `dgx_ui_names()` makes of the same
+file, the same tree, or the same error at the same byte. With no `NAMES` the names are taken for C by a rule,
+`"settings.volume"` for `&settings.volume`, and the made header declares an int for each id, `<prefix>_<id>`, and
+the style of the texts that name none, `<prefix>_style`, which the program defines; the rule is on the tool's page.
+
+**The tool** comes in the component as source and is built once for a project by the computer's C compiler: `$CC`
+unless it is a chip's, else `cc`. A project that makes neither call builds nothing and needs nothing of the computer.
+
+**Refused when the project is configured**, in words that name the call: two calls of a component that would make
+the same files; a prefix said twice in the project, for two of it would collide at link; a `PREFIX` that is not a
+name of C, or that begins with `dgx_`; a names file whose own name is not a name of C, with no `PREFIX`; a
+description's file whose name no made file may have, with no `PREFIX`; a word that is none of the three.
+
+**Refused when the program is built**, in the tool's words: a description the loader refuses, with the loader's
+code, the byte and the name,
+`dgx_ui_c: …/main/sound.json: byte 210: DGX_UI_LOAD_UNKNOWN "loudness"`; a tree with no name, or one that is not a
+name of C, with no `PREFIX`; a wrong line of the names file, with its number.
 
 ## dgx_ui_di.h
 

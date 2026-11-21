@@ -2,14 +2,17 @@
 """Checks of the documentation of dgx-ui. Run: python3 test/docs/check_docs.py [DGX [DGX-DI [build dir]]]
 
  the C code of the pages compiles against the headers, every dgx_ui name a
-page prints is in a header, every public name of the headers is in the API page, the links between pages lead
-to files that are there, and a number a page writes beside the name of a constant is the header's value."""
+page prints is in a header or in project_include.cmake, every public name of the headers and every call of
+project_include.cmake is in the API page, the links between pages lead to files that are there, and a number a page
+writes beside the name of a constant is the header's value. The files the cookbook prints for its recipe of a
+description made C (the description, the names file, the program's header) are made C by dgx_ui_c itself, built here
+by tools/dgx_ui_c.py, and what it makes is compiled beside the page's code."""
 import os, re, subprocess, sys
 here = os.path.dirname(os.path.abspath(__file__))
 repo = os.path.normpath(os.path.join(here, '..', '..'))
 dgx = sys.argv[1] if len(sys.argv) > 1 else os.path.join(repo, '..', 'esp32-component-dgx')
 dgx_di = sys.argv[2] if len(sys.argv) > 2 else os.path.join(repo, '..', 'esp32-component-dgx-di')
-build = sys.argv[3] if len(sys.argv) > 3 else os.path.join(here, 'build')
+build = os.path.abspath(sys.argv[3] if len(sys.argv) > 3 else os.path.join(here, 'build'))  # the tool is run from other directories
 os.makedirs(build, exist_ok=True)
 PRELUDE = {
     'README': '#include "dgx_ui_paint.h"\n#include "dgx_ui_post.h"\n#include "dgx_ui_text.h"\n#include "esp_timer.h"\n#include "freertos/task.h"\nint read_co2(void);\n',
@@ -23,6 +26,42 @@ for lang in ('en', 'ru'):
         pages.append((name, f'docs/{lang}/{name}.md'))
 headers = ''.join(open(os.path.join(repo, 'include', h)).read() for h in sorted(os.listdir(os.path.join(repo, 'include'))))
 known = set(re.findall(r'\b(?:dgx_ui_[a-z0-9_]+|DGX_UI_[A-Z0-9_]+)\b', headers))
+# the calls of project_include.cmake, the tool they run and the directory it writes to are names a page may print too
+cmake = open(os.path.join(repo, 'project_include.cmake')).read()
+known |= set(re.findall(r'\bdgx_ui_[a-z0-9_]+\b', cmake))
+cmake_calls = set(re.findall(r'^function\((dgx_ui_[a-z0-9_]+)', cmake, re.M))
+CC = ['cc', '-std=gnu11', '-fsyntax-only', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-unused-function', '-Wno-unused-variable',
+      '-Wno-unused-but-set-variable', '-Wno-missing-field-initializers', '-Werror=implicit-function-declaration', '-Werror=incompatible-pointer-types',
+      '-DDGX_HOST_WINDOW', f'-I{here}/stubs', f'-I{repo}/include', f'-I{dgx}/include', f'-I{dgx}/host/stubs', f'-I{dgx}/host/window', f'-I{dgx_di}/include',
+      '-include', f'{dgx}/host/stubs/esp_log.h']
+MADE_FILES = {'sound.json': r'^```json\n(\{"dgx-ui".*?)^```', 'vocab.txt': r'^```text\n(# table.*?)^```', 'program.h': r'^```c\n(/\* program\.h.*?)^```'}
+
+
+def made_of(text, rel):
+    """The files a cookbook prints for its recipe of a description made C, written into a directory of the page's
+    language and made C there by the tool: sound.c and sound.h of the description, vocab.c and vocab.h of the names
+    file. Returns the directory and what went wrong, a list of lines."""
+    where = os.path.join(build, 'made_' + rel.split('/')[1])
+    os.makedirs(where, exist_ok=True)
+    for name, pattern in MADE_FILES.items():
+        found = re.findall(pattern, text, re.S | re.M)
+        if len(found) != 1:
+            return where, [f'the recipe of a description made C prints {name} {len(found)} times, not once']
+        open(os.path.join(where, name), 'w').write(found[0])
+    tool_dir = os.path.join(build, 'tool')
+    built = subprocess.run([sys.executable, os.path.join(repo, 'tools', 'dgx_ui_c.py'), dgx, tool_dir], capture_output=True, text=True)
+    if built.returncode:
+        return where, built.stderr.splitlines()[:6]
+    tool = os.path.join(tool_dir, 'dgx_ui_c')
+    said = []
+    for arguments in (['-f', 'sound', 'sound.json'], ['-t', 'vocab']):  # as dgx_ui_tree() and dgx_ui_names() run it
+        run = subprocess.run([tool, '-n', 'vocab.txt', '-i', 'program.h', '-d', '.'] + arguments, capture_output=True, text=True, cwd=where)
+        said += run.stderr.splitlines()[:4] if run.returncode else []
+    if not said:
+        for made in ('sound.c', 'vocab.c'):
+            run = subprocess.run(CC + [f'-I{where}', os.path.join(where, made)], capture_output=True, text=True)
+            said += [line for line in run.stderr.splitlines() if 'error' in line or 'warning' in line][:4]
+    return where, said
 # the constants that are a plain number, DGX_UI_BLOCK = 64; a flag, 1u << 3, is not one
 values = {name: int(number, 0) for name, number in re.findall(r'\b(DGX_UI_[A-Z0-9_]+)\s*=\s*(0x[0-9a-fA-F]+|\d+)\b(?!u?\s*<<)', headers)}
 values.update({name: int(number, 0)
@@ -40,12 +79,9 @@ for kind, rel in pages:
         src = (PRELUDE[kind] or '') + '\n'.join(blocks)
         out = os.path.join(build, rel.replace('/', '_') + '.c')
         open(out, 'w').write(src)
-        cmd = ['cc', '-std=gnu11', '-fsyntax-only', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-unused-function', '-Wno-unused-variable',
-               '-Wno-unused-but-set-variable', '-Wno-missing-field-initializers', '-Werror=implicit-function-declaration', '-Werror=incompatible-pointer-types',
-               '-DDGX_HOST_WINDOW', f'-I{here}/stubs', f'-I{repo}/include', f'-I{dgx}/include', f'-I{dgx}/host/stubs', f'-I{dgx}/host/window', f'-I{dgx_di}/include',
-               '-include', f'{dgx}/host/stubs/esp_log.h', out]
-        r = subprocess.run(cmd, capture_output=True, text=True)
-        msgs = [l for l in r.stderr.splitlines() if 'error' in l or 'warning' in l]
+        made_dir, made_said = made_of(text, rel) if kind == 'cookbook' else (None, [])
+        r = subprocess.run(CC + ([f'-I{made_dir}'] if made_dir else []) + [out], capture_output=True, text=True)
+        msgs = ['dgx_ui_c: ' + line for line in made_said] + [l for l in r.stderr.splitlines() if 'error' in l or 'warning' in l]
         print(f'{"ok  " if r.returncode == 0 and not msgs else "FAIL"} {rel}: {len(blocks)} blocks of C' + ''.join('\n     ' + m[-200:] for m in msgs[:12]))
         ok &= r.returncode == 0 and not msgs
     # 2. the names
@@ -67,7 +103,7 @@ for kind, rel in pages:
             print(f'     line {line}: {name} is {values[name]} in the header, the page says {number}'); ok = False
     # 5. the API page names everything public
     if kind == 'api':
-        public = set(re.findall(r'^(?:[a-z_0-9 ]+[ \*])?(dgx_ui_[a-z0-9_]+)\(', headers, re.M)) | set(re.findall(r'\b(DGX_UI_[A-Z0-9_]+)\b', headers)) \
+        public = cmake_calls | set(re.findall(r'^(?:[a-z_0-9 ]+[ \*])?(dgx_ui_[a-z0-9_]+)\(', headers, re.M)) | set(re.findall(r'\b(DGX_UI_[A-Z0-9_]+)\b', headers)) \
                  | set(re.findall(r'\}\s*(dgx_ui_[a-z0-9_]+_t);', headers)) | set(re.findall(r'extern const dgx_ui_look_t ([^;]+);', headers) and
                    [n.strip() for group in re.findall(r'extern const dgx_ui_look_t ([^;]+);', headers) for n in group.split(',')])
         missing = sorted(n for n in public - used if n not in ('DGX_UI_STATIC_ASSERT', 'DGX_UI_DI_ASSERT') and not n.endswith('_'))

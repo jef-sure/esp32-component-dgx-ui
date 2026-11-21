@@ -38,7 +38,7 @@ $(BUILD)/test_msg: test_msg.c check.h $(CORE) $(wildcard $(ROOT)/include/*.h)
 
 # the painter draws with DGX: its sources and its stubs of ESP-IDF, as DGX gives them (host/dgx_host.mk)
 PAINT     := $(CORE) $(ROOT)/src/dgx_ui_paint.c $(ROOT)/src/dgx_ui_looks.c $(ROOT)/src/dgx_ui_text_look.c $(ROOT)/src/dgx_ui_lines_look.c \
-             $(addprefix $(ROOT)/src/, dgx_ui_button_look.c dgx_ui_picture_button_look.c dgx_ui_input_look.c dgx_ui_control_looks.c dgx_ui_check_looks.c dgx_ui_level_look.c dgx_ui_ring_look.c dgx_ui_list_look.c dgx_ui_dropdown_look.c dgx_ui_dropdown.c dgx_ui_picture_look.c dgx_ui_rgb565_look.c dgx_ui_indexed_look.c dgx_ui_strips.c dgx_ui_background.c dgx_ui_canvas.c dgx_ui_hand.c dgx_ui_hand_canvas.c dgx_ui_changed.c dgx_ui_page.c dgx_ui_transition.c dgx_ui_hand_lines.c dgx_ui_idle.c dgx_ui_load.c dgx_ui_json.c)
+             $(addprefix $(ROOT)/src/, dgx_ui_button_look.c dgx_ui_picture_button_look.c dgx_ui_input_look.c dgx_ui_control_looks.c dgx_ui_check_looks.c dgx_ui_level_look.c dgx_ui_ring_look.c dgx_ui_list_look.c dgx_ui_dropdown_look.c dgx_ui_dropdown.c dgx_ui_picture_look.c dgx_ui_rgb565_look.c dgx_ui_indexed_look.c dgx_ui_strips.c dgx_ui_background.c dgx_ui_canvas.c dgx_ui_hand.c dgx_ui_hand_canvas.c dgx_ui_changed.c dgx_ui_page.c dgx_ui_transition.c dgx_ui_hand_lines.c dgx_ui_idle.c dgx_ui_load.c dgx_ui_load_actions.c dgx_ui_json.c)
 DGX_SRCS  := $(DGX_HOST_SRCS_SCREEN) $(DGX_HOST_SRCS_DRAW) $(DGX_HOST_SRCS_VSCREEN) $(DGX_HOST_SRCS_TEXT) $(DGX_HOST_SRCS_MORPH) \
              $(DGX_HOST_SRCS_FB) $(DGX_ROOT)/src/fonts/TerminusTTFMedium12.c $(DGX_ROOT)/src/fonts/DejaVuSansBook32.c
 DGX_FLAGS := -I$(DGX)/src -Wno-format -Wno-sign-compare
@@ -194,10 +194,10 @@ $(BUILD)/test_idle $(BUILD)/test_idle18: $(BUILD)/test_idle%: test_idle.c check.
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -DPANEL_BITS=$(or $*,16) -o $@ test_idle.c $(PAINT) $(DGX_SRCS) -lm
 
-# dgx_ui_c against the loader (test_generate.py): the tool built by tools/Makefile into this build, the files it makes
-# compiled with test_generate.c in one go
-$(BUILD)/tools/dgx_ui_c: $(ROOT)/tools/dgx_ui_c.c $(ROOT)/tools/Makefile $(PAINT) $(wildcard $(ROOT)/include/*.h)
-	$(MAKE) -C $(ROOT)/tools DGX=$(abspath $(DGX)) BUILD=$(abspath $(BUILD))/tools
+# dgx_ui_c against the loader (test_generate.py): the tool built into this build by tools/dgx_ui_c.py, the one way it
+# is built, as the package's rule builds it; the files it makes compiled with test_generate.c in one go
+$(BUILD)/tools/dgx_ui_c: $(ROOT)/tools/dgx_ui_c.c $(ROOT)/tools/dgx_ui_c.py $(PAINT) $(wildcard $(ROOT)/include/*.h) $(wildcard $(ROOT)/src/*.h)
+	python3 $(ROOT)/tools/dgx_ui_c.py $(abspath $(DGX)) $(abspath $(BUILD))/tools
 
 run-test_generate: $(BUILD)/tools/dgx_ui_c test_generate.c test_generate.py generate_program.h check.h
 	timeout 900 python3 test_generate.py $(BUILD)/tools/dgx_ui_c $(BUILD)/generate $(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) \
