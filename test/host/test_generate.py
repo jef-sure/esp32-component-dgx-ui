@@ -15,7 +15,10 @@ take, a switch of one picture, an id twice, a kind unknown, an icon past its pic
 the description or by -p; texts in buffers of several sizes, none buffered, none at all; the descriptions test_load
 refuses, with -p and without; a name the rule cannot make C, a names file that is wrong, a names file of one table;
 the prefix, the tree's name or -p's, and the names the tool makes itself refused as ids and as the lead of a name; a
-file of the program's not written over, one the tool made written again; a prefix of the libraries' refused.
+file of the program's not written over, one the tool made written again, one of the other kind refused; a prefix of the
+libraries' refused. The loader's tables made of the names file by -t (some of its lines the library's words with no
+expression) are compiled into test_generate.c with the cases, and so are those of a file of two tables, whose cases are
+made and loaded on its tables alone; the made header is read by C++; the refusals of -t and of the names file's limits.
 """
 import json
 import os
@@ -55,7 +58,27 @@ names_path = os.path.join(work, "names.txt")
 with open(names_path, "w") as out:
     out.write("# the program of test_generate.c: a table, a name, its C, a count of pictures or \"number\"\n")
     for table, name, c, word in VOCABULARY:
+        # a look of the library's every other one, and back, by the word alone
+        if (table == "look" and name in LIBRARY_LOOKS and LIBRARY_LOOKS.index(name) % 2 == 0) or (table, name) == ("on", "back"):
+            c = ""
         out.write(f"{table:8} {name:15} {c:30} {word}\n".rstrip() + "\n")
+# a names file of two tables: the cases made by it are loaded on its tables alone
+partial_path = os.path.join(work, "partial.txt")
+with open(partial_path, "w") as out:
+    out.write("look slider\nvalue volume &volume\n")
+PARTIAL = {"partial_slider", "partial_unknown_on", "partial_no_style", "partial_no_look"}
+
+
+def make_tables(names, prefix, *options):
+    """dgx_ui_c -t: the loader's tables of a names file"""
+    run = subprocess.run([tool, "-n", names, "-i", "generate_program.h", "-d", work, *options, "-t", prefix], capture_output=True, text=True, timeout=30)
+    return run.returncode, run.stderr.strip()
+
+
+for names, prefix in [(names_path, "program"), (partial_path, "partial")]:
+    status, said = make_tables(names, prefix)
+    if status:
+        sys.exit(f"test_generate.py: the tables of {names} not made: {said}")
 
 
 def names_of(table, rule):
@@ -264,6 +287,11 @@ cases += [
      True, []),
     ("textless", '{"dgx-ui": 1, "tree": {"kind": "box", "children": [{"kind": "slider", "value": "volume", "max": 9}]}}', True, []),
     ("over_name", '{"dgx-ui": 1, "name": "my-page", "tree": {"kind": "label", "text": "x", "id": "title"}}', True, ["title"]),
+    # by the file of two tables: an id with no table passed over; a handler, a style, a look the file has not
+    ("partial_slider", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "volume", "max": 9, "id": "title"}}', False, []),
+    ("partial_unknown_on", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "volume", "on": "saved"}}', False, []),
+    ("partial_no_style", '{"dgx-ui": 1, "tree": {"kind": "label", "text": "x"}}', False, []),
+    ("partial_no_look", '{"dgx-ui": 1, "tree": {"kind": "button"}}', False, []),
 ]
 REFUSED = [
     '{"dgx-ui": 2, "tree": {"kind": "box"}}',
@@ -340,7 +368,7 @@ LOADER_SAID = r": byte (-?\d+): (DGX_UI_LOAD_[A-Z_]+)(?: \"(.*)\")?$"
 
 taken, refused = [], []
 for name, text, rule, used in cases:
-    status, said = run_tool(name, text, rule)
+    status, said = run_tool(name, text, rule, partial_path if name in PARTIAL else None)
     if status == 0:
         taken.append((name, text, rule, used))
         continue
@@ -350,7 +378,7 @@ for name, text, rule, used in cases:
         continue
     refused.append((name, text, codes.index(found.group(2)), int(found.group(1)), found.group(3) or ""))
     # the loader's verdict first: with no prefix given, whatever the name, the same
-    bare_status, bare_said = run_tool(name + "_bare", text, rule, prefix="")
+    bare_status, bare_said = run_tool(name + "_bare", text, rule, partial_path if name in PARTIAL else None, prefix="")
     bare = re.search(LOADER_SAID, bare_said)
     if not bare or bare.groups() != found.groups():
         failures.append(f"{name}: with no -p dgx_ui_c said {bare_said}, with -p {said}")
@@ -358,6 +386,8 @@ if not any(name.startswith("refused") for name, *_ in refused) or sum(1 for name
     failures.append(f"too few refusals: {[name for name, *_ in refused]}")
 if len([1 for name, *_ in taken if name.startswith("chance_names")]) < 50:
     failures.append("too few trees by chance taken")
+if [name for name, *_ in taken if name in PARTIAL] != ["partial_slider"] or {name for name, *_ in refused if name in PARTIAL} != PARTIAL - {"partial_slider"}:
+    failures.append("the cases of the file of two tables not taken and refused as they should be")
 
 
 def c_literal(text):
@@ -398,7 +428,7 @@ if 'its tree "my-page" named over_name in C' not in made_text("over_name", ".c")
 
 # ---- the program ----
 with open(os.path.join(work, "cases.h"), "w") as out:
-    out.write("/* the cases of test_generate.py: made by it */\n")
+    out.write("/* the cases of test_generate.py: made by it */\n#include \"program.h\"\n#include \"partial.h\"\n")
     for name, *_ in taken:
         out.write(f'#include "{name}.h"\n')
     for name, text, rule, used in taken:
@@ -407,13 +437,15 @@ with open(os.path.join(work, "cases.h"), "w") as out:
     out.write("static const generate_case_t cases[] = {\n")
     for name, text, rule, used in taken:
         rule_ids = ", ".join(f"&{name}_{i}" if rule and i in used else "NULL" for i in IDS)
-        out.write(f"    {{\"{name}\", {c_literal(text)}, {name}_add, {('&' + name + '_style') if rule else 'NULL'}, {{{rule_ids}}}}},\n")
+        tables = "&partial_names" if name in PARTIAL else "NULL"
+        out.write(f"    {{\"{name}\", {c_literal(text)}, {name}_add, {('&' + name + '_style') if rule else 'NULL'}, {{{rule_ids}}}, {tables}}},\n")
     out.write("};\nstatic const generate_refusal_t refusals[] = {\n")
     for name, text, *_ in refused:
-        out.write(f'    {{"{name}", {c_literal(text)}}},\n')
+        tables = "&partial_names" if name in PARTIAL else "NULL"
+        out.write(f'    {{"{name}", {c_literal(text)}, {tables}}},\n')
     out.write("};\n")
 program = os.path.join(work, "test_generate")
-made_files = [os.path.join(work, name + ".c") for name, *_ in taken]
+made_files = [os.path.join(work, name + ".c") for name, *_ in taken] + [os.path.join(work, "program.c"), os.path.join(work, "partial.c")]
 built = subprocess.run(compile_command + ["-I" + work, "-I" + here, "-o", program] + made_files, capture_output=True, text=True, timeout=600)
 if built.returncode:
     print(built.stderr[:6000], file=sys.stderr)
@@ -428,6 +460,19 @@ for name, text, code, offset, error_name in refused:
     if loader != f'{code} {offset} "{error_name}"':
         failures.append(f"{name}: dgx_ui_c said {codes[code]} at {offset} \"{error_name}\", the loader {loader}")
 
+# the made header read by C++
+cxx_flags, take_next = [], False
+for word in compile_command:
+    if take_next or word.startswith("-I") or word.startswith("-D"):
+        cxx_flags.append(word)
+    take_next = word == "-include"
+    if take_next:
+        cxx_flags.append(word)
+cxx = subprocess.run(["c++", "-x", "c++", "-fsyntax-only", "-Wall", "-Wextra", *cxx_flags, "-I" + work, os.path.join(work, "program.h")],
+                     capture_output=True, text=True, timeout=120)
+if cxx.returncode:
+    failures.append(f"program.h read by C++: {cxx.stderr[:2000]}")
+
 # ---- what dgx_ui_c alone refuses: a name the rule cannot make C, a names file that is wrong; one of one table ----
 status, said = run_tool("dash", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "my-volume"}}', True)
 if status == 0 or 'the value "my-volume" is not a name of C' not in said or "byte 50" not in said:
@@ -437,7 +482,11 @@ if status == 0 or 'the id "a.b" is not a name of C' not in said:
     failures.append(f"an id with '.' by the rule: {status} {said}")
 wrong_names = os.path.join(work, "wrong_names.txt")
 for line, expect in [("colour red &red", 'no table "colour"'), ("value volume &volume 3", '"3" means nothing for a value'),
-                     ("picture dots dots 0", "not a count of pictures"), ("value vol-ume", "a value with no name or no C expression"),
+                     ("picture dots dots 0", "not a count of pictures"),
+                     ("value vol-ume", 'the value "vol-ume" with no C expression: only a look of the library\'s and the actions back and page go without one'),
+                     ("look mine", 'the look "mine" with no C expression'), ("on saved", 'the on "saved" with no C expression'), ("look", "a look with no name"),
+                     ("value v &a + 1", "more than a table, a name, an expression and a word: an expression is written with no spaces"),
+                     ("value v &a +", '"+" means nothing for a value: an expression is written with no spaces'),
                      ("value volume &a\nvalue volume &b", 'the value "volume" twice'), ("value vol%ume &a", "not a name a description may have")]:
     with open(wrong_names, "w") as out:
         out.write(line + "\n")
@@ -448,12 +497,30 @@ one_table = os.path.join(work, "one_table.txt")
 with open(one_table, "w") as out:
     out.write("value loudness &volume\n")
 status, said = run_tool("one_table", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "loudness"}}', False, one_table)
-head, _, body = made_text("one_table", ".c").partition("*/")
-if status or "look, picture, style, on, take, ctx, id" not in head.replace("\n *", "") or ".value = &volume" not in body:
-    failures.append(f"a names file of one table: {status} {said}")
+if status == 0 or "DGX_UI_LOAD_NO_LOOK" not in said:
+    failures.append(f"a names file of one table, no look in it: {status} {said}")
 status, said = run_tool("one_table_unknown", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "volume"}}', False, one_table)
 if status == 0 or 'DGX_UI_LOAD_UNKNOWN "volume"' not in said:
     failures.append(f"a name the file's table has not: {status} {said}")
+
+# the limits of a table, at the line past them
+many = os.path.join(work, "many.txt")
+for lines, expect in [([f"value v{k} &volume" for k in range(65536)], ":65536: a value past the 65535 a table may have"),
+                      ([f"id i{k} title_index" for k in range(257)], ":257: an id past the 256 a table may have")]:
+    with open(many, "w") as out:
+        out.write("\n".join(lines) + "\n")
+    status, said = make_tables(many, "many")
+    if status == 0 or many + expect not in said:
+        failures.append(f"the limit {expect}: {status} {said[:300]}")
+# -t's refusals
+for options, expect in [(["-t", "tabled", os.path.join(work, "every_rule.json")], "-t makes the tables of a names file alone: no description with it"),
+                        (["-n", names_path, "-p", "page", "-t", "tabled"], "-t names the tables' prefix: no -p with it"),
+                        (["-t", "tabled"], "-t wants the names file, -n <names file>"),
+                        (["-n", names_path, "-t", "1x"], '-t "1x" is not a name of C'),
+                        (["-n", names_path, "-t", "dgx_x"], '-t "dgx_x" begins with dgx_')]:
+    run = subprocess.run([tool, "-d", work, *options], capture_output=True, text=True, timeout=30)
+    if run.returncode == 0 or expect not in run.stderr:
+        failures.append(f"dgx_ui_c {' '.join(options)}: {run.returncode} {run.stderr.strip()}")
 
 # ---- the prefix: the tree's name, else -p; a name the rule makes that is the tool's own ----
 for text, prefix, expect in [
@@ -511,10 +578,11 @@ def file_text(path):
 
 own = os.path.join(work, "own")
 os.makedirs(own, exist_ok=True)
-for leftover in ["main.c", "main.h", "page.c", "page.h", "again.c", "again.h", "other.c", "other.h"]:
+for leftover in ["main.c", "main.h", "page.c", "page.h", "again.c", "again.h", "other.c", "other.h", "edited.c", "edited.h"]:
     if os.path.exists(os.path.join(own, leftover)):
         os.remove(os.path.join(own, leftover))
-PROGRAM_C, PROGRAM_H = "int main(void)\n{\n    return 0;\n}\n", "/*\n * page.h: made by hand, the program's own\n */\n"
+PROGRAM_C = "int main(void)\n{\n    return 0;\n}\n"
+PROGRAM_H = "/*\n * page.h: made by hand, the program's own, a description of format 1. Not to be edited: change the description and make it again.\n */\n"
 REFUSED_OVER = ": there, and not made by dgx_ui_c: not written over; give the tree another prefix with -p, or the files another directory with -d"
 with open(os.path.join(own, "main.c"), "w") as out:
     out.write(PROGRAM_C)
@@ -533,6 +601,37 @@ for pad in [1, 2]:
     status, said = tool_in(own, '{"dgx-ui": 1, "name": "again", "tree": {"kind": "box", "pad": %d}}' % pad)
     if status or f".pad = {pad}" not in file_text(os.path.join(own, "again.c")):
         failures.append(f"a file the tool made, written again with pad {pad}: {status} {said}")
+# a file the tool made of the other kind: a tree's files for tables, the tables' for a tree
+for leftover in ["kindtree.c", "kindtree.h", "kindtables.c", "kindtables.h"]:
+    if os.path.exists(os.path.join(own, leftover)):
+        os.remove(os.path.join(own, leftover))
+status, said = tool_in(own, '{"dgx-ui": 1, "name": "kindtree", "tree": {"kind": "box"}}')
+tree_c = file_text(os.path.join(own, "kindtree.c")) if status == 0 else ""
+run = subprocess.run([tool, "-n", names_path, "-d", own, "-t", "kindtree"], capture_output=True, text=True, timeout=30)
+if (status or run.returncode == 0 or "kindtree.c: made by dgx_ui_c of a description, not of a names file: not written over; give the tables another prefix with -t"
+        not in run.stderr or file_text(os.path.join(own, "kindtree.c")) != tree_c):
+    failures.append(f"tables over a tree's files: {status} {said} {run.returncode} {run.stderr.strip()}")
+run = subprocess.run([tool, "-n", names_path, "-d", own, "-t", "kindtables"], capture_output=True, text=True, timeout=30)
+again = subprocess.run([tool, "-n", names_path, "-d", own, "-t", "kindtables"], capture_output=True, text=True, timeout=30)
+tables_c = file_text(os.path.join(own, "kindtables.c")) if run.returncode == 0 else ""
+status, said = tool_in(own, '{"dgx-ui": 1, "name": "kindtables", "tree": {"kind": "box"}}')
+if (run.returncode or again.returncode or status == 0 or "kindtables.c: made by dgx_ui_c of a names file, not of a description: not written over; give the tree another prefix with -p"
+        not in said or file_text(os.path.join(own, "kindtables.c")) != tables_c):
+    failures.append(f"a tree over the tables' files: {run.returncode} {again.returncode} {again.stderr.strip()} {status} {said}")
+# the kind by the first of its words: a description whose file's name holds the tables' words is still a tree's
+odd = os.path.join(own, "odd, a names file: Not to be edited: change the names file.json")
+with open(odd, "w") as out:
+    out.write('{"dgx-ui": 1, "name": "oddtree", "tree": {"kind": "box"}}')
+runs = [subprocess.run([tool, "-d", own, odd], capture_output=True, text=True, timeout=30) for _ in range(2)]
+if any(run.returncode for run in runs):
+    failures.append(f"a tree made again from a file named with the tables' words: {runs[1].stderr.strip()}")
+# a file that begins as the tool's but whose first comment says nothing of what it was made of: the program's
+EDITED = "/*\n * edited.c: made by dgx_ui_c from page.json, then by hand\n */\nint edited;\n"
+with open(os.path.join(own, "edited.c"), "w") as out:
+    out.write(EDITED)
+status, said = tool_in(own, '{"dgx-ui": 1, "name": "edited", "tree": {"kind": "box"}}')
+if status == 0 or os.path.join(own, "edited.c") + REFUSED_OVER not in said or file_text(os.path.join(own, "edited.c")) != EDITED:
+    failures.append(f"a file begun as the tool's, then by hand: {status} {said}")
 # a prefix of the libraries': the made files would stand for their headers
 status, said = tool_in(own, '{"dgx-ui": 1, "name": "dgx_ui", "tree": {"kind": "box"}}')
 if status == 0 or 'the name "dgx_ui" begins with dgx_, as the libraries\' names and headers do: give the tree a prefix with -p' not in said:

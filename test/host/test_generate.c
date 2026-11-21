@@ -3,9 +3,11 @@
  * program's tables and added by the function dgx_ui_c made of it, the two trees the same widget by widget and field by
  * field, their ids the same, and drawn the same pixel by pixel; a made function that finds no room for a widget
  * removes what it added and writes no id; added again after the program wrote a longer text in a box, the text is the
- * description's again. The descriptions dgx_ui_c refused are given to the
- * loader, and what it says of each is printed for test_generate.py to hold against what dgx_ui_c said. The cases are
- * test_generate.py's, in cases.h of its directory.
+ * description's again. The descriptions dgx_ui_c refused are given to the loader, and what it says of each is printed
+ * for test_generate.py to hold against what dgx_ui_c said. The loader's tables dgx_ui_c made of the names file
+ * (program_names, by -t) are held against the tables written here entry by entry, and every description is loaded on
+ * them too, with the same verdict and the same tree; the cases of a names file of a few tables (partial_names) are
+ * loaded on its tables alone. The cases are test_generate.py's, in cases.h of its directory.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -69,20 +71,43 @@ static const dgx_ui_load_names_t names = {.looks = looks, .look_count = COUNT(lo
                                           .handler_count = COUNT(handlers), .takes = takes, .take_count = COUNT(takes), .contexts = contexts,
                                           .context_count = COUNT(contexts), .ids = ids, .id_count = COUNT(ids)};
 
-/* a description dgx_ui_c made a file of: the function it made, the style its rule gave a text that names none, and the
-   ints its rule made for the ids, in the order of the ids' table */
+/* a description dgx_ui_c made a file of: the function it made, the style its rule gave a text that names none, the
+   ints its rule made for the ids, in the order of the ids' table, and the made tables it was made by, NULL: the
+   program's names file, whose tables are those above */
 typedef struct generate_case_t {
-    const char          *name, *json;
-    int                  (*add)(dgx_ui_t *ui, int parent);
-    dgx_ui_text_style_t *default_style;
-    int                 *rule_ids[ID_COUNT];
+    const char                *name, *json;
+    int                        (*add)(dgx_ui_t *ui, int parent);
+    dgx_ui_text_style_t       *default_style;
+    int                       *rule_ids[ID_COUNT];
+    const dgx_ui_load_names_t *names;
 } generate_case_t;
-/* a description dgx_ui_c refused */
+/* a description dgx_ui_c refused, and the made tables of the names file it was refused by; NULL as above */
 typedef struct generate_refusal_t {
-    const char *name, *json;
+    const char                *name, *json;
+    const dgx_ui_load_names_t *names;
 } generate_refusal_t;
 
 #include "cases.h"
+
+/* the tables dgx_ui_c made of the names file and those written here: the same names, in the same order, leading to
+   the same places */
+static bool same_tables(const dgx_ui_load_names_t *a, const dgx_ui_load_names_t *b)
+{
+    bool same = a->look_count == b->look_count && a->value_count == b->value_count && a->picture_count == b->picture_count &&
+                a->style_count == b->style_count && a->handler_count == b->handler_count && a->take_count == b->take_count &&
+                a->context_count == b->context_count && a->id_count == b->id_count;
+    for (int k = 0; same && k < a->look_count; ++k) same = !strcmp(a->looks[k].name, b->looks[k].name) && a->looks[k].look == b->looks[k].look;
+    for (int k = 0; same && k < a->value_count; ++k) same = !strcmp(a->values[k].name, b->values[k].name) && a->values[k].value == b->values[k].value;
+    for (int k = 0; same && k < a->picture_count; ++k)
+        same = !strcmp(a->pictures[k].name, b->pictures[k].name) && a->pictures[k].picture == b->pictures[k].picture && a->pictures[k].count == b->pictures[k].count;
+    for (int k = 0; same && k < a->style_count; ++k) same = !strcmp(a->styles[k].name, b->styles[k].name) && a->styles[k].style == b->styles[k].style;
+    for (int k = 0; same && k < a->handler_count; ++k)
+        same = !strcmp(a->handlers[k].name, b->handlers[k].name) && a->handlers[k].on == b->handlers[k].on && a->handlers[k].takes_number == b->handlers[k].takes_number;
+    for (int k = 0; same && k < a->take_count; ++k) same = !strcmp(a->takes[k].name, b->takes[k].name) && a->takes[k].take == b->takes[k].take;
+    for (int k = 0; same && k < a->context_count; ++k) same = !strcmp(a->contexts[k].name, b->contexts[k].name) && a->contexts[k].ctx == b->contexts[k].ctx;
+    for (int k = 0; same && k < a->id_count; ++k) same = !strcmp(a->ids[k].name, b->ids[k].name) && a->ids[k].index == b->ids[k].index;
+    return same;
+}
 
 /* two widgets the same: every field, the text boxes by their strings, sizes, lines and styles; the style the rule gave
    a text that names none is the program's first */
@@ -127,22 +152,46 @@ static int pixels_off(dgx_screen_t *a, dgx_screen_t *b)
 
 static int *const id_places[ID_COUNT] = {&title_index, &slider_index, &less_index, &go_index};
 
+/* the tree of a description loaded on the program's made tables: the same need and the same widgets as on the tables
+   written here */
+static bool same_on_made_tables(const generate_case_t *c, const dgx_ui_load_need_t *need, const dgx_ui_t *loaded)
+{
+    static dgx_ui_node_t again_nodes[128];
+    dgx_ui_t             again;
+    dgx_ui_load_need_t   made_need;
+    dgx_ui_load_error_t  err;
+    if (!dgx_ui_load_need(c->json, strlen(c->json), &program_names, &made_need, &err) || made_need.bytes != need->bytes || made_need.nodes != need->nodes ||
+        made_need.depth != need->depth || strcmp(made_need.name, need->name) != 0)
+        return false;
+    void *memory = malloc(need->bytes ? need->bytes : 1);
+    dgx_ui_init(&again, again_nodes, 128, 1);
+    bool                   same = dgx_ui_load(&again, -1, c->json, strlen(c->json), &program_names, memory, need->bytes, &err) == 0;
+    const dgx_ui_widget_t *a[128], *b[128];
+    int                    pa[128], pb[128];
+    const int              count = same ? order_of(loaded, 0, a, pa, 0, -1) : 0;
+    same                         = same && count == order_of(&again, 0, b, pb, 0, -1);
+    for (int k = 0; same && k < count; ++k) same = same_widget(a[k], b[k], NULL) && pa[k] == pb[k];
+    dgx_ui_free(&again), free(memory);
+    return same;
+}
+
 /* one case: the loaded tree and the made one, the same */
 static bool same_trees(const generate_case_t *c)
 {
-    static dgx_ui_node_t loaded_nodes[128], made_nodes[128];
-    dgx_ui_t             loaded, made;
-    dgx_ui_load_need_t   need;
-    dgx_ui_load_error_t  err;
+    static dgx_ui_node_t       loaded_nodes[128], made_nodes[128];
+    dgx_ui_t                   loaded, made;
+    dgx_ui_load_need_t         need;
+    dgx_ui_load_error_t        err;
+    const dgx_ui_load_names_t *table = c->names ? c->names : &names;
     if (c->default_style) *c->default_style = text;
     for (int k = 0; k < ID_COUNT; ++k) *id_places[k] = -1;
-    if (!dgx_ui_load_need(c->json, strlen(c->json), &names, &need, &err)) {
+    if (!dgx_ui_load_need(c->json, strlen(c->json), table, &need, &err)) {
         fprintf(stderr, "  %s: the loader refused what dgx_ui_c took: code %d at %d \"%s\"\n", c->name, err.code, err.offset, err.name);
         return false;
     }
     void *memory = malloc(need.bytes ? need.bytes : 1);
     dgx_ui_init(&loaded, loaded_nodes, 128, 1);
-    const int loaded_root = dgx_ui_load(&loaded, -1, c->json, strlen(c->json), &names, memory, need.bytes, &err);
+    const int loaded_root = dgx_ui_load(&loaded, -1, c->json, strlen(c->json), table, memory, need.bytes, &err);
     int       loaded_ids[ID_COUNT];
     for (int k = 0; k < ID_COUNT; ++k) loaded_ids[k] = *id_places[k], *id_places[k] = -1;
     dgx_ui_init(&made, made_nodes, 128, 1);
@@ -166,6 +215,10 @@ static bool same_trees(const generate_case_t *c)
         dgx_screen_destroy(&drawn_loaded), dgx_screen_destroy(&drawn_made);
     }
     if (!same) fprintf(stderr, "  %s: the made tree is not the loaded one\n", c->name);
+    if (same && !c->names && !same_on_made_tables(c, &need, &loaded)) {
+        fprintf(stderr, "  %s: loaded on the made tables, not the tree loaded on the tables written here\n", c->name);
+        same = false;
+    }
     dgx_ui_free(&loaded), dgx_ui_free(&made), free(memory);
     return same;
 }
@@ -176,6 +229,7 @@ int main(void)
     text       = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     small      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     dgx_ui_init(&settings, NULL, 0, 1);
+    CHECK(same_tables(&program_names, &names));
     int off = 0;
     for (size_t k = 0; k < sizeof cases / sizeof *cases; ++k) off += !same_trees(&cases[k]);
     CHECK(off == 0);
@@ -208,10 +262,16 @@ int main(void)
     }
     /* what the loader says of the descriptions dgx_ui_c refused, for test_generate.py */
     for (size_t k = 0; k < sizeof refusals / sizeof *refusals; ++k) {
-        dgx_ui_load_need_t  need;
-        dgx_ui_load_error_t err;
-        if (dgx_ui_load_need(refusals[k].json, strlen(refusals[k].json), &names, &need, &err)) printf("REFUSAL %s taken\n", refusals[k].name);
-        else printf("REFUSAL %s %d %d \"%s\"\n", refusals[k].name, err.code, err.offset, err.name);
+        const generate_refusal_t *r = &refusals[k];
+        dgx_ui_load_need_t        need;
+        dgx_ui_load_error_t       err, made_err;
+        const bool                taken = dgx_ui_load_need(r->json, strlen(r->json), r->names ? r->names : &names, &need, &err);
+        if (taken) printf("REFUSAL %s taken\n", r->name);
+        else printf("REFUSAL %s %d %d \"%s\"\n", r->name, err.code, err.offset, err.name);
+        /* on the program's made tables, the same verdict */
+        if (!r->names)
+            CHECK(dgx_ui_load_need(r->json, strlen(r->json), &program_names, &need, &made_err) == taken &&
+                  (taken || (made_err.code == err.code && made_err.offset == err.offset && strcmp(made_err.name, err.name) == 0)));
     }
     printf("cases %zu, refusals %zu\n", sizeof cases / sizeof *cases, sizeof refusals / sizeof *refusals);
     CHECK_DONE();

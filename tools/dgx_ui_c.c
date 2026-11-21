@@ -3,6 +3,7 @@
  * description and a function that adds them, so that a program shows the tree with no loader and no tables of names.
  *
  *     dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] <description>
+ *     dgx_ui_c -n <names file> [-i <header>]... [-d <directory>] -t <prefix>
  *
  * writes <prefix>.c and <prefix>.h into the directory ('.' when none is said); the prefix, a name of C, begins all they
  * declare. It is the tree's name, "name" of the description, unless -p gives another: -p is needed when the description
@@ -17,10 +18,19 @@
  *     <table> <name> <C expression> [<count> | number]
  *
  * the table one of look, value, picture, style, on, take, ctx, id; a picture's count of pictures (1 when none is
- * said), "number" for a handler whose ctx is a number. The expression of an id is an int of the program's the add
- * function writes the widget's index to; the others are constant expressions, as the widgets are constants. A table
- * the file names is the whole truth for it: a name it has not is refused as the loader refuses it. A table it does
- * not name is made of the names the description uses, by the rule:
+ * said), "number" for a handler whose ctx is a number; an expression is written with no spaces. A look of the
+ * library's and the actions back and page may go with no expression: "look button" is &dgx_ui_look_button, "on back"
+ * dgx_ui_load_on_back. The expression of an id is an int of the program's the add function writes the widget's index
+ * to; the others are constant expressions, as the widgets are constants. With a names file every table is the
+ * file's, a table it does not name an empty one, as for the loader on the tables made of the file: the verdict on a
+ * description is the loader's on those tables, and the tree made the one it loads. A table may have at most 65535
+ * names, the ids DGX_UI_LOAD_IDS.
+ *
+ * With -t the names file alone is made C: <prefix>.c and <prefix>.h, the loader's tables of its names, in its order,
+ * as const dgx_ui_load_names_t <prefix>_names, its arrays <prefix>_looks, _values, _pictures, _styles, _handlers,
+ * _takes, _contexts and _ids; so one file gives a program both its loader's tables and the trees made C.
+ *
+ * With no names file every table is made of the names the description uses, by the rule:
  *
  *     look     a word of the library's own looks &dgx_ui_look_<word>, any other name &<name>
  *     value    &<name>, so "settings.volume" is &settings.volume
@@ -37,6 +47,9 @@
  * by the rule may not be add, style, widgets, parents, texts or buffers, and a name by the rule may not begin with
  * <prefix>_widgets, _parents, _texts or _buffers, the arrays of the file made. The file made says at its top what was
  * not checked for want of the program's tables.
+ *
+ * A file of the program's is not written over, nor a file the tool made of the other kind: the tables of a names file
+ * for a tree, or a tree for tables.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -91,7 +104,10 @@ typedef struct table_t {
 
 static table_t     tables[TABLES], used[TABLES];
 static const char  DEFAULT_STYLE[] = "the default"; /* a space: no description names it */
-static const char *description_path, *prefix;
+static const char *description_path, *prefix; /* with -t the names file's path, and the prefix -t gives */
+static bool        tables_mode;                /* -t: the names file alone made C, the loader's tables */
+/* the words of the first comment: what a file was made of, and, last in its first paragraph, what to change */
+static const char TREE_WORDS[] = ", a description of format ", TABLES_WORDS[] = ", a names file: ", EDIT_WORDS[] = "Not to be edited: change the ";
 static char        tree_name[24]; /* the description's "name", as the loader told it; empty: none */
 
 /* the names the tool makes, each <prefix>_<word>: the add function, the default style, the arrays of the file */
@@ -177,6 +193,15 @@ static bool c_name(const char *name, bool members)
 
 /* ---- the names file ---- */
 
+/* the C of a word of the library's: a look of its own, or the action back or page; NULL when it is none */
+static char *library_c(int table, const char *word)
+{
+    if (table == T_ON && (strcmp(word, "back") == 0 || strcmp(word, "page") == 0)) return printed("dgx_ui_load_on_%s", word);
+    for (int k = 0; table == T_LOOK && k < LIBRARY_LOOK_COUNT; ++k)
+        if (strcmp(library_looks[k], word) == 0) return printed("&dgx_ui_look_%s", word);
+    return NULL;
+}
+
 static void names_file_read(const char *path)
 {
     FILE *file = fopen(path, "r");
@@ -192,15 +217,23 @@ static void names_file_read(const char *path)
         int table = 0;
         while (table < TABLES && strcmp(table_words[table], words[0]) != 0) ++table;
         if (table == TABLES) fail_out("%s:%d: no table \"%s\": look, value, picture, style, on, take, ctx or id", path, number, words[0]);
-        if (count < 3) fail_out("%s:%d: a %s with no name or no C expression", path, number, words[0]);
+        if (count < 2) fail_out("%s:%d: a %s with no name", path, number, words[0]);
         if (!loader_name(words[1])) fail_out("%s:%d: \"%s\" is not a name a description may have", path, number, words[1]);
         if (entry_of(&tables[table], words[1])) fail_out("%s:%d: the %s \"%s\" twice", path, number, words[0], words[1]);
-        entry_t *entry   = entry_add(&tables[table], words[1]);
-        entry->c         = copy_of(words[2]);
-        entry->count     = 1;
+        if (tables[table].count == 65535) fail_out("%s:%d: a %s past the 65535 a table may have", path, number, words[0]);
+        if (table == T_ID && tables[table].count == DGX_UI_LOAD_IDS) fail_out("%s:%d: an id past the %d a table may have", path, number, DGX_UI_LOAD_IDS);
+        char *library = library_c(table, words[1]);
+        if (count == 2 && !library)
+            fail_out("%s:%d: the %s \"%s\" with no C expression: only a look of the library's and the actions back and page go without one", path,
+                     number, words[0], words[1]);
+        entry_t *entry          = entry_add(&tables[table], words[1]);
+        entry->c                = count == 2 ? library : copy_of(words[2]);
+        entry->count            = 1;
         tables[table].from_file = true;
+        if (count == 2) continue;
+        free(library);
         if (count == 3) continue;
-        if (count > 4) fail_out("%s:%d: more than a table, a name, an expression and a word", path, number);
+        if (count > 4) fail_out("%s:%d: more than a table, a name, an expression and a word: an expression is written with no spaces", path, number);
         if (table == T_PICTURE) {
             char *end;
             const long pictures = strtol(words[3], &end, 10);
@@ -209,7 +242,7 @@ static void names_file_read(const char *path)
         } else if (table == T_ON && strcmp(words[3], "number") == 0) {
             entry->number = true;
         } else {
-            fail_out("%s:%d: \"%s\" means nothing for a %s", path, number, words[3], words[0]);
+            fail_out("%s:%d: \"%s\" means nothing for a %s: an expression is written with no spaces", path, number, words[3], words[0]);
         }
     }
     fclose(file);
@@ -281,7 +314,7 @@ static void rule_tables(void)
     for (int table = 0; table < TABLES; ++table) {
         if (tables[table].from_file) continue;
         if (table == T_LOOK)
-            for (int k = 0; k < LIBRARY_LOOK_COUNT; ++k) entry_add(&tables[T_LOOK], library_looks[k])->c = printed("&dgx_ui_look_%s", library_looks[k]);
+            for (int k = 0; k < LIBRARY_LOOK_COUNT; ++k) entry_add(&tables[T_LOOK], library_looks[k])->c = library_c(T_LOOK, library_looks[k]);
         /* the style of a text that names none, the table's first: of a name no description can have; its C, of the
            prefix, made by prefix_tables() */
         if (table == T_STYLE) entry_add(&tables[T_STYLE], DEFAULT_STYLE);
@@ -294,7 +327,7 @@ static void rule_tables(void)
             switch (table) {
             case T_PICTURE: entry->c = copy_of(use->name), entry->count = 65535; break;
             case T_ON:
-                if (strcmp(use->name, "back") == 0 || strcmp(use->name, "page") == 0) entry->c = printed("dgx_ui_load_on_%s", use->name), entry->ruled = false;
+                if ((entry->c = library_c(T_ON, use->name))) entry->ruled = false;
                 else entry->c = copy_of(use->name), entry->number = true;
                 break;
             case T_TAKE: entry->c = copy_of(use->name); break;
@@ -366,6 +399,8 @@ typedef bool (*take_fn)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg);
 
 static dgx_ui_load_names_t stand_in_names(void)
 {
+    for (int table = 0; table < TABLES; ++table)
+        if (tables[table].count > 65535) fail_out("%s: more than the 65535 %s names a table may have", description_path, table_words[table]);
     look_stand    = zeroed(tables[T_LOOK].count, sizeof *look_stand);
     value_stand   = zeroed(tables[T_VALUE].count, sizeof *value_stand);
     picture_stand = zeroed(tables[T_PICTURE].count, sizeof *picture_stand);
@@ -505,10 +540,16 @@ static void out_paragraph(out_t *o, const char *lead, const char *text)
 static void out_head(out_t *o, const char *file_name)
 {
     out(o, "/*\n");
+    if (tables_mode) {
+        char *made = printed("%s: made by dgx_ui_c from %s%sthe tables of names dgx_ui_load() takes. %snames file and make it again.", file_name,
+                             base_name(description_path), TABLES_WORDS, EDIT_WORDS);
+        out_paragraph(o, "", made), free(made);
+        out(o, " */\n");
+        return;
+    }
     char *named = tree_name[0] && strcmp(tree_name, prefix) != 0 ? printed(", its tree \"%s\" named %s in C", tree_name, prefix) : copy_of("");
-    char *made  = printed("%s: made by dgx_ui_c from %s, a description of format %d of dgx_ui_load.h%s. Not to be edited: change the "
-                          "description and make it again.",
-                          file_name, base_name(description_path), FORMAT, named);
+    char *made  = printed("%s: made by dgx_ui_c from %s%s%d of dgx_ui_load.h%s. %sdescription and make it again.", file_name,
+                          base_name(description_path), TREE_WORDS, FORMAT, named, EDIT_WORDS);
     free(named);
     out_paragraph(o, "", made), free(made);
     char ruled[160] = "";
@@ -533,7 +574,8 @@ static void out_head(out_t *o, const char *file_name)
     out(o, " */\n");
 }
 
-/* a file the tool is to write: none there yet, or one it made, its first comment its own; another is the program's */
+/* a file the tool is to write: none there yet, or one it made of the same kind, its first comment its own; another is
+   the program's, and one of the other kind is the tool's for another use */
 static void refuse_others_file(const char *directory, const char *suffix)
 {
     char *path = printed("%s/%s%s", directory, prefix, suffix);
@@ -544,14 +586,26 @@ static void refuse_others_file(const char *directory, const char *suffix)
     }
     char        *own    = printed("/*\n * %s%s: made by dgx_ui_c from ", prefix, suffix);
     const size_t length = strlen(own);
-    char        *head   = zeroed(1, length + 1);
-    const bool   made   = fread(head, 1, length, file) == length && memcmp(head, own, length) == 0;
+    char         head[2048];
+    const size_t got = fread(head, 1, sizeof head - 1, file);
     fclose(file);
-    if (!made)
-        fail_out("%s: there, and not made by dgx_ui_c: not written over; give the tree another prefix with -p, or the files another directory "
-                 "with -d",
-                 path);
-    free(path), free(own), free(head);
+    head[got]       = 0;
+    /* past its own beginning, the first comment's words, its lines joined; its source's name comes before the last
+       words of its first paragraph, which say what it was made of */
+    const bool begun = got >= length && memcmp(head, own, length) == 0;
+    char      *words = head + (begun ? length : got), *end = strstr(words, "*/");
+    if (end) *end = 0;
+    for (char *line; (line = strstr(words, "\n * ")) != NULL;) memmove(line + 1, line + 4, strlen(line + 4) + 1), *line = ' ';
+    const char *last = NULL;
+    for (const char *at = words; (at = strstr(at, EDIT_WORDS)) != NULL; ++at) last = at;
+    const bool  made        = begun && last;
+    const bool  made_tables = made && strncmp(last + strlen(EDIT_WORDS), "names file", 10) == 0;
+    const char *options     = tables_mode ? "give the tables another prefix with -t" : "give the tree another prefix with -p";
+    if (!made) fail_out("%s: there, and not made by dgx_ui_c: not written over; %s, or the files another directory with -d", path, options);
+    if (made_tables != tables_mode)
+        fail_out("%s: made by dgx_ui_c of a %s, not of a %s: not written over; %s, or the files another directory with -d", path,
+                 made_tables ? "names file" : "description", made_tables ? "description" : "names file", options);
+    free(path), free(own);
 }
 
 static FILE *open_out(const char *directory, const char *suffix, char **path)
@@ -694,6 +748,50 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
     free(order), free(parent), free(text_of), free(buffer_at);
 }
 
+/* the loader's tables of the names file: the types, the fields of dgx_ui_load_names_t, in the order of the tables */
+static const char *const table_types[TABLES]  = {"dgx_ui_look_name_t",  "dgx_ui_value_name_t", "dgx_ui_picture_name_t", "dgx_ui_style_name_t",
+                                                 "dgx_ui_on_name_t",    "dgx_ui_take_name_t",  "dgx_ui_context_name_t", "dgx_ui_id_t"};
+static const char *const table_fields[TABLES] = {"looks", "values", "pictures", "styles", "handlers", "takes", "contexts", "ids"};
+static const char *const count_fields[TABLES] = {"look_count", "value_count", "picture_count", "style_count", "handler_count", "take_count", "context_count", "id_count"};
+
+static void write_tables(const char *directory, const char *const *headers, int header_count)
+{
+    char *c_path, *h_path;
+    out_t c_file = {.file = open_out(directory, ".c", &c_path)}, h_file = {.file = open_out(directory, ".h", &h_path)};
+
+    out_head(&h_file, base_name(h_path));
+    out(&h_file, "#pragma once\n\n#include \"dgx_ui_load.h\"\n\n#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n");
+    out(&h_file, "/** The names of %s for dgx_ui_load_need() and dgx_ui_load(): what a description may name, and what each leads to. */\n",
+        base_name(description_path));
+    out(&h_file, "extern const dgx_ui_load_names_t %s_names;\n\n#ifdef __cplusplus\n}\n#endif\n", prefix);
+
+    out_head(&c_file, base_name(c_path));
+    out(&c_file, "#include <stdbool.h>\n#include <stddef.h>\n\n#include \"dgx_ui_load.h\"\n#include \"dgx_ui_paint.h\"\n");
+    for (int k = 0; k < header_count; ++k) out(&c_file, "#include \"%s\"\n", headers[k]);
+    out(&c_file, "#include \"%s\"\n", base_name(h_path));
+    for (int table = 0; table < TABLES; ++table) {
+        if (!tables[table].count) continue;
+        out(&c_file, "\nstatic const %s %s_%s[%d] = {\n", table_types[table], prefix, table_fields[table], tables[table].count);
+        for (int k = 0; k < tables[table].count; ++k) {
+            const entry_t *entry = &tables[table].entries[k];
+            switch (table) {
+            case T_PICTURE: out(&c_file, "    {\"%s\", %s, %u},\n", entry->name, entry->c, entry->count); break;
+            case T_ON: out(&c_file, "    {\"%s\", %s, %s},\n", entry->name, entry->c, entry->number ? "true" : "false"); break;
+            case T_ID: out(&c_file, "    {\"%s\", &(%s)},\n", entry->name, entry->c); break;
+            default: out(&c_file, "    {\"%s\", %s},\n", entry->name, entry->c); break;
+            }
+        }
+        out(&c_file, "};\n");
+    }
+    out(&c_file, "\nconst dgx_ui_load_names_t %s_names = {\n", prefix);
+    for (int table = 0; table < TABLES; ++table)
+        if (tables[table].count) out(&c_file, "    .%s = %s_%s,\n", table_fields[table], prefix, table_fields[table]);
+        else out(&c_file, "    .%s = NULL,\n", table_fields[table]);
+    for (int table = 0; table < TABLES; ++table) out(&c_file, "    .%s = %d,\n", count_fields[table], tables[table].count);
+    out(&c_file, "};\n");
+    if (fclose(c_file.file) || fclose(h_file.file)) fail_out("%s: %s", c_path, strerror(errno));
+}
+
 static char *read_all(const char *path, size_t *length)
 {
     FILE *file = fopen(path, "rb");
@@ -712,7 +810,7 @@ static char *read_all(const char *path, size_t *length)
 
 int main(int argc, char **argv)
 {
-    const char *names_path = NULL, *directory = ".";
+    const char *names_path = NULL, *directory = ".", *tables_prefix = NULL;
     const char *headers[16];
     int         header_count = 0, arg = 1;
     for (; arg < argc && argv[arg][0] == '-'; arg += 2) {
@@ -720,17 +818,38 @@ int main(int argc, char **argv)
         if (strcmp(argv[arg], "-n") == 0) names_path = argv[arg + 1];
         else if (strcmp(argv[arg], "-d") == 0) directory = argv[arg + 1];
         else if (strcmp(argv[arg], "-p") == 0) prefix = argv[arg + 1];
+        else if (strcmp(argv[arg], "-t") == 0) tables_prefix = argv[arg + 1];
         else if (strcmp(argv[arg], "-i") == 0 && header_count < 16) headers[header_count++] = argv[arg + 1];
-        else fail_out("%s: not an option; -n <names file>, -i <header>, -d <directory>, -p <prefix>", argv[arg]);
+        else fail_out("%s: not an option; -n <names file>, -i <header>, -d <directory>, -p <prefix>, -t <prefix>", argv[arg]);
     }
-    if (argc - arg != 1) fail_out("dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] <description>");
+    /* -t: the names file alone, made the loader's tables */
+    if (tables_prefix) {
+        if (argc - arg != 0) fail_out("-t makes the tables of a names file alone: no description with it");
+        if (prefix) fail_out("-t names the tables' prefix: no -p with it");
+        if (!names_path) fail_out("-t wants the names file, -n <names file>");
+        if (!c_name(tables_prefix, false)) fail_out("-t \"%s\" is not a name of C", tables_prefix);
+        if (strncmp(tables_prefix, "dgx_", 4) == 0) fail_out("-t \"%s\" begins with dgx_, as the libraries' names and headers do", tables_prefix);
+        tables_mode = true, prefix = tables_prefix, description_path = names_path;
+        names_file_read(names_path);
+        refuse_others_file(directory, ".c");
+        refuse_others_file(directory, ".h");
+        write_tables(directory, headers, header_count);
+        return 0;
+    }
+    if (argc - arg != 1)
+        fail_out("dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] <description>, or -t <prefix> for the tables of the "
+                 "names file");
     description_path = argv[arg];
     if (prefix && !c_name(prefix, false)) fail_out("-p \"%s\" is not a name of C", prefix);
     if (prefix && strncmp(prefix, "dgx_", 4) == 0) fail_out("-p \"%s\" begins with dgx_, as the libraries' names and headers do", prefix);
 
     size_t length;
     char  *text = read_all(description_path, &length);
-    if (names_path) names_file_read(names_path);
+    /* with a names file every table is the file's, an empty one where it names none, as for the loader on its tables */
+    if (names_path) {
+        names_file_read(names_path);
+        for (int table = 0; table < TABLES; ++table) tables[table].from_file = true;
+    }
     collect(text, length);
     rule_tables();
 
