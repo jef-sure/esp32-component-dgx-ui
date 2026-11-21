@@ -18,7 +18,7 @@ CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
 # a name DGX 1.0 takes away, warned at by DGX, is an error here
 WARN     := -Wall -Wextra -Wno-unused-parameter -Werror=deprecated-declarations
 
-all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance check-werror check-lists $(if $(DGX_DI),run-test_di) check-cxx
+all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance run-test_preview check-werror check-lists $(if $(DGX_DI),run-test_di) check-cxx
 
 run-%: $(BUILD)/%
 	$<
@@ -213,6 +213,17 @@ run-test_generate_appearance: $(BUILD)/tools/dgx_ui_c $(BUILD)/appearance_dump t
 	timeout 900 python3 test_generate_appearance.py $(BUILD)/tools/dgx_ui_c $(BUILD)/appearance_dump $(BUILD)/generate_appearance $(CC) $(CFLAGS) -std=gnu11 \
 		$(WARN) $(CPPFLAGS) $(DGX_FLAGS) test_generate_appearance.c $(PAINT) $(DGX_SRCS) $(DGX_ROOT)/src/fonts/font0ss.c -lm
 
+# the preview of a description on the computer: its glue, the reading of the names it shares with dgx_ui_c, whose
+# build makes the headers of the library's looks and draws, and the fonts built into it
+PREVIEW       := $(ROOT)/editor/preview/dgx_ui_preview.c $(ROOT)/tools/dgx_ui_names.c
+PREVIEW_FONTS := $(addprefix $(DGX_ROOT)/src/fonts/, font0ss.c LiberationSansRegular12.c DroidSansRegular9.c)
+
+$(BUILD)/test_preview: test_preview.c check.h panel.h $(PREVIEW) $(ROOT)/editor/preview/dgx_ui_preview.h $(ROOT)/tools/dgx_ui_names.h $(BUILD)/tools/dgx_ui_c \
+                       $(PAINT) $(wildcard $(ROOT)/include/*.h)
+	mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(ROOT)/src -I$(ROOT)/tools -I$(ROOT)/editor/preview -I$(BUILD)/tools -o $@ \
+		test_preview.c $(PREVIEW) $(PAINT) $(DGX_SRCS) $(PREVIEW_FONTS) -lm
+
 # the reader of JSON alone: no tree, no DGX
 $(BUILD)/test_params: test_params.c check.h $(ROOT)/src/dgx_ui_params.c $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
@@ -265,12 +276,15 @@ SOURCES := $(filter-out %/dgx_ui_post.c %/dgx_ui_ticker.c,$(wildcard $(ROOT)/src
 
 # no warning, read and compiled: some warnings come only from the optimiser (a value it cannot see given), so each
 # source is compiled at the levels a build takes, as ESP-IDF's -Werror=all would refuse it
-check-werror:
+check-werror: $(BUILD)/tools/dgx_ui_c
 	$(CC) -std=gnu11 $(WARN) -Werror $(CPPFLAGS) -fsyntax-only $(SOURCES)
 	@for level in -O1 -O2 -Os; do \
 		for source in $(SOURCES); do $(CC) $$level -std=gnu11 $(WARN) -Werror $(CPPFLAGS) -c $$source -o /dev/null || exit 1; done; \
+		for source in $(PREVIEW); do \
+			$(CC) $$level -std=gnu11 $(WARN) -Werror $(CPPFLAGS) -I$(ROOT)/src -I$(ROOT)/tools -I$(ROOT)/editor/preview -I$(BUILD)/tools -c $$source -o /dev/null || exit 1; \
+		done; \
 	done
-	@echo "the sources: no warning, read and compiled at -O1, -O2 and -Os"
+	@echo "the sources, the preview's and the names' reading among them: no warning, read and compiled at -O1, -O2 and -Os"
 
 # every source of src/ in the component's list, and in the list of the build on a computer (host/dgx_ui_host.mk) but
 # the two of FreeRTOS's queues and esp_timer
