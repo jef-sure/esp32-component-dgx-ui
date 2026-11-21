@@ -34,6 +34,12 @@
 #include "fonts/TerminusTTFMedium12.h"
 #include "fonts/font0ss.h"
 
+/* the versions it is built of and the hash of its sources, written by the module's build (Makefile) */
+#if defined(__has_include)
+#if __has_include("preview_version.h")
+#include "preview_version.h"
+#endif
+#endif
 #ifndef PREVIEW_DGX_UI_VERSION
 #define PREVIEW_DGX_UI_VERSION "unknown"
 #endif
@@ -139,9 +145,12 @@ static void panel_free(void)
 
 /* ---- what is said: the events, the notes, the verdicts ---- */
 
+/* lines kept to be read: whole lines alone, those that find no room counted, the count said as the last line read */
+enum { SAID_ROOM = 4096, SAID_LOST_ROOM = 64 };
 typedef struct said_t {
-    char   text[4096];
-    size_t used;
+    char     text[SAID_ROOM];
+    size_t   used;
+    unsigned lost;
 } said_t;
 
 static said_t events, notes;
@@ -149,17 +158,32 @@ static said_t events, notes;
 static void say(said_t *to, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 static void say(said_t *to, const char *fmt, ...)
 {
-    if (to->used >= sizeof to->text - 1) return;
+    char    line[256];
     va_list args;
     va_start(args, fmt);
-    const int wrote = vsnprintf(to->text + to->used, sizeof to->text - to->used, fmt, args);
+    const int wrote = vsnprintf(line, sizeof line, fmt, args);
     va_end(args);
-    if (wrote > 0) to->used = to->used + (size_t)wrote < sizeof to->text - 1 ? to->used + (size_t)wrote : sizeof to->text - 1;
+    if (wrote < 0) return;
+    const size_t length = (size_t)wrote < sizeof line ? (size_t)wrote : sizeof line - 1;
+    if (to->used + length >= SAID_ROOM - SAID_LOST_ROOM) {
+        ++to->lost;
+        return;
+    }
+    memcpy(to->text + to->used, line, length + 1);
+    to->used += length;
 }
 
 static void said_clear(said_t *said)
 {
-    said->used = 0, said->text[0] = 0;
+    said->used = 0, said->lost = 0, said->text[0] = 0;
+}
+
+/* the lines, and how many were lost when there were */
+static const char *said_read(const said_t *said, char out[SAID_ROOM])
+{
+    memcpy(out, said->text, said->used + 1);
+    if (said->lost) snprintf(out + said->used, SAID_ROOM - said->used, "lost %u\n", said->lost);
+    return out;
 }
 
 static void verdict_of(preview_verdict_t *verdict, const dgx_ui_load_error_t *err)
@@ -322,7 +346,8 @@ static void appearance_read(void)
         const entry_t            *draw    = &draws_of->entries[k];
         const dgx_ui_draw_name_t *library = library_draw_function_of(draw->c);
         memcpy(a->names[named], draw->name, 24);
-        a->draws[k] = library ? (dgx_ui_draw_name_t){a->names[named], library->draw, library->params} : (dgx_ui_draw_name_t){a->names[named], draw_named, NULL};
+        a->draws[k] = library ? (dgx_ui_draw_name_t){a->names[named], library->draw, library->params}
+                              : (dgx_ui_draw_name_t){a->names[named], draw_named, NULL};
         if (!library) say(&notes, "draw %s: the program's own, a frame with the look's name\n", draw->name);
         ++named;
     }
@@ -331,13 +356,15 @@ static void appearance_read(void)
         const dgx_font_t *built = built_in_font(font->c);
         memcpy(a->names[named], font->name, 24);
         a->fonts[k] = (dgx_ui_font_name_t){a->names[named], built ? built : font->handwritten ? &font0ss : &TerminusTTFMedium12};
-        if (!built) say(&notes, "font %s: %s stands in, its measures not the board's\n", font->name, font->handwritten ? "font0ss" : "TerminusTTFMedium12");
+        if (!built)
+            say(&notes, "font %s: %s stands in, its measures not the board's\n", font->name, font->handwritten ? "font0ss" : "TerminusTTFMedium12");
         ++named;
     }
     for (int k = 0; k < hands_of->count; ++k) {
         const entry_t *hand = &hands_of->entries[k];
         memcpy(a->names[named], hand->name, 24);
-        a->hands[k] = (dgx_ui_hand_name_t){a->names[named], strcmp(hand->c, "&dgx_ui_handwriting_canvas") == 0 ? &dgx_ui_handwriting_canvas : &dgx_ui_handwriting};
+        const bool canvas = strcmp(hand->c, "&dgx_ui_handwriting_canvas") == 0;
+        a->hands[k]       = (dgx_ui_hand_name_t){a->names[named], canvas ? &dgx_ui_handwriting_canvas : &dgx_ui_handwriting};
         ++named;
     }
     const dgx_ui_appearance_names_t names = {.draws = a->draws, .fonts = a->fonts, .hands = a->hands, .draw_count = (uint16_t)draws_of->count,
@@ -375,6 +402,8 @@ typedef struct tree_t {
     int                *ids;
 } tree_t;
 
+static int           unit = 1;       /* pixels a point, as the board's program gives dgx_ui_init() */
+static char          note_lead[40]; /* "" for the home page's notes, "page <name>: " for a page's */
 static tree_t        home;
 static tree_t        pages[PAGES];
 static dgx_ui_paint_t paint;
@@ -391,19 +420,23 @@ static void tree_free(tree_t *tree)
     *tree = (tree_t){0};
 }
 
+/* the name of an opened page's tree; NULL for home */
 static const char *tree_name_of(const dgx_ui_t *ui)
 {
     for (int k = 0; k < PAGES; ++k)
         if (pages[k].loaded && &pages[k].ui == ui) return pages[k].name;
-    return "home";
+    return NULL;
 }
+
+typedef void (*on_fn)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 
 static const char *const what_words[] = {"ACTIVATED", "CHANGED", "FOCUS", "BACK", "NO_MEMORY", "EDIT", "SHOWN", "COVERED"};
 _Static_assert(DGX_UI_ACTIVATED == 0 && DGX_UI_COVERED == 7, "the words of what a handler is told, in its order");
 
 static void tell(const dgx_ui_t *ui, int i, int what)
 {
-    say(&events, "%s %d %s\n", tree_name_of(ui), i, what >= 0 && what <= DGX_UI_COVERED ? what_words[what] : "?");
+    const char *page = tree_name_of(ui);
+    say(&events, "told %d %s%s%s\n", i, what >= 0 && what <= DGX_UI_COVERED ? what_words[what] : "?", page ? " page " : "", page ? page : "");
 }
 
 static void on_told(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
@@ -444,7 +477,7 @@ static void on_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
     for (int k = 0; k < PAGES && !page; ++k)
         if (!pages[k].loaded) page = &pages[k];
     if (!page) {
-        say(&events, "page %s: no room for more than %d pages\n", name, PAGES);
+        say(&events, "unopened %s no-room %d\n", name, PAGES);
         return;
     }
     if (!page->loaded) {
@@ -452,11 +485,13 @@ static void on_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
         const size_t length = preview_page_text(name, NULL, 0);
         if (length) text = zeroed(1, length), preview_page_text(name, text, length);
         preview_verdict_t verdict;
-        const bool        taken = text && tree_load(page, text, length, &verdict);
+        snprintf(note_lead, sizeof note_lead, "page %s: ", name);
+        const bool taken = text && tree_load(page, text, length, &verdict);
+        note_lead[0]     = 0;
         free(text);
         if (!taken) {
-            if (!length) say(&events, "page %s: no text\n", name);
-            else say(&events, "page %s: refused, %d at byte %d \"%s\"\n", name, (int)verdict.code, (int)verdict.offset, verdict.name);
+            if (!length) say(&events, "unopened %s no-text\n", name);
+            else say(&events, "unopened %s refused %d %d \"%s\"\n", name, (int)verdict.code, (int)verdict.offset, verdict.name);
             return;
         }
         snprintf(page->name, sizeof page->name, "%s", name);
@@ -507,7 +542,7 @@ static void tree_names(tree_t *tree, const char *text, size_t length)
             dgx_ui_look_t *own = &tree->own_looks[tree->own_look_count++];
             *own               = (dgx_ui_look_t){.draw = draw_named, .params = name, .fill = -1};
             looks[k]           = (dgx_ui_look_name_t){name, own};
-            say(&notes, "look %s: the program's own, a frame with its name\n", name);
+            say(&notes, "%slook %s: the program's own, a frame with its name\n", note_lead, name);
         }
     }
     tree->values               = zeroed((size_t)tables[T_VALUE].count, sizeof *tree->values);
@@ -516,21 +551,23 @@ static void tree_names(tree_t *tree, const char *text, size_t length)
     dgx_ui_picture_name_t *pictures = zeroed((size_t)tables[T_PICTURE].count, sizeof *pictures);
     for (int k = 0; k < tables[T_PICTURE].count; ++k) {
         pictures[k] = (dgx_ui_picture_name_t){NAME_OF(T_PICTURE, k), crossed_picture(), (uint16_t)tables[T_PICTURE].entries[k].count};
-        say(&notes, "picture %s: a crossed square stands in\n", pictures[k].name);
+        say(&notes, "%spicture %s: a crossed square stands in\n", note_lead, pictures[k].name);
     }
     dgx_ui_style_name_t *styles = zeroed((size_t)tables[T_STYLE].count, sizeof *styles);
     for (int k = 0, appearance_k = 0; k < tables[T_STYLE].count; ++k) {
         const entry_t *entry = &tables[T_STYLE].entries[k];
         const char    *name  = NAME_OF(T_STYLE, k);
         styles[k] = (dgx_ui_style_name_t){name, entry->from_appearance ? a->appearance.styles[appearance_k++].style : &stand_style};
-        if (!entry->from_appearance) say(&notes, "style %s: the program's own, TerminusTTFMedium12 stands in\n", strcmp(name, DEFAULT_STYLE) == 0 ? "of a text that names none" : name);
+        if (!entry->from_appearance)
+            say(&notes, "%sstyle %s: the program's own, TerminusTTFMedium12 stands in\n", note_lead,
+                strcmp(name, DEFAULT_STYLE) == 0 ? "of a text that names none" : name);
     }
     dgx_ui_on_name_t *handlers = zeroed((size_t)tables[T_ON].count, sizeof *handlers);
     for (int k = 0; k < tables[T_ON].count; ++k) {
         const entry_t *entry = &tables[T_ON].entries[k];
         const char    *c     = entry->c ? entry->c : "";
-        handlers[k] = (dgx_ui_on_name_t){NAME_OF(T_ON, k), strcmp(c, "dgx_ui_load_on_back") == 0 ? on_back : strcmp(c, "dgx_ui_load_on_page") == 0 ? on_page : on_told,
-                                         entry->number};
+        const on_fn    on    = strcmp(c, "dgx_ui_load_on_back") == 0 ? on_back : strcmp(c, "dgx_ui_load_on_page") == 0 ? on_page : on_told;
+        handlers[k]          = (dgx_ui_on_name_t){NAME_OF(T_ON, k), on, entry->number};
     }
     dgx_ui_take_name_t *takes = zeroed((size_t)tables[T_TAKE].count, sizeof *takes);
     for (int k = 0; k < tables[T_TAKE].count; ++k) takes[k] = (dgx_ui_take_name_t){NAME_OF(T_TAKE, k), take_nothing};
@@ -541,7 +578,8 @@ static void tree_names(tree_t *tree, const char *text, size_t length)
     dgx_ui_id_t *ids = zeroed((size_t)tables[T_ID].count, sizeof *ids);
     for (int k = 0; k < tables[T_ID].count; ++k) ids[k] = (dgx_ui_id_t){NAME_OF(T_ID, k), &tree->ids[k]}, tree->ids[k] = -1;
 #undef NAME_OF
-    tree->names = (dgx_ui_load_names_t){.looks = looks, .values = values, .pictures = pictures, .styles = styles, .handlers = handlers, .takes = takes,
+    tree->names = (dgx_ui_load_names_t){.looks = looks, .values = values, .pictures = pictures, .styles = styles, .handlers = handlers,
+                                        .takes = takes,
                                         .contexts = contexts, .ids = ids, .look_count = (uint16_t)tables[T_LOOK].count,
                                         .value_count = (uint16_t)tables[T_VALUE].count, .picture_count = (uint16_t)tables[T_PICTURE].count,
                                         .style_count = (uint16_t)tables[T_STYLE].count, .handler_count = (uint16_t)tables[T_ON].count,
@@ -563,7 +601,7 @@ static bool tree_load(tree_t *tree, const char *text, size_t length, preview_ver
     }
     tree->nodes  = zeroed((size_t)need.nodes, sizeof *tree->nodes);
     tree->memory = zeroed(1, need.bytes);
-    dgx_ui_init(&tree->ui, tree->nodes, need.nodes, 1);
+    dgx_ui_init(&tree->ui, tree->nodes, need.nodes, unit);
     if (dgx_ui_load(&tree->ui, -1, text, length, &tree->names, tree->memory, need.bytes, &err) < 0) {
         verdict_of(verdict, &err);
         dgx_ui_free(&tree->ui);
@@ -617,8 +655,8 @@ static preview_widget_t  widget_read;
 
 const char *preview_version(void)
 {
-    return "{\"dgx_ui\": \"" PREVIEW_DGX_UI_VERSION "\", \"dgx\": \"" PREVIEW_DGX_VERSION "\", \"toolchain\": \"" PREVIEW_TOOLCHAIN "\", \"sources\": \"" PREVIEW_SOURCES
-           "\"}";
+    return "{\"dgx_ui\": \"" PREVIEW_DGX_UI_VERSION "\", \"dgx\": \"" PREVIEW_DGX_VERSION "\", \"toolchain\": \"" PREVIEW_TOOLCHAIN
+           "\", \"sources\": \"" PREVIEW_SOURCES "\"}";
 }
 
 char *preview_text(size_t size)
@@ -675,10 +713,13 @@ static void read_again(void)
     }
 }
 
-int preview_screen(int width, int height, int depth)
+int preview_screen(int width, int height, int depth, int pixels_a_point)
 {
     panel_free();
-    if (width < 1 || height < 1 || width > 4096 || height > 4096 || (depth != 16 && depth != 18 && depth != 24)) return PREVIEW_NO_SCREEN;
+    if (width < 1 || height < 1 || width > 4096 || height > 4096 || (depth != 16 && depth != 18 && depth != 24) || pixels_a_point < 1 ||
+        pixels_a_point > 16)
+        return PREVIEW_NO_SCREEN;
+    unit              = pixels_a_point;
     panel_t *p        = zeroed(1, sizeof *p);
     p->rgba           = zeroed((size_t)width * (size_t)height, 4);
     p->bytes          = depth == 16 ? 2 : 3;
@@ -736,7 +777,8 @@ void preview_pointer(int x, int y, int down, uint32_t now_ms)
 {
     static bool was_down;
     if (!home.loaded) return;
-    const dgx_ui_pointer_t pointer = {.x = (int16_t)x, .y = (int16_t)y, .down = down != 0, .pressed = down && !was_down, .released = !down && was_down, .ms = now_ms};
+    const dgx_ui_pointer_t pointer = {
+        .x = (int16_t)x, .y = (int16_t)y, .down = down != 0, .pressed = down && !was_down, .released = !down && was_down, .ms = now_ms};
     was_down = down != 0;
     dgx_ui_pointer(&home.ui, &pointer);
 }
@@ -796,48 +838,69 @@ const int32_t *preview_changed(void)
     return changed;
 }
 
+/* the tree on the screen: the topmost of home and the pages in the chain of popups over home; NULL with no page */
+static tree_t *shown_tree(void)
+{
+    tree_t *shown = home.loaded ? &home : NULL;
+    for (const dgx_ui_t *over = shown ? home.ui.popup : NULL; over; over = over->popup)
+        for (int k = 0; k < PAGES; ++k)
+            if (pages[k].loaded && &pages[k].ui == over) shown = &pages[k];
+    return shown;
+}
+
+const char *preview_shown(void)
+{
+    const tree_t *shown = shown_tree();
+    return shown ? shown->name : NULL;
+}
+
 int preview_count(void)
 {
-    return home.loaded ? home.ui.count : 0;
+    const tree_t *shown = shown_tree();
+    return shown ? shown->ui.count : 0;
 }
 
 const preview_widget_t *preview_widget(int i)
 {
-    if (!home.loaded || i < 0 || i >= home.ui.count) return NULL;
-    const dgx_ui_node_t   *node   = dgx_ui_node(&home.ui, i);
+    tree_t *shown = shown_tree();
+    if (!shown || i < 0 || i >= shown->ui.count) return NULL;
+    dgx_ui_t              *ui     = &shown->ui;
+    const dgx_ui_node_t   *node   = dgx_ui_node(ui, i);
     const dgx_ui_widget_t *widget = node->widget;
     if (!widget) return NULL;
     /* shown: no hidden one on the way to the root, and a box left inside each parent's */
     int  left = node->x, top = node->y, right = node->x + node->w, bottom = node->y + node->h;
-    bool shown = !(node->state.bits & DGX_UI_HIDDEN);
-    for (int up = node->parent; up >= 0 && shown; up = dgx_ui_node(&home.ui, up)->parent) {
-        const dgx_ui_node_t *parent = dgx_ui_node(&home.ui, up);
-        if (parent->state.bits & DGX_UI_HIDDEN) shown = false;
+    bool laid  = !(node->state.bits & DGX_UI_HIDDEN);
+    for (int up = node->parent; up >= 0 && laid; up = dgx_ui_node(ui, up)->parent) {
+        const dgx_ui_node_t *parent = dgx_ui_node(ui, up);
+        if (parent->state.bits & DGX_UI_HIDDEN) laid = false;
         if (parent->x > left) left = parent->x;
         if (parent->y > top) top = parent->y;
         if (parent->x + parent->w < right) right = parent->x + parent->w;
         if (parent->y + parent->h < bottom) bottom = parent->y + parent->h;
     }
     widget_read = (preview_widget_t){.kind = widget->kind, .parent = node->parent, .x = node->x, .y = node->y, .w = node->w, .h = node->h,
-                                     .shown = shown && right > left && bottom > top, .bits = node->state.bits, .value = dgx_ui_value(&home.ui, i),
+                                     .shown = laid && right > left && bottom > top, .bits = node->state.bits, .value = dgx_ui_value(ui, i),
                                      .text = widget->text ? widget->text->buf : NULL};
     return &widget_read;
 }
 
 int preview_widget_at(int x, int y)
 {
-    return home.loaded ? dgx_ui_hit(&home.ui, x, y) : -1;
+    tree_t *shown = shown_tree();
+    return shown ? dgx_ui_hit(&shown->ui, x, y) : -1;
 }
 
 const char *preview_events(void)
 {
-    static char out[sizeof events.text];
-    memcpy(out, events.text, events.used + 1);
+    static char out[SAID_ROOM];
+    said_read(&events, out);
     said_clear(&events);
     return out;
 }
 
 const char *preview_notes(void)
 {
-    return notes.text;
+    static char out[SAID_ROOM];
+    return said_read(&notes, out);
 }

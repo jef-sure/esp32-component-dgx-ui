@@ -10,6 +10,9 @@ that loads descriptions and one that has them made C read the same names from on
 The tool is a program of the computer. It comes in the component's package as source and is built on the computer;
 nothing of it goes on a chip.
 
+A description can be looked at before it is made C: [the preview](../editor/preview/README.md) draws it in a
+browser as the board draws it, on the same names file, and says where the loader refuses it.
+
 ## From CMake
 
 A program built by ESP-IDF does not run the tool itself. Two calls in the CMakeLists of a component, after

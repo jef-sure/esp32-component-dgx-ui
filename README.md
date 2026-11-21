@@ -87,6 +87,7 @@ It needs ESP-IDF 5.2 or later and DGX 0.12.0 or a later 0.12; DGX comes by itsel
 | [How it works](docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
 | [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a handwritten text, a popup, keys, touch, a field and a keyboard, a look of your own, a control of your own, the tree as a layer in another compositor's strips |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
+| [The preview](editor/preview/README.md) | a description drawn in a browser as the board draws it: the page to try it by hand, the calls for a page that edits descriptions |
 
 Examples, each for a CYD board and for a window on the computer: [thin_paint](examples/thin_paint/main/thin_paint.c),
 a value sent by a task and a clock; [controls](examples/controls/main/controls.c), a button with a popup, a switch, a
@@ -114,6 +115,9 @@ to be made: the fonts DGX ships are ready. See [Letters with soft edges](docs/en
 - **The appearance from a description**: the colours by name, the text styles and the looks of all the pages in one
   document of JSON, loaded while the program runs or made C when it is built. A look it names by a kind's word
   restyles every widget of that kind.
+- **A description drawn in a browser**: [the preview](editor/preview/README.md) is dgx-ui itself built to
+  WebAssembly, one file a page loads. It draws a page, an appearance and a names file on a panel of the board's
+  size as the board draws them, and gives the loader's verdict on each: the drawing part of a builder.
 - **Rows and columns**: a box stacks its children as a column or a row, with a padding and a gap, in points that are
   so many pixels; a child may take all that is left. The layout is made again only when the screen, the widgets or
   their sizes change, and then only what moved is drawn.
@@ -151,7 +155,7 @@ to be made: the fonts DGX ships are ready. See [Letters with soft edges](docs/en
 
 ## Not there yet
 
-- a builder of interfaces on the computer.
+- a builder of interfaces on the computer; what draws for it, [the preview](editor/preview/README.md), is here.
 
 An interface of tables, graphs and long texts is a task for
 [DGX-LVGL](https://github.com/jef-sure/esp32-component-dgx-lvgl).

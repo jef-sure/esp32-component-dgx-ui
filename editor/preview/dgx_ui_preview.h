@@ -46,8 +46,12 @@ typedef struct preview_widget_t {
 /** What it was built of: {"dgx_ui": ..., "dgx": ..., "toolchain": ..., "sources": ...}, as JSON. */
 const char *preview_version(void);
 
-/** The panel: the board's width and height in pixels and its depth, 16, 18 or 24; 0, or PREVIEW_NO_SCREEN. */
-int preview_screen(int width, int height, int depth);
+/**
+ * The panel: the board's width and height in pixels, its depth, 16, 18 or 24, and the pixels a point of the board's
+ * program, what it gives dgx_ui_init(), 1 to 16; 0, or PREVIEW_NO_SCREEN. A screen refused leaves none: nothing is drawn
+ * and preview_frame() is NULL until one is taken.
+ */
+int preview_screen(int width, int height, int depth, int pixels_a_point);
 
 /** Memory of the module's for a text the caller writes before handing it to a call: size bytes, until the next one. */
 char *preview_text(size_t size);
@@ -56,7 +60,8 @@ char *preview_text(size_t size);
 const preview_verdict_t *preview_names(const char *text, size_t length);
 /** The appearance, kept and loaded again with each page, on the names; NULL, none. Its verdict on the names alone. */
 const preview_verdict_t *preview_appearance(const char *text, size_t length);
-/** The page: on the appearance's tables first and the names' after; drawn whole at the next paint. Its verdict. */
+/** The page: on the appearance's tables first and the names' after; drawn whole at the next paint. Its verdict. NULL, no
+    page: no widget, nothing drawn. */
 const preview_verdict_t *preview_page(const char *text, size_t length);
 
 /**
@@ -64,6 +69,9 @@ const preview_verdict_t *preview_page(const char *text, size_t length);
  * function the page imports into the module, a function of the program on a computer. Its length; written to out only
  * when it is at most size, else asked again with memory enough.
  */
+#ifdef __wasm__
+__attribute__((import_module("env"), import_name("preview_page_text")))
+#endif
 size_t preview_page_text(const char *name, char *out, size_t size);
 
 /** The finger, as a touch panel reports it. */
@@ -84,14 +92,34 @@ const uint8_t *preview_frame(void);
 /** The rectangle of the pixels written since the last call, x, y, w, h: w 0 when none. */
 const int32_t *preview_changed(void);
 
-/** The page's widgets, 0 with no page. */
+/**
+ * The page on the screen: "" the page given to preview_page(), else the name of the page an action page opened over
+ * it; NULL with no page. The three calls after it speak of that page.
+ */
+const char *preview_shown(void);
+/** The widgets of the page on the screen, 0 with no page. */
 int preview_count(void);
-/** A widget by its index, NULL past the count. */
+/** A widget of the page on the screen by its index, NULL past the count. */
 const preview_widget_t *preview_widget(int i);
-/** The widget a finger at x, y would take, -1 none. */
+/** The widget of the page on the screen a finger at x, y would take, -1 none. */
 int preview_widget_at(int x, int y);
 
-/** What the handlers were told since the last call, a line each: "<widget> <what>". */
+/**
+ * What happened since the last call, a line each, of these forms, a name never holding a space:
+ *
+ *     told <widget> <what>                      a handler of the page given was told, <what> ACTIVATED, CHANGED, FOCUS,
+ *     told <widget> <what> page <name>          BACK, NO_MEMORY, EDIT, SHOWN or COVERED; or of the page <name> opened
+ *     unopened <name> no-text                   the action page found no text for the context <name>
+ *     unopened <name> no-room <pages>           the pages open and kept are <pages> already
+ *     unopened <name> refused <code> <byte> "<error's name>"     the loader refused its text, the name to the line's end
+ *     lost <count>                              the last line: so many lines more found no room
+ *
+ * Whole lines alone are kept, up to about 4 KB; those past it are counted.
+ */
 const char *preview_events(void);
-/** The stand-ins the page in use takes, a line each. */
+/**
+ * The stand-ins the pages in use take, a line each, for a person to read: of the page given "<table> <name>: ...", of
+ * a page opened "page <name>: <table> <name>: ...", the tables draw, font, look, picture and style, the style of a
+ * text that names none said so; kept and counted as the events are, "lost <count>" the last line.
+ */
 const char *preview_notes(void);

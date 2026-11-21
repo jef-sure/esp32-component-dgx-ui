@@ -1,0 +1,7 @@
+What the module took of the C library and of the compiler's builtins, by its link map (preview_build.py taken).
+
+wasi-libc 0.0~git20250726.3f7eb4c-4:
+  crt1-reactor.o
+  libc.a: __lctrans.o __stdio_close.o __stdio_seek.o __stdio_write.o __toread.o __towrite.o __uflow.o __wasilibc_fd_renumber.o __wasilibc_real.o abort.o dlmalloc.o errno.o fprintf.o fputs.o frexp.o fwrite.o hypotf.o intscan.o libc.o lseek.o memchr.o memcmp.o sbrk.o shgetc.o snprintf.o stderr.o stpcpy.o strchr.o strchrnul.o strcmp.o strcpy.o strcspn.o strdup.o strerror.o strlen.o strncmp.o strnlen.o strspn.o strtok.o strtol.o vasprintf.o vfprintf.o vsnprintf.o wcrtomb.o wctomb.o writev.o
+libclang-rt-21-dev-wasm32 1:21.1.8-6ubuntu1:
+  libclang_rt.builtins-wasm32.a: multi3.c.obj

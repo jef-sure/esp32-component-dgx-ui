@@ -1,9 +1,11 @@
 /*
  * The preview of a description (editor/preview/dgx_ui_preview.c) on the computer: a page drawn by it pixel for pixel
- * as the same page loaded by a program on the same tables and drawn on a panel of panel.h; the loader's verdicts the
- * same; the widgets as the tree has them; a click told, a value set, a page opened by the action page and closed by
- * back; an appearance's colours and looks; the panel of 16, 18 and 24 bits; a names file refused in dgx_ui_c's words;
- * the stand-ins said; and texts spoiled at a byte given to every call, none of them a fault.
+ * as the same page loaded by a program on the same tables and drawn on a panel of panel.h, at a point of 2 pixels
+ * and of 1 as the program's dgx_ui_init() takes it; the loader's verdicts the same; the widgets of the page on the
+ * screen as its tree has them; a click told, a value set, a page opened by the action page and closed by back; the
+ * events and the notes in whole lines, those past their room counted; an appearance's colours and looks; the panel of
+ * 16, 18 and 24 bits; a names file refused in dgx_ui_c's words; the stand-ins said; and texts spoiled at a byte given
+ * to every call, none of them a fault.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -24,7 +26,8 @@ static const char page[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flag
                            "{\"kind\": \"button\", \"text\": \"Go\", \"on\": \"go\", \"want\": [0, 16]}]}}";
 
 static const char settings[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"children\": ["
-                               "{\"kind\": \"label\", \"text\": \"Settings\"}, {\"kind\": \"button\", \"text\": \"Back\", \"on\": \"back\", \"want\": [0, 16]}]}}";
+                               "{\"kind\": \"label\", \"text\": \"Settings\"}, "
+                               "{\"kind\": \"button\", \"text\": \"Back\", \"on\": \"back\", \"want\": [0, 16]}]}}";
 
 /* the pages the action page opens, by their name */
 size_t preview_page_text(const char *name, char *out, size_t size)
@@ -46,7 +49,7 @@ static const dgx_ui_font_variant_t terminus[1]  = {{.font = &TerminusTTFMedium12
 static const dgx_ui_text_style_t   plain        = {.variants = terminus, .count = 1};
 static int32_t                     direct_value = 0;
 
-static panel_t *drawn_directly(void)
+static panel_t *drawn_directly(int pixels_a_point)
 {
     static const dgx_ui_look_name_t  looks[]    = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(button)};
     static const dgx_ui_style_name_t styles[]   = {{"the default", &plain}};
@@ -58,7 +61,7 @@ static panel_t *drawn_directly(void)
     static uint8_t       memory[1024] __attribute__((aligned(16)));
     static dgx_ui_t      ui;
     dgx_ui_load_error_t  err;
-    dgx_ui_init(&ui, nodes, 16, 1);
+    dgx_ui_init(&ui, nodes, 16, pixels_a_point);
     CHECK(dgx_ui_load(&ui, -1, page, sizeof page - 1, &names, memory, sizeof memory, &err) == 0);
     panel_t       *p      = panel_make();
     dgx_screen_t  *scr    = &p->sbus.scr;
@@ -104,31 +107,37 @@ static uint32_t next_chance(void)
 int main(void)
 {
     CHECK(strstr(preview_version(), "\"dgx_ui\"") && strstr(preview_version(), "\"dgx\"") && strstr(preview_version(), "\"sources\""));
-    CHECK(preview_screen(0, 10, 16) == PREVIEW_NO_SCREEN && preview_screen(10, 10, 12) == PREVIEW_NO_SCREEN);
+    CHECK(preview_screen(0, 10, 16, 1) == PREVIEW_NO_SCREEN && preview_screen(10, 10, 12, 1) == PREVIEW_NO_SCREEN);
+    CHECK(preview_screen(10, 10, 16, 0) == PREVIEW_NO_SCREEN);
 
-    /* the page by the rule, drawn as the program draws it */
-    CHECK(preview_screen(PANEL_W, PANEL_H, 16) == 0);
-    CHECK(preview_names(NULL, 0)->code == 0 && preview_appearance(NULL, 0)->code == 0);
-    char *room = preview_text(sizeof page);
-    memcpy(room, page, sizeof page - 1);
-    CHECK(preview_page(room, sizeof page - 1)->code == 0);
-    CHECK(preview_paint(1000) == 1);
-    const int32_t *changed = preview_changed();
-    CHECK(changed[0] == 0 && changed[1] == 0 && changed[2] == PANEL_W && changed[3] == PANEL_H);
-    CHECK(preview_paint(1001) == 0 && preview_changed()[2] == 0);
-    panel_t       *direct = drawn_directly();
-    const uint8_t *frame  = preview_frame();
-    int            apart  = 0;
-    for (int y = 0; y < PANEL_H; ++y)
-        for (int x = 0; x < PANEL_W; ++x) {
-            uint8_t rgb[3];
-            rgb_of(direct->mem[y][x], rgb);
-            const uint8_t *got = frame + 4 * (y * PANEL_W + x);
-            apart += got[0] != rgb[0] || got[1] != rgb[1] || got[2] != rgb[2] || got[3] != 255;
-        }
-    if (apart) fprintf(stderr, "  %d pixels apart from the program's\n", apart);
-    CHECK(apart == 0);
-    free(direct);
+    /* the page by the rule, drawn as the program draws it, at a point of 2 pixels and of 1 */
+    const int32_t *changed;
+    const uint8_t *frame;
+    for (int pixels_a_point = 2; pixels_a_point >= 1; --pixels_a_point) {
+        CHECK(preview_screen(PANEL_W, PANEL_H, 16, pixels_a_point) == 0);
+        CHECK(preview_names(NULL, 0)->code == 0 && preview_appearance(NULL, 0)->code == 0);
+        char *room = preview_text(sizeof page);
+        memcpy(room, page, sizeof page - 1);
+        CHECK(preview_page(room, sizeof page - 1)->code == 0);
+        CHECK(preview_paint(1000) == 1);
+        changed = preview_changed();
+        CHECK(changed[0] == 0 && changed[1] == 0 && changed[2] == PANEL_W && changed[3] == PANEL_H);
+        CHECK(preview_paint(1001) == 0 && preview_changed()[2] == 0);
+        panel_t *direct = drawn_directly(pixels_a_point);
+        frame           = preview_frame();
+        int apart       = 0;
+        for (int y = 0; y < PANEL_H; ++y)
+            for (int x = 0; x < PANEL_W; ++x) {
+                uint8_t rgb[3];
+                rgb_of(direct->mem[y][x], rgb);
+                const uint8_t *got = frame + 4 * (y * PANEL_W + x);
+                apart += got[0] != rgb[0] || got[1] != rgb[1] || got[2] != rgb[2] || got[3] != 255;
+            }
+        if (apart) fprintf(stderr, "  at %d pixels a point: %d pixels apart from the program's\n", pixels_a_point, apart);
+        CHECK(apart == 0);
+        free(direct);
+        if (pixels_a_point == 2) CHECK(preview_widget(1)->h == 2 * 20); /* the frame's 20 points */
+    }
     CHECK(strstr(preview_notes(), "style of a text that names none") != NULL);
 
     /* the widgets as the tree has them */
@@ -140,7 +149,8 @@ int main(void)
     CHECK(preview_widget_at(b->x + 1, b->y + 1) == button && preview_widget_at(-5, -5) == -1);
 
     /* shown: not a hidden widget, nor a child of one */
-    static const char hidden[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"children\": [{\"kind\": \"box\", \"state\": "
+    static const char hidden[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"children\": ["
+                                 "{\"kind\": \"box\", \"state\": "
                                  "[\"hidden\"], \"children\": [{\"kind\": \"label\", \"text\": \"x\"}]}, {\"kind\": \"label\", \"text\": \"y\"}]}}";
     CHECK(preview_page(hidden, sizeof hidden - 1)->code == 0 && preview_paint(500) == 1);
     CHECK(!preview_widget(1)->shown && (preview_widget(1)->bits & DGX_UI_HIDDEN) && !preview_widget(2)->shown && preview_widget(3)->shown);
@@ -150,13 +160,14 @@ int main(void)
     uint32_t now = 2000;
     preview_events();
     click(button, &now);
-    CHECK(strstr(preview_events(), "home 4 ACTIVATED") != NULL);
+    CHECK(strstr(preview_events(), "told 4 ACTIVATED\n") != NULL);
     preview_changed();
     CHECK(preview_value("v", 70) == 0 && preview_value("none", 1) == -1 && preview_widget(slider)->value == 70);
     CHECK(preview_paint(now) == 1);
     changed = preview_changed();
     const preview_widget_t *s = preview_widget(slider);
-    CHECK(changed[2] > 0 && changed[0] >= s->x && changed[1] >= s->y && changed[0] + changed[2] <= s->x + s->w && changed[1] + changed[3] <= s->y + s->h);
+    CHECK(changed[2] > 0 && changed[0] >= s->x && changed[1] >= s->y);
+    CHECK(changed[0] + changed[2] <= s->x + s->w && changed[1] + changed[3] <= s->y + s->h);
 
     /* the loader's verdict, the same as on a program's tables */
     static const char broken[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"pad\": 300}}";
@@ -187,26 +198,45 @@ int main(void)
     CHECK(preview_page(home_page, sizeof home_page - 1)->code == 0);
     preview_paint(now), preview_changed(), preview_events();
     click(1, &now);
-    CHECK(strstr(preview_events(), "home 1 ACTIVATED") != NULL);
+    CHECK(strstr(preview_events(), "told 1 ACTIVATED\n") != NULL && strcmp(preview_shown(), "settings") == 0);
+    CHECK(strstr(preview_notes(), "page settings: style of a text that names none") != NULL); /* a page's notes led by its name */
     preview_paint(now);
     CHECK(preview_changed()[2] == PANEL_W); /* the page over the screen */
+    /* the widgets are the page's on the screen */
+    CHECK(strcmp(preview_shown(), "settings") == 0 && preview_count() == 3 && strcmp(preview_widget(1)->text, "Settings") == 0);
+    CHECK(preview_widget_at(preview_widget(2)->x + 2, preview_widget(2)->y + 2) == 2 && preview_widget(2)->kind == DGX_UI_BUTTON);
     preview_key(DGX_UI_KEY_NEXT), preview_key(DGX_UI_KEY_ACTIVATE), preview_paint(now); /* the page's button, by the keys */
     const char *told = preview_events();
-    CHECK(strstr(told, "settings 2 FOCUS") != NULL && strstr(told, "settings 2 ACTIVATED") != NULL);
+    CHECK(strstr(told, "told 2 FOCUS page settings\n") != NULL && strstr(told, "told 2 ACTIVATED page settings\n") != NULL);
+    CHECK(strcmp(preview_shown(), "") == 0 && preview_count() == 3 && preview_widget(1)->kind == DGX_UI_BUTTON); /* home again */
     preview_paint(now);
     click(2, &now);
-    CHECK(strstr(preview_events(), "page nowhere: no text") != NULL);
+    CHECK(strstr(preview_events(), "unopened nowhere no-text\n") != NULL);
+
+    /* more than the events hold: whole lines, and the last says how many were lost */
+    for (int round = 0; round < 400; ++round) click(2, &now); /* "Lost": told, and no page for it */
+    const char *many = preview_events();
+    CHECK(strlen(many) < 4096 && strncmp(many, "told 2 ", 7) == 0);
+    const char *last = strrchr(many, '\n');
+    while (last > many && last[-1] != '\n') --last;
+    unsigned lost = 0;
+    CHECK(sscanf(last, "lost %u\n", &lost) == 1 && lost > 0);
+    for (const char *line = many; line < last; line = strchr(line, '\n') + 1)
+        CHECK(strncmp(line, "told ", 5) == 0 || strncmp(line, "unopened ", 9) == 0);
+    CHECK(preview_events()[0] == 0); /* read, and gone */
 
     /* an appearance: its colours, its looks and styles first; a font not built in stands in, and is said */
     static const char look[] = "{\"dgx-ui\": 1, \"name\": \"day\", \"colors\": {\"paper\": \"#c4e8fc\", \"ink\": \"#ffffff\", \"fill\": \"#204060\", "
                                "\"border\": \"#808080\", \"accent\": \"#f0a03c\"}, \"styles\": {\"body\": {\"fonts\": [\"small\"]}}, "
-                               "\"looks\": {\"big\": {\"draw\": \"button\", \"params\": {\"face\": \"accent\", \"pressed\": \"ink\", \"focused\": null, "
-                               "\"disabled\": \"border\", \"text\": \"paper\", \"text_disabled\": \"border\", \"shadow\": \"paper\", \"depth\": 1}}}}";
+                               "\"looks\": {\"big\": {\"draw\": \"button\", \"params\": {\"face\": \"accent\", \"pressed\": \"ink\", "
+                               "\"focused\": null, \"disabled\": \"border\", \"text\": \"paper\", \"text_disabled\": \"border\", "
+                               "\"shadow\": \"paper\", \"depth\": 1}}}}";
     static const char themed[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 4, \"children\": ["
-                                 "{\"kind\": \"label\", \"text\": \"Day\"}, {\"kind\": \"button\", \"look\": \"big\", \"text\": \"Go\", \"want\": [0, 16]}]}}";
+                                 "{\"kind\": \"label\", \"text\": \"Day\"}, "
+                                 "{\"kind\": \"button\", \"look\": \"big\", \"text\": \"Go\", \"want\": [0, 16]}]}}";
     for (int depth = 16; depth <= 24; depth += 4) {
         const int d = depth == 20 ? 18 : depth;
-        CHECK(preview_screen(PANEL_W, PANEL_H, d) == 0);
+        CHECK(preview_screen(PANEL_W, PANEL_H, d, 1) == 0);
         CHECK(preview_appearance(look, sizeof look - 1)->code == 0);
         CHECK(preview_page(themed, sizeof themed - 1)->code == 0 && preview_paint(now) == 1);
         frame                 = preview_frame();
@@ -226,11 +256,24 @@ int main(void)
     CHECK(preview_appearance(NULL, 0)->code == 0);
 
     /* a look of the program's own and a picture: their stand-ins drawn and said */
-    static const char own[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"row\"], \"children\": [{\"kind\": \"own\", \"look\": \"dial\", "
+    static const char own[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"row\"], \"children\": ["
+                              "{\"kind\": \"own\", \"look\": \"dial\", "
                               "\"want\": [40, 30]}, {\"kind\": \"picture\", \"picture\": \"logo\"}]}}";
-    CHECK(preview_screen(PANEL_W, PANEL_H, 16) == 0 && preview_page(own, sizeof own - 1)->code == 0 && preview_paint(now) == 1);
+    CHECK(preview_screen(PANEL_W, PANEL_H, 16, 1) == 0 && preview_page(own, sizeof own - 1)->code == 0 && preview_paint(now) == 1);
     CHECK(strstr(preview_notes(), "look dial: the program's own") && strstr(preview_notes(), "picture logo: a crossed square"));
     CHECK(preview_widget(2)->w == 16 && preview_widget(2)->h == 16);
+
+    /* more stand-ins than the notes hold: whole lines, the last says how many were lost */
+    static char crowd[16384];
+    int         at = snprintf(crowd, sizeof crowd, "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"children\": [");
+    for (int k = 0; k < 200; ++k)
+        at += snprintf(crowd + at, sizeof crowd - (size_t)at, "%s{\"kind\": \"own\", \"look\": \"own%d\"}", k ? ", " : "", k);
+    at += snprintf(crowd + at, sizeof crowd - (size_t)at, "]}}");
+    CHECK(preview_page(crowd, (size_t)at)->code == 0);
+    const char *noted = preview_notes(), *noted_last = noted + strlen(noted) - 1;
+    while (noted_last > noted && noted_last[-1] != '\n') --noted_last;
+    unsigned noted_lost = 0;
+    CHECK(strlen(noted) < 4096 && sscanf(noted_last, "lost %u\n", &noted_lost) == 1 && noted_lost > 0);
 
     /* spoiled at a byte: a verdict, never a fault */
     const char *texts[]   = {page, look, file, home_page};

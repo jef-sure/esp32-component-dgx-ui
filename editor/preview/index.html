@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!--
+  The preview of a description, by hand: dgx_ui_preview.js beside this file, opened from the disk with no server.
+  A page, an appearance and a names file written or pasted, drawn as the board draws them on a panel of its size,
+  depth and unit; the finger is the mouse on the panel.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>dgx-ui preview</title>
+<style>
+    .dgx-ui-preview { font: 13px system-ui, sans-serif; margin: 12px; color: #1d1d1f; }
+    .dgx-ui-preview .row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+    .dgx-ui-preview textarea { width: 30em; height: 12em; font: 12px ui-monospace, monospace; }
+    .dgx-ui-preview canvas { image-rendering: pixelated; border: 1px solid #888; cursor: crosshair; }
+    .dgx-ui-preview .said { font: 12px ui-monospace, monospace; white-space: pre-wrap; min-height: 1.2em; }
+    .dgx-ui-preview .refused { color: #b00020; }
+    .dgx-ui-preview label { margin-right: 6px; }
+    .dgx-ui-preview input[type=number] { width: 5em; }
+    .dgx-ui-preview .small { color: #666; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="dgx-ui-preview">
+    <div class="row">
+        <label>width <input id="width" type="number" value="320" min="1" max="4096"></label>
+        <label>height <input id="height" type="number" value="240" min="1" max="4096"></label>
+        <label>depth <select id="depth"><option>16</option><option>18</option><option>24</option></select></label>
+        <label>pixels a point <input id="unit" type="number" value="1" min="1" max="16"></label>
+        <label>zoom <select id="zoom"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+        <button id="apply">Draw</button>
+    </div>
+    <div class="row">
+        <div>
+            <canvas id="panel" width="320" height="240"></canvas>
+            <div class="row">
+                <button data-key="0">Next</button><button data-key="1">Prev</button><button data-key="2">Activate</button>
+                <button data-key="3">Back</button><button data-key="4">More</button><button data-key="5">Less</button>
+            </div>
+            <div class="row">
+                <label>value <input id="value-name" value="volume" size="12"></label>
+                <input id="value" type="number" value="50"> <button id="set-value">Set</button>
+            </div>
+            <div>Widget under the finger: <span id="widget" class="said"></span></div>
+        </div>
+        <div>
+            <div>Page</div>
+            <textarea id="page" spellcheck="false">{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "pad": 4, "gap": 4, "children": [
+  {"kind": "frame", "want": [0, 40], "pad": 3, "children": [{"kind": "label", "text": "Hello"}]},
+  {"kind": "slider", "value": "volume", "min": 0, "max": 100, "want": [0, 16]},
+  {"kind": "button", "text": "More", "on": "page", "ctx": "settings", "want": [0, 24]}]}}</textarea>
+            <div id="page-said" class="said"></div>
+            <div>Appearance <span class="small">(empty: none)</span></div>
+            <textarea id="appearance" spellcheck="false"></textarea>
+            <div id="appearance-said" class="said"></div>
+        </div>
+        <div>
+            <div>Names file <span class="small">(empty: every name the page uses)</span></div>
+            <textarea id="names" spellcheck="false"></textarea>
+            <div id="names-said" class="said"></div>
+            <div>Pages the action page opens <span class="small">(a JSON object: name to description)</span></div>
+            <textarea id="pages" spellcheck="false">{"settings": {"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "pad": 4, "children": [
+  {"kind": "label", "text": "Settings"}, {"kind": "button", "text": "Back", "on": "back", "want": [0, 24]}]}}}</textarea>
+            <div id="pages-said" class="said"></div>
+        </div>
+    </div>
+    <div class="row">
+        <div><div>Events</div><div id="events" class="said"></div></div>
+        <div><div>Stand-ins</div><div id="notes" class="said"></div></div>
+    </div>
+    <div id="version" class="small"></div>
+</div>
+<script src="dgx_ui_preview.js"></script>
+<script>
+'use strict';
+(async () => {
+    const element = id => document.getElementById(id);
+    const panel = element('panel'), context = panel.getContext('2d');
+    /* the loader's codes, dgx_ui_load.h */
+    const loadErrors = ['OK', 'SYNTAX', 'VERSION', 'KEY', 'KIND', 'FIELD', 'RANGE', 'NAME_BAD', 'UNKNOWN', 'NO_LOOK', 'NO_STYLE', 'DEPTH_MAX',
+                        'MEMORY', 'NODES', 'ID', 'MISSING'].map(word => 'DGX_UI_LOAD_' + word);
+    let pages = {};
+    const preview = await DgxUiPreview.create({pageText: name => pages[name] === undefined ? null : JSON.stringify(pages[name])});
+    const built = preview.version();
+    element('version').textContent = `dgx-ui ${built.dgx_ui}, DGX ${built.dgx}; ${built.toolchain}; ${built.sources}`;
+
+    const show = (id, verdict) => {
+        const said = element(id);
+        said.className = 'said' + (verdict.code ? ' refused' : '');
+        said.textContent = verdict.code === 0 ? 'taken'
+            : verdict.code === -1 ? verdict.said
+            : `${loadErrors[verdict.code] || 'refused ' + verdict.code} at byte ${verdict.offset}${verdict.name ? ' "' + verdict.name + '"' : ''}`;
+    };
+    const textOf = id => element(id).value.trim() ? element(id).value : null;
+    let wakeAt = 0;
+    const apply = () => {
+        try {
+            pages = element('pages').value.trim() ? JSON.parse(element('pages').value) : {};
+            element('pages-said').textContent = '';
+        } catch (error) {
+            element('pages-said').textContent = error.message;
+        }
+        const width = +element('width').value, height = +element('height').value, zoom = +element('zoom').value;
+        if (preview.screen(width, height, +element('depth').value, +element('unit').value) !== 0) return;
+        panel.width = width, panel.height = height, panel.style.width = width * zoom + 'px', panel.style.height = height * zoom + 'px';
+        show('names-said', preview.names(textOf('names')));
+        show('appearance-said', preview.appearance(textOf('appearance')));
+        show('page-said', preview.page(element('page').value));
+        element('notes').textContent = preview.notes().join('\n');
+        wakeAt = 0;
+    };
+    const events = [];
+    const frame = now => {
+        if (now >= wakeAt) {
+            if (preview.paint(now)) context.putImageData(preview.image(), 0, 0);
+            wakeAt = now + Math.min(preview.wake(now), 1000);
+            for (const line of preview.events()) events.push(line);
+            element('events').textContent = events.slice(-12).join('\n');
+        }
+        requestAnimationFrame(frame);
+    };
+    const at = event => {
+        const zoom = +element('zoom').value, box = panel.getBoundingClientRect();
+        return [Math.floor((event.clientX - box.left) / zoom), Math.floor((event.clientY - box.top) / zoom)];
+    };
+    let down = false;
+    panel.addEventListener('pointerdown', event => {
+        down = true, panel.setPointerCapture(event.pointerId), preview.pointer(...at(event), true, performance.now()), wakeAt = 0;
+    });
+    panel.addEventListener('pointermove', event => {
+        if (down) preview.pointer(...at(event), true, performance.now()), wakeAt = 0;
+        const i = preview.widgetAt(...at(event)), widget = i >= 0 ? preview.widget(i) : null, shown = preview.shown();
+        element('widget').textContent = widget ? `${shown ? 'page ' + shown + ', ' : ''}${i}: kind ${widget.kind}, ${widget.w}x${widget.h} ` +
+                                                 `at ${widget.x},${widget.y}` + (widget.text !== null ? ` "${widget.text}"` : '') : '';
+    });
+    panel.addEventListener('pointerup', event => { down = false, preview.pointer(...at(event), false, performance.now()), wakeAt = 0; });
+    for (const button of document.querySelectorAll('[data-key]'))
+        button.addEventListener('click', () => { preview.key(+button.dataset.key), wakeAt = 0; });
+    element('set-value').addEventListener('click', () => { preview.value(element('value-name').value, +element('value').value), wakeAt = 0; });
+    element('apply').addEventListener('click', apply);
+    for (const id of ['page', 'appearance', 'names', 'pages']) element(id).addEventListener('input', apply);
+    for (const id of ['width', 'height', 'depth', 'unit', 'zoom']) element(id).addEventListener('change', apply);
+    apply();
+    requestAnimationFrame(frame);
+})().catch(error => {
+    document.body.insertAdjacentHTML('beforeend', '<pre class="refused"></pre>');
+    document.body.lastElementChild.textContent = String(error);
+});
+</script>
+</body>
+</html>
