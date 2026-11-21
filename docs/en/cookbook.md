@@ -2177,7 +2177,8 @@ in the text, and the program says in tables what each name stands for.
 
 /* the page as a builder writes it; here a string, as well a file embedded in the program or read from a card */
 static const char described_json[] =
-    "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 4, \"gap\": 4, \"children\": ["
+    "{\"dgx-ui\": 1, \"name\": \"sound\","
+    " \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 4, \"gap\": 4, \"children\": ["
     "  {\"kind\": \"label\", \"text\": \"Sound\", \"id\": \"title\", \"text_size\": 24},"
     "  {\"kind\": \"slider\", \"value\": \"volume\", \"max\": 100, \"step\": 5, \"want\": [0, 12]},"
     "  {\"kind\": \"switch\", \"value\": \"mute\", \"text\": \"Mute\", \"look\": \"checkbox\"},"
@@ -2219,7 +2220,7 @@ What happens:
 
 1. `dgx_ui_load_need()` reads the whole text and checks it, against the tables too: the slider's `"volume"` is in
    the values' table, the button's `"back"` among the handlers. It answers what the page takes: the bytes, five
-   nodes, a depth of two.
+   nodes, a depth of two; and the tree's name, `"sound"`.
 2. The program gives that memory, and `dgx_ui_load()` lays the five widgets, the three text boxes and their strings
    in it and adds them to the tree. The slider's value is `described_volume`, as if the constant said
    `.value = &described_volume`.
@@ -2233,6 +2234,9 @@ What to know of it:
 - **A look not said** is the look the table names by the kind's own word: the slider's `"slider"`, the button's
   `"button"`. The switch says `"look": "checkbox"`. A box, a frame and a label need none. A look the program did
   not list is an error with the kind for its name, not a widget nobody sees.
+- **The tree's name**, `"name"`, is the description's own word for its tree and may be left out. It is in
+  `need.name` after `dgx_ui_load_need()`, empty when there is none: a program that takes pages from outside tells
+  by it which one came, before it gives any memory.
 - **A wrong description adds nothing.** `err.code` says what, `err.offset` the byte of the text, `err.name` the
   name or the key: a typo in `"sldier"` is `DGX_UI_LOAD_KIND` at its byte with that word.
 - **Only what the program listed can be reached.** A description cannot name a handler, a value or a picture that

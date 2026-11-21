@@ -2,12 +2,15 @@
  * dgx_ui_c: a description of dgx_ui_load.h made C. It writes the constants of the very tree dgx_ui_load() builds of the
  * description and a function that adds them, so that a program shows the tree with no loader and no tables of names.
  *
- *     dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] <description> <name>
+ *     dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] <description>
  *
- * writes <name>.c and <name>.h into the directory ('.' when none is said); <name> is a name of C, the prefix of all it
- * declares. The description is read by the loader itself, on tables of stand-ins made of the names it uses: every
- * check and every default is the loader's, and the tree it lays is printed, each stand-in turned back into the name it
- * stands for. A description the loader refuses is refused with the loader's error, its byte and its name.
+ * writes <prefix>.c and <prefix>.h into the directory ('.' when none is said); the prefix, a name of C, begins all they
+ * declare. It is the tree's name, "name" of the description, unless -p gives another: -p is needed when the description
+ * has no name, or one that is not a name of C, or one that begins with dgx_, as the libraries' names do. A file of that
+ * name already there is written over only when the tool made it; another is refused, and neither file is written. The
+ * description is read by the loader itself, on tables of stand-ins made of the names it uses: every check and every
+ * default is the loader's, and the tree it lays is printed, each stand-in turned back into the name it stands for. A
+ * description the loader refuses is refused with the loader's error, its byte and its name.
  *
  * A name becomes C by a names file, a line a name, '#' to the end of a line a comment:
  *
@@ -22,16 +25,18 @@
  *     look     a word of the library's own looks &dgx_ui_look_<word>, any other name &<name>
  *     value    &<name>, so "settings.volume" is &settings.volume
  *     picture  <name>, of as many pictures as the widget reads
- *     style    &<name>; a text that names none &<name>_style, declared by the header, where the program's table would
+ *     style    &<name>; a text that names none &<prefix>_style, declared by the header, where the program's table would
  *              give its own first
  *     on       back and page the library's actions, dgx_ui_load_on_back and _page; any other <name>, its ctx a number
  *              when the description gives one
  *     take     <name>
  *     ctx      &<name>; an integer (void *)(intptr_t)<n>
- *     id       int <name>_<id>, declared by the header, written by the add function
+ *     id       int <prefix>_<id>, declared by the header, written by the add function
  *
- * A name the rule cannot make C, one with '-', is refused with the name. The file made says at its top what was not
- * checked for want of the program's tables.
+ * A name the rule cannot make C, one with '-', is refused with the name. So are the names the tool makes itself: an id
+ * by the rule may not be add, style, widgets, parents, texts or buffers, and a name by the rule may not begin with
+ * <prefix>_widgets, _parents, _texts or _buffers, the arrays of the file made. The file made says at its top what was
+ * not checked for want of the program's tables.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -87,6 +92,11 @@ typedef struct table_t {
 static table_t     tables[TABLES], used[TABLES];
 static const char  DEFAULT_STYLE[] = "the default"; /* a space: no description names it */
 static const char *description_path, *prefix;
+static char        tree_name[24]; /* the description's "name", as the loader told it; empty: none */
+
+/* the names the tool makes, each <prefix>_<word>: the add function, the default style, the arrays of the file */
+static const char *const made_words[] = {"add", "style", "widgets", "parents", "texts", "buffers"};
+enum { MADE_WORD_COUNT = sizeof made_words / sizeof *made_words, FIRST_ARRAY_WORD = 2 };
 
 static void fail_out(const char *fmt, ...)
 {
@@ -272,8 +282,9 @@ static void rule_tables(void)
         if (tables[table].from_file) continue;
         if (table == T_LOOK)
             for (int k = 0; k < LIBRARY_LOOK_COUNT; ++k) entry_add(&tables[T_LOOK], library_looks[k])->c = printed("&dgx_ui_look_%s", library_looks[k]);
-        /* the style of a text that names none, the table's first: of a name no description can have */
-        if (table == T_STYLE) entry_add(&tables[T_STYLE], DEFAULT_STYLE)->c = printed("&%s_style", prefix);
+        /* the style of a text that names none, the table's first: of a name no description can have; its C, of the
+           prefix, made by prefix_tables() */
+        if (table == T_STYLE) entry_add(&tables[T_STYLE], DEFAULT_STYLE);
         for (int k = 0; k < used[table].count; ++k) {
             const entry_t *use = &used[table].entries[k];
             if (entry_of(&tables[table], use->name)) continue;
@@ -287,11 +298,51 @@ static void rule_tables(void)
                 else entry->c = copy_of(use->name), entry->number = true;
                 break;
             case T_TAKE: entry->c = copy_of(use->name); break;
-            case T_ID: entry->c = printed("%s_%s", prefix, use->name); break;
+            case T_ID: break; /* of the prefix: prefix_tables() */
             default: entry->c = printed("&%s", use->name); break;
             }
         }
     }
+}
+
+/* the C of the rule that is of the prefix, known once the loader has told the tree's name */
+static void prefix_tables(void)
+{
+    if (!tables[T_STYLE].from_file) tables[T_STYLE].entries[0].c = printed("&%s_style", prefix);
+    for (int k = 0; k < tables[T_ID].count; ++k)
+        if (tables[T_ID].entries[k].ruled) tables[T_ID].entries[k].c = printed("%s_%s", prefix, tables[T_ID].entries[k].name);
+}
+
+/* a name the tool makes, by its word, of the prefix: the add function, the style, an array */
+static int made_word_of(const char *word, size_t length)
+{
+    for (int k = 0; k < MADE_WORD_COUNT; ++k)
+        if (strlen(made_words[k]) == length && strncmp(made_words[k], word, length) == 0) return k;
+    return -1;
+}
+
+/* the names by the rule that would be the tool's own: an id <prefix>_<word>, or a name leading with an array of the file */
+static void refuse_made_names(void)
+{
+    const size_t prefix_length = strlen(prefix);
+    for (int table = 0; table < TABLES; ++table)
+        for (int k = 0; k < tables[table].count; ++k) {
+            const entry_t *entry = &tables[table].entries[k];
+            if (!entry->ruled) continue;
+            if (table == T_ID) {
+                if (made_word_of(entry->name, strlen(entry->name)) >= 0)
+                    fail_out("%s: byte %ld: the id \"%s\" would be %s_%s, a name dgx_ui_c makes: give the widget another id", description_path, entry->offset,
+                             entry->name, prefix, entry->name);
+                continue;
+            }
+            if (strncmp(entry->name, prefix, prefix_length) != 0 || entry->name[prefix_length] != '_') continue;
+            const char *rest = entry->name + prefix_length + 1;
+            const char *member = strchr(rest, '.');
+            if (made_word_of(rest, member ? (size_t)(member - rest) : strlen(rest)) >= FIRST_ARRAY_WORD)
+                fail_out("%s: byte %ld: the %s \"%s\" leads with an array of %s.c that dgx_ui_c makes: give it its expression in a names file, or the "
+                         "tree another prefix",
+                         description_path, entry->offset, table_words[table], entry->name, prefix);
+        }
 }
 
 /* ---- the stand-ins: distinct places the loader keeps, each found again by its table and entry ---- */
@@ -454,9 +505,11 @@ static void out_paragraph(out_t *o, const char *lead, const char *text)
 static void out_head(out_t *o, const char *file_name)
 {
     out(o, "/*\n");
-    char *made = printed("%s: made by dgx_ui_c from %s, a description of format %d of dgx_ui_load.h. Not to be edited: change the "
-                         "description and make it again.",
-                         file_name, base_name(description_path), FORMAT);
+    char *named = tree_name[0] && strcmp(tree_name, prefix) != 0 ? printed(", its tree \"%s\" named %s in C", tree_name, prefix) : copy_of("");
+    char *made  = printed("%s: made by dgx_ui_c from %s, a description of format %d of dgx_ui_load.h%s. Not to be edited: change the "
+                          "description and make it again.",
+                          file_name, base_name(description_path), FORMAT, named);
+    free(named);
     out_paragraph(o, "", made), free(made);
     char ruled[160] = "";
     for (int table = 0; table < TABLES; ++table)
@@ -478,6 +531,27 @@ static void out_head(out_t *o, const char *file_name)
         }
     }
     out(o, " */\n");
+}
+
+/* a file the tool is to write: none there yet, or one it made, its first comment its own; another is the program's */
+static void refuse_others_file(const char *directory, const char *suffix)
+{
+    char *path = printed("%s/%s%s", directory, prefix, suffix);
+    FILE *file = fopen(path, "rb");
+    if (!file) {
+        free(path);
+        return;
+    }
+    char        *own    = printed("/*\n * %s%s: made by dgx_ui_c from ", prefix, suffix);
+    const size_t length = strlen(own);
+    char        *head   = zeroed(1, length + 1);
+    const bool   made   = fread(head, 1, length, file) == length && memcmp(head, own, length) == 0;
+    fclose(file);
+    if (!made)
+        fail_out("%s: there, and not made by dgx_ui_c: not written over; give the tree another prefix with -p, or the files another directory "
+                 "with -d",
+                 path);
+    free(path), free(own), free(head);
 }
 
 static FILE *open_out(const char *directory, const char *suffix, char **path)
@@ -530,18 +604,29 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
     out(&c_file, "#include \"%s\"\n\n", base_name(h_path));
     for (int k = 0; k < tables[T_ID].count; ++k)
         if (!tables[T_ID].from_file && id_stand[k] >= 0) out(&c_file, "int %s = -1;\n", tables[T_ID].entries[k].c);
+    /* the text boxes in one array in the order of their widgets; the buffers of those of a "text_size" in another, one
+       after another; neither when there is nothing in it */
+    int    *text_of   = zeroed(laid, sizeof *text_of);   /* a widget's text box in the array; -1: none */
+    size_t *buffer_at = zeroed(laid, sizeof *buffer_at); /* its buffer's offset in the buffers */
+    int     text_count = 0, constant_count = 0;
+    size_t  buffer_bytes = 0;
     for (int at = 0; at < laid; ++at) {
         const dgx_ui_textbox_t *box = dgx_ui_node(ui, order[at])->widget->text;
-        if (!box) continue;
-        const char *style = c_of(T_STYLE, (uintptr_t)box->style, (uintptr_t)style_stand, sizeof *style_stand);
-        if (box->size) {
-            out(&c_file, "static char             %s_buf%d[%u];\n", prefix, at, (unsigned)box->size);
-            out(&c_file, "static dgx_ui_textbox_t %s_text%d;\n", prefix, at);
-        } else {
-            out(&c_file, "static dgx_ui_textbox_t %s_text%d = DGX_UI_TEXT_CONST(", prefix, at);
+        text_of[at]                 = box ? text_count++ : -1;
+        if (box && box->size) buffer_at[at] = buffer_bytes, buffer_bytes += box->size;
+        else constant_count += box != NULL;
+    }
+    if (buffer_bytes) out(&c_file, "static char             %s_buffers[%zu];\n", prefix, buffer_bytes);
+    if (text_count) {
+        out(&c_file, "static dgx_ui_textbox_t %s_texts[%d]%s\n", prefix, text_count, constant_count ? " = {" : ";");
+        for (int at = 0; at < laid && constant_count; ++at) {
+            const dgx_ui_textbox_t *box = dgx_ui_node(ui, order[at])->widget->text;
+            if (!box || box->size) continue;
+            out(&c_file, "    [%d] = DGX_UI_TEXT_CONST(", text_of[at]);
             out_string(&c_file, box->buf);
-            out(&c_file, ", %u, %s);\n", (unsigned)box->lines, style);
+            out(&c_file, ", %u, %s),\n", (unsigned)box->lines, c_of(T_STYLE, (uintptr_t)box->style, (uintptr_t)style_stand, sizeof *style_stand));
         }
+        if (constant_count) out(&c_file, "};\n");
     }
     out(&c_file, "\nstatic const dgx_ui_widget_t %s_widgets[%d] = {\n", prefix, laid);
     for (int at = 0; at < laid; ++at) {
@@ -565,7 +650,7 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
             if (numbers[k].value) out(&c_file, ", .%s = %d", numbers[k].field, numbers[k].value);
         if (w->value) out(&c_file, ", .value = %s", c_of(T_VALUE, (uintptr_t)w->value, (uintptr_t)value_stand, sizeof *value_stand));
         if (w->picture) out(&c_file, ", .picture = %s", c_of(T_PICTURE, (uintptr_t)w->picture, (uintptr_t)picture_stand, sizeof *picture_stand));
-        if (w->text) out(&c_file, ", .text = &%s_text%d", prefix, at);
+        if (w->text) out(&c_file, ", .text = &%s_texts[%d]", prefix, text_of[at]);
         if (w->look) out(&c_file, ", .look = %s", c_of(T_LOOK, (uintptr_t)w->look, (uintptr_t)look_stand, sizeof *look_stand));
         if (w->take) out(&c_file, ", .take = %s", c_of(T_TAKE, (uintptr_t)w->take, (uintptr_t)take_stand, 1));
         if (w->on) out(&c_file, ", .on = %s", c_of(T_ON, (uintptr_t)w->on, (uintptr_t)on_stand, 1));
@@ -583,13 +668,15 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
     for (int at = 0; at < laid; ++at) {
         const dgx_ui_textbox_t *box = dgx_ui_node(ui, order[at])->widget->text;
         if (!box || !box->size) continue;
-        const char *style = c_of(T_STYLE, (uintptr_t)box->style, (uintptr_t)style_stand, sizeof *style_stand);
-        out(&c_file, "    dgx_ui_textbox_init(&%s_text%d, %s_buf%d, %u, %u, %s);\n", prefix, at, prefix, at, (unsigned)box->size, (unsigned)box->lines, style);
+        const char *style  = c_of(T_STYLE, (uintptr_t)box->style, (uintptr_t)style_stand, sizeof *style_stand);
+        char       *buffer = buffer_at[at] ? printed("%s_buffers + %zu", prefix, buffer_at[at]) : printed("%s_buffers", prefix);
+        out(&c_file, "    dgx_ui_textbox_init(&%s_texts[%d], %s, %u, %u, %s);\n", prefix, text_of[at], buffer, (unsigned)box->size, (unsigned)box->lines, style);
         if (box->buf[0]) {
-            out(&c_file, "    memcpy(%s_buf%d, ", prefix, at);
+            out(&c_file, "    memcpy(%s, ", buffer);
             out_string(&c_file, box->buf);
             out(&c_file, ", %zu);\n", strlen(box->buf) + 1);
         }
+        free(buffer);
     }
     out(&c_file, "    int16_t at[%d];\n", laid);
     out(&c_file, "    for (int k = 0; k < %d; ++k) {\n", laid);
@@ -604,7 +691,7 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
     }
     out(&c_file, "    return at[0];\n}\n");
     if (fclose(c_file.file) || fclose(h_file.file)) fail_out("%s: %s", c_path, strerror(errno));
-    free(order), free(parent);
+    free(order), free(parent), free(text_of), free(buffer_at);
 }
 
 static char *read_all(const char *path, size_t *length)
@@ -632,12 +719,14 @@ int main(int argc, char **argv)
         if (arg + 1 >= argc) fail_out("%s wants a value", argv[arg]);
         if (strcmp(argv[arg], "-n") == 0) names_path = argv[arg + 1];
         else if (strcmp(argv[arg], "-d") == 0) directory = argv[arg + 1];
+        else if (strcmp(argv[arg], "-p") == 0) prefix = argv[arg + 1];
         else if (strcmp(argv[arg], "-i") == 0 && header_count < 16) headers[header_count++] = argv[arg + 1];
-        else fail_out("%s: not an option; -n <names file>, -i <header>, -d <directory>", argv[arg]);
+        else fail_out("%s: not an option; -n <names file>, -i <header>, -d <directory>, -p <prefix>", argv[arg]);
     }
-    if (argc - arg != 2) fail_out("dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] <description> <name>");
-    description_path = argv[arg], prefix = argv[arg + 1];
-    if (!c_name(prefix, false)) fail_out("\"%s\" is not a name of C", prefix);
+    if (argc - arg != 1) fail_out("dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] <description>");
+    description_path = argv[arg];
+    if (prefix && !c_name(prefix, false)) fail_out("-p \"%s\" is not a name of C", prefix);
+    if (prefix && strncmp(prefix, "dgx_", 4) == 0) fail_out("-p \"%s\" begins with dgx_, as the libraries' names and headers do", prefix);
 
     size_t length;
     char  *text = read_all(description_path, &length);
@@ -655,6 +744,13 @@ int main(int argc, char **argv)
         fputc('\n', stderr);
         return 1;
     }
+    /* the prefix: the command's, else the tree's name, which must then be of C */
+    memcpy(tree_name, need.name, sizeof tree_name);
+    if (!prefix && !tree_name[0]) fail_out("%s: the description has no \"name\": give the tree one there, or a prefix with -p", description_path);
+    if (!prefix && !c_name(tree_name, false)) fail_out("%s: the name \"%s\" is not a name of C: give the tree a prefix of C with -p", description_path, tree_name);
+    if (!prefix && strncmp(tree_name, "dgx_", 4) == 0)
+        fail_out("%s: the name \"%s\" begins with dgx_, as the libraries' names and headers do: give the tree a prefix with -p", description_path, tree_name);
+    if (!prefix) prefix = tree_name;
     /* a name the rule made must be of C */
     for (int table = 0; table < TABLES; ++table)
         for (int k = 0; k < tables[table].count; ++k) {
@@ -662,12 +758,17 @@ int main(int argc, char **argv)
             if (entry->ruled && !c_name(entry->name, table != T_ID))
                 fail_out("%s: byte %ld: the %s \"%s\" is not a name of C: give it its expression in a names file", description_path, entry->offset, table_words[table], entry->name);
         }
+    refuse_made_names();
+    prefix_tables();
     dgx_ui_node_t *nodes  = zeroed(need.nodes, sizeof *nodes);
     void          *memory = zeroed(1, need.bytes ? need.bytes : 1);
     dgx_ui_t       ui;
     dgx_ui_init(&ui, nodes, need.nodes, 1);
     const int root = dgx_ui_load(&ui, -1, text, length, &names, memory, need.bytes, &err);
     if (root < 0) fail_out("%s: byte %d: %s, after its need was told", description_path, err.offset, error_words[err.code]);
+    /* no file of the program's written over: both looked at before either is written */
+    refuse_others_file(directory, ".c");
+    refuse_others_file(directory, ".h");
     write_c(&ui, root, directory, headers, header_count);
     return 0;
 }

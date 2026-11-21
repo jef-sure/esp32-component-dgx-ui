@@ -29,6 +29,7 @@ typedef struct load_t {
     int                       *ids;  /* the index of each id of the table, written to the table once all is added */
     int                        top;  /* the first widget added: removing it removes all the load added */
     uint8_t                    ids_met[DGX_UI_LOAD_IDS / 8]; /* the table's ids met by the walk: a second is an error */
+    char                       tree_name[24];                /* the description's "name"; empty: none */
 } load_t;
 
 /* the most levels a value passed over goes in: a widget's object and its list of children two each */
@@ -307,27 +308,33 @@ static bool widget(load_t *L, int parent, int depth, int *index)
     return true;
 }
 
-/* the description: {"dgx-ui": 1, "tree": a widget}, nothing after it */
+/* the description: {"dgx-ui": 1, "tree": a widget, "name": the tree's name}, nothing after it. A key of the top this
+   version does not know is told after the version, so that a description of a later version is refused as one */
 static bool document(load_t *L, int parent, int *index)
 {
-    size_t  tree_at = 0, version_at = 0;
+    size_t  tree_at = 0, version_at = 0, name_at = 0, unknown_at = 0;
+    char    unknown[24];
     int32_t version = 0;
     if (!dgx_ui_json_expect(&L->json, '{')) return false;
     if (dgx_ui_json_peek(&L->json) != '}')
         for (bool more = true; more;) {
-            char name[24];
+            char key[24];
             dgx_ui_json_peek(&L->json);
             const size_t here = L->json.pos;
-            if (!name_of(L, name) || !dgx_ui_json_expect(&L->json, ':')) return false;
-            if (strcmp(name, "dgx-ui") == 0 && !version_at) {
+            if (!name_of(L, key) || !dgx_ui_json_expect(&L->json, ':')) return false;
+            if (strcmp(key, "dgx-ui") == 0 && !version_at) {
                 version_at = here;
                 if (!dgx_ui_json_integer(&L->json, INT32_MIN, INT32_MAX, &version)) return false;
-            } else if (strcmp(name, "tree") == 0 && !tree_at) {
+            } else if (strcmp(key, "tree") == 0 && !tree_at) {
                 if (dgx_ui_json_peek(&L->json) != '{') return fail(L, DGX_UI_LOAD_SYNTAX, L->json.pos, NULL);
                 tree_at = L->json.pos;
                 if (!dgx_ui_json_skip(&L->json, SKIP_LEVELS - 1)) return false;
+            } else if (strcmp(key, "name") == 0 && !name_at) {
+                name_at = here;
+                if (!name_of(L, L->tree_name)) return false;
             } else {
-                return fail(L, DGX_UI_LOAD_KEY, here, name);
+                if (!unknown_at) unknown_at = here, strcpy(unknown, key);
+                if (!dgx_ui_json_skip(&L->json, SKIP_LEVELS - 1)) return false;
             }
             if (!dgx_ui_json_next(&L->json, '}', &more)) return false;
         }
@@ -335,6 +342,7 @@ static bool document(load_t *L, int parent, int *index)
         ++L->json.pos;
     if (dgx_ui_json_peek(&L->json) != -1) return fail(L, DGX_UI_LOAD_SYNTAX, L->json.pos, NULL);
     if (!version_at || version != 1) return fail(L, DGX_UI_LOAD_VERSION, version_at, NULL);
+    if (unknown_at) return fail(L, DGX_UI_LOAD_KEY, unknown_at, unknown);
     if (!tree_at) return fail(L, DGX_UI_LOAD_KEY, 0, "tree");
     L->json.pos = tree_at;
     return widget(L, parent, 1, index);
@@ -361,6 +369,7 @@ bool dgx_ui_load_need(const char *json, size_t len, const dgx_ui_load_names_t *n
     err->code = DGX_UI_LOAD_OK, err->offset = 0, err->name[0] = 0;
     if (!walk(&L, -1, &index)) return false;
     need->bytes = L.bytes, need->nodes = L.nodes, need->depth = L.depth;
+    memcpy(need->name, L.tree_name, sizeof need->name);
     return true;
 }
 

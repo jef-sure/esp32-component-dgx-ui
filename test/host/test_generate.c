@@ -179,8 +179,10 @@ int main(void)
     int off = 0;
     for (size_t k = 0; k < sizeof cases / sizeof *cases; ++k) off += !same_trees(&cases[k]);
     CHECK(off == 0);
-    /* no room for a widget midway: what was added removed, no id written */
-    {
+    /* the cases of every_names alone, the first: no room for a widget midway, what was added removed, no id written */
+    const bool every_first = strcmp(cases[0].name, "every_names") == 0;
+    CHECK(every_first);
+    if (every_first) {
         static dgx_ui_node_t few[4];
         dgx_ui_t             ui;
         dgx_ui_init(&ui, few, 4, 1);
@@ -193,7 +195,7 @@ int main(void)
         dgx_ui_free(&ui);
     }
     /* added again after the program wrote a longer text in a box of its own: the text as the description gives it */
-    {
+    if (every_first) {
         static dgx_ui_node_t again[128];
         dgx_ui_t             ui;
         dgx_ui_init(&ui, again, 128, 1);

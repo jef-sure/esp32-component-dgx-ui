@@ -1715,6 +1715,10 @@ int main(int argc, char **argv)
         dgx_ui_load_need_t  wrong_need;
         dgx_ui_load_error_t wrong_err = {0};
         const bool          wrong_ok  = dgx_ui_load_need(wrong, sizeof wrong - 1, &described_names, &wrong_need, &wrong_err);
+        dgx_ui_load_need_t  told_need = {0};
+        dgx_ui_load_error_t told_err  = {0};
+        dgx_ui_load_need(described_json, sizeof described_json - 1, &described_names, &told_need, &told_err);
+        printf("described: the tree named \"%s\", %d nodes, a depth of %d; ", told_need.name, told_need.nodes, told_need.depth);
         printf("described: loaded %d (error %d), the label at %d reads \"%s\", %d widgets; opened as a page %d; MORE on its slider: the program's volume %d (from 40 by 5); "
                "a tap on Back closes it %d; a kind \"sldier\": taken %d, code %d (KIND %d) at byte %d, \"%s\"\n",
                loaded, load_err.code, described_title, title_text, described_page.count, opened, volume_after, closed, wrong_ok, wrong_err.code, DGX_UI_LOAD_KIND, wrong_err.offset,

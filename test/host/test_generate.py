@@ -11,9 +11,13 @@ names what was not checked, and one made by a names file that gives every table 
 
 The cases: the description of every kind and key, by the names file and by the rule; trees made by chance, by the
 names file (some made wrong on purpose: an unknown name, a key of no meaning, a number for a ctx its handler does not
-take, a switch of one picture, an id twice, a kind unknown, an icon past its pictures) and by the rule; the
-descriptions test_load refuses; a name the rule cannot make C, a names file that is wrong, a names file of one table.
+take, a switch of one picture, an id twice, a kind unknown, an icon past its pictures) and by the rule, each named by
+the description or by -p; texts in buffers of several sizes, none buffered, none at all; the descriptions test_load
+refuses, with -p and without; a name the rule cannot make C, a names file that is wrong, a names file of one table;
+the prefix, the tree's name or -p's, and the names the tool makes itself refused as ids and as the lead of a name; a
+file of the program's not written over, one the tool made written again; a prefix of the libraries' refused.
 """
+import json
 import os
 import random
 import re
@@ -79,7 +83,8 @@ EVERY = r'''{"tree": {"children": [
   {"kind": "button", "picture": "dot", "look": "picture_button", "on": "page", "ctx": "settings", "id": "go", "state": ["hidden"]},
   {"kind": "button", "text": "Save \"q\"??= \\", "on": "SAVED", "ctx": "other"}
 ], "kind": "box", "flags": ["column"], "pad": 2, "gap": 2}, "dgx-ui": 1}'''
-EVERY_NAMES = EVERY.replace("SMALL", "big").replace("VOLUME", "loudness").replace("DOT", "pip").replace("SAVED", "tap")
+EVERY_NAMES = EVERY.replace("SMALL", "big").replace("VOLUME", "loudness").replace("DOT", "pip").replace("SAVED", "tap").replace(
+    '"dgx-ui": 1}', '"dgx-ui": 1, "name": "every_names"}')
 EVERY_RULE = EVERY.replace('"style": "SMALL", ', "").replace("VOLUME", "volume").replace("DOT", "dot").replace("SAVED", "saved")
 
 # ---- trees by chance ----
@@ -224,26 +229,42 @@ class Chance:
         return keys
 
 
-def chance_tree(seed, rule, wrong):
-    """a tree of the seed; one to be made wrong made again until the wrong widget is in it"""
+def chance_tree(seed, rule, wrong, name):
+    """a tree of the seed, named by chance at a chance place among the top keys; one to be made wrong made again until
+    the wrong widget is in it"""
     rand = random.Random(seed)
     while True:
         chance = Chance(rand, rule, wrong)
         tree = chance.widget(1)
         if chance.injected or not wrong:
             break
-    return ('{"dgx-ui": 1, "tree": ' + tree + "}") if seed % 2 else ('{"tree": ' + tree + ', "dgx-ui": 1}'), chance.ids_used
+    top = ['"dgx-ui": 1', '"tree": ' + tree] if seed % 2 else ['"tree": ' + tree, '"dgx-ui": 1']
+    place = rand.randint(0, 3)
+    if place < 3:
+        top.insert(place, f'"name": "{name}"')
+    return "{" + ", ".join(top) + "}", chance.ids_used
 
 
 # ---- the cases: every_names first, the one test_generate.c also adds with no room ----
 
 cases = [("every_names", EVERY_NAMES, False, ["title", "slider", "less", "go"]), ("every_rule", EVERY_RULE, True, ["title", "slider", "less", "go"])]
 for k in range(70):
-    tree, used = chance_tree(1000 + k, False, k % 6 == 5)
+    tree, used = chance_tree(1000 + k, False, k % 6 == 5, f"chance_names{k}")
     cases.append((f"chance_names{k}", tree, False, used))
 for k in range(20):
-    tree, used = chance_tree(2000 + k, True, False)
+    tree, used = chance_tree(2000 + k, True, False, f"chance_rule{k}")
     cases.append((f"chance_rule{k}", tree, True, used))
+# the texts: in buffers of several sizes, one of a byte, the last widget's buffered; none buffered; none at all; a tree
+# named otherwise than its prefix
+cases += [
+    ("buffers", '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "label", "text": "Hello", "text_size": 12}, '
+                '{"kind": "input", "text_size": 1}, {"kind": "button", "text": "Go", "on": "saved"}, {"kind": "label", "text": "a\\nb", "lines": 2}, '
+                '{"kind": "label", "text": "Last one", "text_size": 30, "style": "small"}]}}', False, []),
+    ("constants", '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "label", "text": "a"}, {"kind": "button", "text": "b"}]}}',
+     True, []),
+    ("textless", '{"dgx-ui": 1, "tree": {"kind": "box", "children": [{"kind": "slider", "value": "volume", "max": 9}]}}', True, []),
+    ("over_name", '{"dgx-ui": 1, "name": "my-page", "tree": {"kind": "label", "text": "x", "id": "title"}}', True, ["title"]),
+]
 REFUSED = [
     '{"dgx-ui": 2, "tree": {"kind": "box"}}',
     '{"tree": {"kind": "box"}}',
@@ -277,20 +298,44 @@ REFUSED = [
     '{"dgx-ui": 1, "tree": {"kind": "slider", "look": "yours"}}',
     '{"dgx-ui": 1, "tree": ' + "".join('{"kind": "box", "children": [' for _ in range(24)) + '{"kind": "box"}' + "]}" * 24 + "}",
     '{"dgx-ui": 1, "tree": {"kind": "box", "x": ' + "[" * 60 + "]" * 60 + "}}",
+    '{"dgx-ui": 1, "name": "", "tree": {"kind": "box"}}',
+    '{"dgx-ui": 1, "name": "a/b", "tree": {"kind": "box"}}',
+    '{"dgx-ui": 1, "name": null, "tree": {"kind": "box"}}',
+    '{"dgx-ui": 1, "name": "a", "name": "b", "tree": {"kind": "box"}}',
+    '{"name": "page", "fonts": 1, "dgx-ui": 2, "tree": {"kind": "box"}}',
+    '{"dgx-ui": 1, "name": "my-page", "tree": {"kind": "boxx"}}',
 ]
 for k, text in enumerate(REFUSED):
     cases.append((f"refused{k}", text, False, []))
 
 
-def run_tool(name, text, rule, names=None):
+def named(text):
+    """the tree's name a description gives; None when it gives none or is not JSON"""
+    try:
+        top = json.loads(text)
+    except ValueError:
+        return None
+    return top.get("name") if isinstance(top, dict) else None
+
+
+def run_tool(name, text, rule, names=None, prefix=None):
+    """dgx_ui_c on the text: the files named by the case, by -p unless the description names its tree so; prefix ""
+    gives no -p, another prefix that one"""
     path = os.path.join(work, name + ".json")
     with open(path, "w", encoding="utf-8", errors="surrogateescape") as out:
         out.write(text)
     command = [tool, "-i", "generate_program.h", "-d", work]
     if not rule:
         command += ["-n", names or names_path]
-    run = subprocess.run(command + [path, name], capture_output=True, text=True, timeout=30)
+    if prefix is None and named(text) != name:
+        prefix = name
+    if prefix:
+        command += ["-p", prefix]
+    run = subprocess.run(command + [path], capture_output=True, text=True, timeout=30)
     return run.returncode, run.stderr.strip()
+
+
+LOADER_SAID = r": byte (-?\d+): (DGX_UI_LOAD_[A-Z_]+)(?: \"(.*)\")?$"
 
 
 taken, refused = [], []
@@ -299,11 +344,16 @@ for name, text, rule, used in cases:
     if status == 0:
         taken.append((name, text, rule, used))
         continue
-    found = re.search(r": byte (-?\d+): (DGX_UI_LOAD_[A-Z_]+)(?: \"(.*)\")?$", said)
+    found = re.search(LOADER_SAID, said)
     if rule or not found:
         failures.append(f"{name}: dgx_ui_c refused it: {said}")
         continue
     refused.append((name, text, codes.index(found.group(2)), int(found.group(1)), found.group(3) or ""))
+    # the loader's verdict first: with no prefix given, whatever the name, the same
+    bare_status, bare_said = run_tool(name + "_bare", text, rule, prefix="")
+    bare = re.search(LOADER_SAID, bare_said)
+    if not bare or bare.groups() != found.groups():
+        failures.append(f"{name}: with no -p dgx_ui_c said {bare_said}, with -p {said}")
 if not any(name.startswith("refused") for name, *_ in refused) or sum(1 for name, *_ in refused if name.startswith("chance")) < 5:
     failures.append(f"too few refusals: {[name for name, *_ in refused]}")
 if len([1 for name, *_ in taken if name.startswith("chance_names")]) < 50:
@@ -335,6 +385,16 @@ def made_text(name, suffix):
 
 if '"Less", 1, &every_rule_style' not in made_text("every_rule", ".c") or "extern dgx_ui_text_style_t every_rule_style;" not in made_text("every_rule", ".h"):
     failures.append("every_rule: a text that names no style has not the rule's every_rule_style")
+# the arrays of the texts and the buffers only when there is something in them; the tree's name said when it is not
+# the prefix
+for name, texts, buffers in [("buffers", True, True), ("constants", True, False), ("textless", False, False)]:
+    made = made_text(name, ".c")
+    if not made or (f"{name}_texts[" in made) != texts or (f"{name}_buffers[" in made) != buffers:
+        failures.append(f"{name}: the arrays of the texts {texts}, of the buffers {buffers}, not as made")
+if "buffers_buffers + 13, 30, 1, &small" not in made_text("buffers", ".c"):
+    failures.append("buffers: the last buffer not where the sizes before it put it")
+if 'its tree "my-page" named over_name in C' not in made_text("over_name", ".c").partition("*/")[0].replace("\n *", ""):
+    failures.append("over_name: the first comment does not name the tree and its prefix")
 
 # ---- the program ----
 with open(os.path.join(work, "cases.h"), "w") as out:
@@ -394,6 +454,92 @@ if status or "look, picture, style, on, take, ctx, id" not in head.replace("\n *
 status, said = run_tool("one_table_unknown", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "volume"}}', False, one_table)
 if status == 0 or 'DGX_UI_LOAD_UNKNOWN "volume"' not in said:
     failures.append(f"a name the file's table has not: {status} {said}")
+
+# ---- the prefix: the tree's name, else -p; a name the rule makes that is the tool's own ----
+for text, prefix, expect in [
+    ('{"dgx-ui": 1, "tree": {"kind": "box"}}', "", 'has no "name": give the tree one there, or a prefix with -p'),
+    ('{"dgx-ui": 1, "name": "my-page", "tree": {"kind": "box"}}', "", 'the name "my-page" is not a name of C: give the tree a prefix of C with -p'),
+    ('{"dgx-ui": 1, "name": "2nd", "tree": {"kind": "box"}}', "", 'the name "2nd" is not a name of C'),
+    ('{"dgx-ui": 1, "name": "page", "tree": {"kind": "box"}}', "1x", '-p "1x" is not a name of C'),
+]:
+    status, said = run_tool("prefix", text, True, prefix=prefix)
+    if status == 0 or expect not in said:
+        failures.append(f"the prefix of {text} by -p {prefix!r}: {status} {said}")
+status, said = run_tool("named", '{"dgx-ui": 1, "name": "named", "tree": {"kind": "box"}}', True, prefix="")
+if status or "int named_add(dgx_ui_t *ui, int parent);" not in made_text("named", ".h"):
+    failures.append(f"the tree's name as the prefix: {status} {said}")
+for word in ["add", "style", "widgets", "parents", "texts", "buffers"]:
+    text = '{"dgx-ui": 1, "name": "page", "tree": {"kind": "label", "id": "' + word + '"}}'
+    status, said = run_tool("made_id", text, True, prefix="")
+    if status == 0 or f'byte {text.index(chr(34) + word)}: the id "{word}" would be page_{word}, a name dgx_ui_c makes' not in said:
+        failures.append(f"the id {word}: {status} {said}")
+USES = [("value", '{"kind": "slider", "value": "%s"}'), ("picture", '{"kind": "picture", "picture": "%s"}'),
+        ("style", '{"kind": "label", "text": "x", "style": "%s"}'), ("on", '{"kind": "button", "on": "%s"}'), ("take", '{"kind": "box", "take": "%s"}'),
+        ("ctx", '{"kind": "button", "on": "saved", "ctx": "%s"}'), ("look", '{"kind": "slider", "look": "%s"}')]
+for array in ["widgets", "parents", "texts", "buffers"]:
+    for table, use in USES:
+        for lead in [f"page_{array}", f"page_{array}.x"] if table in ("value", "style", "ctx") else [f"page_{array}"]:
+            text = '{"dgx-ui": 1, "name": "page", "tree": ' + use % lead + "}"
+            status, said = run_tool("made_lead", text, True, prefix="")
+            if status == 0 or f'byte {text.index(chr(34) + lead)}: the {table} "{lead}" leads with an array of page.c that dgx_ui_c makes' not in said:
+                failures.append(f"the {table} {lead}: {status} {said}")
+status, said = run_tool("made_lead", '{"dgx-ui": 1, "name": "page", "tree": {"kind": "slider", "value": "other_texts"}}', True, prefix="other")
+if status == 0 or 'the value "other_texts" leads with an array of other.c' not in said:
+    failures.append(f"an array of -p's prefix: {status} {said}")
+for text in ['{"dgx-ui": 1, "name": "page", "tree": {"kind": "label", "text": "x", "id": "text1"}}',
+             '{"dgx-ui": 1, "name": "page", "tree": {"kind": "slider", "value": "page_texts_x"}}',
+             '{"dgx-ui": 1, "name": "page", "tree": {"kind": "slider", "value": "page_textsx"}}',
+             '{"dgx-ui": 1, "name": "page", "tree": {"kind": "slider", "value": "other_texts"}}',
+             '{"dgx-ui": 1, "name": "page", "tree": {"kind": "button", "on": "page_add", "ctx": "page_style"}}']:
+    status, said = run_tool("near", text, True, prefix="")
+    if status:
+        failures.append(f"{text}: refused, not a name the tool makes: {said}")
+
+# ---- no file of the program's written over; a file the tool made written again ----
+def tool_in(directory, text, *options):
+    path = os.path.join(directory, "page.json")
+    with open(path, "w") as out:
+        out.write(text)
+    run = subprocess.run([tool, "-d", directory, *options, path], capture_output=True, text=True, timeout=30)
+    return run.returncode, run.stderr.strip()
+
+
+def file_text(path):
+    with open(path, encoding="utf-8") as made:
+        return made.read()
+
+
+own = os.path.join(work, "own")
+os.makedirs(own, exist_ok=True)
+for leftover in ["main.c", "main.h", "page.c", "page.h", "again.c", "again.h", "other.c", "other.h"]:
+    if os.path.exists(os.path.join(own, leftover)):
+        os.remove(os.path.join(own, leftover))
+PROGRAM_C, PROGRAM_H = "int main(void)\n{\n    return 0;\n}\n", "/*\n * page.h: made by hand, the program's own\n */\n"
+REFUSED_OVER = ": there, and not made by dgx_ui_c: not written over; give the tree another prefix with -p, or the files another directory with -d"
+with open(os.path.join(own, "main.c"), "w") as out:
+    out.write(PROGRAM_C)
+status, said = tool_in(own, '{"dgx-ui": 1, "name": "main", "tree": {"kind": "box"}}')
+if status == 0 or os.path.join(own, "main.c") + REFUSED_OVER not in said or file_text(os.path.join(own, "main.c")) != PROGRAM_C or os.path.exists(os.path.join(own, "main.h")):
+    failures.append(f"the program's main.c: {status} {said}")
+with open(os.path.join(own, "page.h"), "w") as out:
+    out.write(PROGRAM_H)
+status, said = tool_in(own, '{"dgx-ui": 1, "name": "page", "tree": {"kind": "box"}}')
+if status == 0 or os.path.join(own, "page.h") + REFUSED_OVER not in said or file_text(os.path.join(own, "page.h")) != PROGRAM_H or os.path.exists(os.path.join(own, "page.c")):
+    failures.append(f"the program's page.h with no page.c: {status} {said}")
+status, said = tool_in(own, '{"dgx-ui": 1, "name": "main", "tree": {"kind": "box"}}', "-p", "other")
+if status or file_text(os.path.join(own, "main.c")) != PROGRAM_C or "int other_add(" not in file_text(os.path.join(own, "other.h")):
+    failures.append(f"the program's main.c kept, the tree made other by -p: {status} {said}")
+for pad in [1, 2]:
+    status, said = tool_in(own, '{"dgx-ui": 1, "name": "again", "tree": {"kind": "box", "pad": %d}}' % pad)
+    if status or f".pad = {pad}" not in file_text(os.path.join(own, "again.c")):
+        failures.append(f"a file the tool made, written again with pad {pad}: {status} {said}")
+# a prefix of the libraries': the made files would stand for their headers
+status, said = tool_in(own, '{"dgx-ui": 1, "name": "dgx_ui", "tree": {"kind": "box"}}')
+if status == 0 or 'the name "dgx_ui" begins with dgx_, as the libraries\' names and headers do: give the tree a prefix with -p' not in said:
+    failures.append(f"a tree named dgx_ui: {status} {said}")
+status, said = tool_in(own, '{"dgx-ui": 1, "name": "page", "tree": {"kind": "box"}}', "-p", "dgx_ui_text")
+if status == 0 or '-p "dgx_ui_text" begins with dgx_' not in said:
+    failures.append(f"-p dgx_ui_text: {status} {said}")
 
 for failure in failures:
     print("  " + failure, file=sys.stderr)

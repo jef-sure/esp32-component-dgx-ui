@@ -289,7 +289,7 @@ int main(void)
     make_expected();
     dgx_ui_load_need_t  need;
     dgx_ui_load_error_t err;
-    CHECK(dgx_ui_load_need(every, strlen(every), &names, &need, &err) && need.nodes == 16 && need.depth == 3);
+    CHECK(dgx_ui_load_need(every, strlen(every), &names, &need, &err) && need.nodes == 16 && need.depth == 3 && need.name[0] == 0);
     static dgx_ui_node_t nodes[24], constant_nodes[24];
     dgx_ui_t             ui, constant;
     void                *memory = malloc(need.bytes);
@@ -357,6 +357,44 @@ int main(void)
     CHECK(fails_with("{\"dgx-ui\": 2, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
     CHECK(fails_with("{\"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 0, NULL));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\"}, \"fonts\": 1}", DGX_UI_LOAD_KEY, 39, "fonts"));
+
+    /* the tree's name: before, between and after the other two keys, written with escapes, given out by the need; the
+       tree the same as with none */
+    {
+        static const char *const named[] = {
+            "{\"name\": \"settings\", \"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"pad\": 3}}",
+            "{\"dgx-ui\": 1, \"name\": \"settings\", \"tree\": {\"kind\": \"box\", \"pad\": 3}}",
+            "{\"tree\": {\"kind\": \"box\", \"pad\": 3}, \"dgx-ui\": 1, \"name\": \"settings\"}",
+            "{\"dgx-ui\": 1, \"\\u006eame\": \"s\\u0065ttings\", \"tree\": {\"kind\": \"box\", \"pad\": 3}}",
+        };
+        for (size_t k = 0; k < sizeof named / sizeof *named; ++k) {
+            static uint8_t named_memory[256] __attribute__((aligned(8)));
+            static dgx_ui_node_t named_nodes[2];
+            dgx_ui_t             named_ui;
+            dgx_ui_init(&named_ui, named_nodes, 2, 1);
+            CHECK(dgx_ui_load_need(named[k], strlen(named[k]), &names, &need, &err) && strcmp(need.name, "settings") == 0 && need.nodes == 1);
+            const int top = dgx_ui_load(&named_ui, -1, named[k], strlen(named[k]), &names, named_memory, sizeof named_memory, &err);
+            CHECK(top == 0 && dgx_ui_node(&named_ui, 0)->widget->kind == DGX_UI_BOX && dgx_ui_node(&named_ui, 0)->widget->pad == 3);
+            dgx_ui_free(&named_ui);
+        }
+        static const char longest[] = "{\"dgx-ui\": 1, \"name\": \"a2345678901234567890123\", \"tree\": {\"kind\": \"box\"}}";
+        CHECK(dgx_ui_load_need(longest, strlen(longest), &names, &need, &err) && strcmp(need.name, "a2345678901234567890123") == 0);
+        CHECK(fails_with("{\"dgx-ui\": 1, \"name\": \"a23456789012345678901234\", \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_NAME_BAD, 22, "a2345678901234567890123"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"name\": \"\", \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_NAME_BAD, 22, ""));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"name\": \"a/b\", \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_NAME_BAD, 22, "a/b"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"name\": null, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_SYNTAX, 22, NULL));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"name\": 5, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_SYNTAX, 22, NULL));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"name\": \"a\", \"name\": \"b\", \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 27, "name"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"name\": \"x\"}}", DGX_UI_LOAD_KEY, 38, "name"));
+    }
+
+    /* a later version told before a key of the top this one does not know, whatever their order; the first such key told
+       when the version is this one */
+    CHECK(fails_with("{\"fonts\": {\"a\": [1, {\"b\": 2}]}, \"dgx-ui\": 2, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 32, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 2, \"pages\": [], \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"x\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 0, NULL));
+    CHECK(fails_with("{\"x\": 1, \"dgx-ui\": 1, \"y\": 2, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 1, "x"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"dgx-ui\": 2, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 14, "dgx-ui"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"boxx\"}}", DGX_UI_LOAD_KIND, 31, "boxx"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"pad\": 1}}", DGX_UI_LOAD_KIND, 22, NULL));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 38, "kind"));
@@ -498,11 +536,23 @@ int main(void)
         for (int round = 0; round < 400; ++round) {
             printer_t  p             = {.out = text, .cap = sizeof text};
             const bool version_first = chance(2);
+            const int  name_place    = chance(4); /* the name before the two keys, between them, after them; 3: none */
             chance_count             = 0;
-            print(&p, version_first ? "{\"dgx-ui\": 1, \"tree\": " : "{\"tree\": ");
-            chance_widget(&p, -1, 1);
-            print(&p, version_first ? "}" : ", \"dgx-ui\": 1}");
+            print(&p, "{");
+            for (int place = 0; place < 3; ++place) {
+                if (place == name_place) print(&p, "%s\"name\": \"round%d\"", place ? ", " : "", round);
+                if (place == 2) break;
+                if (place || name_place == 0) print(&p, ", ");
+                if ((place == 0) == version_first) print(&p, "\"dgx-ui\": 1");
+                else print(&p, "\"tree\": "), chance_widget(&p, -1, 1);
+            }
+            print(&p, "}");
             if (p.n >= sizeof text) continue;
+            {
+                char said[24] = "";
+                if (name_place < 3) snprintf(said, sizeof said, "round%d", round);
+                off += !dgx_ui_load_need(text, p.n, &names, &need, &err) || strcmp(need.name, said) != 0;
+            }
             static dgx_ui_node_t chance_nodes[64];
             dgx_ui_init(&ui, chance_nodes, 64, 1);
             const int r = dgx_ui_load(&ui, -1, text, p.n, &names, memory, 32768, &err);

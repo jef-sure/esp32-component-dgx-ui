@@ -1,5 +1,14 @@
 # Changes
 
+## 0.0.40 - 2026-11-21
+
+- A description may name its tree, `"name"`, and `dgx_ui_load_need()` gives the name out; a description of a later
+  version is refused as one, before a key of the top this version does not know.
+- `tools/dgx_ui_c`, a program of the computer, not in the package: a description made C, the constants of the very
+  tree `dgx_ui_load()` builds of it and a function that adds them, named by the tree's name.
+- The examples `controls` and `thin_paint` draw letters with soft edges, in fonts DGX makes at build time from a face
+  of the computer.
+
 ## 0.0.39 - 2026-11-21
 
 - A tree from a description in JSON, `dgx_ui_load()`: every pointer is a name of the program's tables, the widgets are

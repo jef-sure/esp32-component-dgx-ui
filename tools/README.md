@@ -20,12 +20,21 @@ read from `include/dgx_ui_paint.h` when it is built.
 ## Use
 
 ```sh
-tools/build/dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] <description> <name>
+tools/build/dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <prefix>] <description>
 ```
 
-It writes `<name>.c` and `<name>.h` into the directory (`.` when none is said). `<name>` is a name of C, the prefix
-of all the files declare. `-i` names a header of the program the `.c` includes, the one that declares what the
-names lead to. The header declares:
+It writes `<prefix>.c` and `<prefix>.h` into the directory (`.` when none is said). The prefix, a name of C, begins
+all the files declare. It is the tree's name, the `"name"` of the description: one that says `"name": "settings"`
+gives `settings.c`, `settings.h` and `settings_add()`. `-p` gives another prefix, and is needed when the description
+has no name, or one that is not a name of C, `"wifi-setup"`; the files then say both names in their first lines.
+A prefix may not begin with `dgx_`, as the libraries' names and headers do. `-i` names a header of the program the
+`.c` includes, the one that declares what the names lead to.
+
+A file that is already there is written over only when the tool made it, by its first lines: a tree named `main`
+beside the program's `main.c` is refused, and neither file is written. `-p` or `-d` then gives the files another
+place.
+
+The header declares:
 
 ```c
 int settings_add(dgx_ui_t *ui, int parent);  /* the tree added under parent (-1: the root); its top, or -1 */
@@ -33,10 +42,11 @@ extern int settings_title;                   /* an id, by the rule: the widget's
 extern dgx_ui_text_style_t settings_style;   /* by the rule, when a text names no style */
 ```
 
-The widgets are constants in flash; the text boxes are in RAM, a constant text over its string literal, a text of
-`"text_size"` over a buffer of that size, filled by the add function with the description's text each time it adds
-the tree. When the tree has no room for a widget, the function removes what it added and writes no id, as the
-loader does.
+The widgets are constants in flash, `<prefix>_widgets`, with their parents in `<prefix>_parents`. The text boxes are
+in RAM, `<prefix>_texts`: a constant text over its string literal, a text of `"text_size"` over so many bytes of
+`<prefix>_buffers`, filled by the add function with the description's text each time it adds the tree. The four
+arrays are the file's own, `static`; one that would be empty is not made. When the tree has no room for a widget,
+the function removes what it added and writes no id, as the loader does.
 
 ## How a name becomes C
 
@@ -80,9 +90,14 @@ A table the file does not name is made of the names the description uses, by thi
 | id | `int <prefix>_<id>`, declared by the header |
 
 A name the program has not is then the C compiler's to find, and a name the rule cannot make C, one with `-`, is
-refused with the name. Without the program's tables some of the loader's checks cannot be made; the first comment
-of each file made says which: the pictures' counts, which handlers take a number in their ctx, which looks the
-program has, and the style a text that names none takes.
+refused with the name and its byte. So is a name that would be one the tool makes itself: an id by the rule may not
+be `add`, `style`, `widgets`, `parents`, `texts` or `buffers`, and a name by the rule, of any table, may not lead
+with one of the four arrays, `<prefix>_texts` or `<prefix>_texts.first`. A names file gives such a name its
+expression, or `-p` the tree another prefix.
+
+Without the program's tables some of the loader's checks cannot be made; the first comment of each file made says
+which: the pictures' counts, which handlers take a number in their ctx, which looks the program has, and the style
+a text that names none takes.
 
 ## Tests
 

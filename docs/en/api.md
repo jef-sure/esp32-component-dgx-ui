@@ -19,7 +19,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_load.h`](#dgx_ui_loadh) | a tree made from a description in JSON |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.39: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.40: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1447,13 +1447,13 @@ typedef struct dgx_ui_load_names_t {
     uint16_t look_count, value_count, picture_count, style_count, handler_count, take_count, context_count, id_count;
 } dgx_ui_load_names_t;
 
-typedef struct dgx_ui_load_need_t  { size_t bytes; int nodes; int depth; } dgx_ui_load_need_t;
+typedef struct dgx_ui_load_need_t  { size_t bytes; int nodes; int depth; char name[24]; } dgx_ui_load_need_t;
 typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_ui_load_error_t;
 ```
 
 | Call | What it does |
 | ---- | ------------ |
-| `bool dgx_ui_load_need(const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_need_t *need, dgx_ui_load_error_t *err)` | The description checked whole, against the tables too, and what it takes: the bytes of the memory, the nodes of the tree, its depth. `false`: an error, in `err`. |
+| `bool dgx_ui_load_need(const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_need_t *need, dgx_ui_load_error_t *err)` | The description checked whole, against the tables too, and what it takes: the bytes of the memory, the nodes of the tree, its depth; and the tree's name in `need->name`, empty when the description has none. `false`: an error, in `err`. |
 | `int dgx_ui_load(dgx_ui_t *ui, int parent, const char *json, size_t len, const dgx_ui_load_names_t *names, void *memory, size_t size, dgx_ui_load_error_t *err)` | The description's tree added under `parent`, -1 as the tree's root, its widgets laid in `memory` of `size` bytes, aligned as a pointer (as `malloc()` aligns). Returns the index of the widget at its top; -1 on an error, in `err`, and the tree is as it was. |
 | `DGX_UI_LOOK_NAME(word)` | A look of the library by its own word, for the looks' table: `DGX_UI_LOOK_NAME(slider)` is `{"slider", &dgx_ui_look_slider}`. |
 | `DGX_UI_ACTION_NAME(word)` | An action of a button with no code of the program's, for the handlers' table: `DGX_UI_ACTION_NAME(back)` goes back a page, `DGX_UI_ACTION_NAME(page)` opens the page that is the button's `"ctx"`, a tree of the contexts' table. A program that lists neither carries neither. |
@@ -1465,8 +1465,11 @@ its ctx for a number. An id's entry is where the index of the widget of that id 
 has it and the whole load succeeded; an id the table has not is passed over, so one table serves several pages, and
 at most `DGX_UI_LOAD_IDS` ids are in a table.
 
-**The format, version 1**: one object of two keys, `"dgx-ui": 1` and `"tree"`, a widget. A widget is an object of
-these keys, in any order, each at most once:
+**The format, version 1**: one object of the keys `"dgx-ui": 1`, `"tree"`, a widget, and `"name"`, the tree's name,
+which may be left out; in any order, each at most once. The name is the description's own word for its tree, a name
+as any other of the format. `dgx_ui_load_need()` gives it in `need.name`, so a program that takes descriptions
+from outside can tell which page came before it gives any memory. A widget is an object of these keys, in any
+order, each at most once:
 
 | Key | Its value |
 | --- | --------- |
@@ -1489,6 +1492,12 @@ Numbers are integers. Names are of letters, digits, `_`, `.` and `-`, at most 23
 not know is an error, so a typo is not passed over; the keys `"styles"`, `"looks"`, `"fonts"` and `"pages"` of the
 top are kept for a later version and refused in this one.
 
+**Versions.** A later library may add keys to version 1; an older library refuses a description that has them, with
+`DGX_UI_LOAD_KEY` and the key. The number changes when a description that was valid would mean something else. A
+description of another version is refused with `DGX_UI_LOAD_VERSION`, and that is told before a key of the top this
+version does not know, or one said twice, so the reason given is the true one. A value that is wrong for a key this
+version knows is told at once, whatever the version.
+
 **What a description cannot do.** It may only name what the program listed: no number of it becomes a pointer, or
 an index into the program's memory, that the program did not give. An integer `"ctx"` goes only to a handler that
 takes a number; an icon's range, and the two pictures of a switch or a radio, stay within the count the pictures'
@@ -1505,12 +1514,12 @@ about when there is one:
 | ---- | --------------- |
 | `DGX_UI_LOAD_OK` | nothing |
 | `DGX_UI_LOAD_SYNTAX` | not JSON, a string that is not well-formed UTF-8, or a value of the wrong type for its key |
-| `DGX_UI_LOAD_VERSION` | no `"dgx-ui"`, or one above 1 |
+| `DGX_UI_LOAD_VERSION` | no `"dgx-ui"`, or a version other than 1; told before a key of the top this version does not know |
 | `DGX_UI_LOAD_KEY` | a key unknown, or twice in one object |
 | `DGX_UI_LOAD_KIND` | no kind, or one unknown |
 | `DGX_UI_LOAD_FIELD` | a key of no meaning for the kind; an integer `"ctx"` with no handler that takes a number |
 | `DGX_UI_LOAD_RANGE` | a number out of its field, a fraction, an exponent; fewer pictures in the table than the widget shows |
-| `DGX_UI_LOAD_NAME_BAD` | a name of a character not allowed, or longer than 23 |
+| `DGX_UI_LOAD_NAME_BAD` | a name that is empty, of a character not allowed, or longer than 23 |
 | `DGX_UI_LOAD_UNKNOWN` | a name its table has not |
 | `DGX_UI_LOAD_NO_LOOK` | no look said, and the looks' table names none for the kind |
 | `DGX_UI_LOAD_NO_STYLE` | a text, and the styles' table empty |
