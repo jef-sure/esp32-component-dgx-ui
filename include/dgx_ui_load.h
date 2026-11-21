@@ -48,11 +48,12 @@
  *  "tree" (a key of the top that is no name is one unknown); then the values of the keys known. So a description of a
  *  later version is refused as one, whatever it holds, and a number of no field is told by the fault of its place. A
  *  value stands inside at most 2 * DGX_UI_LOAD_DEPTH + 2 brackets, the top's own one of them, in an editor's object as
- *  anywhere. The keys "styles", "looks", "fonts" and "pages" of the top are kept for a later version, refused in this
- *  one.
+ *  anywhere. The keys "colors", "styles" and "looks" of the top are an appearance's (dgx_ui_appearance.h), refused in a
+ *  page as any key it does not know; "fonts" and "pages" are kept for a later version, refused in this one.
  *
- *  Not in a description: a look's parameters and colours, fonts and text styles, which are C the program names; the
- *  tree once loaded, which the program changes by the calls of dgx_ui.h as any tree.
+ *  Not in a page's description: a look's parameters and colours, fonts and text styles, which are C the program names
+ *  or an appearance gives (dgx_ui_appearance.h); the tree once loaded, which the program changes by the calls of
+ *  dgx_ui.h as any tree.
  *
  *  A description may only name what the program listed: no number of it becomes a pointer, or an index into the
  *  program's memory, that the program did not give. So an integer "ctx" goes only to a handler that takes a number, an
@@ -173,6 +174,7 @@ enum {
     DGX_UI_LOAD_MEMORY,    ///< the memory smaller than the need, or not aligned as a pointer
     DGX_UI_LOAD_NODES,     ///< dgx_ui_add() refused (no memory for a block of nodes): what was begun removed
     DGX_UI_LOAD_ID,        ///< an id of the table on a second widget, or a table of more than DGX_UI_LOAD_IDS (name: the id)
+    DGX_UI_LOAD_MISSING,   ///< an appearance's: what must be said was not, a colour, a look's draw or its colour, a style's fonts (name: it)
 };
 
 /** An error: its code, where in the text (the byte), and the name or the key it is about, when there is one, its first

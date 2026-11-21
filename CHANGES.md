@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.44 - 2026-11-21
+
+- The appearance as data, `dgx_ui_appearance.h`: colours by name, text styles and looks in one document of JSON for a
+  program's pages, loaded into its memory. Its looks and styles stand before the program's own in the tables a page
+  loads on, so a look named by a kind's word restyles every widget of that kind.
+- The parameters of every draw of the library, of a text style and of a variant of a font described field by field;
+  a program describes its own draw the same way.
+
 ## 0.0.43 - 2026-11-21
 
 - A load takes the same stack however deep the description: about 1 KB on an ESP32, where a tree 24 deep took 9 KB.

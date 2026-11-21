@@ -2,9 +2,10 @@
 """
 dgx_ui_c.py <DGX directory> <directory>: dgx_ui_c built for the computer into <directory>, the one way it is built.
 
-The tool is tools/dgx_ui_c.c and six sources of dgx-ui's src/ (the tree, its text boxes, rectangles and messages, the
-loader and its reader of JSON), compiled against dgx-ui's include/ and src/ and DGX's include/ and host/stubs/, which
-DGX's package carries for its build on a computer: no source of DGX, no library but C's. The words of the library's
+The tool is tools/dgx_ui_c.c and seven sources of dgx-ui's src/ (the tree, its text boxes, rectangles and messages, the
+loader, its reader of JSON and what the readers of descriptions share), compiled against dgx-ui's include/ and src/
+and DGX's include/ and host/stubs/, which DGX's package carries for its build on a computer: no source of DGX, no
+library but C's. The words of the library's
 looks, which a description may name with no names file, are read from include/dgx_ui_paint.h into library_looks.h.
 
 The compiler is the computer's, as DGX's font2c is built: $CC unless it is a chip's, else cc (gcc on Windows), with a
@@ -19,7 +20,7 @@ import sys
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TOOLS)
 SOURCES = [os.path.join(TOOLS, "dgx_ui_c.c")] + [os.path.join(ROOT, "src", name) for name in
-                                                 ("dgx_ui.c", "dgx_ui_text.c", "dgx_ui_rect.c", "dgx_ui_msg.c", "dgx_ui_load.c", "dgx_ui_json.c")]
+                                                 ("dgx_ui.c", "dgx_ui_text.c", "dgx_ui_rect.c", "dgx_ui_msg.c", "dgx_ui_load.c", "dgx_ui_json.c", "dgx_ui_read.c")]
 
 
 def fail(text):

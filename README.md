@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.43: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.44: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -73,7 +73,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.43"
+    version: "0.0.44"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.11.8 or a later 0.11; DGX comes by itself, from the registry. Start with
@@ -111,6 +111,9 @@ to be made: the fonts DGX ships are ready. See [Letters with soft edges](docs/en
   builder writes; every pointer is a name of tables the program gives, and a description reaches nothing else.
   Or the description is made C when the program is built, by a call in the CMakeLists: constants, with no loader
   in the program.
+- **The appearance from a description**: the colours by name, the text styles and the looks of all the pages in one
+  document of JSON, loaded while the program runs. A look it names by a kind's word restyles every widget of that
+  kind.
 - **Rows and columns**: a box stacks its children as a column or a row, with a padding and a gap, in points that are
   so many pixels; a child may take all that is left. The layout is made again only when the screen, the widgets or
   their sizes change, and then only what moved is drawn.
@@ -174,6 +177,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | transitions between pages, when the program names them | about 2 KB more, and two pictures of the screen in RAM |
 | the statistics of painting, when the program names them | about 1.8 KB more |
 | a tree from a description in JSON, when the program loads one | about 8 KB more |
+| colours, text styles and looks from a description, when the program loads one | about 5 KB more over the loader of trees |
 | the same tree made C when the program is built | no code of dgx-ui: its widgets, 56 bytes of flash each |
 | a button of a picture, when a widget names the look | about 0.8 KB more beside buttons with a text and pictures; 2.8 KB in a program with no picture yet, the drawing of pictures coming with it |
 | a level bar, when a widget names the look | about 0.9 KB more |

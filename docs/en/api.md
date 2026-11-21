@@ -18,9 +18,10 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_load.h`](#dgx_ui_loadh) | a tree made from a description in JSON |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
+| [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
 | [`project_include.cmake`](#project_includecmake) | two calls of CMake: a description made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.43: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.44: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1491,8 +1492,9 @@ came before it gives any memory. A widget is an object of these keys, in any ord
 | `"editor"` | an object of the tool that edits the description, as at the top: for a widget of any kind |
 
 Numbers are integers. Names are of letters, digits, `_`, `.` and `-`, at most 23 characters. A key the format does
-not know is an error, so a typo is not passed over; the keys `"styles"`, `"looks"`, `"fonts"` and `"pages"` of the
-top are kept for a later version and refused in this one.
+not know is an error, so a typo is not passed over. `"colors"`, `"styles"` and `"looks"` at the top are the keys of
+an appearance, [dgx_ui_appearance.h](#dgx_ui_appearanceh), which a page refuses as keys it does not know; `"fonts"`
+and `"pages"` are kept for a later version and refused in this one.
 
 **The editor's object.** `"editor"` is where a tool that edits descriptions keeps what is its own and means nothing
 to a device: guides, notes, the screens a page was made for, a lock on a widget. Its value is an object, and the
@@ -1556,9 +1558,156 @@ about when there is one, its first 23 bytes ending on a whole character:
 | `DGX_UI_LOAD_MEMORY` | the memory smaller than the need, or not aligned |
 | `DGX_UI_LOAD_NODES` | `dgx_ui_add()` refused, no memory for a block of nodes; what was begun is removed |
 | `DGX_UI_LOAD_ID` | an id of the table on a second widget, or a table of more than `DGX_UI_LOAD_IDS` ids |
+| `DGX_UI_LOAD_MISSING` | in an appearance, something that must be said was not: a colour, `"draw"`, `"fonts"` |
 
 A program that loads a description carries about 8 KB more, 3 KB of it the reader of JSON; one that does not,
 nothing.
+
+## dgx_ui_appearance.h
+
+The appearance of a program's pages as data: its colours by name, its text styles and its looks, in one document
+of JSON for all the pages, loaded into the program's memory. The pages name its looks and its styles as they name
+the program's own; an appearance changed changes them all.
+
+```json
+{"dgx-ui": 1, "name": "day",
+ "colors": {"paper": "#12161e", "ink": "#e8e8de", "fill": "#2c3c56", "border": "#44556a", "accent": "#f0a03c"},
+ "styles": {"body": {"fonts": ["body", "small"], "align": "left", "flags": ["middle"]}},
+ "looks":  {"slider": {"draw": "slider",
+                       "params": {"track": "border", "fill": "accent", "knob": "ink", "focused": "ink",
+                                  "disabled": "border", "track_h": 3}}}}
+```
+
+**The format** is the one of `dgx_ui_load.h` with other keys at the top: `"dgx-ui": 1` and `"colors"`, and, left
+out or not, `"styles"`, `"looks"`, `"name"` and `"editor"`; in any order, each at most once. The top is judged in
+a page's order: a text that is not JSON; the version; a key unknown or said twice, or no `"colors"`; then the
+values, the colours first, since the styles and the looks name them. A page refuses `"colors"`, `"styles"` and
+`"looks"` as keys it does not know, and an appearance refuses `"tree"`.
+
+| Key | Its value |
+| --- | --------- |
+| `"colors"` | an object, a name and `"#rrggbb"` each. `"paper"`, `"ink"`, `"fill"` and `"border"` are the indices 0, 1, 2 and 3 of the painter's table wherever they stand, as the library's own looks take them, and all four must be there. The others follow from 4 in the order written; 255 colours at most. |
+| `"styles"` | an object, a name and a text style each: `"fonts"`, a list of 1 to 255 variants, the best first; `"align"`, `"left"`, `"center"` or `"right"`; `"flags"`, a list of `"middle"` and `"important"`; `"scroll_ms"`, 0 to 65535. A variant is the name of a font of the program's table, or an object for a handwritten one: `"font"`, `"hand"`, a hand of the program's table, `"height"`, `"narrow"` 0 to 100, `"joined"`, `"pen"` 0 to 255, `"soft"`. |
+| `"looks"` | an object, a name and a look each, as `dgx_ui_look_t` is: `"draw"`, a draw of the program's table; `"fill"`, the colour it leaves under its children, or `null`; `"params"`, the parameters of its draw by their names, below. |
+| `"name"` | the appearance's name, a name of the format; `need.name` gives it |
+| `"editor"` | an object of the tool that edits it, passed over as a page's is; at the top only |
+
+The parameters of the library's draws. A name alone is a colour, said by its name in `"colors"`; ° marks one that
+may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list of `[below, colour]`:
+
+| Draw | Its parameters |
+| ---- | -------------- |
+| `"box"` | none |
+| `"frame"` | `border`; `width` 0…255 |
+| `"text"` | `ink`; `paper`° |
+| `"lines"` | `ink`; `paper`° |
+| `"hand_lines"` | `ink`; `paper`° |
+| `"button"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `shadow`; `depth` 0…255 |
+| `"picture_button"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `shadow`; `depth` 0…255 |
+| `"input"` | `ink`; `caret`; `paper`°; `secret` true/false |
+| `"switch"` | `off`; `on`; `knob`; `focused`°; `disabled` |
+| `"slider"` | `track`; `fill`; `knob`; `focused`°; `disabled`; `track_h` 0…255 |
+| `"list"` | `ink`; `paper`°; `pick`; `pick_ink`; `focused`; `disabled`; `bar` |
+| `"dropdown"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `arrow` |
+| `"picture"` | `ink`; `paper`° |
+| `"rgb565"` | `ink`; `paper`° |
+| `"indexed"` | `ink`; `paper`° |
+| `"radio"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
+| `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
+| `"level"` | `bar`; `rest`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
+| `"ring"` | `on`; `off`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
+
+**What is not said.** `"fill"` of a look is `null`, what lies under it. A number, a word and a list of flags are
+0, as a member of C left out, and `"joined"`, `"soft"` and `"secret"` false. A colour of a look's parameters must be
+said, `null` where it may be: a look that leaves one out is refused with `DGX_UI_LOAD_MISSING` and the field's name,
+so that no colour is forgotten into paper on paper. So must a style's `"fonts"`, a variant's `"font"`, and the
+`"hand"` of a handwritten font, which the fit would pass over with none.
+
+**The program's tables**, `dgx_ui_appearance_names_t`: what an appearance may name, and what comes after its own.
+
+| Member | What it lists |
+| ------ | ------------- |
+| `draws`, `draw_count` | `dgx_ui_draw_name_t`: a draw by its word with its parameters described. `DGX_UI_DRAW_NAME(slider)` is `{"slider", dgx_ui_draw_slider, &dgx_ui_params_slider}`; a program carries only the draws it lists |
+| `fonts`, `font_count` | `dgx_ui_font_name_t`: a font of DGX by a name, `{"body", dgx_font_body}`; every need of the project's `dgx_fonts.h` at once by `#define FONT(need) {#need, dgx_font_##need},` and `{DGX_FONT_NEEDS(FONT)}` |
+| `hands`, `hand_count` | `dgx_ui_hand_name_t`: `DGX_UI_HAND_NAME(handwriting)`, `DGX_UI_HAND_NAME(handwriting_canvas)` |
+| `looks`, `look_count`, `styles`, `style_count` | the program's own looks and styles, of C, which stand after the appearance's in the tables it lays |
+
+**Whose name it is.** The appearance's looks and styles stand first in the tables, the program's own after them,
+and a page takes the first of a name. So a look `"slider"` of an appearance restyles every slider that takes its
+look by its kind's word, while the program's table keeps the library's for an appearance that has none; and the
+style a text takes when it names none is the appearance's first.
+
+| Call | What it does |
+| ---- | ------------ |
+| `bool dgx_ui_appearance_need(const char *json, size_t len, const dgx_ui_appearance_names_t *names, dgx_ui_appearance_need_t *need, dgx_ui_load_error_t *err)` | The appearance checked whole, and what it takes: `need.bytes` of memory aligned as a pointer; `need.colors`, `need.looks` and `need.styles`, its own; `need.name`. False: the error in `err`, as a page's. |
+| `bool dgx_ui_appearance_load(const char *json, size_t len, const dgx_ui_appearance_names_t *names, void *memory, size_t size, dgx_ui_appearance_t *out, dgx_ui_load_error_t *err)` | The appearance laid in the memory into `*out`: `rgb` and `color_names`, by index, `color_count`; `looks` and `styles`, the tables a page loads on, with `look_count` and `style_count`. False: the error, `*out` as it was. The text may be freed after it; the memory may not while a tree takes its looks. |
+| `void dgx_ui_appearance_pack(const dgx_ui_appearance_t *appearance, uint32_t (*pack)(void *ctx, uint8_t r, uint8_t g, uint8_t b), void *ctx, uint32_t *colors)` | Its colours packed by a function of the program's into `colors[color_count]`, the painter's table: a table for each screen of another depth |
+| `uint32_t dgx_ui_pack_screen(void *ctx, uint8_t r, uint8_t g, uint8_t b)` | The packer for a screen of DGX, `ctx` the screen: `dgx_screen_rgb()` |
+| `int dgx_ui_appearance_color(const dgx_ui_appearance_t *appearance, const char *name)` | The index of a colour by its name, -1 when the appearance has none. A look of the program's own that wants a colour of the appearance takes its index so and fills its parameters at the start: the order of `"colors"` is not the program's to count on. |
+
+```c
+static const dgx_ui_draw_name_t        draws[] = {DGX_UI_DRAW_NAME(slider), DGX_UI_DRAW_NAME(button)};
+static const dgx_ui_font_name_t        fonts[] = {{"body", dgx_font_body}, {"small", dgx_font_small}};
+static const dgx_ui_look_name_t        own[]   = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(button)};
+static const dgx_ui_appearance_names_t appearance_names = {.draws = draws, .draw_count = 2, .fonts = fonts, .font_count = 2,
+                                                           .looks = own, .look_count = 2};
+static dgx_ui_appearance_t appearance;
+static dgx_ui_load_names_t page_names; /* the page's tables, their looks and styles the appearance's */
+static uint32_t           *colors;
+
+bool appearance_take(const char *json, size_t len, dgx_screen_t *scr, dgx_ui_paint_t *paint)
+{
+    dgx_ui_appearance_need_t need;
+    dgx_ui_load_error_t      err;
+    if (!dgx_ui_appearance_need(json, len, &appearance_names, &need, &err)) return false;
+    void *memory = malloc(need.bytes);
+    colors       = malloc((size_t)need.colors * sizeof *colors);
+    if (!memory || !colors || !dgx_ui_appearance_load(json, len, &appearance_names, memory, need.bytes, &appearance, &err)) return false;
+    dgx_ui_appearance_pack(&appearance, dgx_ui_pack_screen, scr, colors);
+    paint->colors = colors, paint->color_count = appearance.color_count;
+    page_names.looks = appearance.looks, page_names.look_count = appearance.look_count;
+    page_names.styles = appearance.styles, page_names.style_count = appearance.style_count;
+    return true;
+}
+```
+
+**A draw of the program's own** is listed as the library's are, with its parameters described field by field, and
+an appearance then gives it looks:
+
+```c
+typedef struct { uint8_t needle, face; uint8_t width; } dial_params_t;
+static const dgx_ui_field_t  dial_fields[] = {DGX_UI_COLOR_FIELD(dial_params_t, needle), DGX_UI_COLOR_FIELD(dial_params_t, face),
+                                              DGX_UI_NUMBER_FIELD(dial_params_t, width, 1, 9)};
+static const dgx_ui_params_t dial_described = DGX_UI_PARAMS(dial_params_t, 1u << DGX_UI_OWN, dial_fields);
+```
+
+`dgx_ui_params_t` is the size and the alignment of the parameters, the kinds of widget the draw is for, which a
+builder offers it by and a load does not check, and the fields; `dgx_ui_field_t` is a field: its name in a
+description, the member's, where it lies and what it holds. The macros write one from the member:
+`DGX_UI_COLOR_FIELD`, `DGX_UI_COLOR_OR_UNDER_FIELD`, `DGX_UI_NUMBER_FIELD` with its bounds, `DGX_UI_BOOL_FIELD`,
+`DGX_UI_WORD_FIELD` with its words, each ended by 0, `DGX_UI_BANDS_FIELD` with the member of the count, over
+`DGX_UI_FIELD_OF`; `DGX_UI_PARAMS` writes the whole. What a field holds: `DGX_UI_FIELD_COLOR`,
+`DGX_UI_FIELD_COLOR_OR_UNDER`, `DGX_UI_FIELD_NUMBER`, `DGX_UI_FIELD_BOOL`, `DGX_UI_FIELD_WORD`, `DGX_UI_FIELD_FLAGS`,
+`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, and for a style and a variant `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND`
+and `DGX_UI_FIELD_VARIANTS`. The library's own: `dgx_ui_params_box`, `dgx_ui_params_frame`, `dgx_ui_params_text`,
+`dgx_ui_params_lines`, `dgx_ui_params_hand_lines`, `dgx_ui_params_button`, `dgx_ui_params_picture_button`,
+`dgx_ui_params_input`, `dgx_ui_params_switch`, `dgx_ui_params_slider`, `dgx_ui_params_list`,
+`dgx_ui_params_dropdown`, `dgx_ui_params_picture`, `dgx_ui_params_rgb565`, `dgx_ui_params_indexed`,
+`dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`, `dgx_ui_params_ring`, and
+`dgx_ui_params_text_style` and `dgx_ui_params_font_variant` for a style and a variant of a font.
+
+**What an appearance cannot do.** It may only name what the program listed: its draws, its fonts and its hands are
+the program's tables; a draw's parameters are laid by the draw's description of them; every colour is an index below
+the count, every number within its field. The whole is checked before anything is laid, and a load takes the same
+stack whatever the text.
+
+**The errors** are a page's, with one more: `DGX_UI_LOAD_MISSING`, something that must be said was not, `err.name`
+the colour, the field or the key: one of the four colours, a colour of a look's parameters, `"draw"`, `"fonts"`,
+`"font"`, the `"hand"` of a handwritten font. A colour that is not `#rrggbb` is `DGX_UI_LOAD_SYNTAX` with the
+colour's name; a colour, a draw, a font or a hand no table has is `DGX_UI_LOAD_UNKNOWN`.
+
+A program that loads an appearance carries about 5 KB more than one that loads pages, and the description of
+each draw it lists, 24 bytes a field; one that does not, nothing. On an ESP32 a load takes about 1 KB of stack.
 
 ## project_include.cmake
 

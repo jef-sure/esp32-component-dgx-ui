@@ -14,15 +14,14 @@
 
 #include "dgx_ui_load.h"
 
-#include "dgx_ui_json.h"
+#include "dgx_ui_read.h"
 
 #include <string.h>
 
-/* a load: the reader of its text; the tables; the first error; what the walk counts, or lays */
+/* a load: the reading of its text and its first error; the tables; what the walk counts, or lays */
 typedef struct load_t {
-    dgx_ui_json_t              json;
+    dgx_ui_read_t              read;
     const dgx_ui_load_names_t *names;
-    dgx_ui_load_error_t       *err;
     bool                       build;
     size_t                     bytes; /* counted, or laid so far */
     int                        nodes, depth;
@@ -38,65 +37,24 @@ typedef struct load_t {
     } open[DGX_UI_LOAD_DEPTH]; /* the widgets whose children are walked, the root's first */
 } load_t;
 
-/* the most levels a value passed over goes in: a widget's object and its list of children two each; a value of the top
-   is passed over with one less, a value of a widget at depth d with 2 * d less, so that a value stands inside at most
-   SKIP_LEVELS brackets, the top's own one of them */
-enum { SKIP_LEVELS = 2 * DGX_UI_LOAD_DEPTH + 2 };
-_Static_assert(SKIP_LEVELS - 1 <= DGX_UI_JSON_LEVELS, "the reader counts every level a description may take");
+enum { SKIP_LEVELS = DGX_UI_READ_LEVELS };
 
-/* the first error kept, the reader's or the load's; false always */
+/* the first error kept; false always */
 static bool fail(load_t *L, int code, size_t at, const char *name)
 {
-    if (L->err->code != DGX_UI_LOAD_OK || L->json.error != DGX_UI_JSON_OK) return false;
-    L->err->code = code, L->err->offset = (int)at, L->err->name[0] = 0;
-    if (name) {
-        size_t k = 0;
-        for (; name[k] && k < sizeof L->err->name - 1; ++k) L->err->name[k] = name[k];
-        /* a name cut at its 23rd byte ends on a whole character of UTF-8: one it cut is left out */
-        size_t last = k; /* the first byte of the last character */
-        while (last > 0 && ((uint8_t)name[--last] & 0xc0) == 0x80) {}
-        const unsigned lead = (uint8_t)name[last];
-        if (k - last < (lead >= 0xf0 ? 4u : lead >= 0xe0 ? 3u : lead >= 0xc0 ? 2u : 1u)) k = last;
-        L->err->name[k] = 0;
-    }
-    return false;
+    return dgx_ui_read_fail(&L->read, code, at, name);
 }
 
-/* ---- the names ---- */
-
-/* a name: a string of letters, digits, '_', '.' and '-', at most 23, into name[24] */
+/* a name, into name[24] */
 static bool name_of(load_t *L, char name[24])
 {
-    const size_t at = (dgx_ui_json_peek(&L->json), L->json.pos);
-    size_t       n;
-    if (!dgx_ui_json_string(&L->json, name, 23, &n)) return false;
-    name[n < 23 ? n : 23] = 0;
-    if (n > 23 || n == 0) return fail(L, DGX_UI_LOAD_NAME_BAD, at, name);
-    for (size_t k = 0; k < n; ++k) {
-        const char c = name[k];
-        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-'))
-            return fail(L, DGX_UI_LOAD_NAME_BAD, at, name);
-    }
-    return true;
-}
-
-/* the entry of a table of `count` entries of `stride` bytes, each beginning with its name; -1 none */
-static int lookup(const void *table, int count, size_t stride, const char *name)
-{
-    for (int k = 0; table && k < count; ++k)
-        if (strcmp(*(const char *const *)((const uint8_t *)table + k * stride), name) == 0) return k;
-    return -1;
+    return dgx_ui_read_name(&L->read, name);
 }
 
 /* a name at the reader found in a table: its entry, or an error */
 static int find(load_t *L, const void *table, int count, size_t stride)
 {
-    char         name[24];
-    const size_t at = (dgx_ui_json_peek(&L->json), L->json.pos);
-    if (!name_of(L, name)) return -1;
-    const int k = lookup(table, count, stride, name);
-    if (k < 0) fail(L, DGX_UI_LOAD_UNKNOWN, at, name);
-    return k;
+    return dgx_ui_read_find(&L->read, table, count, stride);
 }
 
 /* ---- the widgets ---- */
@@ -104,8 +62,12 @@ static int find(load_t *L, const void *table, int count, size_t stride)
 static const char *const kinds[] = {"box", "frame", "label", "picture", "icon", "list", "switch", "slider", "button", "input", "dropdown", "own", "radio"};
 enum { KIND_COUNT = sizeof kinds / sizeof *kinds };
 
-static const char *const flag_words[] = {"column", "row", "stretch", "swipe", "drag", "canvas", "rest", "repeat"};
-static const uint8_t     flag_bits[]  = {DGX_UI_COLUMN, DGX_UI_ROW, DGX_UI_STRETCH, DGX_UI_SWIPE, DGX_UI_DRAG, DGX_UI_CANVAS, DGX_UI_REST, DGX_UI_REPEAT};
+/* the words of "flags" and "state", each at its bit's place: DGX_UI_COLUMN is 1 << 0 ... DGX_UI_REPEAT 1 << 7 */
+static const char flag_words[]  = "column\0row\0stretch\0swipe\0drag\0canvas\0rest\0repeat\0";
+static const char state_words[] = "hidden\0disabled\0";
+_Static_assert(DGX_UI_COLUMN == 1 << 0 && DGX_UI_ROW == 1 << 1 && DGX_UI_STRETCH == 1 << 2 && DGX_UI_SWIPE == 1 << 3 && DGX_UI_DRAG == 1 << 4 &&
+                   DGX_UI_CANVAS == 1 << 5 && DGX_UI_REST == 1 << 6 && DGX_UI_REPEAT == 1 << 7 && DGX_UI_HIDDEN == 1 << 0 && DGX_UI_DISABLED == 1 << 1,
+               "a word's bit is 1 << its place");
 
 /* the keys of a widget, and the kinds each means something for */
 enum { K_KIND, K_FLAGS, K_STATE, K_PAD, K_GAP, K_AT, K_WANT, K_MIN, K_MAX, K_STEP, K_TAG, K_LOOK, K_VALUE, K_PICTURE, K_STYLE, K_ON, K_TAKE, K_CTX, K_TEXT, K_TEXT_SIZE, K_LINES, K_ID, K_CHILDREN, K_EDITOR, KEY_COUNT };
@@ -121,30 +83,20 @@ enum {
 static const uint16_t key_kinds[KEY_COUNT] = {ALL,    ALL,    ALL,    HOLDING, HOLDING,  ALL,    ALL,    VALUED, VALUED, VALUED, ALL, ALL,
                                               VALUED, PICTURED, TEXTED, ALL,   ALL,      ALL,    TEXTED, TEXTED, TEXTED, ALL, HOLDING, ALL};
 
-/* a list of words of a table of words into bits */
-static bool word_list(load_t *L, const char *const *words, const uint8_t *bits, int count, uint8_t *out)
+/* a list of words into bits */
+static bool word_list(load_t *L, const char *words, uint8_t *out)
 {
-    *out = 0;
-    if (!dgx_ui_json_expect(&L->json, '[')) return false;
-    if (dgx_ui_json_peek(&L->json) == ']') return ++L->json.pos, true;
-    for (bool more = true; more;) {
-        char         name[24];
-        const size_t at = (dgx_ui_json_peek(&L->json), L->json.pos);
-        if (!name_of(L, name)) return false;
-        int k = 0;
-        while (k < count && strcmp(words[k], name) != 0) ++k;
-        if (k == count) return fail(L, DGX_UI_LOAD_UNKNOWN, at, name);
-        *out |= bits[k];
-        if (!dgx_ui_json_next(&L->json, ']', &more)) return false;
-    }
-    return true;
+    uint32_t   bits;
+    const bool read = dgx_ui_read_words(&L->read, words, &bits);
+    *out            = (uint8_t)bits;
+    return read;
 }
 
 /* two integers [a, b] of int16 */
 static bool pair(load_t *L, int16_t *a, int16_t *b)
 {
     int32_t x, y;
-    if (!dgx_ui_json_expect(&L->json, '[') || !dgx_ui_json_integer(&L->json, INT16_MIN, INT16_MAX, &x) || !dgx_ui_json_expect(&L->json, ',') || !dgx_ui_json_integer(&L->json, INT16_MIN, INT16_MAX, &y) || !dgx_ui_json_expect(&L->json, ']')) return false;
+    if (!dgx_ui_json_expect(&L->read.json, '[') || !dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &x) || !dgx_ui_json_expect(&L->read.json, ',') || !dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &y) || !dgx_ui_json_expect(&L->read.json, ']')) return false;
     *a = (int16_t)x, *b = (int16_t)y;
     return true;
 }
@@ -162,10 +114,10 @@ static void *take_bytes(load_t *L, size_t n, size_t align)
    object; its node in *self (-1 counting), the place of its children in *children (0: none) */
 static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *children_out)
 {
-    if (depth > DGX_UI_LOAD_DEPTH) return fail(L, DGX_UI_LOAD_DEPTH_MAX, L->json.pos, NULL);
+    if (depth > DGX_UI_LOAD_DEPTH) return fail(L, DGX_UI_LOAD_DEPTH_MAX, L->read.json.pos, NULL);
     if (depth > L->depth) L->depth = depth;
-    const size_t at = (dgx_ui_json_peek(&L->json), L->json.pos);
-    if (!dgx_ui_json_expect(&L->json, '{')) return false;
+    const size_t at = (dgx_ui_json_peek(&L->read.json), L->read.json.pos);
+    if (!dgx_ui_json_expect(&L->read.json, '{')) return false;
     dgx_ui_widget_t w = {0};
     uint32_t        seen = 0;
     size_t          key_at[KEY_COUNT] = {0}, text_at = 0, children_at = 0, text_len = 0;
@@ -173,13 +125,13 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
     int             kind = -1, look = -2, style = -1, id = -1, on = -1, picture = -1; /* look -2: not said, -1: null */
     bool            ctx_number = false;
     char            id_name[24] = "";
-    if (dgx_ui_json_peek(&L->json) == '}') ++L->json.pos;
+    if (dgx_ui_json_peek(&L->read.json) == '}') ++L->read.json.pos;
     else
         for (bool more = true; more;) {
             char name[24];
-            dgx_ui_json_peek(&L->json);
-            const size_t here = L->json.pos;
-            if (!name_of(L, name) || !dgx_ui_json_expect(&L->json, ':')) return false;
+            dgx_ui_json_peek(&L->read.json);
+            const size_t here = L->read.json.pos;
+            if (!name_of(L, name) || !dgx_ui_json_expect(&L->read.json, ':')) return false;
             int k = 0;
             while (k < KEY_COUNT && strcmp(keys[k], name) != 0) ++k;
             if (k == KEY_COUNT || (seen & 1u << k)) return fail(L, DGX_UI_LOAD_KEY, here, name);
@@ -189,7 +141,7 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
             switch (k) {
             case K_KIND: {
                 char         word_[24];
-                const size_t wat = (dgx_ui_json_peek(&L->json), L->json.pos);
+                const size_t wat = (dgx_ui_json_peek(&L->read.json), L->read.json.pos);
                 ok               = name_of(L, word_);
                 if (ok) {
                     kind = 0;
@@ -198,23 +150,18 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
                 }
                 break;
             }
-            case K_FLAGS: ok = word_list(L, flag_words, flag_bits, 8, &w.flags); break;
-            case K_STATE: {
-                static const char *const state_words[] = {"hidden", "disabled"};
-                static const uint8_t     state_bits[]  = {DGX_UI_HIDDEN, DGX_UI_DISABLED};
-                ok                                    = word_list(L, state_words, state_bits, 2, &w.state.bits);
-                break;
-            }
-            case K_PAD: ok = dgx_ui_json_integer(&L->json, 0, 255, &v), w.pad = (uint8_t)v; break;
-            case K_GAP: ok = dgx_ui_json_integer(&L->json, 0, 255, &v), w.gap = (uint8_t)v; break;
+            case K_FLAGS: ok = word_list(L, flag_words, &w.flags); break;
+            case K_STATE: ok = word_list(L, state_words, &w.state.bits); break;
+            case K_PAD: ok = dgx_ui_json_integer(&L->read.json, 0, 255, &v), w.pad = (uint8_t)v; break;
+            case K_GAP: ok = dgx_ui_json_integer(&L->read.json, 0, 255, &v), w.gap = (uint8_t)v; break;
             case K_AT: ok = pair(L, &w.at_x, &w.at_y); break;
             case K_WANT: ok = pair(L, &w.want_w, &w.want_h); break;
-            case K_MIN: ok = dgx_ui_json_integer(&L->json, INT16_MIN, INT16_MAX, &v), w.min = (int16_t)v; break;
-            case K_MAX: ok = dgx_ui_json_integer(&L->json, INT16_MIN, INT16_MAX, &v), w.max = (int16_t)v; break;
-            case K_STEP: ok = dgx_ui_json_integer(&L->json, INT16_MIN, INT16_MAX, &v), w.step = (int16_t)v; break;
-            case K_TAG: ok = dgx_ui_json_integer(&L->json, INT16_MIN, INT16_MAX, &v), w.tag = (int16_t)v; break;
+            case K_MIN: ok = dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &v), w.min = (int16_t)v; break;
+            case K_MAX: ok = dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &v), w.max = (int16_t)v; break;
+            case K_STEP: ok = dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &v), w.step = (int16_t)v; break;
+            case K_TAG: ok = dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &v), w.tag = (int16_t)v; break;
             case K_LOOK:
-                if (dgx_ui_json_peek(&L->json) == 'n') ok = dgx_ui_json_word(&L->json, "null"), look = -1;
+                if (dgx_ui_json_peek(&L->read.json) == 'n') ok = dgx_ui_json_word(&L->read.json, "null"), look = -1;
                 else ok = (look = find(L, L->names->looks, L->names->look_count, sizeof *L->names->looks)) >= 0;
                 break;
             case K_VALUE:
@@ -235,22 +182,22 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
                 if (ok) w.take = L->names->takes[e].take;
                 break;
             case K_CTX:
-                if (dgx_ui_json_peek(&L->json) == '"') {
+                if (dgx_ui_json_peek(&L->read.json) == '"') {
                     ok = (e = find(L, L->names->contexts, L->names->context_count, sizeof *L->names->contexts)) >= 0;
                     if (ok) w.ctx = L->names->contexts[e].ctx;
                 } else {
-                    ok = dgx_ui_json_integer(&L->json, INT32_MIN, INT32_MAX, &v), w.ctx = (void *)(intptr_t)v, ctx_number = true;
+                    ok = dgx_ui_json_integer(&L->read.json, INT32_MIN, INT32_MAX, &v), w.ctx = (void *)(intptr_t)v, ctx_number = true;
                 }
                 break;
-            case K_TEXT: ok = (dgx_ui_json_peek(&L->json), text_at = L->json.pos, dgx_ui_json_string(&L->json, NULL, 0, &text_len)); break;
-            case K_TEXT_SIZE: ok = dgx_ui_json_integer(&L->json, 1, UINT16_MAX, &text_size); break;
-            case K_LINES: ok = dgx_ui_json_integer(&L->json, 1, 255, &lines); break;
+            case K_TEXT: ok = (dgx_ui_json_peek(&L->read.json), text_at = L->read.json.pos, dgx_ui_json_string(&L->read.json, NULL, 0, &text_len)); break;
+            case K_TEXT_SIZE: ok = dgx_ui_json_integer(&L->read.json, 1, UINT16_MAX, &text_size); break;
+            case K_LINES: ok = dgx_ui_json_integer(&L->read.json, 1, 255, &lines); break;
             case K_ID: ok = name_of(L, id_name), id = 0; break;
             /* the children found and passed over, the editor's object passed over, by the levels the first pass gave */
-            case K_CHILDREN: ok = (dgx_ui_json_peek(&L->json) == '[' ? (children_at = L->json.pos, dgx_ui_json_skip(&L->json, SKIP_LEVELS - 2 * depth)) : fail(L, DGX_UI_LOAD_SYNTAX, L->json.pos, NULL)); break;
-            case K_EDITOR: ok = dgx_ui_json_peek(&L->json) == '{' ? dgx_ui_json_skip(&L->json, SKIP_LEVELS - 2 * depth) : fail(L, DGX_UI_LOAD_SYNTAX, L->json.pos, NULL); break;
+            case K_CHILDREN: ok = (dgx_ui_json_peek(&L->read.json) == '[' ? (children_at = L->read.json.pos, dgx_ui_json_skip(&L->read.json, SKIP_LEVELS - 2 * depth)) : fail(L, DGX_UI_LOAD_SYNTAX, L->read.json.pos, NULL)); break;
+            case K_EDITOR: ok = dgx_ui_json_peek(&L->read.json) == '{' ? dgx_ui_json_skip(&L->read.json, SKIP_LEVELS - 2 * depth) : fail(L, DGX_UI_LOAD_SYNTAX, L->read.json.pos, NULL); break;
             }
-            if (!ok || !dgx_ui_json_next(&L->json, '}', &more)) return false;
+            if (!ok || !dgx_ui_json_next(&L->read.json, '}', &more)) return false;
         }
     /* the kind, and each key of a meaning for it */
     if (kind < 0) return fail(L, DGX_UI_LOAD_KIND, at, NULL);
@@ -273,12 +220,12 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
     }
     /* the look: the one said, none, or the one of the kind's word */
     if (look == -2 && !(OWN_LOOKS & 1u << kind)) {
-        look = lookup(L->names->looks, L->names->look_count, sizeof *L->names->looks, kinds[kind]);
+        look = dgx_ui_read_lookup(L->names->looks, L->names->look_count, sizeof *L->names->looks, kinds[kind]);
         if (look < 0) return fail(L, DGX_UI_LOAD_NO_LOOK, at, kinds[kind]);
     }
     if (look >= 0) w.look = L->names->looks[look].look;
     /* an id of the table, met once */
-    const int id_entry = id == 0 ? lookup(L->names->ids, L->names->id_count, sizeof *L->names->ids, id_name) : -1;
+    const int id_entry = id == 0 ? dgx_ui_read_lookup(L->names->ids, L->names->id_count, sizeof *L->names->ids, id_name) : -1;
     if (id_entry >= 0) {
         if (L->ids_met[id_entry / 8] & 1u << id_entry % 8) return fail(L, DGX_UI_LOAD_ID, key_at[K_ID], id_name);
         L->ids_met[id_entry / 8] |= (uint8_t)(1u << id_entry % 8);
@@ -294,12 +241,12 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
             const dgx_ui_text_style_t *s = L->names->styles[style].style;
             if (text_size) dgx_ui_textbox_init(box, buf, text_size, lines, s);
             else *box = (dgx_ui_textbox_t)DGX_UI_TEXT_CONST(buf, lines, s);
-            const size_t end = L->json.pos;
+            const size_t end = L->read.json.pos;
             size_t       n   = 0;
-            L->json.pos      = text_at;
-            if (text_at) dgx_ui_json_string(&L->json, buf, text_len, &n);
+            L->read.json.pos      = text_at;
+            if (text_at) dgx_ui_json_string(&L->read.json, buf, text_len, &n);
             buf[text_at ? text_len : 0] = 0;
-            L->json.pos                 = end;
+            L->read.json.pos                 = end;
             w.text                      = box;
         }
         *laid = w;
@@ -323,67 +270,42 @@ static bool tree(load_t *L, int parent, int *index)
         if (!widget(L, depth == 1 ? parent : L->open[depth - 2].self, depth, &self, &children_at)) return false;
         if (depth == 1) *index = self;
         if (children_at) { /* its children next, where its object ends kept */
-            const size_t end = L->json.pos;
-            L->json.pos      = children_at;
-            if (!dgx_ui_json_expect(&L->json, '[')) return false;
-            if (dgx_ui_json_peek(&L->json) != ']') {
+            const size_t end = L->read.json.pos;
+            L->read.json.pos      = children_at;
+            if (!dgx_ui_json_expect(&L->read.json, '[')) return false;
+            if (dgx_ui_json_peek(&L->read.json) != ']') {
                 L->open[depth - 1].end = end, L->open[depth - 1].self = self;
                 ++depth;
                 continue;
             }
-            L->json.pos = end;
+            L->read.json.pos = end;
         }
         /* a widget done: the next of its parent's children, or its parent done too */
         for (;;) {
             if (depth == 1) return true;
             bool more;
-            if (!dgx_ui_json_next(&L->json, ']', &more)) return false;
+            if (!dgx_ui_json_next(&L->read.json, ']', &more)) return false;
             if (more) break;
             --depth;
-            L->json.pos = L->open[depth - 1].end;
+            L->read.json.pos = L->open[depth - 1].end;
         }
     }
 }
 
 /* the description: {"dgx-ui": 1, "tree": a widget, "name": the tree's name, "editor": the editor's object}, nothing
-   after it, judged in one order: a text that is not JSON; then a version that is not the integer 1; then a key of the
-   top unknown or twice, and the tree missing; then the values of the keys known, the name, the editor's, the tree. So
-   that a description of a later version is refused as one, whatever it holds */
+   after it, judged in one order (dgx_ui_read_top()): a text that is not JSON; then a version that is not the integer 1;
+   then a key of the top unknown or twice, and the tree missing; then the values of the keys known, the name, the
+   editor's, the tree. So that a description of a later version is refused as one, whatever it holds */
 static bool document(load_t *L, int parent, int *index)
 {
-    size_t version_at = 0, version_from = 0, version_to = 0, name_at = 0, editor_at = 0, tree_at = 0, unknown_at = 0;
-    char   unknown[24];
-    if (!dgx_ui_json_expect(&L->json, '{')) return false;
-    if (dgx_ui_json_peek(&L->json) != '}')
-        for (bool more = true; more;) {
-            /* a key: any string, one that is no name a key not known, told by its first 23 bytes */
-            char   key[24];
-            size_t key_length;
-            dgx_ui_json_peek(&L->json);
-            const size_t here = L->json.pos;
-            if (!dgx_ui_json_string(&L->json, key, 23, &key_length) || !dgx_ui_json_expect(&L->json, ':')) return false;
-            key[key_length < 23 ? key_length : 23] = 0;
-            const size_t value   = (dgx_ui_json_peek(&L->json), L->json.pos);
-            const bool   version = strcmp(key, "dgx-ui") == 0 && !version_at;
-            if (version) version_at = here, version_from = value;
-            else if (strcmp(key, "name") == 0 && !name_at) name_at = value;
-            else if (strcmp(key, "editor") == 0 && !editor_at) editor_at = value;
-            else if (strcmp(key, "tree") == 0 && !tree_at) tree_at = value;
-            else if (!unknown_at) unknown_at = here, strcpy(unknown, key);
-            if (!dgx_ui_json_skip(&L->json, SKIP_LEVELS - 1)) return false;
-            if (version) version_to = L->json.pos;
-            if (!dgx_ui_json_next(&L->json, '}', &more)) return false;
-        }
-    else
-        ++L->json.pos;
-    if (dgx_ui_json_peek(&L->json) != -1) return fail(L, DGX_UI_LOAD_SYNTAX, L->json.pos, NULL);
-    if (!version_at || version_to - version_from != 1 || L->json.text[version_from] != '1') return fail(L, DGX_UI_LOAD_VERSION, version_at, NULL);
-    if (unknown_at) return fail(L, DGX_UI_LOAD_KEY, unknown_at, unknown);
-    if (!tree_at) return fail(L, DGX_UI_LOAD_KEY, 0, "tree");
-    if (name_at && (L->json.pos = name_at, !name_of(L, L->tree_name))) return false;
-    if (editor_at && L->json.text[editor_at] != '{') return fail(L, DGX_UI_LOAD_SYNTAX, editor_at, NULL);
-    if (L->json.text[tree_at] != '{') return fail(L, DGX_UI_LOAD_SYNTAX, tree_at, NULL);
-    L->json.pos = tree_at;
+    static const char *const top_keys[] = {"name", "editor", "tree"};
+    size_t                   at[3];
+    if (!dgx_ui_read_top(&L->read, top_keys, 3, at)) return false;
+    if (!at[2]) return fail(L, DGX_UI_LOAD_KEY, 0, "tree");
+    if (at[0] && (L->read.json.pos = at[0], !name_of(L, L->tree_name))) return false;
+    if (at[1] && L->read.json.text[at[1]] != '{') return fail(L, DGX_UI_LOAD_SYNTAX, at[1], NULL);
+    if (L->read.json.text[at[2]] != '{') return fail(L, DGX_UI_LOAD_SYNTAX, at[2], NULL);
+    L->read.json.pos = at[2];
     return tree(L, parent, index);
 }
 
@@ -394,10 +316,7 @@ static bool walk(load_t *L, int parent, int *index)
     L->ids = take_bytes(L, (size_t)L->names->id_count * sizeof(int), _Alignof(int));
     for (int k = 0; L->build && k < L->names->id_count; ++k) L->ids[k] = -1;
     if (document(L, parent, index)) return true;
-    if (L->json.error != DGX_UI_JSON_OK && L->err->code == DGX_UI_LOAD_OK) { /* the reader's error, in the load's words */
-        const int code = L->json.error == DGX_UI_JSON_RANGE ? DGX_UI_LOAD_RANGE : L->json.error == DGX_UI_JSON_DEPTH ? DGX_UI_LOAD_DEPTH_MAX : DGX_UI_LOAD_SYNTAX;
-        L->err->code = code, L->err->offset = (int)L->json.error_at;
-    }
+    dgx_ui_read_reader_error(&L->read);
     return false;
 }
 
@@ -405,8 +324,8 @@ static bool walk(load_t *L, int parent, int *index)
 static void begin(load_t *L, const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_error_t *err)
 {
     memset(L, 0, sizeof *L);
-    L->json.text = json, L->json.len = json ? len : 0, L->names = names, L->err = err, L->top = -1;
-    err->code = DGX_UI_LOAD_OK, err->offset = 0, err->name[0] = 0;
+    dgx_ui_read_begin(&L->read, json, len, err);
+    L->names = names, L->top = -1;
 }
 
 bool dgx_ui_load_need(const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_need_t *need, dgx_ui_load_error_t *err)

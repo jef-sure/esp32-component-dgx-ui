@@ -19,9 +19,10 @@
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | статистика отрисовки: измеренный проход |
 | [`dgx_ui_load.h`](#dgx_ui_loadh) | дерево из описания в JSON |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | касание DGX-DI как указатель дерева |
+| [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | цвета, стили текста и облики из описания в JSON, одного на все страницы |
 | [`project_include.cmake`](#project_includecmake) | два вызова CMake: описание, переведённое на C при сборке программы |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.43:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.44:
 имена и сигнатуры ещё могут измениться.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -1505,8 +1506,9 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 | `"editor"` | объект инструмента, которым описание правят, как на верхнем уровне: у виджета любого вида |
 
 Числа — целые. Имена состоят из букв, цифр, `_`, `.` и `-`, не длиннее 23 символов. Ключ, которого формат не знает, —
-ошибка, так что опечатка не проходит молча; ключи `"styles"`, `"looks"`, `"fonts"` и `"pages"` верхнего объекта
-оставлены для следующей версии и в этой отвергаются.
+ошибка, так что опечатка не проходит молча. `"colors"`, `"styles"` и `"looks"` на верхнем уровне — ключи внешнего
+вида, [dgx_ui_appearance.h](#dgx_ui_appearanceh); страница отвергает их как ключи, которых не знает. `"fonts"` и
+`"pages"` оставлены для следующей версии и в этой отвергаются.
 
 **Объект редактора.** В `"editor"` инструмент, которым описания правят, держит своё — то, что устройству ничего не
 говорит: направляющие, заметки, экраны, под которые страница сделана, замок на виджете. Значение — объект, и
@@ -1572,9 +1574,157 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 | `DGX_UI_LOAD_MEMORY` | памяти меньше, чем требуется, или она не выровнена |
 | `DGX_UI_LOAD_NODES` | `dgx_ui_add()` отказал — нет памяти под блок узлов; начатое убрано |
 | `DGX_UI_LOAD_ID` | `id` из таблицы у второго виджета или в таблице больше `DGX_UI_LOAD_IDS` идентификаторов |
+| `DGX_UI_LOAD_MISSING` | во внешнем виде не сказано то, что должно быть сказано: цвет, `"draw"`, `"fonts"` |
 
 Программа, которая загружает описание, несёт ещё около 8 КБ, из них 3 КБ — читатель JSON; программа, которая не
 загружает, — ничего.
+
+## dgx_ui_appearance.h
+
+Внешний вид страниц программы в данных: цвета по именам, стили текста и облики в одном документе JSON на все
+страницы, который загружается в память программы. Страницы называют его облики и стили так же, как собственные
+облики и стили программы; изменился внешний вид — изменились все страницы.
+
+```json
+{"dgx-ui": 1, "name": "day",
+ "colors": {"paper": "#12161e", "ink": "#e8e8de", "fill": "#2c3c56", "border": "#44556a", "accent": "#f0a03c"},
+ "styles": {"body": {"fonts": ["body", "small"], "align": "left", "flags": ["middle"]}},
+ "looks":  {"slider": {"draw": "slider",
+                       "params": {"track": "border", "fill": "accent", "knob": "ink", "focused": "ink",
+                                  "disabled": "border", "track_h": 3}}}}
+```
+
+**Формат** — тот же, что у `dgx_ui_load.h`, с другими ключами верхнего объекта: `"dgx-ui": 1` и `"colors"`, а ещё,
+если нужны, `"styles"`, `"looks"`, `"name"` и `"editor"`; в любом порядке, каждый не более одного раза. Верхний
+объект судится в порядке страницы: текст, который не JSON; версия; ключ неизвестный или сказанный дважды, либо
+отсутствие `"colors"`; затем значения, цвета первыми — на них ссылаются стили и облики. Страница отвергает
+`"colors"`, `"styles"` и `"looks"` как ключи, которых не знает, а внешний вид отвергает `"tree"`.
+
+| Ключ | Его значение |
+| ---- | ------------ |
+| `"colors"` | объект: имя и `"#rrggbb"`. `"paper"`, `"ink"`, `"fill"` и `"border"` — индексы 0, 1, 2 и 3 таблицы отрисовки, где бы они ни стояли: так их берут собственные облики библиотеки; все четыре обязательны. Остальные идут с 4 в порядке записи; цветов не больше 255. |
+| `"styles"` | объект: имя и стиль текста. В стиле: `"fonts"` — список от 1 до 255 вариантов, лучший первым; `"align"` — `"left"`, `"center"` или `"right"`; `"flags"` — список из `"middle"` и `"important"`; `"scroll_ms"` — от 0 до 65535. Вариант — имя шрифта из таблицы программы или объект для рукописного шрифта: `"font"`, `"hand"` — почерк из таблицы программы, `"height"`, `"narrow"` от 0 до 100, `"joined"`, `"pen"` от 0 до 255, `"soft"`. |
+| `"looks"` | объект: имя и облик, устроенный как `dgx_ui_look_t`: `"draw"` — функция рисования из таблицы программы; `"fill"` — цвет, который она оставляет под детьми, или `null`; `"params"` — параметры этой функции по именам, они ниже. |
+| `"name"` | имя внешнего вида, имя формата; его отдаёт `need.name` |
+| `"editor"` | объект инструмента, которым документ правят; пропускается, как у страницы; только на верхнем уровне |
+
+Параметры функций рисования библиотеки. Имя без пояснений — цвет, он называется именем из `"colors"`; значком °
+помечен тот, что может быть `null` — цвет под виджетом (`DGX_UI_PAPER`); `bands` — список пар `[below, цвет]`:
+
+| Функция рисования | Её параметры |
+| ----------------- | ------------ |
+| `"box"` | нет |
+| `"frame"` | `border`; `width` 0…255 |
+| `"text"` | `ink`; `paper`° |
+| `"lines"` | `ink`; `paper`° |
+| `"hand_lines"` | `ink`; `paper`° |
+| `"button"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `shadow`; `depth` 0…255 |
+| `"picture_button"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `shadow`; `depth` 0…255 |
+| `"input"` | `ink`; `caret`; `paper`°; `secret` да/нет |
+| `"switch"` | `off`; `on`; `knob`; `focused`°; `disabled` |
+| `"slider"` | `track`; `fill`; `knob`; `focused`°; `disabled`; `track_h` 0…255 |
+| `"list"` | `ink`; `paper`°; `pick`; `pick_ink`; `focused`; `disabled`; `bar` |
+| `"dropdown"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `arrow` |
+| `"picture"` | `ink`; `paper`° |
+| `"rgb565"` | `ink`; `paper`° |
+| `"indexed"` | `ink`; `paper`° |
+| `"radio"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
+| `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
+| `"level"` | `bar`; `rest`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
+| `"ring"` | `on`; `off`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
+
+**Чего не сказано.** `"fill"` облика — `null`, то, что лежит под ним. Число, слово и список флагов равны 0, как
+пропущенный член структуры C, а `"joined"`, `"soft"` и `"secret"` — ложь. Цвет в параметрах облика должен быть
+сказан, `null` — там, где он допустим: облик, который цвет пропустил, отвергается с `DGX_UI_LOAD_MISSING` и именем
+поля, чтобы забытый цвет не стал бумагой по бумаге. Так же обязательны `"fonts"` стиля, `"font"` варианта и
+`"hand"` рукописного шрифта: без почерка подбор шрифта молча пропустил бы вариант.
+
+**Таблицы программы**, `dgx_ui_appearance_names_t`: что внешний вид может назвать и что идёт после его собственного.
+
+| Член | Что в нём перечислено |
+| ---- | --------------------- |
+| `draws`, `draw_count` | `dgx_ui_draw_name_t`: функция рисования по её слову и описание её параметров. `DGX_UI_DRAW_NAME(slider)` — это `{"slider", dgx_ui_draw_slider, &dgx_ui_params_slider}`; программа несёт только те функции, которые перечислила |
+| `fonts`, `font_count` | `dgx_ui_font_name_t`: шрифт DGX по имени, `{"body", dgx_font_body}`; все заявки из `dgx_fonts.h` проекта разом: `#define FONT(need) {#need, dgx_font_##need},` и `{DGX_FONT_NEEDS(FONT)}` |
+| `hands`, `hand_count` | `dgx_ui_hand_name_t`: `DGX_UI_HAND_NAME(handwriting)`, `DGX_UI_HAND_NAME(handwriting_canvas)` |
+| `looks`, `look_count`, `styles`, `style_count` | собственные облики и стили программы, написанные на C; в таблицах, которые кладёт загрузка, они стоят после обликов и стилей внешнего вида |
+
+**Чьё имя.** Облики и стили внешнего вида стоят в таблицах первыми, собственные облики и стили программы — после
+них, а страница берёт первое совпадение по имени. Поэтому облик `"slider"` из внешнего вида меняет каждый ползунок,
+который берёт облик по слову своего вида, а в таблице программы остаётся облик библиотеки — на случай внешнего
+вида, в котором такого облика нет. Стиль, который берёт текст, не назвавший своего, — первый стиль внешнего вида.
+
+| Вызов | Что делает |
+| ----- | ---------- |
+| `bool dgx_ui_appearance_need(const char *json, size_t len, const dgx_ui_appearance_names_t *names, dgx_ui_appearance_need_t *need, dgx_ui_load_error_t *err)` | Проверяет внешний вид целиком и говорит, сколько ему нужно: `need.bytes` памяти, выровненной как указатель; `need.colors`, `need.looks` и `need.styles` — его собственные; `need.name`. Ложь: ошибка в `err`, как у страницы. |
+| `bool dgx_ui_appearance_load(const char *json, size_t len, const dgx_ui_appearance_names_t *names, void *memory, size_t size, dgx_ui_appearance_t *out, dgx_ui_load_error_t *err)` | Кладёт внешний вид в память и заполняет `*out`: `rgb` и `color_names` по индексу, `color_count`; `looks` и `styles` — таблицы, на которых загружается страница, с `look_count` и `style_count`. Ложь: ошибка, `*out` не тронут. Текст после загрузки можно освободить; память нельзя, пока дерево берёт из неё облики. |
+| `void dgx_ui_appearance_pack(const dgx_ui_appearance_t *appearance, uint32_t (*pack)(void *ctx, uint8_t r, uint8_t g, uint8_t b), void *ctx, uint32_t *colors)` | Упаковывает цвета функцией программы в `colors[color_count]` — таблицу отрисовки: на каждый экран другой глубины своя таблица |
+| `uint32_t dgx_ui_pack_screen(void *ctx, uint8_t r, uint8_t g, uint8_t b)` | Упаковщик для экрана DGX, `ctx` — экран: `dgx_screen_rgb()` |
+| `int dgx_ui_appearance_color(const dgx_ui_appearance_t *appearance, const char *name)` | Индекс цвета по имени; -1, если такого цвета во внешнем виде нет. Собственный облик программы, которому нужен цвет внешнего вида, берёт индекс так и заполняет свои параметры при старте: на порядок в `"colors"` программе рассчитывать нельзя. |
+
+```c
+static const dgx_ui_draw_name_t        draws[] = {DGX_UI_DRAW_NAME(slider), DGX_UI_DRAW_NAME(button)};
+static const dgx_ui_font_name_t        fonts[] = {{"body", dgx_font_body}, {"small", dgx_font_small}};
+static const dgx_ui_look_name_t        own[]   = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(button)};
+static const dgx_ui_appearance_names_t appearance_names = {.draws = draws, .draw_count = 2, .fonts = fonts, .font_count = 2,
+                                                           .looks = own, .look_count = 2};
+static dgx_ui_appearance_t appearance;
+static dgx_ui_load_names_t page_names; /* the page's tables, their looks and styles the appearance's */
+static uint32_t           *colors;
+
+bool appearance_take(const char *json, size_t len, dgx_screen_t *scr, dgx_ui_paint_t *paint)
+{
+    dgx_ui_appearance_need_t need;
+    dgx_ui_load_error_t      err;
+    if (!dgx_ui_appearance_need(json, len, &appearance_names, &need, &err)) return false;
+    void *memory = malloc(need.bytes);
+    colors       = malloc((size_t)need.colors * sizeof *colors);
+    if (!memory || !colors || !dgx_ui_appearance_load(json, len, &appearance_names, memory, need.bytes, &appearance, &err)) return false;
+    dgx_ui_appearance_pack(&appearance, dgx_ui_pack_screen, scr, colors);
+    paint->colors = colors, paint->color_count = appearance.color_count;
+    page_names.looks = appearance.looks, page_names.look_count = appearance.look_count;
+    page_names.styles = appearance.styles, page_names.style_count = appearance.style_count;
+    return true;
+}
+```
+
+**Собственная функция рисования программы** перечисляется так же, как функции библиотеки, с описанием её
+параметров по полям, и тогда внешний вид даёт ей облики:
+
+```c
+typedef struct { uint8_t needle, face; uint8_t width; } dial_params_t;
+static const dgx_ui_field_t  dial_fields[] = {DGX_UI_COLOR_FIELD(dial_params_t, needle), DGX_UI_COLOR_FIELD(dial_params_t, face),
+                                              DGX_UI_NUMBER_FIELD(dial_params_t, width, 1, 9)};
+static const dgx_ui_params_t dial_described = DGX_UI_PARAMS(dial_params_t, 1u << DGX_UI_OWN, dial_fields);
+```
+
+`dgx_ui_params_t` — размер и выравнивание параметров, виды виджетов, для которых функция предназначена (по ним её
+предлагает построитель, загрузка их не проверяет), и поля; `dgx_ui_field_t` — поле: его имя в описании, то же, что у
+члена структуры, где оно лежит и что в нём. Поле по члену структуры пишут макросы: `DGX_UI_COLOR_FIELD`,
+`DGX_UI_COLOR_OR_UNDER_FIELD`, `DGX_UI_NUMBER_FIELD` с пределами, `DGX_UI_BOOL_FIELD`, `DGX_UI_WORD_FIELD` со
+словами, каждое кончается нулём, `DGX_UI_BANDS_FIELD` с членом, в котором лежит число полос, — все поверх
+`DGX_UI_FIELD_OF`; `DGX_UI_PARAMS` пишет описание целиком. Что бывает в поле: `DGX_UI_FIELD_COLOR`,
+`DGX_UI_FIELD_COLOR_OR_UNDER`, `DGX_UI_FIELD_NUMBER`, `DGX_UI_FIELD_BOOL`, `DGX_UI_FIELD_WORD`, `DGX_UI_FIELD_FLAGS`,
+`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, а у стиля и варианта шрифта — `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND`
+и `DGX_UI_FIELD_VARIANTS`. Описания самой библиотеки: `dgx_ui_params_box`, `dgx_ui_params_frame`,
+`dgx_ui_params_text`, `dgx_ui_params_lines`, `dgx_ui_params_hand_lines`, `dgx_ui_params_button`,
+`dgx_ui_params_picture_button`, `dgx_ui_params_input`, `dgx_ui_params_switch`, `dgx_ui_params_slider`,
+`dgx_ui_params_list`, `dgx_ui_params_dropdown`, `dgx_ui_params_picture`, `dgx_ui_params_rgb565`,
+`dgx_ui_params_indexed`, `dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`,
+`dgx_ui_params_ring`, а для стиля и варианта шрифта — `dgx_ui_params_text_style` и `dgx_ui_params_font_variant`.
+
+**Чего внешний вид не может.** Он называет только то, что перечислила программа: функции рисования, шрифты и
+почерки — из её таблиц; параметры функции кладутся по её описанию; каждый цвет — индекс меньше числа цветов,
+каждое число — в пределах своего поля. Всё проверяется до того, как что-либо положено, а загрузка берёт один и
+тот же стек, каким бы ни был текст.
+
+**Ошибки** — те же, что у страницы, и ещё одна: `DGX_UI_LOAD_MISSING` — не сказано то, что должно быть сказано;
+`err.name` — цвет, поле или ключ: один из четырёх цветов, цвет в параметрах облика, `"draw"`, `"fonts"`, `"font"`,
+`"hand"` рукописного шрифта. Цвет, записанный не как `#rrggbb`, — `DGX_UI_LOAD_SYNTAX` с именем цвета; цвет,
+функция рисования, шрифт или почерк, которых нет в таблицах, — `DGX_UI_LOAD_UNKNOWN`.
+
+Программа, которая загружает внешний вид, несёт около 5 КБ сверх той, что загружает страницы, и описание
+каждой перечисленной функции рисования, по 24 байта на поле; программа, которая не загружает, — ничего. На ESP32
+загрузка берёт около 1 КБ стека.
 
 ## project_include.cmake
 

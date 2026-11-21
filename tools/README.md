@@ -31,7 +31,7 @@ python3 tools/dgx_ui_c.py <path to DGX> <directory>    # <directory>/dgx_ui_c: t
 make -C tools                                          # the same into tools/build, DGX found as the host tests find it
 ```
 
-The tool is `tools/dgx_ui_c.c` and six sources of the library, compiled against dgx-ui's headers and DGX's
+The tool is `tools/dgx_ui_c.c` and seven sources of the library, compiled against dgx-ui's headers and DGX's
 `include/` and `host/stubs/`: no source of DGX, no library but C's. The compiler is the computer's: `$CC` unless it
 is a chip's, else `cc`. The library's looks are read from `include/dgx_ui_paint.h` when it is built.
 

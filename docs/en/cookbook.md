@@ -2253,8 +2253,9 @@ What to know of it:
   `dgx_ui_free(&described_page)`, then `free(described_memory)`.
 - **A text the program writes** needs `"text_size"`, the bytes of its buffer; without it the text is constant, as
   a caption from a string constant is.
-- **Colours and fonts are not in the description.** A look with parameters of the program's, a text style, a
-  picture: the program makes them in C and gives them names.
+- **Colours and fonts are not in the description of a page.** A look with parameters of the program's, a text
+  style, a picture: the program makes them in C and gives them names, or the looks and the styles come from an
+  appearance, a document of their own for all the pages, `dgx_ui_appearance.h` of the API reference.
 - **Several pages**: one table of ids serves them all; a load fills the ids its description has and leaves the
   others. `DGX_UI_ACTION_NAME(page)` opens the page that is the button's `"ctx"`, a tree named in the contexts'
   table.
@@ -2374,7 +2375,7 @@ What to know of it:
   compiler finds what the program has not. The rule and the tool's own page:
   [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
-- **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.4 KB smaller than the
+- **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 56 bytes each; in RAM are the nodes, as for any widget,
   the text boxes and the buffers of the texts the program writes.
 - **The made files are not to be edited**: they are written again whenever the description or the names file

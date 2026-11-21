@@ -1,5 +1,5 @@
 ## IDF Component Manager Manifest File
-version: "0.0.43"
+version: "0.0.44"
 description: "A light layer of widgets on the DGX display library for ESP32: rows and columns, values that come as messages from other tasks, animation only while a widget asks for time"
 url: https://github.com/jef-sure/esp32-component-dgx-ui
 repository: https://github.com/jef-sure/esp32-component-dgx-ui.git
