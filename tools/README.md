@@ -52,7 +52,8 @@ when the description has no name, or one that is not a name of C, `"wifi-setup"`
 their first lines. A prefix may not begin with `dgx_`, as the libraries' names and headers do. `-i` names a header
 of the program the `.c` includes, the one that declares what the names lead to. `-f` names the two files when they
 are not to be named by the prefix: `dgx_ui_tree()` names them by the description's file, which CMake knows without
-reading it, and leaves the prefix to the tree's name.
+reading it, and leaves the prefix to the tree's name. Such a name is of letters, digits, `_`, `-` and `.`, neither
+`-` nor `.` first.
 
 A file that is already there is written over only when the tool made it, and made it of the same kind of source, by
 its first lines: a tree named `main` beside the program's `main.c` is refused, and so is a tree over the tables of
@@ -81,6 +82,9 @@ loader refuses is refused with the loader's error, its byte and its name:
 ```
 dgx_ui_c: page.json: byte 50: DGX_UI_LOAD_UNKNOWN "loudness"
 ```
+
+An editor's object, `"editor"` at the top of a description or in a widget, is passed over as the loader passes it:
+the files made are the same with it and without.
 
 What the names stand for comes from a names file, or, with none, from a rule.
 

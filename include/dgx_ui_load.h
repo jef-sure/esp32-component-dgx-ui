@@ -22,8 +22,10 @@
  *          if (root >= 0) dgx_ui_text_set(&page, title, "Sound");
  *      }
  *
- *  The format, version 1: one object of the keys "dgx-ui": 1, "tree": a widget, and "name": the tree's name, which may
- *  be left out (dgx_ui_load_need_t::name). A widget is an object of these keys, in any order, each at most once:
+ *  The format, version 1: one object of the keys "dgx-ui": 1, "tree": a widget, and two that may be left out: "name",
+ *  the tree's name (dgx_ui_load_need_t::name), and "editor", an object the tools that edit a description keep their
+ *  own things in, which the library passes over: any JSON in it, its numbers of any kind and size, its strings checked
+ *  as every string is. A widget is an object of these keys, in any order, each at most once:
  *  - "kind": "box", "frame", "label", "picture", "icon", "list", "switch", "slider", "button", "input", "dropdown",
  *    "own" or "radio", as DGX_UI_BOX ... DGX_UI_RADIO; a column or a row is a box of the flag "column" or "row";
  *  - "flags": a list of "column", "row", "stretch", "swipe", "drag", "canvas", "rest", "repeat"; "state": of "hidden",
@@ -36,13 +38,18 @@
  *  - "id": a name the program finds the widget by: the index of the widget is written to the id's place in the table,
  *    an id the table has not left as it is, so that one table serves several pages; an id of the table on two widgets
  *    is an error, one the table has not may repeat;
- *  - "children": a list of widgets, added after the widget whatever its place in the object.
+ *  - "children": a list of widgets, added after the widget whatever its place in the object;
+ *  - "editor": an object of the editor's, as at the top, for a widget of any kind.
  *  A widget's look, when "look" is not said: none for a box, a frame and a label (the core's own), else the look the
  *  looks' table names by the kind's own word ("button" for a button), its absence an error. A key unknown, a key twice,
- *  a field of no meaning for the kind, a number out of its field, a fraction or an exponent, a name of another character
- *  than a letter, a digit, '_', '.' or '-', or longer than 23, is an error; so is a version above 1, told before a key
- *  of the top this version does not know. The keys "styles", "looks", "fonts" and "pages" of the top are kept for a
- *  later version, refused in this one.
+ *  a field of no meaning for the kind, a number out of its field or with a fraction or an exponent, a name of another
+ *  character than a letter, a digit, '_', '.' or '-', or longer than 23, is an error. The top is judged in one order:
+ *  a text that is not JSON; then a version that is not the integer 1; then a key of the top unknown or twice, or no
+ *  "tree" (a key of the top that is no name is one unknown); then the values of the keys known. So a description of a
+ *  later version is refused as one, whatever it holds, and a number of no field is told by the fault of its place. A
+ *  value stands inside at most 2 * DGX_UI_LOAD_DEPTH + 2 brackets, the top's own one of them, in an editor's object as
+ *  anywhere. The keys "styles", "looks", "fonts" and "pages" of the top are kept for a later version, refused in this
+ *  one.
  *
  *  Not in a description: a look's parameters and colours, fonts and text styles, which are C the program names; the
  *  tree once loaded, which the program changes by the calls of dgx_ui.h as any tree.
@@ -152,7 +159,7 @@ typedef struct dgx_ui_load_need_t {
 enum {
     DGX_UI_LOAD_OK,
     DGX_UI_LOAD_SYNTAX,    ///< not JSON, a string not well-formed UTF-8, or a value of the wrong type for its key
-    DGX_UI_LOAD_VERSION,   ///< no "dgx-ui", or one above 1
+    DGX_UI_LOAD_VERSION,   ///< no "dgx-ui", or one that is not the integer 1
     DGX_UI_LOAD_KEY,       ///< a key unknown, or twice in one object (name: the key)
     DGX_UI_LOAD_KIND,      ///< no kind, or one unknown (name: the word)
     DGX_UI_LOAD_FIELD,     ///< a key of no meaning for the kind, a number for "ctx" its handler takes not (name: the key)

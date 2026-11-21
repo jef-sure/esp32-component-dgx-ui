@@ -12,7 +12,11 @@
  * ids. The need's bytes exactly what the load uses. A valid description cut
  * at every byte and with every byte changed: never a fault, an error inside the text or a tree, nothing added on an
  * error. The text overwritten after the load, the tree drawn the same. Trees made by chance as C constants, printed to
- * JSON with their keys shuffled, loaded and compared field by field.
+ * JSON with their keys shuffled, loaded and compared field by field, and printed again with editors' objects of chance
+ * content at chance places: the same need and the same tree. The top judged in one order, the version first; a
+ * number that is not an integer of int32 where none is read told by the fault of its place; the editor's object at
+ * the top and in widgets, twice, not an object, what is not JSON in it, an "editor" that is not a widget's; a value
+ * inside at most 50 brackets, an editor's as any. A key of the top that is no name, one unknown.
  */
 #include <stdarg.h>
 #include <stdint.h>
@@ -212,6 +216,44 @@ static void print(printer_t *p, const char *f, ...)
     va_end(a);
 }
 
+/* editors' objects by a chance of their own, so that a tree printed with them and without is the same tree */
+static bool     editors;
+static uint32_t editor_seed = 777;
+static int      editor_chance(int below)
+{
+    editor_seed = editor_seed * 1103515245u + 12345u;
+    return (int)((editor_seed >> 8) % (uint32_t)below);
+}
+
+static void chance_editor(printer_t *p, int levels);
+
+/* a value of an editor's: numbers of every kind and size, strings, words, lists and objects, levels deep at most */
+static void chance_editor_value(printer_t *p, int levels)
+{
+    static const char *const scalars[] = {"1.5", "-2.25e-3", "1E+9", "123456789012345678901234567890", "0", "-0", "true", "false", "null",
+                                          "\"a note\"", "\"\\u00e9\\n\\ud83d\\ude00\"", "0.5", "1763712000000", "-7"};
+    const int                kind      = levels > 0 ? editor_chance(4) : 0;
+    if (kind < 2) {
+        print(p, "%s", scalars[editor_chance(sizeof scalars / sizeof *scalars)]);
+    } else if (kind == 2) {
+        const int count = editor_chance(4);
+        print(p, "[");
+        for (int k = 0; k < count; ++k) print(p, "%s", k ? ", " : ""), chance_editor_value(p, levels - 1);
+        print(p, "]");
+    } else {
+        chance_editor(p, levels);
+    }
+}
+
+/* an editor's object */
+static void chance_editor(printer_t *p, int levels)
+{
+    const int members = editor_chance(4);
+    print(p, "{");
+    for (int k = 0; k < members; ++k) print(p, "%s\"k%d\": ", k ? ", " : "", k), chance_editor_value(p, levels - 1);
+    print(p, "}");
+}
+
 static dgx_ui_widget_t  chance_w[64];
 static dgx_ui_textbox_t chance_box[64];
 static char             chance_text[64][16];
@@ -261,9 +303,13 @@ static void chance_widget(printer_t *p, int parent, int depth)
         char      t[96];
         memcpy(t, keys[k], 96), memcpy(keys[k], keys[j], 96), memcpy(keys[j], t, 96);
     }
+    /* an editor's object among the keys, by its own chance */
+    const int editor_at = editors && editor_chance(2) ? editor_chance(key_count + 1) : -1;
     print(p, "{");
-    for (int k = 0; k < key_count; ++k) {
-        if (k) print(p, ", ");
+    for (int k = 0; k <= key_count; ++k) {
+        if (k == editor_at) print(p, "%s\"editor\": ", k ? ", " : ""), chance_editor(p, 4);
+        if (k == key_count) break;
+        if (k || editor_at == 0) print(p, ", ");
         if (keys[k][0]) {
             print(p, "%s", keys[k]);
             continue;
@@ -395,6 +441,121 @@ int main(void)
     CHECK(fails_with("{\"x\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 0, NULL));
     CHECK(fails_with("{\"x\": 1, \"dgx-ui\": 1, \"y\": 2, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 1, "x"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"dgx-ui\": 2, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 14, "dgx-ui"));
+    /* the top judged in one order: not JSON; the version, the integer 1 as written; a key unknown or twice, no tree; the
+       values of the keys known. So a later version is told as one whatever it holds, and a value of no number read is
+       told by the fault of its place, not by its number */
+    CHECK(fails_with("{\"dgx-ui\": 1.5, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1.0, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1e0, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": \"1\", \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 99999999999, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": [1], \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 01, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_SYNTAX, 11, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 2, \"tree\": {\"kind\": \"box\", \"pad\": 1.5}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 2, \"tree\": {\"kind\": \"box\", \"scale\": 0.5}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 2, \"name\": 5, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 2, \"tree\": [1.5]}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"opacity\": 0.5, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 14, "opacity"));
+    /* a key of the top that is no name: one unknown, after the version, by its first 23 bytes; a key that is no string
+       is not JSON. A widget's key that is no name stays one */
+    CHECK(fails_with("{\"dgx-ui\": 2, \"a b\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+    CHECK(fails_with("{\"a b\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 0, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"a b\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 14, "a b"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"a2345678901234567890123456789\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 14, "a2345678901234567890123"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 14, ""));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"\\u00e9t\\u00e9\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 14, "\xc3\xa9t\xc3\xa9"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\"}, \"tree_of_a_later_version_x\": {}}", DGX_UI_LOAD_KEY, 39, "tree_of_a_later_version"));
+    CHECK(fails_with("{\"dgx-ui\": 1, 5: 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_SYNTAX, 14, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 2, \"a\\u0000\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_SYNTAX, 16, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"a b\": 1}}", DGX_UI_LOAD_NAME_BAD, 38, "a b"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"name\": 5, \"x\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 25, "x"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": 5, \"x\": 1}", DGX_UI_LOAD_KEY, 25, "x"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"name\": 5}", DGX_UI_LOAD_KEY, 0, "tree"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": 5, \"name\": 5}", DGX_UI_LOAD_SYNTAX, 33, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": 5}", DGX_UI_LOAD_SYNTAX, 22, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"opacity\": 0.5}}", DGX_UI_LOAD_KEY, 38, "opacity"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"opacity\": 12345678901}}", DGX_UI_LOAD_KEY, 38, "opacity"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"label\", \"text\": 1.5}}", DGX_UI_LOAD_SYNTAX, 48, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [0.5]}}", DGX_UI_LOAD_SYNTAX, 48, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"children\": [1.5]}}", DGX_UI_LOAD_SYNTAX, 51, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": 2.5}}", DGX_UI_LOAD_SYNTAX, 31, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"tag\": 1.5}}", DGX_UI_LOAD_RANGE, 45, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"at\": [1, 2.5]}}", DGX_UI_LOAD_RANGE, 48, NULL));
+
+    /* the editor's object, at the top and in a widget of any kind: any JSON in it, numbers of every kind, passed over */
+    {
+        static const char *const taken[] = {
+            "{\"dgx-ui\": 1, \"editor\": {\"zoom\": 1.5, \"big\": 123456789012345678901234567890, \"e\": -2.5e-3, \"E\": 1E+9, \"z\": -0, \"n\": [1, {\"a\": null}]}, \"tree\": {\"kind\": \"box\"}}",
+            "{\"editor\": {}, \"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"editor\": {\"note\": \"x\", \"lock\": true, \"at\": [0.5, 1e3]}, \"children\": [{\"kind\": \"label\", \"text\": \"a\", \"editor\": {\"z\": 1.25}}]}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"\\u0065ditor\": {\"z\": 1.25}}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"editor\": {\"dgx-ui\": {\"time\": 1763712000000}}, \"kind\": \"slider\", \"value\": \"volume\"}}",
+        };
+        for (size_t k = 0; k < sizeof taken / sizeof *taken; ++k) CHECK(dgx_ui_load_need(taken[k], strlen(taken[k]), &names, &need, &err));
+        /* the need and the tree of the same description with no editors */
+        static const char with[]    = "{\"dgx-ui\": 1, \"editor\": {\"zoom\": 1.5}, \"name\": \"p\", \"tree\": {\"kind\": \"box\", \"editor\": {\"x\": 0.5}, \"children\": [{\"kind\": \"label\", \"text\": \"abc\", \"editor\": {}}]}}";
+        static const char without[] = "{\"dgx-ui\": 1, \"name\": \"p\", \"tree\": {\"kind\": \"box\", \"children\": [{\"kind\": \"label\", \"text\": \"abc\"}]}}";
+        dgx_ui_load_need_t with_need, without_need;
+        CHECK(dgx_ui_load_need(with, strlen(with), &names, &with_need, &err) && dgx_ui_load_need(without, strlen(without), &names, &without_need, &err));
+        CHECK(memcmp(&with_need, &without_need, sizeof with_need) == 0);
+        /* not an object: at once at the top, as the tree; in a widget where the widget is read, after the version */
+        CHECK(fails_with("{\"dgx-ui\": 1, \"editor\": 5, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_SYNTAX, 24, NULL));
+        CHECK(fails_with("{\"dgx-ui\": 2, \"editor\": 5, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"editor\": 1.5}}", DGX_UI_LOAD_SYNTAX, 48, NULL));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"editor\": [1.5]}}", DGX_UI_LOAD_SYNTAX, 48, NULL));
+        CHECK(fails_with("{\"dgx-ui\": 2, \"tree\": {\"kind\": \"box\", \"editor\": 1.5}}", DGX_UI_LOAD_VERSION, 1, NULL));
+        /* twice: a key twice */
+        CHECK(fails_with("{\"dgx-ui\": 1, \"editor\": {}, \"tree\": {\"kind\": \"box\"}, \"editor\": {\"a\": 0.5}}", DGX_UI_LOAD_KEY, 53, "editor"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"editor\": {}, \"tree\": {\"kind\": \"box\"}, \"editor\": 0.5}", DGX_UI_LOAD_KEY, 53, "editor"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"editor\": {}, \"editor\": {\"a\": 0.5}}}", DGX_UI_LOAD_KEY, 52, "editor"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\"}, \"tree\": {\"kind\": \"box\", \"editor\": {\"a\": 0.5}}}", DGX_UI_LOAD_KEY, 39, "tree"));
+        /* what is not JSON inside, at its byte, before the version: a number at its first byte, a string at the byte of
+           its fault, by the rule of every string */
+        static const struct {
+            const char *value;
+            int         fault; /* within the value */
+        } broken[] = {{"1.", 0}, {"01", 0}, {"-", 0}, {"1e+", 0}, {".5", 0}, {"+1", 0}, {"NaN", 0}, {"\"\\u0000\"", 1}, {"\"\\ud83d\"", 1}, {"\"a\x01\"", 2}};
+        for (size_t k = 0; k < sizeof broken / sizeof *broken; ++k) {
+            char text[96];
+            snprintf(text, sizeof text, "{\"dgx-ui\": 2, \"editor\": {\"a\": %s}, \"tree\": {\"kind\": \"box\"}}", broken[k].value);
+            CHECK(fails_with(text, DGX_UI_LOAD_SYNTAX, 30 + broken[k].fault, NULL));
+            snprintf(text, sizeof text, "{\"dgx-ui\": 2, \"tree\": {\"kind\": \"box\", \"editor\": {\"a\": %s}}}", broken[k].value);
+            CHECK(fails_with(text, DGX_UI_LOAD_SYNTAX, 54 + broken[k].fault, NULL));
+        }
+        CHECK(fails_with("{\"dgx-ui\": 1, \"editor\": {\"a\": 1.5.3}, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_SYNTAX, 33, NULL));
+        /* an "editor" that is not a widget's: a key unknown where it stands */
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"foo\": {\"editor\": 1.5}}}", DGX_UI_LOAD_KEY, 38, "foo"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"other\": {\"editor\": {\"a\": 1.5}}, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 14, "other"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"children\": [[{\"editor\": {\"a\": 1.5}}]]}}", DGX_UI_LOAD_SYNTAX, 51, NULL));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"editors\": {\"a\": 1.5}}}", DGX_UI_LOAD_KEY, 38, "editors"));
+        /* the nesting: a value inside at most 50 brackets, the top's own one of them, in an editor's object as anywhere;
+           the 51st only an empty list */
+        static char deep[4096];
+        for (int lists = 49; lists <= 50; ++lists) { /* the top, the editor's object, 48 lists round an empty one; one more refused */
+            char *d = deep + sprintf(deep, "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\"}, \"editor\": {\"a\": ");
+            for (int k = 0; k < lists; ++k) *d++ = '[';
+            const int innermost = (int)(d - deep) - 1;
+            for (int k = 0; k < lists; ++k) *d++ = ']';
+            sprintf(d, "}}");
+            if (lists == 50) CHECK(fails_with(deep, DGX_UI_LOAD_DEPTH_MAX, innermost, NULL));
+            else CHECK(dgx_ui_load_need(deep, strlen(deep), &names, &need, &err));
+        }
+        /* a widget at depth d: its editor has the levels its place leaves, the 51st bracket an empty list at most */
+        for (int depth = 1; depth <= DGX_UI_LOAD_DEPTH; depth += DGX_UI_LOAD_DEPTH - 1)
+            for (int more = 0; more < 2; ++more) {
+                char *d = deep + sprintf(deep, "{\"dgx-ui\": 1, \"tree\": ");
+                for (int k = 1; k < depth; ++k) d += sprintf(d, "{\"kind\": \"box\", \"children\": [");
+                d += sprintf(d, "{\"kind\": \"box\", \"editor\": {\"a\": ");
+                const int lists = 51 - 2 * depth - 1 + more; /* the top, 2 * depth - 1 of the widgets, the editor's own */
+                for (int k = 0; k < lists; ++k) *d++ = '[';
+                const int innermost = (int)(d - deep) - 1;
+                for (int k = 0; k < lists; ++k) *d++ = ']';
+                d += sprintf(d, "}}");
+                for (int k = 1; k < depth; ++k) d += sprintf(d, "]}");
+                sprintf(d, "}");
+                if (more) CHECK(fails_with(deep, DGX_UI_LOAD_DEPTH_MAX, innermost, NULL));
+                else CHECK(dgx_ui_load_need(deep, strlen(deep), &names, &need, &err));
+            }
+    }
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"boxx\"}}", DGX_UI_LOAD_KIND, 31, "boxx"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"pad\": 1}}", DGX_UI_LOAD_KIND, 22, NULL));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 38, "kind"));
@@ -528,30 +689,60 @@ int main(void)
         free(copy), free(memory);
     }
 
-    /* trees by chance, printed with their keys shuffled: loaded the same, field by field */
+    /* trees by chance, printed with their keys shuffled: loaded the same, field by field. Each printed again with
+       editors' objects at chance places, at the top and in widgets, of chance content: the same need, the same tree */
     {
-        static char text[8192];
+        static char text[8192], edited[32768];
         memory  = malloc(32768);
-        int off = 0, made = 0;
+        int off = 0, made = 0, editors_off = 0, edited_made = 0;
         for (int round = 0; round < 400; ++round) {
-            printer_t  p             = {.out = text, .cap = sizeof text};
-            const bool version_first = chance(2);
-            const int  name_place    = chance(4); /* the name before the two keys, between them, after them; 3: none */
-            chance_count             = 0;
-            print(&p, "{");
-            for (int place = 0; place < 3; ++place) {
-                if (place == name_place) print(&p, "%s\"name\": \"round%d\"", place ? ", " : "", round);
-                if (place == 2) break;
-                if (place || name_place == 0) print(&p, ", ");
-                if ((place == 0) == version_first) print(&p, "\"dgx-ui\": 1");
-                else print(&p, "\"tree\": "), chance_widget(&p, -1, 1);
+            const uint32_t round_seed = seed;
+            size_t         edited_n   = 0;
+            printer_t      p;
+            for (int pass = 0; pass < 2; ++pass) { /* with editors, then the same seed without */
+                seed = round_seed, editors = pass == 0;
+                p    = pass == 0 ? (printer_t){.out = edited, .cap = sizeof edited} : (printer_t){.out = text, .cap = sizeof text};
+                const bool version_first = chance(2);
+                const int  name_place    = chance(4); /* the name before the two keys, between them, after them; 3: none */
+                const int  editor_place  = editors ? editor_chance(4) : 3;
+                chance_count             = 0;
+                print(&p, "{");
+                for (int place = 0; place < 3; ++place) {
+                    if (place == editor_place) print(&p, "%s\"editor\": ", place ? ", " : ""), chance_editor(&p, 4);
+                    if (place == name_place) print(&p, "%s\"name\": \"round%d\"", place || editor_place == 0 ? ", " : "", round);
+                    if (place == 2) break;
+                    if (place || name_place == 0 || editor_place == 0) print(&p, ", ");
+                    if ((place == 0) == version_first) print(&p, "\"dgx-ui\": 1");
+                    else print(&p, "\"tree\": "), chance_widget(&p, -1, 1);
+                }
+                print(&p, "}");
+                if (pass == 0) edited_n = p.n < sizeof edited ? p.n : 0;
+                if (pass == 1 && p.n < sizeof text) {
+                    char said[24] = "";
+                    if (name_place < 3) snprintf(said, sizeof said, "round%d", round);
+                    off += !dgx_ui_load_need(text, p.n, &names, &need, &err) || strcmp(need.name, said) != 0;
+                }
             }
-            print(&p, "}");
             if (p.n >= sizeof text) continue;
-            {
-                char said[24] = "";
-                if (name_place < 3) snprintf(said, sizeof said, "round%d", round);
-                off += !dgx_ui_load_need(text, p.n, &names, &need, &err) || strcmp(need.name, said) != 0;
+            /* with the editors: the need of the tree without them, and the same tree */
+            if (edited_n) {
+                dgx_ui_load_need_t edited_need;
+                editors_off += !dgx_ui_load_need(edited, edited_n, &names, &edited_need, &err) || edited_need.bytes != need.bytes || edited_need.nodes != need.nodes ||
+                               edited_need.depth != need.depth || strcmp(edited_need.name, need.name) != 0;
+                if (err.code) fprintf(stderr, "  round %d with editors: code %d at %d \"%s\" in %.*s\n", round, err.code, err.offset, err.name, (int)edited_n, edited);
+                static dgx_ui_node_t edited_nodes[64];
+                dgx_ui_init(&ui, edited_nodes, 64, 1);
+                if (dgx_ui_load(&ui, -1, edited, edited_n, &names, memory, 32768, &err) == 0) {
+                    const dgx_ui_widget_t *got[64];
+                    int                    parent[64];
+                    const int              count = order_of(&ui, 0, got, parent, 0, -1);
+                    editors_off += count != chance_count;
+                    for (int k = 0; k < count && k < chance_count; ++k) editors_off += !same_widget(got[k], &chance_w[k]) || parent[k] != chance_parent[k];
+                    ++edited_made;
+                } else {
+                    ++editors_off;
+                }
+                dgx_ui_free(&ui);
             }
             static dgx_ui_node_t chance_nodes[64];
             dgx_ui_init(&ui, chance_nodes, 64, 1);
@@ -570,6 +761,7 @@ int main(void)
             ++made;
             dgx_ui_free(&ui);
         }
+        CHECK(editors_off == 0 && edited_made > 300);
         CHECK(off == 0 && made > 300);
         free(memory);
     }

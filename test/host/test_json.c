@@ -4,10 +4,11 @@
  * error: a lone surrogate, a high one with no low one, \u0000, an escape unknown, four hex digits short, a control
  * character, a lead byte not allowed, a sequence cut or of a wrong continuation, a code point in more bytes than it
  * needs, a surrogate in UTF-8, one past U+10FFFF, no closing quote; every lead and every byte after it, taken exactly
- * when their code point is well formed; a string longer than its room, counted whole. Integers at their bounds and past them, a leading zero, a fraction, an exponent; the
- * words; values passed over, nested to the levels allowed and one past them, and ten thousand deep. The first error
- * kept. Every text in memory of its exact length: a text cut at every byte and with every byte changed is never read
- * past its end, and its error is within it.
+ * when their code point is well formed; a string longer than its room, counted whole. Integers at their bounds and past
+ * them, a leading zero, a fraction, an exponent; the words; values passed over, their numbers of every kind JSON has
+ * and the malformed at their first byte, nested to the levels allowed and one past them, objects and lists in turn as
+ * deep as the reader counts, and ten thousand deep. The first error kept. Every text in memory of its exact length: a
+ * text cut at every byte and with every byte changed is never read past its end, and its error is within it.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -244,12 +245,41 @@ int main(void)
     CHECK(skips("[", 3, DGX_UI_JSON_SYNTAX, 1));
     CHECK(skips("x", 3, DGX_UI_JSON_SYNTAX, 0));
     CHECK(skips("", 3, DGX_UI_JSON_SYNTAX, 0));
-    CHECK(skips("[1.5]", 3, DGX_UI_JSON_RANGE, 1));
-    /* ten thousand lists in one another: refused at the levels allowed, the stack untouched past them */
+    /* numbers of every kind passed over, whatever their size; the malformed at their first byte */
+    CHECK(skips("[0, -0, 1.5, -2.25e-3, 1E+9, 1e9, 2.5E-0, 0.0e0, 123456789012345678901234567890, -99999999999.99999999999]", 1, DGX_UI_JSON_OK, 0));
+    CHECK(skips("{\"a\": 1.5}", 1, DGX_UI_JSON_OK, 0));
+    CHECK(skips("7e3", 0, DGX_UI_JSON_OK, 0));
+    static const char *const malformed[] = {"1.", "01", "-01", "-", "1e", "1e+", "1E-", "+1", ".5", "-.5", "1.e5", "1.5e", "NaN", "Infinity", "-Infinity", "0x10"};
+    for (size_t k = 0; k < sizeof malformed / sizeof *malformed; ++k) {
+        char text[24];
+        snprintf(text, sizeof text, "[%s]", malformed[k]);
+        /* at the number's first byte; 0x10 at its x, a 0 and then a byte no list goes on with */
+        CHECK(skips(text, 1, DGX_UI_JSON_SYNTAX, strcmp(malformed[k], "0x10") == 0 ? 2 : 1));
+    }
+    CHECK(skips("[1.5.3]", 1, DGX_UI_JSON_SYNTAX, 4));
+    CHECK(skips("[1 2]", 1, DGX_UI_JSON_SYNTAX, 3));
+    /* ten thousand lists in one another: refused at the levels allowed, by a count, the stack the same at any depth */
     {
         static char deep[10001];
         memset(deep, '[', 10000);
         CHECK(skips(deep, 50, DGX_UI_JSON_DEPTH, 51));
+        CHECK(skips(deep, 1000, DGX_UI_JSON_DEPTH, DGX_UI_JSON_LEVELS + 1));
+    }
+    /* objects and lists in turn, as deep as the reader counts: each closed by its own mark; a wrong one at its byte */
+    {
+        static char turns[1024];
+        char       *p = turns;
+        for (int k = 0; k < (DGX_UI_JSON_LEVELS - 1) / 2; ++k) p += sprintf(p, "{\"k\": [");
+        p += sprintf(p, "{\"k\":");
+        const size_t value_at = (size_t)(p - turns), close_at = value_at + 2; /* the 0 within as many brackets as counted */
+        p += sprintf(p, " 0}");
+        for (int k = 0; k < (DGX_UI_JSON_LEVELS - 1) / 2; ++k) p += sprintf(p, "]}");
+        CHECK(skips(turns, DGX_UI_JSON_LEVELS, DGX_UI_JSON_OK, 0));
+        CHECK(skips(turns, DGX_UI_JSON_LEVELS - 1, DGX_UI_JSON_DEPTH, (int)value_at));
+        turns[close_at] = ']';
+        CHECK(skips(turns, DGX_UI_JSON_LEVELS, DGX_UI_JSON_SYNTAX, (int)close_at));
+        turns[close_at] = '}', turns[close_at + 1] = '}';
+        CHECK(skips(turns, DGX_UI_JSON_LEVELS, DGX_UI_JSON_SYNTAX, (int)close_at + 1));
     }
 
     /* the first error kept */

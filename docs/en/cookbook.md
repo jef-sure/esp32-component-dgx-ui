@@ -2241,7 +2241,13 @@ What to know of it:
   name or the key: a typo in `"sldier"` is `DGX_UI_LOAD_KIND` at its byte with that word.
 - **Only what the program listed can be reached.** A description cannot name a handler, a value or a picture that
   is in no table, and no number of it becomes a pointer. So a text that came over the air can at worst show the
-  program's own widgets wrongly arranged.
+  program's own widgets wrongly arranged, when the task that loads it has the stack for its depth.
+- **The stack.** The load walks the widgets by recursion: on an ESP32, 352 bytes of the calling task's stack for
+  each level of widgets, about 1100 at one. The main task's default of 3584 bytes is gone at a depth of 8. A page
+  that comes from outside is loaded in a task with the stack for the deepest it may be: 9200 bytes for the 24
+  levels the format takes.
+- **The editor's things**: a tool that edits the description keeps its own in `"editor"`, an object at the top or
+  in a widget, which the library passes over; any JSON may stand in it.
 - **The text may be freed after the load**, the memory not while the page lives. To take the page away:
   `dgx_ui_free(&described_page)`, then `free(described_memory)`.
 - **A text the program writes** needs `"text_size"`, the bytes of its buffer; without it the text is constant, as
@@ -2253,7 +2259,7 @@ What to know of it:
   table.
 - **The letters of the fonts**: a font made at build time for the texts of a file takes the strings of a JSON file
   as well, so the description itself can be named in the need's `TEXTS`.
-- **What it costs**: about 7 KB of code in a program that loads a description, and in RAM what
+- **What it costs**: about 8 KB of code in a program that loads a description, and in RAM what
   `dgx_ui_load_need()` says: here 56 bytes a widget, its node as for any widget, a text box and the text for each
   that has one. A constant tree lies in flash; a described one in RAM.
 
@@ -2367,7 +2373,7 @@ What to know of it:
   compiler finds what the program has not. The rule and the tool's own page:
   [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
-- **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 6.7 KB smaller than the
+- **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.3 KB smaller than the
   one that loads it. The widgets are constants in flash, 56 bytes each; in RAM are the nodes, as for any widget,
   the text boxes and the buffers of the texts the program writes.
 - **The made files are not to be edited**: they are written again whenever the description or the names file

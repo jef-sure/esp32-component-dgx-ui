@@ -8,14 +8,15 @@ unpacked (the tests, the examples and what was built left out), so that the copy
 steps may touch it. On the linux target of ESP-IDF:
 
 1. a clean build: the tool built once for the project, the five files made in three components, the program run: the
-   tree loaded on the made tables and the tree added by its made function the same, and the others as made; the
-   program's header in a directory of its own, which only HEADERS puts on the made files' path;
+   tree loaded on the made tables and the tree added by its made function the same, and the others as made; a.json
+   holding editors' objects, at the top and in a widget; the program's header in a directory of its own, which only
+   HEADERS puts on the made files' path;
 2. a description edited: its files made again, no other, no configure, the tool not built again;
 3. the tree renamed inside: the same files, the new function, no configure;
 4. the tool's source touched: the tool built again, then every file made again;
 5. the configure refusals, each by its words: one file name twice in a component, one prefix in two components, a
-   prefix not of C, one of dgx_, a names file whose name is not of C, a description's file name no file may have, a
-   word not understood;
+   prefix not of C, one of dgx_, a names file whose name is not of C, a description's file name no file may have, one
+   that begins with '-', a word not understood;
 6. a description the loader refuses: the build stops with the tool's words, the loader's code, byte and name;
 7. no compiler of the computer: the build stops with the words of dgx_ui_c.py;
 8. a clean build by make, not by ninja, where the rules of a component that does not depend on the one whose rule
@@ -121,6 +122,7 @@ for case, words in [("files_twice", "dgx_ui_tree(more/a.json): a.c and a.h are m
                     ("prefix_dgx", 'dgx_ui_tree(b.json): PREFIX "dgx_x" begins with dgx_, as the libraries\' names and headers do'),
                     ("names_not_c", 'dgx_ui_names(my-vocab.txt): the names file\'s name "my-vocab" is not a name of C: give its tables a PREFIX'),
                     ("file_no_name", 'dgx_ui_tree(odd page.json): "odd page" is no name for the files made: give the tree a PREFIX'),
+                    ("file_dash", 'dgx_ui_tree(-page.json): "-page" is no name for the files made: give the tree a PREFIX'),
                     ("word", 'dgx_ui_tree(b.json): "PREFX other2" not understood: PREFIX <prefix>, NAMES <names file>, HEADERS <header>...')]:
     status, output = idf(f"-DHOOK_CASE={case}", "reconfigure")
     check(f"5: {case}", status != 0 and words in re.sub(r"\s+", " ", output), output)

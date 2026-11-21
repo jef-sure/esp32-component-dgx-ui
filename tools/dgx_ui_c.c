@@ -195,10 +195,11 @@ static bool c_name(const char *name, bool members)
     return !start;
 }
 
-/* a name for the made files: letters, digits, '_', '-' and '.', not first, so that no directory is named */
+/* a name for the made files: letters, digits, '_', '-' and '.', neither '-' nor '.' first, so that no directory is named
+   and no option read */
 static bool file_name_of_files(const char *name)
 {
-    if (!name[0] || name[0] == '.' || strlen(name) > 200) return false;
+    if (!name[0] || name[0] == '.' || name[0] == '-' || strlen(name) > 200) return false;
     for (const char *p = name; *p; ++p)
         if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_' || *p == '-' || *p == '.')) return false;
     return true;
@@ -316,7 +317,7 @@ static void collect(const char *text, size_t length)
         if (!dgx_ui_json_string(&json, key, 23, &key_length) || !dgx_ui_json_expect(&json, ':')) return;
         key[key_length < 23 ? key_length : 23] = 0;
         if (strcmp(key, "tree") == 0) collect_widget(&json, 1);
-        else if (!dgx_ui_json_skip(&json, 2 * DGX_UI_LOAD_DEPTH)) return;
+        else if (!dgx_ui_json_skip(&json, 2 * DGX_UI_LOAD_DEPTH + 1)) return; /* as the loader passes a value of the top */
         if (json.error || !dgx_ui_json_next(&json, '}', &more)) return;
     }
 }
@@ -836,7 +837,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[arg], "-i") == 0 && header_count < 16) headers[header_count++] = argv[arg + 1];
         else fail_out("%s: not an option; -n <names file>, -i <header>, -d <directory>, -p <prefix>, -t <prefix>, -f <files' name>", argv[arg]);
     }
-    if (files_name && !file_name_of_files(files_name)) fail_out("-f \"%s\" is not a name for the files: letters, digits, '_', '-' and '.', not first", files_name);
+    if (files_name && !file_name_of_files(files_name)) fail_out("-f \"%s\" is not a name for the files: letters, digits, '_', '-' and '.', neither '-' nor '.' first", files_name);
     /* -t: the names file alone, made the loader's tables */
     if (tables_prefix) {
         if (argc - arg != 0) fail_out("-t makes the tables of a names file alone: no description with it");

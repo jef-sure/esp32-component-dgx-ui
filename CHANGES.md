@@ -1,5 +1,15 @@
 # Changes
 
+## 0.0.42 - 2026-11-21
+
+- A description may hold `"editor"`, an object at the top and in any widget for the tools that edit it: any JSON in
+  it, which the library and `dgx_ui_c` pass over.
+- The top of a description is judged in one order: not JSON, then the version, then a key unknown or twice, then the
+  values. A later version is refused as one whatever it holds, and a number where none is read is told by the fault
+  of its place, not as out of range.
+- A value passed over takes the same stack at any depth.
+- `-f` of `dgx_ui_c` and the files named by a description's file refuse a first `-`.
+
 ## 0.0.41 - 2026-11-21
 
 - `dgx_ui_tree()` and `dgx_ui_names()` in a component's CMakeLists: a description made C, or the loader's tables of a

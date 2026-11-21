@@ -4,8 +4,8 @@
  *  A reader of JSON that knows nothing of what it reads: a text of a length, never read past it (it need not end in 0),
  *  and the byte the reader is at; a string with its escapes and surrogate pairs decoded and its UTF-8 checked whole (no
  *  sequence longer than its code point needs, no surrogate, nothing past U+10FFFF), an integer within bounds, the words
- *  true, false and null, any value passed over; each past white space before it. The first error kept, its code and its
- *  byte. The loader's (dgx_ui_load.c), not a public header.
+ *  true, false and null, any value passed over, its numbers of any kind; each past white space before it. The first
+ *  error kept, its code and its byte. The loader's (dgx_ui_load.c), not a public header.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -57,5 +57,12 @@ bool dgx_ui_json_integer(dgx_ui_json_t *json, int32_t low, int32_t high, int32_t
 /** The word true, false or null, as said. */
 bool dgx_ui_json_word(dgx_ui_json_t *json, const char *word);
 
-/** Any value passed over, its syntax checked, nested at most levels deep (a scalar 0, [1] 1). */
+/** The most levels dgx_ui_json_skip() allows: more asked for are so many. */
+enum { DGX_UI_JSON_LEVELS = 63 };
+
+/**
+ * Any value of JSON passed over, its syntax checked, nested at most levels deep (a scalar 0, [1] 1): strings as
+ * dgx_ui_json_string() reads them, numbers of any kind and size. By a count and not by recursion: the stack the same
+ * however deep the text.
+ */
 bool dgx_ui_json_skip(dgx_ui_json_t *json, int levels);

@@ -156,24 +156,85 @@ bool dgx_ui_json_word(dgx_ui_json_t *json, const char *word)
     return true;
 }
 
+/* the digits at the reader passed over: how many */
+static size_t digits(dgx_ui_json_t *json)
+{
+    const size_t from = json->pos;
+    while (json->pos < json->len && json->text[json->pos] >= '0' && json->text[json->pos] <= '9') ++json->pos;
+    return json->pos - from;
+}
+
+/* the byte at the reader passed over when it is the one wanted or the other */
+static bool pass_either(dgx_ui_json_t *json, char wanted, char other)
+{
+    if (json->pos >= json->len || (json->text[json->pos] != wanted && json->text[json->pos] != other)) return false;
+    return ++json->pos, true;
+}
+
+/* a number by JSON's grammar, of any kind and size, passed over: its error at its first byte */
+static bool number(dgx_ui_json_t *json)
+{
+    const size_t at = json->pos;
+    pass_either(json, '-', '-');
+    const size_t first = json->pos, whole = digits(json);
+    if (!whole || (whole > 1 && json->text[first] == '0') || (pass_either(json, '.', '.') && !digits(json)) ||
+        (pass_either(json, 'e', 'E') && (pass_either(json, '+', '-'), !digits(json))))
+        return dgx_ui_json_fail(json, DGX_UI_JSON_SYNTAX, at);
+    return true;
+}
+
+/* a value that is not a list or an object */
+static bool scalar(dgx_ui_json_t *json, int first_byte)
+{
+    size_t length;
+    if (first_byte == '"') return dgx_ui_json_string(json, NULL, 0, &length);
+    if (first_byte == '-' || (first_byte >= '0' && first_byte <= '9')) return number(json);
+    if (first_byte == 't') return dgx_ui_json_word(json, "true");
+    if (first_byte == 'f') return dgx_ui_json_word(json, "false");
+    if (first_byte == 'n') return dgx_ui_json_word(json, "null");
+    return dgx_ui_json_fail(json, DGX_UI_JSON_SYNTAX, json->pos);
+}
+
+/* the key of a member and its colon */
+static bool key(dgx_ui_json_t *json)
+{
+    size_t length;
+    return dgx_ui_json_string(json, NULL, 0, &length) && dgx_ui_json_expect(json, ':');
+}
+
 bool dgx_ui_json_skip(dgx_ui_json_t *json, int levels)
 {
-    if (levels < 0) return dgx_ui_json_fail(json, DGX_UI_JSON_DEPTH, json->pos);
-    const int c = dgx_ui_json_peek(json);
-    size_t    length;
-    int32_t   number;
-    if (c == '"') return dgx_ui_json_string(json, NULL, 0, &length);
-    if (c == '-' || (c >= '0' && c <= '9')) return dgx_ui_json_integer(json, INT32_MIN, INT32_MAX, &number);
-    if (c == 't') return dgx_ui_json_word(json, "true");
-    if (c == 'f') return dgx_ui_json_word(json, "false");
-    if (c == 'n') return dgx_ui_json_word(json, "null");
-    if (c != '{' && c != '[') return dgx_ui_json_fail(json, DGX_UI_JSON_SYNTAX, json->pos);
-    const int close = c == '{' ? '}' : ']';
-    ++json->pos;
-    if (dgx_ui_json_peek(json) == close) return ++json->pos, true;
-    for (bool more = true; more;) {
-        if (c == '{' && (!dgx_ui_json_string(json, NULL, 0, &length) || !dgx_ui_json_expect(json, ':'))) return false;
-        if (!dgx_ui_json_skip(json, levels - 1) || !dgx_ui_json_next(json, close, &more)) return false;
+    if (levels > DGX_UI_JSON_LEVELS) levels = DGX_UI_JSON_LEVELS;
+    uint64_t objects = 0; /* bit k: the bracket open at k is an object's */
+    int      open    = 0; /* the brackets open: the value at the reader is nested so deep */
+    for (;;) {
+        /* a value */
+        if (open > levels) return dgx_ui_json_fail(json, DGX_UI_JSON_DEPTH, json->pos);
+        const int first_byte = dgx_ui_json_peek(json);
+        if (first_byte == '{' || first_byte == '[') {
+            ++json->pos;
+            if (dgx_ui_json_peek(json) != (first_byte == '{' ? '}' : ']')) { /* its first member next */
+                objects = first_byte == '{' ? objects | (uint64_t)1 << open : objects & ~((uint64_t)1 << open);
+                ++open;
+                if (first_byte == '{' && !key(json)) return false;
+                continue;
+            }
+            ++json->pos;
+        } else if (!scalar(json, first_byte)) {
+            return false;
+        }
+        /* a value passed over: the brackets it closes, then the next member */
+        for (;;) {
+            if (open == 0) return true;
+            const bool object = objects >> (open - 1) & 1;
+            bool       more;
+            if (!dgx_ui_json_next(json, object ? '}' : ']', &more)) return false;
+            if (!more) {
+                --open;
+                continue;
+            }
+            if (object && !key(json)) return false;
+            break;
+        }
     }
-    return true;
 }

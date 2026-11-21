@@ -1,5 +1,5 @@
-{"dgx-ui": 1, "name": "sound", "tree": {"kind": "box", "flags": ["column"], "pad": 4, "gap": 4, "children": [
+{"dgx-ui": 1, "name": "sound", "editor": {"dgx-ui": {"zoom": 1.5, "screen": [320, 240]}}, "tree": {"kind": "box", "flags": ["column"], "pad": 4, "gap": 4, "children": [
   {"kind": "label", "text": "Sound", "id": "title", "text_size": 24},
-  {"kind": "slider", "value": "volume", "max": 100, "step": 5, "want": [0, 12]},
+  {"kind": "slider", "value": "volume", "max": 100, "step": 5, "want": [0, 12], "editor": {"dgx-ui": {"note": "0.5 dB a step", "guide": 12.5}}},
   {"kind": "switch", "value": "muted", "text": "Mute", "look": "checkbox"},
   {"kind": "button", "text": "Back", "on": "back"}]}}

@@ -521,6 +521,48 @@ for options, expect in [(["-t", "tabled", os.path.join(work, "every_rule.json")]
     run = subprocess.run([tool, "-d", work, *options], capture_output=True, text=True, timeout=30)
     if run.returncode == 0 or expect not in run.stderr:
         failures.append(f"dgx_ui_c {' '.join(options)}: {run.returncode} {run.stderr.strip()}")
+# -f: the files' name apart from the prefix, of letters, digits, '_', '-' and '.', neither '-' nor '.' first
+named_page = os.path.join(work, "files_named.json")
+with open(named_page, "w") as out:
+    out.write('{"dgx-ui": 1, "name": "page", "tree": {"kind": "box"}}')
+for files in ["-dash", ".dot", "a b", "a/b", ""]:
+    run = subprocess.run([tool, "-d", work, "-f", files, named_page], capture_output=True, text=True, timeout=30)
+    if run.returncode == 0 or f'-f "{files}" is not a name for the files: letters, digits, \'_\', \'-\' and \'.\', neither \'-\' nor \'.\' first' not in run.stderr:
+        failures.append(f"dgx_ui_c -f {files!r}: {run.returncode} {run.stderr.strip()}")
+run = subprocess.run([tool, "-d", work, "-f", "my-page.v2", named_page], capture_output=True, text=True, timeout=30)
+if run.returncode or "int page_add(dgx_ui_t *ui, int parent);" not in made_text("my-page.v2", ".h"):
+    failures.append(f"dgx_ui_c -f my-page.v2: {run.returncode} {run.stderr.strip()}")
+
+# ---- editors' objects, at the top and in widgets, change nothing the tool makes: the same files byte for byte ----
+EDITED = ('{"dgx-ui": 1, "editor": {"dgx-ui": {"zoom": 1.5, "screen": [800, 480], "time": 1763712000000}}, "name": "sound",'
+          ' "tree": {"kind": "box", "flags": ["column"], "pad": 4, "editor": {"dgx-ui": {"note": "the page", "lock": true}},'
+          ' "children": [{"kind": "label", "text": "Volume", "id": "title", "editor": {"dgx-ui": {"guide": [0.5, 12.25e1]}}},'
+          ' {"kind": "slider", "max": 10, "value": "volume", "editor": {}}]}}')
+PLAIN = ('{"dgx-ui": 1, "name": "sound", "tree": {"kind": "box", "flags": ["column"], "pad": 4,'
+         ' "children": [{"kind": "label", "text": "Volume", "id": "title"}, {"kind": "slider", "max": 10, "value": "volume"}]}}')
+made_of = {}
+for kind, text in [("edited", EDITED), ("plain", PLAIN)]:
+    directory = os.path.join(work, kind)
+    os.makedirs(directory, exist_ok=True)
+    for suffix in (".c", ".h"):
+        if os.path.exists(os.path.join(directory, "sound" + suffix)):
+            os.remove(os.path.join(directory, "sound" + suffix))
+    with open(os.path.join(directory, "sound.json"), "w") as out:  # one name, so that the files' heads are the same
+        out.write(text)
+    run = subprocess.run([tool, "-i", "generate_program.h", "-n", names_path, "-d", directory, "sound.json"], capture_output=True, text=True, timeout=30, cwd=directory)
+    made = []
+    for suffix in (".c", ".h"):
+        with open(os.path.join(directory, "sound" + suffix), encoding="utf-8") if run.returncode == 0 else open(os.devnull) as made_file:
+            made.append(made_file.read())
+    made_of[kind] = (run.returncode, run.stderr.strip(), made)
+if made_of["edited"][0] or made_of["plain"][0] or made_of["edited"][2] != made_of["plain"][2]:
+    failures.append(f"a description with editors made other files: {made_of['edited'][:2]} {made_of['plain'][:2]}")
+# an editor's object before the tree as deep as the loader takes, 51 brackets open with the top's: the tool reads on to
+# the tree and finds its names by the rule
+deepest = '{"dgx-ui": 1, "name": "deepest", "editor": {"a": ' + "[" * 49 + "]" * 49 + '}, "tree": {"kind": "slider", "value": "volume"}}'
+status, said = run_tool("deepest", deepest, True, prefix="")
+if status or "&volume" not in made_text("deepest", ".c"):
+    failures.append(f"an editor's object 51 brackets deep before the tree: {status} {said}")
 
 # ---- the prefix: the tree's name, else -p; a name the rule makes that is the tool's own ----
 for text, prefix, expect in [

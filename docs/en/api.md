@@ -20,7 +20,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 | [`project_include.cmake`](#project_includecmake) | two calls of CMake: a description made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.41: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.42: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1466,11 +1466,11 @@ its ctx for a number. An id's entry is where the index of the widget of that id 
 has it and the whole load succeeded; an id the table has not is passed over, so one table serves several pages, and
 at most `DGX_UI_LOAD_IDS` ids are in a table.
 
-**The format, version 1**: one object of the keys `"dgx-ui": 1`, `"tree"`, a widget, and `"name"`, the tree's name,
-which may be left out; in any order, each at most once. The name is the description's own word for its tree, a name
-as any other of the format. `dgx_ui_load_need()` gives it in `need.name`, so a program that takes descriptions
-from outside can tell which page came before it gives any memory. A widget is an object of these keys, in any
-order, each at most once:
+**The format, version 1**: one object of the keys `"dgx-ui": 1`, `"tree"`, a widget, and two that may be left out,
+`"name"`, the tree's name, and `"editor"`, an object of the tool that edits the description; in any order, each at
+most once. The name is the description's own word for its tree, a name as any other of the format.
+`dgx_ui_load_need()` gives it in `need.name`, so a program that takes descriptions from outside can tell which page
+came before it gives any memory. A widget is an object of these keys, in any order, each at most once:
 
 | Key | Its value |
 | --- | --------- |
@@ -1488,16 +1488,33 @@ order, each at most once:
 | `"ctx"` | a name of the contexts' table, or an integer for a handler whose entry says it takes a number: a stepper's 5 and -5 |
 | `"id"` | a name the program finds the widget by; an id of the table on two widgets is an error |
 | `"children"` | a list of widgets, for a box, a frame and a widget of the program's own |
+| `"editor"` | an object of the tool that edits the description, as at the top: for a widget of any kind |
 
 Numbers are integers. Names are of letters, digits, `_`, `.` and `-`, at most 23 characters. A key the format does
 not know is an error, so a typo is not passed over; the keys `"styles"`, `"looks"`, `"fonts"` and `"pages"` of the
 top are kept for a later version and refused in this one.
 
+**The editor's object.** `"editor"` is where a tool that edits descriptions keeps what is its own and means nothing
+to a device: guides, notes, the screens a page was made for, a lock on a widget. Its value is an object, and the
+library passes it over. Any JSON may stand in it, its numbers of any kind and size, a fraction or a time in
+milliseconds, which a description takes nowhere else; its strings are checked as every string of a description, so
+`\u0000` and half of a surrogate pair are refused there too. The tree, `need.bytes` and the C that `dgx_ui_c` makes
+are the same with it and without. Two tools do not write over each other when each keeps its things under a key of
+its own name, `"editor": {"dgx-ui": {...}}`; the library does not look. A library before 0.0.42 refuses a
+description that has an editor's object.
+
+**Nesting.** A value stands inside at most 50 lists and objects, the top's own object counted and an editor's as
+any; past them the description is refused with `DGX_UI_LOAD_DEPTH_MAX`. Widgets nested `DGX_UI_LOAD_DEPTH` deep take
+48 of them, so the editor's object of a widget at the deepest level has room for one list in it.
+
 **Versions.** A later library may add keys to version 1; an older library refuses a description that has them, with
-`DGX_UI_LOAD_KEY` and the key. The number changes when a description that was valid would mean something else. A
-description of another version is refused with `DGX_UI_LOAD_VERSION`, and that is told before a key of the top this
-version does not know, or one said twice, so the reason given is the true one. A value that is wrong for a key this
-version knows is told at once, whatever the version.
+`DGX_UI_LOAD_KEY` and the key. The number changes when a description that was valid would mean something else. So
+that the reason given is the true one whatever a later description holds, the top is judged in one order: a text
+that is not JSON, `DGX_UI_LOAD_SYNTAX`; then a version that is not the integer 1, `DGX_UI_LOAD_VERSION`; then a key
+of the top unknown or said twice, or no `"tree"`, `DGX_UI_LOAD_KEY`; then the values of the keys known: the name,
+the editor's object, the tree. A key of the top may be any string, one that is no name of the format told as a key
+unknown by its first 23 bytes, and a value passed over on the way may be any JSON: a key added later is told by its
+name even when it holds a fraction.
 
 **What a description cannot do.** It may only name what the program listed: no number of it becomes a pointer, or
 an index into the program's memory, that the program did not give. An integer `"ctx"` goes only to a handler that
@@ -1505,8 +1522,17 @@ takes a number; an icon's range, and the two pictures of a switch or a radio, st
 table gives. A look's parameters and its colours, fonts and text styles are not in a description: they are C the
 program names. The text may come from a file or over the air: nothing is read past `len`, which need not end in 0,
 its UTF-8 is checked, the depth is at most `DGX_UI_LOAD_DEPTH`, and the whole is checked before the first widget is
-added. The text may be freed after the load; the memory may not while the widgets are in the tree. The tree once
-loaded is changed by the calls of `dgx_ui.h` as any tree.
+added; the task that loads it needs the stack for that depth, below. The text may be freed after the load; the
+memory may not while the widgets are in the tree. The tree once loaded is changed by the calls of `dgx_ui.h` as any
+tree.
+
+**The stack.** `dgx_ui_load_need()` and `dgx_ui_load()` walk the widgets by recursion, so each level of widgets
+takes stack of the task that calls them. On an ESP32, measured with ESP-IDF 5.5.4 at its default optimisation, a
+load takes about 1100 bytes for a tree of one level and 352 for each further level: about 3600 at a depth of 8 and
+9200 at 24, the deepest the format takes. The need takes 320 bytes less. The main task's stack is 3584 bytes by
+default, all of it gone at a depth of 8: a description that may be deep, and any that comes from outside, is loaded
+in a task with the stack for the depth it may have. What the library passes over, an editor's object or the value
+of a key it does not know, takes the same stack however deep it is nested.
 
 **The errors**, `err.code`, with `err.offset`, the byte of the text, and `err.name`, the name or the key it is
 about when there is one:
@@ -1514,22 +1540,22 @@ about when there is one:
 | Code | What went wrong |
 | ---- | --------------- |
 | `DGX_UI_LOAD_OK` | nothing |
-| `DGX_UI_LOAD_SYNTAX` | not JSON, a string that is not well-formed UTF-8, or a value of the wrong type for its key |
-| `DGX_UI_LOAD_VERSION` | no `"dgx-ui"`, or a version other than 1; told before a key of the top this version does not know |
+| `DGX_UI_LOAD_SYNTAX` | not JSON, a string that is not well-formed UTF-8, or a value of the wrong type for its key: a number of any kind where a name or a list is read |
+| `DGX_UI_LOAD_VERSION` | no `"dgx-ui"`, or a version that is not the integer 1; told before everything but a text that is not JSON |
 | `DGX_UI_LOAD_KEY` | a key unknown, or twice in one object |
 | `DGX_UI_LOAD_KIND` | no kind, or one unknown |
 | `DGX_UI_LOAD_FIELD` | a key of no meaning for the kind; an integer `"ctx"` with no handler that takes a number |
-| `DGX_UI_LOAD_RANGE` | a number out of its field, a fraction, an exponent; fewer pictures in the table than the widget shows |
+| `DGX_UI_LOAD_RANGE` | where a number is read, one out of its field, or with a fraction or an exponent; fewer pictures in the table than the widget shows |
 | `DGX_UI_LOAD_NAME_BAD` | a name that is empty, of a character not allowed, or longer than 23 |
 | `DGX_UI_LOAD_UNKNOWN` | a name its table has not |
 | `DGX_UI_LOAD_NO_LOOK` | no look said, and the looks' table names none for the kind |
 | `DGX_UI_LOAD_NO_STYLE` | a text, and the styles' table empty |
-| `DGX_UI_LOAD_DEPTH_MAX` | nested deeper than `DGX_UI_LOAD_DEPTH` |
+| `DGX_UI_LOAD_DEPTH_MAX` | widgets nested deeper than `DGX_UI_LOAD_DEPTH`, or a value inside more than 50 lists and objects |
 | `DGX_UI_LOAD_MEMORY` | the memory smaller than the need, or not aligned |
 | `DGX_UI_LOAD_NODES` | `dgx_ui_add()` refused, no memory for a block of nodes; what was begun is removed |
 | `DGX_UI_LOAD_ID` | an id of the table on a second widget, or a table of more than `DGX_UI_LOAD_IDS` ids |
 
-A program that loads a description carries about 7 KB more, 2 KB of it the reader of JSON; one that does not,
+A program that loads a description carries about 8 KB more, 3 KB of it the reader of JSON; one that does not,
 nothing.
 
 ## project_include.cmake
@@ -1592,7 +1618,8 @@ unless it is a chip's, else `cc`. A project that makes neither call builds nothi
 **Refused when the project is configured**, in words that name the call: two calls of a component that would make
 the same files; a prefix said twice in the project, for two of it would collide at link; a `PREFIX` that is not a
 name of C, or that begins with `dgx_`; a names file whose own name is not a name of C, with no `PREFIX`; a
-description's file whose name no made file may have, with no `PREFIX`; a word that is none of the three.
+description's file whose name no made file may have, one that begins with `-` among them, with no `PREFIX`; a word
+that is none of the three.
 
 **Refused when the program is built**, in the tool's words: a description the loader refuses, with the loader's
 code, the byte and the name,
