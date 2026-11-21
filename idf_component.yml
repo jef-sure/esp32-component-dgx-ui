@@ -45,6 +45,8 @@ files:
     - "include/**/*.h"
     # dgx_ui_c, built on the computer by the rule of project_include.cmake
     - "tools/dgx_ui_c.c"
+    - "tools/dgx_ui_names.c"
+    - "tools/dgx_ui_names.h"
     - "tools/dgx_ui_c.py"
     - "tools/README.md"
     - "README.md"

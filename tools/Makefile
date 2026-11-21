@@ -10,7 +10,7 @@ BUILD  ?= build
 
 all: $(BUILD)/dgx_ui_c
 
-$(BUILD)/dgx_ui_c: dgx_ui_c.py dgx_ui_c.c $(addprefix $(ROOT)/src/, dgx_ui.c dgx_ui_text.c dgx_ui_rect.c dgx_ui_msg.c dgx_ui_load.c dgx_ui_json.c dgx_ui_read.c dgx_ui_appearance.c dgx_ui_params.c) \
+$(BUILD)/dgx_ui_c: dgx_ui_c.py dgx_ui_c.c dgx_ui_names.c dgx_ui_names.h $(addprefix $(ROOT)/src/, dgx_ui.c dgx_ui_text.c dgx_ui_rect.c dgx_ui_msg.c dgx_ui_load.c dgx_ui_json.c dgx_ui_read.c dgx_ui_appearance.c dgx_ui_params.c) \
                    $(wildcard $(ROOT)/include/*.h) $(wildcard $(ROOT)/src/*.h)
 	python3 dgx_ui_c.py $(DGX) $(BUILD)
 

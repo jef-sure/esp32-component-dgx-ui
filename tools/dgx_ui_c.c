@@ -93,32 +93,14 @@
 #include "dgx_ui_appearance.h"
 #include "dgx_ui_json.h"
 #include "dgx_ui_load.h"
+#include "dgx_ui_names.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_text.h"
 
 /* the format this tool reads, as dgx_ui_load.h has it */
 enum { FORMAT = 1 };
 
-/* the library's own looks, by their words: made at the tool's build from the declarations of include/ */
-static const char *const library_looks[] = {
-#define LOOK(word) #word,
-#include "library_looks.h"
-#undef LOOK
-};
-enum { LIBRARY_LOOK_COUNT = sizeof library_looks / sizeof *library_looks };
-
-/* the library's draws, by their words, with the type of their parameters and their description; and the member each
-   list of bands keeps its count in: made at the tool's build from src/dgx_ui_params.c */
-#define DRAW(word, type) {#word, #type, &dgx_ui_params_##word},
-#define COUNT(type, member, count)
-static const struct {
-    const char            *word, *type; /* the type "" for a draw of no parameters */
-    const dgx_ui_params_t *params;
-} library_draws[] = {
-#include "library_draws.h"
-};
-#undef DRAW
-#undef COUNT
+/* the member each list of bands keeps its count in: made at the tool's build from src/dgx_ui_params.c */
 #define DRAW(word, type)
 #define COUNT(type, member, count) {#type, #member, #count},
 static const struct {
@@ -128,42 +110,8 @@ static const struct {
 };
 #undef DRAW
 #undef COUNT
-enum { LIBRARY_DRAW_COUNT = sizeof library_draws / sizeof *library_draws, LIBRARY_COUNT_COUNT = sizeof library_counts / sizeof *library_counts };
-static const char *const library_hands[] = {"handwriting", "handwriting_canvas"};
+enum { LIBRARY_COUNT_COUNT = sizeof library_counts / sizeof *library_counts };
 
-/* ---- the tables ---- */
-
-enum { T_LOOK, T_VALUE, T_PICTURE, T_STYLE, T_ON, T_TAKE, T_CTX, T_ID, TABLES };
-static const char *const table_words[TABLES] = {"look", "value", "picture", "style", "on", "take", "ctx", "id"};
-/* the keys of a widget that name an entry of a table, in the order of the tables */
-static const char *const table_keys[TABLES] = {"look", "value", "picture", "style", "on", "take", "ctx", "id"};
-
-typedef struct entry_t {
-    char     name[24];
-    char    *c;       /* the C expression it stands for */
-    long     offset;  /* the byte of the description that first names it; -1: of the names file or the library */
-    unsigned count;   /* a picture's pictures */
-    bool     number;  /* a handler that takes a number in its ctx */
-    bool     ruled;   /* made C by the rule: its name must be of C */
-    int      library; /* a draw: its place among the library's; -1 the program's own */
-    char    *described; /* a draw: the C of its parameters' description; NULL none */
-    bool     handwritten; /* a font: a handwritten one, by the names file's word */
-    bool     from_appearance; /* a look or a style of the appearance of -a */
-} entry_t;
-
-typedef struct table_t {
-    entry_t *entries;
-    int      count, room;
-    bool     from_file; /* the names file gave it: the whole truth for it */
-} table_t;
-
-static table_t     tables[TABLES], used[TABLES];
-
-/* the tables of an appearance's names: its draws, its fonts, its hands */
-enum { A_DRAW, A_FONT, A_HAND, APPEARANCE_TABLES };
-static const char *const appearance_words[APPEARANCE_TABLES] = {"draw", "font", "hand"};
-static table_t           appearance_tables[APPEARANCE_TABLES];
-static const char  DEFAULT_STYLE[] = "the default"; /* a space: no description names it */
 static const char *description_path, *prefix; /* with -t the names file's path, and the prefix -t gives */
 static bool        tables_mode;                /* -t: the names file alone made C, the loader's tables */
 static const char *files_name;                 /* the made files' name, -f; the prefix when none is given */
@@ -183,7 +131,7 @@ static dgx_ui_appearance_need_t appearance_need; /* and as it told it */
 static const char *const made_words[] = {"add", "style", "widgets", "parents", "texts", "buffers"};
 enum { MADE_WORD_COUNT = sizeof made_words / sizeof *made_words, FIRST_ARRAY_WORD = 2 };
 
-static void fail_out(const char *fmt, ...)
+static _Noreturn void fail_out(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -194,70 +142,31 @@ static void fail_out(const char *fmt, ...)
     exit(1);
 }
 
-static char *copy_of(const char *text)
+_Noreturn void names_no_memory(void)
 {
-    char *made = strdup(text);
-    if (!made) fail_out("no memory");
-    return made;
+    fail_out("no memory");
 }
 
-static char *printed(const char *fmt, ...)
+static char *read_all(const char *path, size_t *length);
+
+/* the lines of the names file of a path; with appearance_alone its draws, fonts and hands alone, of -an */
+static void names_file_read_of(const char *path, bool appearance_alone)
 {
-    va_list args;
-    va_start(args, fmt);
-    char *made = NULL;
-    if (vasprintf(&made, fmt, args) < 0) fail_out("no memory");
-    va_end(args);
-    return made;
+    size_t length;
+    char  *text = read_all(path, &length);
+    char  *said = names_read(path, text, length, appearance_alone);
+    if (said) fail_out("%s", said);
+    free(text);
 }
 
-static entry_t *entry_of(table_t *table, const char *name)
+static void names_file_read(const char *path)
 {
-    for (int k = 0; k < table->count; ++k)
-        if (strcmp(table->entries[k].name, name) == 0) return &table->entries[k];
-    return NULL;
+    names_file_read_of(path, false);
 }
 
-static entry_t *entry_add(table_t *table, const char *name)
+static void appearance_names_read(const char *path)
 {
-    if (table->count == table->room) {
-        table->room    = table->room ? 2 * table->room : 16;
-        table->entries = realloc(table->entries, (size_t)table->room * sizeof *table->entries);
-        if (!table->entries) fail_out("no memory");
-    }
-    entry_t *entry = &table->entries[table->count++];
-    *entry         = (entry_t){.offset = -1, .library = -1};
-    snprintf(entry->name, sizeof entry->name, "%s", name);
-    return entry;
-}
-
-/* a name the loader takes: letters, digits, '_', '.' and '-', 1 to 23 */
-static bool loader_name(const char *name)
-{
-    const size_t length = strlen(name);
-    if (length == 0 || length > 23) return false;
-    for (size_t k = 0; k < length; ++k) {
-        const char c = name[k];
-        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-')) return false;
-    }
-    return true;
-}
-
-/* a name of C: identifiers, joined by '.' when members are allowed */
-static bool c_name(const char *name, bool members)
-{
-    bool start = true;
-    for (const char *p = name; *p; ++p) {
-        const char c = *p;
-        if (c == '.' && members && !start) {
-            start = true;
-            continue;
-        }
-        const bool letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-        if (!letter && !(c >= '0' && c <= '9' && !start)) return false;
-        start = false;
-    }
-    return !start;
+    names_file_read_of(path, true);
 }
 
 /* a name for the made files: letters, digits, '_', '-' and '.', neither '-' nor '.' first, so that no directory is named
@@ -268,214 +177,6 @@ static bool file_name_of_files(const char *name)
     for (const char *p = name; *p; ++p)
         if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_' || *p == '-' || *p == '.')) return false;
     return true;
-}
-
-/* ---- the names file ---- */
-
-/* the C of a word of the library's: a look of its own, or the action back or page; NULL when it is none */
-static char *library_c(int table, const char *word)
-{
-    if (table == T_ON && (strcmp(word, "back") == 0 || strcmp(word, "page") == 0)) return printed("dgx_ui_load_on_%s", word);
-    for (int k = 0; table == T_LOOK && k < LIBRARY_LOOK_COUNT; ++k)
-        if (strcmp(library_looks[k], word) == 0) return printed("&dgx_ui_look_%s", word);
-    return NULL;
-}
-
-static int library_draw_of(const char *word)
-{
-    for (int k = 0; k < LIBRARY_DRAW_COUNT; ++k)
-        if (strcmp(library_draws[k].word, word) == 0) return k;
-    return -1;
-}
-
-static bool library_hand(const char *word)
-{
-    return strcmp(word, library_hands[0]) == 0 || strcmp(word, library_hands[1]) == 0;
-}
-
-/* a line of the names file for an appearance: a draw, a font, a hand */
-static void appearance_line(const char *path, int number, int table, char **words, int count)
-{
-    if (count < 2) fail_out("%s:%d: a %s with no name", path, number, words[0]);
-    if (!loader_name(words[1])) fail_out("%s:%d: \"%s\" is not a name a description may have", path, number, words[1]);
-    if (entry_of(&appearance_tables[table], words[1])) fail_out("%s:%d: the %s \"%s\" twice", path, number, words[0], words[1]);
-    if (appearance_tables[table].count == 65535) fail_out("%s:%d: a %s past the 65535 dgx_ui_c takes", path, number, words[0]);
-    entry_t *entry                     = entry_add(&appearance_tables[table], words[1]);
-    appearance_tables[table].from_file = true;
-    if (table == A_DRAW) {
-        entry->library = count == 2 ? library_draw_of(words[1]) : -1;
-        if (count == 2 && entry->library < 0)
-            fail_out("%s:%d: the draw \"%s\" with no C function: only a draw of the library's goes without one", path, number, words[1]);
-        if (count > 4) fail_out("%s:%d: more than a table, a name, a function and a description: an expression is written with no spaces", path, number);
-        entry->c         = count == 2 ? printed("dgx_ui_draw_%s", words[1]) : copy_of(words[2]);
-        entry->described = count == 2 ? printed("&dgx_ui_params_%s", words[1]) : count == 4 ? copy_of(words[3]) : NULL;
-    } else if (table == A_FONT) {
-        entry->handwritten = count >= 3 && strcmp(words[count - 1], "handwritten") == 0;
-        const int given    = count - entry->handwritten;
-        if (given > 3) fail_out("%s:%d: \"%s\" means nothing for a font: an expression is written with no spaces", path, number, words[3]);
-        if (given == 2 && !c_name(words[1], false)) fail_out("%s:%d: the font \"%s\" with no constant of C, and dgx_font_%s is not a name of C", path, number, words[1], words[1]);
-        entry->c = given == 3 ? printed("&%s", words[2]) : printed("&dgx_font_%s", words[1]);
-    } else {
-        if (count > 2 || !library_hand(words[1]))
-            fail_out("%s:%d: the hand \"%s\": the library's alone, handwriting or handwriting_canvas, with no expression", path, number, words[1]);
-        entry->c = printed("&dgx_ui_%s", words[1]);
-    }
-}
-
-static void names_file_read_of(const char *path, bool appearance_alone);
-
-static void names_file_read(const char *path)
-{
-    names_file_read_of(path, false);
-}
-
-/* the appearance's lines of a names file alone: its draws, fonts and hands, of -an */
-static void appearance_names_read(const char *path)
-{
-    names_file_read_of(path, true);
-}
-
-static void names_file_read_of(const char *path, bool appearance_alone)
-{
-    FILE *file = fopen(path, "r");
-    if (!file) fail_out("%s: %s", path, strerror(errno));
-    char line[1024];
-    for (int number = 1; fgets(line, sizeof line, file); ++number) {
-        char *hash = strchr(line, '#');
-        if (hash) *hash = 0;
-        char *words[5];
-        int   count = 0;
-        for (char *word = strtok(line, " \t\r\n"); word && count < 5; word = strtok(NULL, " \t\r\n")) words[count++] = word;
-        if (count == 0) continue;
-        int kind = 0;
-        while (kind < APPEARANCE_TABLES && strcmp(appearance_words[kind], words[0]) != 0) ++kind;
-        if (kind < APPEARANCE_TABLES) {
-            appearance_line(path, number, kind, words, count);
-            continue;
-        }
-        if (appearance_alone) continue;
-        int table = 0;
-        while (table < TABLES && strcmp(table_words[table], words[0]) != 0) ++table;
-        if (table == TABLES) fail_out("%s:%d: no table \"%s\": look, value, picture, style, on, take, ctx, id, draw, font or hand", path, number, words[0]);
-        if (count < 2) fail_out("%s:%d: a %s with no name", path, number, words[0]);
-        if (!loader_name(words[1])) fail_out("%s:%d: \"%s\" is not a name a description may have", path, number, words[1]);
-        if (entry_of(&tables[table], words[1])) fail_out("%s:%d: the %s \"%s\" twice", path, number, words[0], words[1]);
-        if (tables[table].count == 65535) fail_out("%s:%d: a %s past the 65535 a table may have", path, number, words[0]);
-        if (table == T_ID && tables[table].count == DGX_UI_LOAD_IDS) fail_out("%s:%d: an id past the %d a table may have", path, number, DGX_UI_LOAD_IDS);
-        char *library = library_c(table, words[1]);
-        if (count == 2 && !library)
-            fail_out("%s:%d: the %s \"%s\" with no C expression: only a look of the library's and the actions back and page go without one", path,
-                     number, words[0], words[1]);
-        entry_t *entry          = entry_add(&tables[table], words[1]);
-        entry->c                = count == 2 ? library : copy_of(words[2]);
-        entry->count            = 1;
-        tables[table].from_file = true;
-        if (count == 2) continue;
-        free(library);
-        if (count == 3) continue;
-        if (count > 4) fail_out("%s:%d: more than a table, a name, an expression and a word: an expression is written with no spaces", path, number);
-        if (table == T_PICTURE) {
-            char *end;
-            const long pictures = strtol(words[3], &end, 10);
-            if (*end || pictures < 1 || pictures > 65535) fail_out("%s:%d: \"%s\" is not a count of pictures, 1 to 65535", path, number, words[3]);
-            entry->count = (unsigned)pictures;
-        } else if (table == T_ON && strcmp(words[3], "number") == 0) {
-            entry->number = true;
-        } else {
-            fail_out("%s:%d: \"%s\" means nothing for a %s: an expression is written with no spaces", path, number, words[3], words[0]);
-        }
-    }
-    fclose(file);
-}
-
-/* ---- the names the description uses, by the reader of the loader ---- */
-
-static void used_add(int table, const char *name, size_t offset)
-{
-    if (!entry_of(&used[table], name)) entry_add(&used[table], name)->offset = (long)offset;
-}
-
-/* a widget's object: the names of its keys, then its children; stopped at what is not as it should be, which the
-   loader then refuses */
-static void collect_widget(dgx_ui_json_t *json, int depth)
-{
-    if (depth > DGX_UI_LOAD_DEPTH || dgx_ui_json_peek(json) != '{') return;
-    ++json->pos;
-    if (dgx_ui_json_peek(json) == '}') {
-        ++json->pos;
-        return;
-    }
-    for (bool more = true; more;) {
-        char   key[24], name[24];
-        size_t length;
-        if (!dgx_ui_json_string(json, key, 23, &length) || !dgx_ui_json_expect(json, ':')) return;
-        key[length < 23 ? length : 23] = 0;
-        int table = 0;
-        while (table < TABLES && strcmp(table_keys[table], key) != 0) ++table;
-        if (table < TABLES && dgx_ui_json_peek(json) == '"') {
-            const size_t at = json->pos;
-            if (!dgx_ui_json_string(json, name, 23, &length)) return;
-            if (length <= 23) name[length] = 0, used_add(table, name, at);
-        } else if (strcmp(key, "children") == 0 && dgx_ui_json_peek(json) == '[') {
-            ++json->pos;
-            if (dgx_ui_json_peek(json) == ']') ++json->pos;
-            else
-                for (bool child = true; child;) {
-                    collect_widget(json, depth + 1);
-                    if (json->error || !dgx_ui_json_next(json, ']', &child)) return;
-                }
-        } else if (!dgx_ui_json_skip(json, 2 * DGX_UI_LOAD_DEPTH)) {
-            return;
-        }
-        if (!dgx_ui_json_next(json, '}', &more)) return;
-    }
-}
-
-static void collect(const char *text, size_t length)
-{
-    dgx_ui_json_t json = {.text = text, .len = length};
-    if (dgx_ui_json_peek(&json) != '{') return;
-    ++json.pos;
-    if (dgx_ui_json_peek(&json) == '}') return;
-    for (bool more = true; more;) {
-        char   key[24];
-        size_t key_length;
-        if (!dgx_ui_json_string(&json, key, 23, &key_length) || !dgx_ui_json_expect(&json, ':')) return;
-        key[key_length < 23 ? key_length : 23] = 0;
-        if (strcmp(key, "tree") == 0) collect_widget(&json, 1);
-        else if (!dgx_ui_json_skip(&json, 2 * DGX_UI_LOAD_DEPTH + 1)) return; /* as the loader passes a value of the top */
-        if (json.error || !dgx_ui_json_next(&json, '}', &more)) return;
-    }
-}
-
-/* the tables the file did not give, made of the names used by the rule */
-static void rule_tables(void)
-{
-    for (int table = 0; table < TABLES; ++table) {
-        if (tables[table].from_file) continue;
-        if (table == T_LOOK)
-            for (int k = 0; k < LIBRARY_LOOK_COUNT; ++k) entry_add(&tables[T_LOOK], library_looks[k])->c = library_c(T_LOOK, library_looks[k]);
-        /* the style of a text that names none, the table's first: of a name no description can have; its C, of the
-           prefix, made by prefix_tables() */
-        if (table == T_STYLE && !(appearance_path && appearance_need.styles)) entry_add(&tables[T_STYLE], DEFAULT_STYLE);
-        for (int k = 0; k < used[table].count; ++k) {
-            const entry_t *use = &used[table].entries[k];
-            if (entry_of(&tables[table], use->name)) continue;
-            entry_t *entry = entry_add(&tables[table], use->name);
-            entry->offset  = use->offset;
-            entry->ruled   = true;
-            switch (table) {
-            case T_PICTURE: entry->c = copy_of(use->name), entry->count = 65535; break;
-            case T_ON:
-                if ((entry->c = library_c(T_ON, use->name))) entry->ruled = false;
-                else entry->c = copy_of(use->name), entry->number = true;
-                break;
-            case T_TAKE: entry->c = copy_of(use->name); break;
-            case T_ID: break; /* of the prefix: prefix_tables() */
-            default: entry->c = printed("&%s", use->name); break;
-            }
-        }
-    }
 }
 
 /* the C of the rule that is of the prefix, known once the loader has told the tree's name */
@@ -1020,85 +721,6 @@ static size_t                    appearance_length;
 
 typedef bool (*draw_fn)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 
-/* the members of an object at the reader, its key given out; false at its end or at what is not JSON */
-static bool next_member(dgx_ui_json_t *json, bool *first, char key[24])
-{
-    size_t length;
-    if (*first) {
-        *first = false;
-        if (dgx_ui_json_peek(json) != '{') return false;
-        ++json->pos;
-        if (dgx_ui_json_peek(json) == '}') return ++json->pos, false;
-    } else {
-        bool more;
-        if (!dgx_ui_json_next(json, '}', &more) || !more) return false;
-    }
-    if (!dgx_ui_json_string(json, key, 23, &length) || !dgx_ui_json_expect(json, ':')) return false;
-    key[length < 23 ? length : 23] = 0;
-    return true;
-}
-
-/* a key of the top of the appearance: the reader at its value, or false */
-static bool top_value(dgx_ui_json_t *json, const char *wanted)
-{
-    char key[24];
-    json->pos = 0;
-    for (bool first = true; next_member(json, &first, key);) {
-        if (strcmp(key, wanted) == 0) return true;
-        if (!dgx_ui_json_skip(json, DGX_UI_LOAD_DEPTH * 2 + 1)) return false;
-    }
-    return false;
-}
-
-/* by the rule, the fonts the styles name: of each variant its name, or its object's "font"; stopped at what is not as it
-   should be, which the loader then refuses */
-static void collect_fonts(void)
-{
-    dgx_ui_json_t json = {.text = appearance_text, .len = appearance_length};
-    char          key[24], name[24];
-    size_t        length;
-    if (!top_value(&json, "styles")) return;
-    for (bool style = true; next_member(&json, &style, key);) {
-        for (bool field = true; next_member(&json, &field, key);) {
-            if (strcmp(key, "fonts") != 0 || dgx_ui_json_peek(&json) != '[') {
-                if (!dgx_ui_json_skip(&json, 8)) return;
-                continue;
-            }
-            ++json.pos;
-            if (dgx_ui_json_peek(&json) == ']') {
-                ++json.pos;
-                continue;
-            }
-            for (bool more = true; more;) {
-                const size_t at = (dgx_ui_json_peek(&json), json.pos);
-                if (dgx_ui_json_peek(&json) == '"') {
-                    if (!dgx_ui_json_string(&json, name, 23, &length)) return;
-                    if (length <= 23 && !entry_of(&appearance_tables[A_FONT], (name[length] = 0, name))) {
-                        entry_t *font = entry_add(&appearance_tables[A_FONT], name);
-                        font->offset = (long)at, font->ruled = true, font->c = printed("&dgx_font_%s", name);
-                    }
-                } else {
-                    for (bool inner = true; next_member(&json, &inner, key);) {
-                        const size_t value = (dgx_ui_json_peek(&json), json.pos);
-                        if (strcmp(key, "font") == 0 && dgx_ui_json_peek(&json) == '"') {
-                            if (!dgx_ui_json_string(&json, name, 23, &length)) return;
-                            if (length <= 23 && !entry_of(&appearance_tables[A_FONT], (name[length] = 0, name))) {
-                                entry_t *font = entry_add(&appearance_tables[A_FONT], name);
-                                font->offset = (long)value, font->ruled = true, font->c = printed("&dgx_font_%s", name);
-                            }
-                        } else if (!dgx_ui_json_skip(&json, 8)) {
-                            return;
-                        }
-                    }
-                    if (json.error) return;
-                }
-                if (!dgx_ui_json_next(&json, ']', &more)) return;
-            }
-        }
-        if (json.error) return;
-    }
-}
-
 /* a look of a draw of the program's own that gives "params": its description is the program's C, which the tool cannot
    read, so it cannot write the parameters; with none the look is made, its draw and its fill */
 static void refuse_own_params(void)
@@ -1135,12 +757,12 @@ static void read_appearance(bool names_file, bool with_own)
 {
     appearance_text = read_all(appearance_path, &appearance_length);
     if (!names_file) {
-        for (int k = 0; k < LIBRARY_DRAW_COUNT; ++k) {
+        for (int k = 0; k < library_draw_count; ++k) {
             entry_t *draw = entry_add(&appearance_tables[A_DRAW], library_draws[k].word);
             draw->library = k, draw->c = printed("dgx_ui_draw_%s", library_draws[k].word), draw->described = printed("&dgx_ui_params_%s", library_draws[k].word);
         }
         for (int k = 0; k < 2; ++k) entry_add(&appearance_tables[A_HAND], library_hands[k])->c = printed("&dgx_ui_%s", library_hands[k]);
-        collect_fonts();
+        names_collect_fonts(appearance_text, appearance_length);
     }
     refuse_own_params();
     const table_t *draws_of = &appearance_tables[A_DRAW], *fonts_of = &appearance_tables[A_FONT], *hands_of = &appearance_tables[A_HAND];
@@ -1511,8 +1133,8 @@ int main(int argc, char **argv)
         read_appearance_of_a(appearance_names_path);
         appearance_first();
     }
-    collect(text, length);
-    rule_tables();
+    names_collect(text, length);
+    names_rule(!(appearance_path && appearance_need.styles));
 
     /* the loader on the stand-ins: its checks, its defaults, its tree */
     dgx_ui_load_names_t names = stand_in_names();

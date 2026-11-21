@@ -2,9 +2,10 @@
 """
 dgx_ui_c.py <DGX directory> <directory>: dgx_ui_c built for the computer into <directory>, the one way it is built.
 
-The tool is tools/dgx_ui_c.c and nine sources of dgx-ui's src/ (the tree, its text boxes, rectangles and messages, the
-loader of pages and of appearances, their reader of JSON, what they share, and the descriptions of the draws'
-parameters), compiled against dgx-ui's include/ and src/ and DGX's include/ and host/stubs/, which DGX's package
+The tool is tools/dgx_ui_c.c, its reading of the names a description is read on in a source of its own,
+tools/dgx_ui_names.c, and nine sources of dgx-ui's src/ (the tree, its text boxes, rectangles and messages, the loader
+of pages and of appearances, their reader of JSON, what they share, and the descriptions of the draws' parameters),
+compiled against dgx-ui's include/ and src/ and DGX's include/ and host/stubs/, which DGX's package
 carries for its build on a computer: no source of DGX, no library but C's. The words of the library's looks, which a
 description may name with no names file, are read from include/dgx_ui_paint.h into library_looks.h; the library's
 draws and the types of their parameters from src/dgx_ui_params.c into library_draws.h.
@@ -20,7 +21,7 @@ import sys
 
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TOOLS)
-SOURCES = [os.path.join(TOOLS, "dgx_ui_c.c")] + [os.path.join(ROOT, "src", name) for name in
+SOURCES = [os.path.join(TOOLS, "dgx_ui_c.c"), os.path.join(TOOLS, "dgx_ui_names.c")] + [os.path.join(ROOT, "src", name) for name in
                                                  ("dgx_ui.c", "dgx_ui_text.c", "dgx_ui_rect.c", "dgx_ui_msg.c", "dgx_ui_load.c", "dgx_ui_json.c", "dgx_ui_read.c",
                                                   "dgx_ui_appearance.c", "dgx_ui_params.c")]
 
