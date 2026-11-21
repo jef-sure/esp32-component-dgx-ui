@@ -2241,11 +2241,12 @@ What to know of it:
   name or the key: a typo in `"sldier"` is `DGX_UI_LOAD_KIND` at its byte with that word.
 - **Only what the program listed can be reached.** A description cannot name a handler, a value or a picture that
   is in no table, and no number of it becomes a pointer. So a text that came over the air can at worst show the
-  program's own widgets wrongly arranged, when the task that loads it has the stack for its depth.
-- **The stack.** The load walks the widgets by recursion: on an ESP32, 352 bytes of the calling task's stack for
-  each level of widgets, about 1100 at one. The main task's default of 3584 bytes is gone at a depth of 8. A page
-  that comes from outside is loaded in a task with the stack for the deepest it may be: 9200 bytes for the 24
-  levels the format takes.
+  program's own widgets wrongly arranged, when the program bounds the depth it takes.
+- **The depth and the stack.** A load takes about 1.1 KB of stack on an ESP32, the same at any depth. The page is
+  then painted as any tree, and its first paint takes 96 bytes for each level of widgets: about 1.6 KB at one level,
+  3.8 KB at the 24 the format takes, where the main task has 3584 bytes by default. `need.depth` tells the depth
+  before the program gives any memory: a program that takes pages from outside refuses one deeper than its task's
+  stack takes.
 - **The editor's things**: a tool that edits the description keeps its own in `"editor"`, an object at the top or
   in a widget, which the library passes over; any JSON may stand in it.
 - **The text may be freed after the load**, the memory not while the page lives. To take the page away:
@@ -2373,7 +2374,7 @@ What to know of it:
   compiler finds what the program has not. The rule and the tool's own page:
   [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
-- **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.3 KB smaller than the
+- **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.4 KB smaller than the
   one that loads it. The widgets are constants in flash, 56 bytes each; in RAM are the nodes, as for any widget,
   the text boxes and the buffers of the texts the program writes.
 - **The made files are not to be edited**: they are written again whenever the description or the names file

@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.43 - 2026-11-21
+
+- A load takes the same stack however deep the description: about 1 KB on an ESP32, where a tree 24 deep took 9 KB.
+- A name an error gives, cut at 23 bytes, ends on a whole character.
+- DGX 0.11.8 at least: two soft letters meeting in a cell of a 16-bit display behind a bus show as composed in memory.
+
 ## 0.0.42 - 2026-11-21
 
 - A description may hold `"editor"`, an object at the top and in any widget for the tools that edit it: any JSON in

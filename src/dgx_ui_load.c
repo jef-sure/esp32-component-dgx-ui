@@ -2,9 +2,11 @@
  * dgx_ui_load.c
  *
  *  A tree of widgets from a description in JSON (dgx_ui_load.h): the text read by dgx_ui_json.h, which reads nothing
- *  past its length, and one walk of the description made twice, first to check it whole and count what
- *  it takes, then to lay the widgets in the program's memory and add them. A widget's own keys are read before its
- *  children, whatever their order in the object. A program that loads nothing carries none of it.
+ *  past its length, and one walk of the description made twice, first to check it whole and count what it takes, then
+ *  to lay the widgets in the program's memory and add them. A widget's own keys are read before its children, whatever
+ *  their order in the object. The walk is a loop that keeps its places in the load, on the caller's stack, not a
+ *  recursion: the stack is the same however deep the text, and two tasks may load at once. A program that loads
+ *  nothing carries none of it.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -30,6 +32,10 @@ typedef struct load_t {
     int                        top;  /* the first widget added: removing it removes all the load added */
     uint8_t                    ids_met[DGX_UI_LOAD_IDS / 8]; /* the table's ids met by the walk: a second is an error */
     char                       tree_name[24];                /* the description's "name"; empty: none */
+    struct {
+        size_t end;  /* where its object ends: the reader goes on there after its children */
+        int    self; /* its index, the parent of its children; -1 counting */
+    } open[DGX_UI_LOAD_DEPTH]; /* the widgets whose children are walked, the root's first */
 } load_t;
 
 /* the most levels a value passed over goes in: a widget's object and its list of children two each; a value of the top
@@ -46,6 +52,11 @@ static bool fail(load_t *L, int code, size_t at, const char *name)
     if (name) {
         size_t k = 0;
         for (; name[k] && k < sizeof L->err->name - 1; ++k) L->err->name[k] = name[k];
+        /* a name cut at its 23rd byte ends on a whole character of UTF-8: one it cut is left out */
+        size_t last = k; /* the first byte of the last character */
+        while (last > 0 && ((uint8_t)name[--last] & 0xc0) == 0x80) {}
+        const unsigned lead = (uint8_t)name[last];
+        if (k - last < (lead >= 0xf0 ? 4u : lead >= 0xe0 ? 3u : lead >= 0xc0 ? 2u : 1u)) k = last;
         L->err->name[k] = 0;
     }
     return false;
@@ -147,8 +158,9 @@ static void *take_bytes(load_t *L, size_t n, size_t align)
     return at;
 }
 
-/* a widget at the reader, under parent, at depth: its own keys first, then its children; *index its node, building */
-static bool widget(load_t *L, int parent, int depth, int *index)
+/* a widget's own keys at the reader, under parent, at depth: checked, laid and added when building, the reader past its
+   object; its node in *self (-1 counting), the place of its children in *children (0: none) */
+static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *children_out)
 {
     if (depth > DGX_UI_LOAD_DEPTH) return fail(L, DGX_UI_LOAD_DEPTH_MAX, L->json.pos, NULL);
     if (depth > L->depth) L->depth = depth;
@@ -295,22 +307,42 @@ static bool widget(load_t *L, int parent, int depth, int *index)
         if (self < 0) return fail(L, DGX_UI_LOAD_NODES, at, NULL);
         if (L->top < 0) L->top = self;
         if (id_entry >= 0) L->ids[id_entry] = self;
-        *index = self;
     }
-    /* the children, after the widget */
-    if (children_at) {
-        const size_t end = L->json.pos;
-        L->json.pos      = children_at;
-        if (!dgx_ui_json_expect(&L->json, '[')) return false;
-        if (dgx_ui_json_peek(&L->json) == ']') ++L->json.pos;
-        else
-            for (bool more = true; more;) {
-                int child;
-                if (!widget(L, self, depth + 1, &child) || !dgx_ui_json_next(&L->json, ']', &more)) return false;
-            }
-        L->json.pos = end;
-    }
+    *self_out = self, *children_out = children_at;
     return true;
+}
+
+/* the tree at the reader, widget by widget: a widget's own keys, then its children, then the widgets after it. The
+   widgets whose children are walked are kept in L->open, not on the stack: the stack is the same however deep the tree */
+static bool tree(load_t *L, int parent, int *index)
+{
+    int depth = 1;
+    for (;;) {
+        int    self        = -1; /* widget() gives both where it returns true; given here too, for the compiler */
+        size_t children_at = 0;
+        if (!widget(L, depth == 1 ? parent : L->open[depth - 2].self, depth, &self, &children_at)) return false;
+        if (depth == 1) *index = self;
+        if (children_at) { /* its children next, where its object ends kept */
+            const size_t end = L->json.pos;
+            L->json.pos      = children_at;
+            if (!dgx_ui_json_expect(&L->json, '[')) return false;
+            if (dgx_ui_json_peek(&L->json) != ']') {
+                L->open[depth - 1].end = end, L->open[depth - 1].self = self;
+                ++depth;
+                continue;
+            }
+            L->json.pos = end;
+        }
+        /* a widget done: the next of its parent's children, or its parent done too */
+        for (;;) {
+            if (depth == 1) return true;
+            bool more;
+            if (!dgx_ui_json_next(&L->json, ']', &more)) return false;
+            if (more) break;
+            --depth;
+            L->json.pos = L->open[depth - 1].end;
+        }
+    }
 }
 
 /* the description: {"dgx-ui": 1, "tree": a widget, "name": the tree's name, "editor": the editor's object}, nothing
@@ -352,7 +384,7 @@ static bool document(load_t *L, int parent, int *index)
     if (editor_at && L->json.text[editor_at] != '{') return fail(L, DGX_UI_LOAD_SYNTAX, editor_at, NULL);
     if (L->json.text[tree_at] != '{') return fail(L, DGX_UI_LOAD_SYNTAX, tree_at, NULL);
     L->json.pos = tree_at;
-    return widget(L, parent, 1, index);
+    return tree(L, parent, index);
 }
 
 /* the walk of a load: first the place of the ids' indices, then the widgets */
@@ -369,11 +401,19 @@ static bool walk(load_t *L, int parent, int *index)
     return false;
 }
 
+/* a load begun: its text, its tables, no error */
+static void begin(load_t *L, const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_error_t *err)
+{
+    memset(L, 0, sizeof *L);
+    L->json.text = json, L->json.len = json ? len : 0, L->names = names, L->err = err, L->top = -1;
+    err->code = DGX_UI_LOAD_OK, err->offset = 0, err->name[0] = 0;
+}
+
 bool dgx_ui_load_need(const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_need_t *need, dgx_ui_load_error_t *err)
 {
-    load_t L = {.json = {.text = json, .len = json ? len : 0}, .names = names, .err = err, .top = -1};
+    load_t L;
     int    index;
-    err->code = DGX_UI_LOAD_OK, err->offset = 0, err->name[0] = 0;
+    begin(&L, json, len, names, err);
     if (!walk(&L, -1, &index)) return false;
     need->bytes = L.bytes, need->nodes = L.nodes, need->depth = L.depth;
     memcpy(need->name, L.tree_name, sizeof need->name);
@@ -382,11 +422,14 @@ bool dgx_ui_load_need(const char *json, size_t len, const dgx_ui_load_names_t *n
 
 int dgx_ui_load(dgx_ui_t *ui, int parent, const char *json, size_t len, const dgx_ui_load_names_t *names, void *memory, size_t size, dgx_ui_load_error_t *err)
 {
-    dgx_ui_load_need_t need;
-    if (!dgx_ui_load_need(json, len, names, &need, err)) return -1;
-    if (size < need.bytes || (uintptr_t)memory % _Alignof(dgx_ui_widget_t)) return fail(&(load_t){.err = err}, DGX_UI_LOAD_MEMORY, 0, NULL), -1;
-    load_t L     = {.json = {.text = json, .len = len}, .names = names, .err = err, .build = true, .ui = ui, .memory = memory, .top = -1};
+    /* the description checked whole and counted, then walked again to lay and add it: one load, so one place on the stack */
+    load_t L;
     int    index = -1;
+    begin(&L, json, len, names, err);
+    if (!walk(&L, -1, &index)) return -1;
+    if (size < L.bytes || (uintptr_t)memory % _Alignof(dgx_ui_widget_t)) return fail(&L, DGX_UI_LOAD_MEMORY, 0, NULL), -1;
+    begin(&L, json, len, names, err);
+    L.build = true, L.ui = ui, L.memory = memory;
     if (!walk(&L, parent, &index)) { /* an add refused midway: what was added removed, the ids as they were */
         if (L.top >= 0) dgx_ui_remove(ui, L.top);
         return -1;

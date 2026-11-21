@@ -17,7 +17,7 @@ include $(ROOT)/host/dgx_ui_host.mk
 CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
 WARN     := -Wall -Wextra -Wno-unused-parameter
 
-all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_generate check-werror check-lists $(if $(DGX_DI),run-test_di) check-cxx
+all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_generate check-werror check-lists $(if $(DGX_DI),run-test_di) check-cxx
 
 run-%: $(BUILD)/%
 	$<
@@ -204,6 +204,11 @@ run-test_generate: $(BUILD)/tools/dgx_ui_c test_generate.c test_generate.py gene
 		test_generate.c $(PAINT) $(DGX_SRCS) -lm -Wl,--wrap=calloc
 
 # the reader of JSON alone: no tree, no DGX
+# the stack a load takes, counted on a thread's own stack: no sanitizer, whose frames would blur the count
+$(BUILD)/test_stack: test_stack.c check.h $(CORE) $(ROOT)/src/dgx_ui_load.c $(ROOT)/src/dgx_ui_json.c $(wildcard $(ROOT)/include/*.h)
+	mkdir -p $(BUILD)
+	$(CC) -O2 -g -std=gnu11 $(WARN) $(CPPFLAGS) -I$(ROOT)/src -o $@ test_stack.c $(CORE) $(ROOT)/src/dgx_ui_load.c $(ROOT)/src/dgx_ui_json.c -lpthread
+
 $(BUILD)/test_json: test_json.c check.h $(ROOT)/src/dgx_ui_json.c $(ROOT)/src/dgx_ui_json.h
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) -I$(ROOT)/src -o $@ test_json.c $(ROOT)/src/dgx_ui_json.c
@@ -240,9 +245,14 @@ $(BUILD)/test_di: test_di.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/
 # them: the queue's and the ticker's need FreeRTOS, which the stubs have not
 SOURCES := $(filter-out %/dgx_ui_post.c %/dgx_ui_ticker.c,$(wildcard $(ROOT)/src/*.c))
 
+# no warning, read and compiled: some warnings come only from the optimiser (a value it cannot see given), so each
+# source is compiled at the levels a build takes, as ESP-IDF's -Werror=all would refuse it
 check-werror:
 	$(CC) -std=gnu11 $(WARN) -Werror $(CPPFLAGS) -fsyntax-only $(SOURCES)
-	@echo "the sources: no warning"
+	@for level in -O1 -O2 -Os; do \
+		for source in $(SOURCES); do $(CC) $$level -std=gnu11 $(WARN) -Werror $(CPPFLAGS) -c $$source -o /dev/null || exit 1; done; \
+	done
+	@echo "the sources: no warning, read and compiled at -O1, -O2 and -Os"
 
 # every source of src/ in the component's list, and in the list of the build on a computer (host/dgx_ui_host.mk) but
 # the two of FreeRTOS's queues and esp_timer

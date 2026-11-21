@@ -20,7 +20,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 | [`project_include.cmake`](#project_includecmake) | two calls of CMake: a description made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.42: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.43: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1522,20 +1522,22 @@ takes a number; an icon's range, and the two pictures of a switch or a radio, st
 table gives. A look's parameters and its colours, fonts and text styles are not in a description: they are C the
 program names. The text may come from a file or over the air: nothing is read past `len`, which need not end in 0,
 its UTF-8 is checked, the depth is at most `DGX_UI_LOAD_DEPTH`, and the whole is checked before the first widget is
-added; the task that loads it needs the stack for that depth, below. The text may be freed after the load; the
+added; what its depth costs the task that paints the tree is below. The text may be freed after the load; the
 memory may not while the widgets are in the tree. The tree once loaded is changed by the calls of `dgx_ui.h` as any
-tree.
+tree. Two tasks may load at once, each into a tree of its own.
 
-**The stack.** `dgx_ui_load_need()` and `dgx_ui_load()` walk the widgets by recursion, so each level of widgets
-takes stack of the task that calls them. On an ESP32, measured with ESP-IDF 5.5.4 at its default optimisation, a
-load takes about 1100 bytes for a tree of one level and 352 for each further level: about 3600 at a depth of 8 and
-9200 at 24, the deepest the format takes. The need takes 320 bytes less. The main task's stack is 3584 bytes by
-default, all of it gone at a depth of 8: a description that may be deep, and any that comes from outside, is loaded
-in a task with the stack for the depth it may have. What the library passes over, an editor's object or the value
-of a key it does not know, takes the same stack however deep it is nested.
+**The stack.** A load takes the same stack however deep the description: on an ESP32, measured with ESP-IDF 5.5.4
+at its default optimisation, about 1.1 KB for `dgx_ui_load_need()` and for `dgx_ui_load()`, with a value 50
+brackets deep in an editor's object as with none. The tree it adds is then walked as any tree, and those walks go
+deeper with it. The first paint, with its layout, takes 96 bytes for each level of widgets: about 1.6 KB for one
+level with a text in it, 2.3 KB at a depth of 8 and 3.8 KB at 24. The pointer takes 48 bytes a level, 1.3 KB at 24.
+A paint with nothing changed, a message and `dgx_ui_free()` do not grow with the depth. The main task's stack is
+3584 bytes by default, and an interrupt that comes at the deepest point puts its own frame on the task's stack, up
+to 0.2 KB more. `dgx_ui_load_need()` tells the depth, `need.depth`, before any memory is given: a program that takes
+descriptions from outside refuses one deeper than the stack of the task that paints it takes.
 
 **The errors**, `err.code`, with `err.offset`, the byte of the text, and `err.name`, the name or the key it is
-about when there is one:
+about when there is one, its first 23 bytes ending on a whole character:
 
 | Code | What went wrong |
 | ---- | --------------- |

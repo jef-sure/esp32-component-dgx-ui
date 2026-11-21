@@ -58,8 +58,9 @@
  *  program's memory, that the program did not give. So an integer "ctx" goes only to a handler that takes a number, an
  *  icon's range and a switch's or a radio's two pictures stay within the count the pictures' table gives, and the
  *  tables say what may be reached. The text may come from a file or over the air: nothing is read past len (it need
- *  not end in 0), the depth is at most DGX_UI_LOAD_DEPTH, and the whole is checked before the first widget is added: on
- *  an error the tree is as it was. The text may be freed after the load; the memory may not, while the widgets are in
+ *  not end in 0), the depth is at most DGX_UI_LOAD_DEPTH, the stack a load takes is the same however deep the text,
+ *  and the whole is checked before the first widget is added: on an error the tree is as it was. Two tasks may load at
+ *  once, each into its own tree. The text may be freed after the load; the memory may not, while the widgets are in
  *  the tree.
  *
  *  Copyright (c) 2026 Anton Petrusevich
@@ -174,7 +175,8 @@ enum {
     DGX_UI_LOAD_ID,        ///< an id of the table on a second widget, or a table of more than DGX_UI_LOAD_IDS (name: the id)
 };
 
-/** An error: its code, where in the text (the byte), and the name or the key it is about, when there is one. */
+/** An error: its code, where in the text (the byte), and the name or the key it is about, when there is one, its first
+    23 bytes ending on a whole character. */
 typedef struct dgx_ui_load_error_t {
     int  code;
     int  offset;

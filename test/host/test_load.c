@@ -16,7 +16,8 @@
  * content at chance places: the same need and the same tree. The top judged in one order, the version first; a
  * number that is not an integer of int32 where none is read told by the fault of its place; the editor's object at
  * the top and in widgets, twice, not an object, what is not JSON in it, an "editor" that is not a widget's; a value
- * inside at most 50 brackets, an editor's as any. A key of the top that is no name, one unknown.
+ * inside at most 50 brackets, an editor's as any. A key of the top that is no name, one unknown. A name cut at its
+ * 23rd byte given on a whole character.
  */
 #include <stdarg.h>
 #include <stdint.h>
@@ -399,6 +400,28 @@ int main(void)
         dgx_ui_free(&page), dgx_ui_free(&ui);
     }
 
+    /* the walk's shapes: "children" before the other keys and after them, lists of children empty at every depth with
+       keys after them, editors between: each widget under its parent, in its order, its keys all read */
+    {
+        static const char shapes[] = "{\"dgx-ui\": 1, \"tree\": {\"children\": ["
+                                     "{\"kind\": \"box\", \"children\": [], \"gap\": 3, \"editor\": {\"a\": [[], {}]}},"
+                                     "{\"pad\": 1, \"children\": [{\"kind\": \"box\", \"children\": [{\"kind\": \"box\", \"children\": [], \"tag\": 7}], \"tag\": 6}], \"kind\": \"frame\", \"tag\": 5},"
+                                     "{\"editor\": {}, \"kind\": \"box\", \"tag\": 8, \"children\": []}], \"kind\": \"box\", \"pad\": 2}}";
+        static const int expected_parent[] = {-1, 0, 0, 2, 3, 0}, expected_tag[] = {0, 0, 5, 6, 7, 8};
+        static dgx_ui_node_t shape_nodes[8];
+        static uint8_t       shape_memory[1024] __attribute__((aligned(8)));
+        dgx_ui_t             shape_ui;
+        CHECK(dgx_ui_load_need(shapes, strlen(shapes), &names, &need, &err) && need.nodes == 6 && need.depth == 4);
+        dgx_ui_init(&shape_ui, shape_nodes, 8, 1);
+        CHECK(dgx_ui_load(&shape_ui, -1, shapes, strlen(shapes), &names, shape_memory, sizeof shape_memory, &err) == 0);
+        const dgx_ui_widget_t *got[8];
+        int                    parent[8];
+        CHECK(order_of(&shape_ui, 0, got, parent, 0, -1) == 6);
+        for (int k = 0; k < 6; ++k) CHECK(parent[k] == expected_parent[k] && got[k]->tag == expected_tag[k]);
+        CHECK(got[0]->pad == 2 && got[1]->gap == 3 && got[2]->pad == 1 && got[2]->kind == DGX_UI_FRAME);
+        dgx_ui_free(&shape_ui);
+    }
+
     /* the errors, each with its code, offset and name; the tree as it was */
     CHECK(fails_with("{\"dgx-ui\": 2, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 1, NULL));
     CHECK(fails_with("{\"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_VERSION, 0, NULL));
@@ -468,6 +491,30 @@ int main(void)
     CHECK(fails_with("{\"dgx-ui\": 1, 5: 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_SYNTAX, 14, NULL));
     CHECK(fails_with("{\"dgx-ui\": 2, \"a\\u0000\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_SYNTAX, 16, NULL));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"a b\": 1}}", DGX_UI_LOAD_NAME_BAD, 38, "a b"));
+    /* a name cut at its 23rd byte ends on a whole character: one of 2, 3 or 4 bytes across the 23rd left out, one that
+       ends on it kept; a top key and a widget's name alike */
+    {
+        static const struct {
+            int         ascii;     /* letters before the character */
+            const char *character; /* of 2, 3 or 4 bytes */
+            int         kept;      /* the bytes of the name given */
+        } cuts[] = {{22, "\xc3\xa9", 22}, {21, "\xc3\xa9", 23}, {21, "\xe2\x82\xac", 21}, {22, "\xe2\x82\xac", 22}, {20, "\xe2\x82\xac", 23},
+                    {20, "\xf0\x9f\x98\x80", 20}, {21, "\xf0\x9f\x98\x80", 21}, {22, "\xf0\x9f\x98\x80", 22}, {19, "\xf0\x9f\x98\x80", 23}};
+        for (size_t k = 0; k < sizeof cuts / sizeof *cuts; ++k) {
+            char name[40], text[160], expected[24];
+            memset(name, 'a', (size_t)cuts[k].ascii);
+            snprintf(name + cuts[k].ascii, sizeof name - (size_t)cuts[k].ascii, "%sbc", cuts[k].character);
+            memcpy(expected, name, (size_t)cuts[k].kept), expected[cuts[k].kept] = 0;
+            snprintf(text, sizeof text, "{\"dgx-ui\": 1, \"%s\": 1, \"tree\": {\"kind\": \"box\"}}", name);
+            CHECK(fails_with(text, DGX_UI_LOAD_KEY, 14, expected));
+            snprintf(text, sizeof text, "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"slider\", \"value\": \"%s\"}}", name);
+            CHECK(fails_with(text, DGX_UI_LOAD_NAME_BAD, 50, expected));
+        }
+        /* not cut: as it was */
+        CHECK(fails_with("{\"dgx-ui\": 1, \"\xc3\xa9t\xc3\xa9\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 14, "\xc3\xa9t\xc3\xa9"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"slider\", \"value\": \"vol\xe2\x82\xacme\"}}", DGX_UI_LOAD_NAME_BAD, 50, "vol\xe2\x82\xacme"));
+        CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"slider\", \"value\": \"aaaaaaaaaaaaaaaaaaaaaaaab\"}}", DGX_UI_LOAD_NAME_BAD, 50, "aaaaaaaaaaaaaaaaaaaaaaa"));
+    }
     CHECK(fails_with("{\"dgx-ui\": 1, \"name\": 5, \"x\": 1, \"tree\": {\"kind\": \"box\"}}", DGX_UI_LOAD_KEY, 25, "x"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": 5, \"x\": 1}", DGX_UI_LOAD_KEY, 25, "x"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"name\": 5}", DGX_UI_LOAD_KEY, 0, "tree"));
