@@ -142,7 +142,7 @@ const results = await preview.fonts(indexText, file => directory.getFileHandle(f
 
 ### What it takes
 
-The file is 460 KB, 186 KB when a server sends it with gzip. A preview takes 0.4 MB and its frame, four bytes a
+The file is 464 KB, 187 KB when a server sends it with gzip. A preview takes 0.4 MB and its frame, four bytes a
 pixel: 0.7 MB at 320x240, 4.3 MB at 1280x800, 64 MB at 4096x4096. A font file takes its own size and some 70 bytes:
 the 16 fonts of a project, 162 KB, took 0.2 MB. Its memory does not shrink: after a large panel a small one holds
 what the large one took, until the preview is let go. Pages and fonts given again and again do not grow it.

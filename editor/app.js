@@ -484,14 +484,24 @@ const dgxUiBuilderMount = (() => {
         `,
     };
 
-    // the builder on an element of a page: options.host, the files' host; options.start, what the store's start() takes
+    // the builder on an element of a page: options.host, the files' host, whose folder the person opens; options.open, a
+    // host of a project opened at once, the server's (host_server.js), with no folder to choose; options.start, what the
+    // store's start() takes
     return async function mount(element, options = {}) {
         const app = Vue.createApp({ components: { DgxUiBuilder }, data: () => ({ host: options.host ?? null }),
                                     template: '<dgx-ui-builder :host="host"></dgx-ui-builder>' });
         const pinia = Pinia.createPinia();
         app.use(pinia);
         app.mount(element);
-        await useDgxUiBuilder(pinia).start(options.start ?? {});
-        return { app, store: useDgxUiBuilder(pinia) };
+        const store = useDgxUiBuilder(pinia);
+        await store.start(options.start ?? {});
+        if (options.open) {
+            try {
+                await store.open(await options.open());
+            } catch (error) {
+                store.say('{0}', [String(error?.message ?? error)], true);
+            }
+        }
+        return { app, store };
     };
 })();

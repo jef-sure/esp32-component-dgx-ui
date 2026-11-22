@@ -11,7 +11,8 @@ the board shows, and every check of a page is the loader's: the builder repeats 
 
 Open `index.html` in a browser and press "Open a project": in Chrome and Edge, the File System Access API gives the
 page the directory, read and written in place. Other browsers take the project's files by "or choose its files", and a
-save comes as a download.
+save comes as a download. A browser that gives a page no folder at all, as those inside VS Code, opens the builder
+[from a terminal](#from-a-terminal).
 
 The builder reads the project's own declarations:
 
@@ -28,6 +29,30 @@ The builder reads the project's own declarations:
   Without it the fonts are stand-ins, and the page says so.
 - The screen: of the board of the project's preset when the build says it, else one of the list (320x240 of the CYD,
   480x272, 480x800, 1024x600, 800x1280), with its depth and its pixels a point.
+
+## From a terminal
+
+A server of the component, run in the project's folder, serves the builder and reads and writes the project for it:
+
+```sh
+python3 managed_components/jef-sure__dgx-ui/tools/dgx_ui_serve.py   # dgx-ui from the registry
+python3 managed_components/dgx-ui/tools/dgx_ui_serve.py             # dgx-ui taken from git, as Getting started does
+```
+
+It prints a link, `http://127.0.0.1:8741/editor/#project=...`. Opened in a browser of this computer, in VS Code by
+"Simple Browser: Show", it shows the builder with the project open at once: no folder to choose, and a save written in
+place. Ctrl-C stops the server. `--project DIR` serves another folder, `--port N` another port; when 8741 is taken it
+takes a free one and says so, and there the zoom and the language the browser keeps for the page start anew.
+
+- Only this computer reaches it: it listens on 127.0.0.1 alone, and the project's calls carry the token of the link,
+  which a browser never sends in an address.
+- It writes what the builder writes and nothing else: descriptions and appearances of `.json` and names files of
+  `.txt`, into folders that are there. Never `CMakeLists.txt`, `requirements.txt`, `sdkconfig*` or
+  `dependencies.lock`, nothing under `build/`, `managed_components/` or `.git/`, nothing outside the project, links
+  followed. A names file of another ending is not saved, and the builder says why.
+- A project with dgx-ui from the registry is served by its own copy, `managed_components/jef-sure__dgx-ui/`, whatever
+  copy of the script was run: the builder is of the version the project builds with.
+- It takes only the standard library of Python, so ESP-IDF's Python runs it.
 
 ## The page
 
@@ -70,7 +95,7 @@ A page that hosts the builder loads the same scripts as `index.html` and mounts 
 
 A host gives the builder a project's files by paths relative to its directory: `list(directory)`, `read(path)` the
 bytes of a file or `null`, `write(path, text)`. `host_browser.js` has two: a directory of the File System Access API,
-and files held in memory.
+and files held in memory; `host_server.js` has the third, the server of a terminal.
 
 ## Files
 
@@ -81,8 +106,9 @@ and files held in memory.
 | `store.js` | the state and what is done to it: the project, the page open, the selection, the history |
 | `description.js`, `history.js` | a description read, changed and written back; undo and redo |
 | `host_browser.js` | the files of a project in a browser |
+| `host_server.js` | the files of a project through the server of a terminal, `tools/dgx_ui_serve.py` |
 | `lang.js`, `lang/ru.js` | the words of the page, English and Russian |
 | `vendor/` | Vue and Pinia, the same files as the editor of [boards](https://github.com/jef-sure/esp32-component-boards) ships, with their licences |
 | `preview/` | the preview the panel draws with |
 
-What it takes: 768 KB on the disk, 285 KB when a server sends it with gzip, of which the preview is 467 KB and 188 KB.
+What it takes: 763 KB on the disk, 286 KB when a server sends it with gzip, of which the preview is 464 KB and 187 KB.

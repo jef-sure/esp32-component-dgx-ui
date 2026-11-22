@@ -13,6 +13,9 @@ nothing of it goes on a chip.
 A description can be looked at before it is made C: [the preview](../editor/preview/README.md) draws it in a
 browser as the board draws it, on the same names file, and says where the loader refuses it.
 
+Beside it here, `dgx_ui_serve.py` serves the builder of pages from a terminal, for a browser that gives a page no
+folder to open: [From a terminal](../editor/README.md#from-a-terminal).
+
 ## From CMake
 
 A program built by ESP-IDF does not run the tool itself. Two calls in the CMakeLists of a component, after

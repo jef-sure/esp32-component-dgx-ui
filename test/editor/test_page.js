@@ -4,7 +4,8 @@
  * given a project in memory, as its host gives one with no File System Access; then it is worked as a person works it:
  * a click on the panel selects the widget under it and its outline lies on its box, a property typed, Ctrl+Z, Delete,
  * the arrows of the tree, Ctrl+S and the word the page asks before writing a description in its own form, the language
- * changed; a screenshot is kept. No error may reach the console.
+ * changed; a screenshot is kept. Then the same project on the disk through tools/dgx_ui_serve.py, by the link it prints:
+ * opened at once, a description saved into its file, a CMakeLists.txt refused. No error may reach the console.
  *
  * Chrome is CHROME, else google-chrome, chromium or chromium-browser on the PATH. With none, the test fails, saying so,
  * unless BUILDER_PAGE_NO_CHROME=skip, for a machine that has none.
@@ -80,7 +81,7 @@ function devtools(url) {
     const flags = ['--headless=new', `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--no-first-run', '--no-default-browser-check',
                    '--disable-gpu', '--disable-extensions', '--window-size=1400,900', 'about:blank'];
     const browser = spawn(binary, flags, { stdio: 'ignore' });
-    let protocol = null;
+    let protocol = null, server = null;
     try {
         let port = null;
         for (let k = 0; k < 200 && !port; ++k) {
@@ -279,10 +280,61 @@ function devtools(url) {
         const shot = await send('Page.captureScreenshot', { format: 'png' });
         fs.writeFileSync(screenshot, Buffer.from(shot.data, 'base64'));
         check(fs.statSync(screenshot).size > 10000, 'a screenshot kept: ' + screenshot);
+
+        /* the same project on the disk, through tools/dgx_ui_serve.py: the page by the link it prints opens the project at
+           once, with nothing to choose; a description saved goes to the file, and a file the build reads is refused,
+           saying why */
+        const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'dgx-ui-served-')), project = path.join(folder, 'demo');
+        for (const [where, text] of Object.entries(encoded)) {
+            fs.mkdirSync(path.dirname(path.join(project, where)), { recursive: true });
+            fs.writeFileSync(path.join(project, where), Buffer.from(text, 'base64'));
+        }
+        server = spawn('python3', [path.join(ROOT, 'tools', 'dgx_ui_serve.py'), '--project', project, '--port', '0'], { stdio: ['ignore', 'pipe', 'inherit'] });
+        const link = await new Promise((done, fail) => {
+            let out = '';
+            server.stdout.on('data', (data) => {
+                out += data;
+                const found = out.match(/^(http:\/\/127\.0\.0\.1:\d+\/editor\/#project=[\w-]+)$/m);
+                if (found) done(found[1]);
+            });
+            server.once('exit', () => fail(new Error('the server stopped: ' + out)));
+            setTimeout(() => fail(new Error('no link from the server in 20 s: ' + out)), 20000);
+        });
+        await send('Page.navigate', { url: link });
+        await until(`typeof useDgxUiBuilder === 'function' && ${store}.ready && ${store}.project?.name === 'demo' && ${store}.current === 'main/home.json'`,
+                    'the served page opens its project at once', 20000);
+        check(await evaluate(`![...document.querySelectorAll('.dgx-ui-builder header button')].some((one) => one.textContent.includes('Open a project')) &&
+                              !document.querySelector('.dgx-ui-builder input[type=file]')`), 'no folder to choose on the served page');
+        await until(`${store}.drawn > 0`, 'its panel drawn');
+        check(await evaluate(`(async () => { const host = ${store}.raw.host;
+                                             return (await host.read('main/none.json')) === null && (await host.list('nothing')) === null &&
+                                                    (await host.list('main')).some((entry) => entry.name === 'home.json'); })()`),
+              'a file and a folder not there: null, as the host of the disk gives them');
+        await evaluate(`(${store}.select([0]), ${store}.setPair('want', '0', '48'))`);
+        await evaluate(`${store}.save(true)`);
+        await until(`!!document.querySelector('.dgx-ui-builder .asking')`, 'the word asked before writing in the builder\'s form');
+        await evaluate(`document.querySelector('.dgx-ui-builder .asking button').click()`);
+        const home = path.join(project, 'main', 'home.json');
+        let written = '';
+        for (const end = Date.now() + 10000; Date.now() < end && !written.includes('"want": [0, 48]'); await sleep(100)) written = fs.readFileSync(home, 'utf8');
+        check(written.includes('"want": [0, 48]'), 'saved to the file on the disk: ' + written.slice(0, 200));
+        check(await evaluate(`!${store}.dirty.length && ${store}.raw.host.inPlace`), 'nothing edited after, written in place');
+        const errorsBefore = errors.length;
+        const refusal = await evaluate(`${store}.raw.host.write('main/CMakeLists.txt', 'spoiled').then(() => 'written', (error) => error.message)`);
+        await sleep(200);
+        /* the browser's own line of the answer refused, the one error expected */
+        const refused = errors.splice(errorsBefore).filter((line) => !/status of 400/.test(line));
+        errors.push(...refused);
+        check(/build's own/.test(refusal) && fs.readFileSync(path.join(project, 'main', 'CMakeLists.txt'), 'utf8') === files['main/CMakeLists.txt'],
+              'a CMakeLists.txt refused, saying why: ' + refusal);
+        server.kill('SIGKILL');
+        server = null;
+        fs.rmSync(folder, { recursive: true, force: true });
         check(!errors.length, 'no error in the console: ' + errors.join(' | '));
     } catch (error) {
         check(false, String(error && error.stack ? error.stack : error));
     } finally {
+        server?.kill('SIGKILL');
         protocol?.close();
         browser.kill('SIGKILL');
         await new Promise((done) => (browser.exitCode !== null ? done() : browser.once('exit', done)));
