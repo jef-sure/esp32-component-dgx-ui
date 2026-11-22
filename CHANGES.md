@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.52 - 2026-11-22
+
+- The builder served from a terminal, for a browser that gives a page no folder to open, as VS Code's:
+  `tools/dgx_ui_serve.py`, run in a project's folder, prints a link that opens the project at once; reached from this
+  computer only, it writes the builder's descriptions, appearances and names files, nothing else.
+- DGX ^0.12.3: its colours' names of CSS with CSS's values.
+- Docs: the builder from a terminal; the getting-started program in `DGX_LIME` and `DGX_GRAY`.
+
 ## 0.0.51 - 2026-11-22
 
 - A bitmap variant of points: `.points = true` in `dgx_ui_font_variant_t` draws every pixel of its font as a square of
