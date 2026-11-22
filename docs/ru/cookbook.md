@@ -1020,6 +1020,32 @@ static void texts_add(dgx_ui_t *ui, int parent)
 - Программа, которая называет этот облик, несёт примерно на 2,5 КБ кода больше; программа с однострочными
   надписями — нет.
 
+Разговор, который ждёт свой текст, как диалог в игре: клавиша, нажатая, пока буквы появляются, показывает их все
+сразу, а нажатая, когда всё показано, ведёт разговор дальше. Что сейчас, говорит `dgx_ui_text_state()`:
+
+```c
+static const char *const talk[] = {"The guard looks up from the fire.", "\"Nobody passes the gate at night,\" says the guard."};
+static int               talk_at;
+
+/* the key of the talk, on a text of several lines that appears letter by letter */
+static void talk_key(dgx_ui_t *ui, int text_i)
+{
+    const int state = dgx_ui_text_state(ui, text_i);
+    if (state & DGX_UI_TEXT_COMING) {
+        dgx_ui_text_whole(ui, text_i); /* the letters still coming, all at the next pass */
+    } else if ((state & DGX_UI_TEXT_SEEN) && talk_at + 1 < (int)(sizeof talk / sizeof talk[0])) {
+        dgx_ui_text_set(ui, text_i, talk[++talk_at]); /* all shown: the next line, appearing as the first did */
+    }
+    /* neither: an important text still scrolling to its end; the key waits for it */
+}
+```
+
+- «Показан» — это то, что показывает облик, а не каждая буква: неважный текст, которому мало места, и строка,
+  обрезанная многоточием, показаны с первого же прохода. Важный — когда видна его последняя строка.
+- Важный текст, показанный целиком, прокручивается с этого прохода, первые строки стоят `scroll_ms`, как всегда.
+  Клавиша во время прокрутки ничего не меняет: читателя не торопят мимо строк, которые он ещё не прочёл.
+- Скрытый текст или текст, целиком закрытый всплывающим окном, показанным не считается, пока его не нарисуют.
+
 ## Журнал последних строк
 
 Журнал показывает последние пришедшие строки: новая добавляется снизу, а когда места нет, самые старые уходят.

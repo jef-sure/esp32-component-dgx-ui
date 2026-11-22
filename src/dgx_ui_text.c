@@ -60,7 +60,8 @@ void (*dgx_ui_text_shown_over)(dgx_ui_t *ui, const dgx_ui_textbox_t *box);
 static void restart(dgx_ui_textbox_t *box, const dgx_ui_widget_t *w)
 {
     if (w->kind != DGX_UI_LIST && w->kind != DGX_UI_DROPDOWN) box->top = 0;
-    box->flags = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_COUNTED));
+    box->flags = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_COUNTED |
+                                                                 DGX_UI_TEXTBOX_SEEN | DGX_UI_TEXTBOX_WHOLE));
 }
 
 /* the text of widget i set: drawn and fitted again, begun anew, and the lists over its tree that show its box told */
@@ -123,7 +124,30 @@ void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms)
     dgx_ui_textbox_t *box = n && n->widget ? n->widget->text : NULL;
     if (!box) return;
     box->letter_ms = (uint8_t)(letter_ms < 0 ? 0 : letter_ms > 255 ? 255 : letter_ms);
-    box->flags     = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED));
+    box->flags     = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_SEEN |
+                                                                       DGX_UI_TEXTBOX_WHOLE));
+    n->marks |= DGX_UI_MARK_CHANGED;
+    dgx_ui_touched(ui, i);
+}
+
+int dgx_ui_text_state(const dgx_ui_t *ui, int i)
+{
+    const dgx_ui_node_t    *n   = dgx_ui_node(ui, i);
+    const dgx_ui_textbox_t *box = n && n->widget ? n->widget->text : NULL;
+    if (!box) return 0;
+    if (box->flags & DGX_UI_TEXTBOX_SEEN) return DGX_UI_TEXT_SEEN;
+    return box->letter_ms && !(box->flags & DGX_UI_TEXTBOX_CAME) ? DGX_UI_TEXT_COMING : 0;
+}
+
+void dgx_ui_text_whole(dgx_ui_t *ui, int i)
+{
+    dgx_ui_node_t    *n   = dgx_ui_node(ui, i);
+    dgx_ui_textbox_t *box = n && n->widget ? n->widget->text : NULL;
+    if (!box || (box->flags & DGX_UI_TEXTBOX_CAME)) return; /* all came: scrolling or at its end, left as it is */
+    /* START with CAME: the time counts again from the next pass, for the scroll alone, as WHOLE gives the letters no time
+       there; START clears CAME where it begins a text anew (restart(), dgx_ui_text_appear()), not where it is set
+       beside it, as here, and the looks keep a CAME they find */
+    box->flags |= DGX_UI_TEXTBOX_START | DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_WHOLE;
     n->marks |= DGX_UI_MARK_CHANGED;
     dgx_ui_touched(ui, i);
 }

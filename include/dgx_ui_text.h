@@ -82,6 +82,8 @@ enum {
     DGX_UI_TEXTBOX_CAME    = 1u << 1, ///< all its letters came: no time counted for them any more
     DGX_UI_TEXTBOX_ENDED   = 1u << 2, ///< an important text scrolled to its end: no time counted for it any more
     DGX_UI_TEXTBOX_COUNTED = 1u << 3, ///< lines and letters counted for the text, width and variant as they are
+    DGX_UI_TEXTBOX_SEEN    = 1u << 4, ///< its look showed all it will show of the text (dgx_ui_text_state())
+    DGX_UI_TEXTBOX_WHOLE   = 1u << 5, ///< its letters shown whole by the program (dgx_ui_text_whole()): no time for them
 };
 
 /**
@@ -163,6 +165,38 @@ void dgx_ui_text_written(dgx_ui_t *ui, int i);
  * ms; 0 shows it at once. A text set after this appears too; the painter asks for time while it appears.
  */
 void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms);
+
+/** What a widget's text has shown, as the painter last drew it: bits of dgx_ui_text_state(). */
+enum {
+    DGX_UI_TEXT_COMING = 1u << 0, ///< its letters still coming (dgx_ui_text_appear()), or not drawn yet since they were asked to
+    DGX_UI_TEXT_SEEN   = 1u << 1, ///< its look showed all it will show of it (below)
+};
+
+/**
+ * @brief What widget i's text has shown: DGX_UI_TEXT_COMING, DGX_UI_TEXT_SEEN, or neither: drawn, every letter come,
+ * an important text still scrolling to its end (or a text shown at once not drawn yet). 0 for no widget or no text.
+ *
+ * SEEN is set by the painter's own pass when the widget's look drew it, wholly or the part a cover leaves, and asked
+ * for no more time; a text set anew, or dgx_ui_text_appear(), clears it. It is "the look showed all it will show", not
+ * "every letter is on the screen": a text of one line cut with an ellipsis, or lines of a text that is not important
+ * cut by a box too small, are SEEN at their first pass. By the way the text is drawn:
+ *  - one line in a bitmap font (dgx_ui_look_text, and the captions of buttons, fields, lists, checks and dropdowns):
+ *    no letters come; SEEN from its first pass;
+ *  - lines in a bitmap font (dgx_ui_look_lines): COMING while its letters come; SEEN once all came and, an important
+ *    text longer than its box, its last line is shown;
+ *  - one handwritten line: COMING while the pen writes it; SEEN once written;
+ *  - handwritten lines (dgx_ui_look_hand_lines): as lines in a bitmap font.
+ * A hidden widget, or one wholly under a cover, is not drawn, and not SEEN.
+ */
+int dgx_ui_text_state(const dgx_ui_t *ui, int i);
+
+/**
+ * @brief Widget i's letters still coming shown whole at the next pass of the painter, as if they had all come; an
+ * important text's scroll then counts from that pass, its first lines shown scroll_ms as always. A text whose letters
+ * all came, scrolling or at its end, is left as it is: its scroll never begins again. The pace of dgx_ui_text_appear()
+ * stays, so a text set after this appears again. No widget, no text: nothing.
+ */
+void dgx_ui_text_whole(dgx_ui_t *ui, int i);
 
 /**
  * @brief The lines of a text that is not important moved by hand: so many up (down when negative), as far as there

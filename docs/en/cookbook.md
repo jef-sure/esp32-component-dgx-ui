@@ -1007,6 +1007,32 @@ static void texts_add(dgx_ui_t *ui, int parent)
 - A word wider than the line is cut by its letters; `\n` ends a line.
 - A program that names this look carries about 2.5 KB more code; a program of one-line labels does not.
 
+A talk that waits for its text, as a game's dialog does: a key while the letters come shows them all at once, and a
+key once all is shown goes on. `dgx_ui_text_state()` says which:
+
+```c
+static const char *const talk[] = {"The guard looks up from the fire.", "\"Nobody passes the gate at night,\" says the guard."};
+static int               talk_at;
+
+/* the key of the talk, on a text of several lines that appears letter by letter */
+static void talk_key(dgx_ui_t *ui, int text_i)
+{
+    const int state = dgx_ui_text_state(ui, text_i);
+    if (state & DGX_UI_TEXT_COMING) {
+        dgx_ui_text_whole(ui, text_i); /* the letters still coming, all at the next pass */
+    } else if ((state & DGX_UI_TEXT_SEEN) && talk_at + 1 < (int)(sizeof talk / sizeof talk[0])) {
+        dgx_ui_text_set(ui, text_i, talk[++talk_at]); /* all shown: the next line, appearing as the first did */
+    }
+    /* neither: an important text still scrolling to its end; the key waits for it */
+}
+```
+
+- Seen is what the look shows, not every letter: a text that is not important and has too little room, or a line
+  cut with an ellipsis, is seen at its first pass. An important one is seen at its last line.
+- An important text shown whole scrolls from that pass on, its first lines shown `scroll_ms` as always. A key while
+  it scrolls changes nothing: the reader is not hurried past lines not read yet.
+- A text hidden, or wholly under a popup, is not seen until it is drawn.
+
 ## A log of the last lines
 
 A log shows the last lines that came: a new line is added at the bottom, and when there is no room the oldest go.

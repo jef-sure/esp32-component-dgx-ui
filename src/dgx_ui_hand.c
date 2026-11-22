@@ -146,14 +146,15 @@ bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     line.total_ms        = box->letter_ms ? (uint32_t)letters_of(text) * box->letter_ms : 0;
     line.since_ms        = since;
     line.elapsed_ms      = now_ms - since;
-    if (line.elapsed_ms > line.total_ms) line.elapsed_ms = line.total_ms;
+    /* all came: its time past, or shown whole by the program */
+    if (line.elapsed_ms > line.total_ms || (box->flags & DGX_UI_TEXTBOX_CAME)) line.elapsed_ms = line.total_ms;
     line.came   = line.elapsed_ms >= line.total_ms;
     line.effort = line.total_ms ? dgx_hw_text_effort(variant->font, text, variant->joined, &line.ctx.pace) : 0;
     if (line.total_ms) line.to = line.came ? line.effort + 1.0f : line.effort * (float)line.elapsed_ms / (float)line.total_ms; /* +1: its last stroke too */
     line.anew         = start || (node->marks & (DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT));
     const bool commit = !paint->composing && paint->part + 1 >= paint->parts; /* the painter's own pass, its last part */
     if (!line.came) dgx_ui_wake_in(paint, DGX_UI_HAND_FRAME_MS); /* the next frame of the pen */
-    if (commit) box->since_ms = since, box->flags &= (uint8_t)~DGX_UI_TEXTBOX_START;
+    if (commit) box->since_ms = since, box->flags = (uint8_t)((box->flags & ~DGX_UI_TEXTBOX_START) | (line.came ? DGX_UI_TEXTBOX_CAME : 0));
     if ((node->widget->flags & DGX_UI_CANVAS) && variant->hand->canvas && variant->hand->canvas->line(paint, ui, i, variant, text, &line, params->ink))
         return !line.came;
     /* straight on the screen: the box laid and all of it written when it is anew or whole; else the new strokes only */

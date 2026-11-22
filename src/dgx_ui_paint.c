@@ -13,6 +13,7 @@
 
 #include "dgx_draw.h"
 #include "dgx_ui_paint_priv.h"
+#include "dgx_ui_text.h"
 #include "esp_log.h"
 
 static const char *TAG = "dgx_ui";
@@ -163,6 +164,8 @@ static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool
         more         = draw_parts(paint, ui, i, look, &seen, now_ms);
         if (!around) whole = paint->whole; /* a look may find it has to be drawn whole: its children too then */
         unseen = paint->parts == 0;
+        /* its text drawn and no more time asked: the look showed all it will show of it (dgx_ui_text_state()) */
+        if (!unseen && !more && w->widget->text) w->widget->text->flags |= DGX_UI_TEXTBOX_SEEN;
     }
     if (!unseen) {
         w->marks &= (uint8_t)~DGX_UI_MARKS_TO_DRAW;

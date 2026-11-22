@@ -641,7 +641,9 @@ int dgx_ui_hit(dgx_ui_t *ui, int x, int y);
  * the window follows the pick, as DGX-GE's list does; let go without having moved, a click picks the row it went
  * down on.
  *
- * @return true when a widget took it: it went down on one, and holds it till it goes up.
+ * @return true when a widget took it: it went down on one, and holds it till it goes up; or a popup of
+ * DGX_UI_POPUP_MODAL over the tree did: every pointer that reaches it is taken, down, moving or up, inside it or out,
+ * but one of DGX_UI_POPUP_PLACE lets a finger outside it go to the trees under it.
  */
 bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *pointer);
 

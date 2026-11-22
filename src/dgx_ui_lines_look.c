@@ -87,7 +87,8 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const int      last_top  = total > rows ? total - rows : 0;
     const uint32_t elapsed   = now_ms - since; /* by difference: now_ms runs over in 49.7 days */
     const bool     came      = !box->letter_ms || (box->flags & DGX_UI_TEXTBOX_CAME);
-    const uint32_t appear_ms = box->letter_ms ? (uint32_t)all_letters * box->letter_ms : 0;
+    /* the letters' time, none when the program showed them whole (dgx_ui_text_whole()): the scroll counts from then */
+    const uint32_t appear_ms = box->letter_ms && !(box->flags & DGX_UI_TEXTBOX_WHOLE) ? (uint32_t)all_letters * box->letter_ms : 0;
     int            come      = came ? all_letters : (int)(elapsed / box->letter_ms);
     if (come > all_letters) come = all_letters;
     int  top  = box->top;

@@ -278,6 +278,70 @@ int main(void)
         CHECK(activated_count == 1 && activated[0] == 5);
         dgx_ui_free(&tree), dgx_ui_free(&hint);
     }
+    /* 6: a popup of labels alone over a tree of labels and a button: modal, it takes every pointer that reaches it, down,
+       moving and up, inside and outside, one rule, and the tree under it gets none; not modal, it takes what a widget
+       of it takes, inside nothing, and outside the tree under it has the finger */
+    {
+        static dgx_ui_node_t         tn[3], ln[2];
+        static dgx_ui_t              tree, labels;
+        static char                  word_buf[8];
+        static dgx_ui_textbox_t      word_box;
+        static const dgx_ui_widget_t word_w = {.kind = DGX_UI_LABEL, .text = &word_box, .want_h = 14};
+        dgx_ui_textbox_init(&word_box, word_buf, sizeof word_buf, 1, &style);
+        const unsigned flags_of[] = {DGX_UI_POPUP_MODAL, DGX_UI_POPUP_MODAL | DGX_UI_POPUP_CLOSE_OUTSIDE, 0, DGX_UI_POPUP_CLOSE_OUTSIDE};
+        for (size_t k = 0; k < sizeof flags_of / sizeof *flags_of; ++k) {
+            const unsigned flags = flags_of[k];
+            const bool     modal = flags & DGX_UI_POPUP_MODAL;
+            dgx_ui_init(&tree, tn, 3, 1), dgx_ui_add(&tree, -1, &root_w);
+            dgx_ui_add(&tree, 0, &under_w);
+            const int b = dgx_ui_add(&tree, 0, &main_bt);
+            dgx_ui_init(&labels, ln, 2, 1), dgx_ui_add(&labels, -1, &pop_w), dgx_ui_add(&labels, 0, &word_w);
+            dgx_ui_text_set(&labels, 1, "word");
+            dgx_ui_set_root(&tree, 0, 0, PANEL_W, PANEL_H);
+            dgx_ui_layout(&tree);
+            const dgx_ui_node_t *bn = dgx_ui_node(&tree, b);
+            CHECK(dgx_ui_popup_open(&tree, &labels, 0, bn->y + bn->h + 4, PANEL_W, 20, flags));
+            dgx_ui_layout(&labels);
+            const dgx_ui_node_t *word = dgx_ui_node(&labels, 1);
+            const int            ix = word->x + 2, iy = word->y + 2, ox = bn->x + 2, oy = bn->y + 2;
+            activated_count = 0;
+            /* inside, over a label: down, moving, up */
+            const bool down_in = dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)ix, .y = (int16_t)iy, .down = true, .pressed = true});
+            const bool move_in = dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(ix + 1), .y = (int16_t)iy, .down = true});
+            const bool up_in   = dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(ix + 1), .y = (int16_t)iy, .released = true});
+            CHECK(down_in == modal && move_in == modal && up_in == modal);
+            CHECK(tree.pressed == -1 && activated_count == 0 && tree.popup == &labels);
+            /* outside, over the tree's button */
+            const bool down_out = dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)ox, .y = (int16_t)oy, .down = true, .pressed = true});
+            if (flags & DGX_UI_POPUP_CLOSE_OUTSIDE) {
+                CHECK(down_out && tree.popup == NULL && tree.pressed == -1); /* closed by it, the finger spent */
+                dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)ox, .y = (int16_t)oy, .released = true});
+                CHECK(activated_count == 0);
+            } else {
+                const bool move_out = dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(ox + 1), .y = (int16_t)oy, .down = true});
+                const bool up_out   = dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(ox + 1), .y = (int16_t)oy, .released = true});
+                if (modal) CHECK(down_out && move_out && up_out && activated_count == 0); /* nothing under it */
+                else CHECK(down_out && up_out && activated_count == 1 && activated[0] == 1); /* the tree's button clicked */
+                dgx_ui_popup_close(&tree);
+            }
+            dgx_ui_free(&tree), dgx_ui_free(&labels);
+        }
+        /* a button in a modal popup: pressed and clicked as before */
+        dgx_ui_init(&tree, tn, 3, 1), dgx_ui_add(&tree, -1, &root_w), dgx_ui_add(&tree, 0, &under_w);
+        dgx_ui_init(&labels, ln, 2, 1), dgx_ui_add(&labels, -1, &pop_w);
+        const int ok = dgx_ui_add(&labels, 0, &pop_bt);
+        dgx_ui_set_root(&tree, 0, 0, PANEL_W, PANEL_H);
+        CHECK(dgx_ui_popup_open(&tree, &labels, 0, 30, PANEL_W, 24, DGX_UI_POPUP_MODAL));
+        dgx_ui_layout(&labels);
+        const dgx_ui_node_t *okn = dgx_ui_node(&labels, ok);
+        activated_count = 0;
+        CHECK(dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(okn->x + 2), .y = (int16_t)(okn->y + 2), .down = true, .pressed = true}));
+        CHECK(labels.pressed == ok);
+        CHECK(dgx_ui_pointer(&tree, &(dgx_ui_pointer_t){.x = (int16_t)(okn->x + 2), .y = (int16_t)(okn->y + 2), .released = true}));
+        CHECK(activated_count == 1 && activated[0] == 2);
+        dgx_ui_popup_close(&tree);
+        dgx_ui_free(&tree), dgx_ui_free(&labels);
+    }
     v->destroy(&v);
     free(panel);
     CHECK_DONE();

@@ -135,6 +135,8 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const bool     came       = !box->letter_ms || (box->flags & DGX_UI_TEXTBOX_CAME) || elapsed >= total_ms;
     const uint32_t written_ms = came ? total_ms : elapsed;
     const uint32_t unit_ms    = total_ms / 65536u + 1u;
+    /* the scroll from when all came: after the letters' time, or from the pass the program showed them whole */
+    const uint32_t scroll_from = box->flags & DGX_UI_TEXTBOX_WHOLE ? 0 : total_ms;
     /* an important text too long: a line up every scroll_ms once all came, as the look of lines does */
     const bool important = style->flags & DGX_UI_TEXT_IMPORTANT;
     const int  last_top  = total > rows ? total - rows : 0;
@@ -144,7 +146,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
         if (box->flags & DGX_UI_TEXTBOX_ENDED) {
             top = last_top;
         } else {
-            top = !came || elapsed < total_ms ? 0 : (int)((elapsed - total_ms) / style->scroll_ms);
+            top = !came || elapsed < scroll_from ? 0 : (int)((elapsed - scroll_from) / style->scroll_ms);
             if (top > last_top) top = last_top;
             more |= top < last_top;
         }
@@ -152,7 +154,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     if (top > last_top) top = last_top;
     const bool anew = start || (node->marks & (DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT)) || other || top != box->top;
     if (!came) dgx_ui_wake_in(paint, DGX_UI_HAND_FRAME_MS); /* the next frame of the pen */
-    else if (more) dgx_ui_wake_in(paint, total_ms + (uint32_t)(top + 1) * style->scroll_ms - elapsed);
+    else if (more) dgx_ui_wake_in(paint, scroll_from + (uint32_t)(top + 1) * style->scroll_ms - elapsed);
 
     /* where: into the widget's canvas when its handwriting writes into one, else straight */
     bool          made   = false;

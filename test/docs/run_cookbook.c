@@ -886,6 +886,20 @@ int main(int argc, char **argv)
     texts_add(&ui, root);
     bool more = dgx_ui_paint(&ui, &paint, 0);
     printf("lines: asks for time while the letters come: %d\n", more);
+    /* the talk that waits for its text, on the hint that appears letter by letter: a key while it comes shows it all
+       at the next pass, a key once it is seen sets the next line, which appears again */
+    int hint = -1;
+    for (int k = 0; k < ui.count; ++k) hint = dgx_ui_node(&ui, k) && dgx_ui_node(&ui, k)->widget == &hint_w ? k : hint;
+    dgx_ui_text_set(&ui, hint, talk[0]);
+    dgx_ui_paint(&ui, &paint, 10);
+    const int talk_coming = dgx_ui_text_state(&ui, hint);
+    talk_key(&ui, hint);
+    dgx_ui_paint(&ui, &paint, 11);
+    const int talk_seen = dgx_ui_text_state(&ui, hint);
+    talk_key(&ui, hint);
+    dgx_ui_paint(&ui, &paint, 12);
+    printf("talk: coming %d; a key, and at the next pass seen %d; a key more: line %d, coming again %d\n", talk_coming == DGX_UI_TEXT_COMING,
+           talk_seen == DGX_UI_TEXT_SEEN, talk_at, dgx_ui_text_state(&ui, hint) == DGX_UI_TEXT_COMING);
     buttons_t b = {.held = DGX_UI_PAD_DOWN};
     dgx_ui_msg_value(&msg, MSG_BUTTONS, &b, sizeof b), buttons_message(&ui, &msg, 100);
     const int f1 = ui.focus;

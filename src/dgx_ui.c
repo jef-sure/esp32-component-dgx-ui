@@ -822,7 +822,7 @@ bool dgx_ui_pointer(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         }
         /* a finger down on the popup or on one over it is theirs or nobody's, whatever the flags: no widget they
            hide is pressed; the one on top first */
-        if (p->pressed && inside) return dgx_ui_pointer(pop, p);
+        if (p->pressed && inside) return dgx_ui_pointer(pop, p) || (ui->popup_flags & DGX_UI_POPUP_MODAL); /* a modal takes it, as all */
         if (dgx_ui_pointer(pop, p)) return true; /* held by a popup's widget, at whatever level; or one over closed */
         /* modal: nobody's; a page in home's place lets the finger outside it, or one that moves held by none of them,
            down to the trees under it */
