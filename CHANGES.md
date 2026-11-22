@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.51 - 2026-11-22
+
+- A bitmap variant of points: `.points = true` in `dgx_ui_font_variant_t` draws every pixel of its font as a square of
+  the tree's unit, crisp, and every measure of the text counts it; in an appearance `"points": true`, refused beside
+  `"hand"`. The variant is 20 bytes.
+- `dgx_ui_variant_line()` and `dgx_ui_textbox_height()` take the tree; NULL for a unit of 1.
+- Docs: a font as it is in the API page and in the recipe of one tree for every board.
+
 ## 0.0.50 - 2026-11-22
 
 - A text's state for the program: `dgx_ui_text_state()`, whether its letters are still coming and whether its look has
