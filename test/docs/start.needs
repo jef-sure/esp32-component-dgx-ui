@@ -1,0 +1,11 @@
+# The fonts of the getting-started page's program, as its main/CMakeLists.txt asks for them: the number large, of its
+# digits alone; the other texts of every letter of its main.c, here of picture_start.c, which holds the same code.
+rules fonts.rules
+need large
+size 32px
+bits 4
+letters 0123456789
+need body
+size 13px
+bits 4
+text picture_start.c

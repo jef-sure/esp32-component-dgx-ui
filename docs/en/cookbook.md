@@ -1339,7 +1339,9 @@ static void colors_set(dgx_ui_t *ui, dgx_ui_paint_t *paint, const uint32_t *tabl
 }
 ```
 
-A table is filled for the screen by `dgx_screen_rgb(scr, r, g, b)`, as in [Getting started](getting-started.md).
+A table is filled for the screen by `dgx_screen_rgb(scr, r, g, b)`, which packs a colour as the depth of the screen
+takes it, or by DGX's named colours packed for a depth, `DGX_BLACK(DGX_RGB_16)`, as in
+[Getting started](getting-started.md).
 
 ## Showing, hiding, disabling
 

@@ -16,12 +16,17 @@ run-cookbook:
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/run_cookbook $(OUT)
 
 # The pictures of docs/images but the ring's and the strip's, as PPM in $(OUT): make ... pictures OUT=<directory>; their
-# fonts made by DGX of ../docs/fonts.needs, as check_docs.py makes them for the pages' code
+# fonts made by DGX of ../docs/fonts.needs, as check_docs.py makes them for the pages' code; the getting-started page's
+# of ../docs/start.needs, as its program asks for them
 pictures:
 	mkdir -p $(BUILD) $(OUT)
 	python3 $(DGX)/font2c/dgx_fonts.py build ../docs/fonts.needs $(BUILD)/pictures_fonts
 	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(BUILD)/pictures_fonts -o $(BUILD)/pictures ../docs/pictures.c \
 		$(BUILD)/pictures_fonts/dgx_fonts.c $(PAINT) $(DGX_SRCS) -lm
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/pictures $(OUT)
+	python3 $(DGX)/font2c/dgx_fonts.py build ../docs/start.needs $(BUILD)/start_fonts
+	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(BUILD)/start_fonts -o $(BUILD)/picture_start ../docs/picture_start.c \
+		$(BUILD)/start_fonts/dgx_fonts.c $(PAINT) $(DGX_SRCS) -lm
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/picture_start $(OUT)
 
 .PHONY: run-cookbook pictures

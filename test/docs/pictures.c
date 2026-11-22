@@ -1,6 +1,6 @@
 /* The pictures of the documentation, drawn by dgx-ui itself on a virtual screen of DGX; the code of the pages is here. Their
-   letters are the fonts of the cookbook's needs, soft-edged, made by DGX from test/docs/fonts.needs (run.mk), of the
-   sizes the getting-started page's program asks for too. */
+   letters are the fonts of the cookbook's needs, soft-edged, made by DGX from test/docs/fonts.needs (run.mk); the
+   picture of the getting-started page is picture_start.c's. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

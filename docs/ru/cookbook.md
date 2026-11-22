@@ -1354,7 +1354,9 @@ static void colors_set(dgx_ui_t *ui, dgx_ui_paint_t *paint, const uint32_t *tabl
 }
 ```
 
-Таблица заполняется под экран вызовами `dgx_screen_rgb(scr, r, g, b)`, как в [Начале работы](getting-started.md).
+Таблица заполняется под экран вызовами `dgx_screen_rgb(scr, r, g, b)`, который упаковывает цвет так, как его берёт
+глубина экрана, или именованными цветами DGX, упакованными под глубину: `DGX_BLACK(DGX_RGB_16)`, как в
+[Начале работы](getting-started.md).
 
 ## Показать, скрыть, отключить
 
