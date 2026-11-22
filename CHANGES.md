@@ -1,5 +1,14 @@
 # Changes
 
+## 0.0.49 - 2026-11-22
+
+- Sizes, places, pads and gaps in percent: `DGX_UI_PERCENT_W`, `_H`, `_X`, `_Y`, `_PAD`, `_GAP` and `DGX_UI_PERCENT()`;
+  in a description `"50%"`, which a loader before 0.0.49 refuses as SYNTAX.
+- A widget's `state` follows its `kind`, its `flags` are 16 bits, and `pad` and `gap` 16 bits, up to 32767 points;
+  still 56 bytes.
+- dgx_ui_c writes percents; the preview and the builder take them.
+- Docs: the recipe of one tree on every board.
+
 ## 0.0.48 - 2026-11-22
 
 - The builder of pages, editor/index.html, a first cut opened from the disk: a project's pages found by its

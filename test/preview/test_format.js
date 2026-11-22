@@ -36,6 +36,10 @@ let failures = 0, held = 0;
         widget[key] = value;
         return widget;
     };
+    /* a percent at the edges the format says and past them, and strings of no percent's form */
+    const percentCases = ({min, max}) => [[`${min}%`, [OK]], [`${max}%`, [OK]], ['0%', [OK]], ['12.5%', [OK]], [`${min - 1}%`, [RANGE]],
+                                          [`${Math.floor(max) + 1}%`, [RANGE]], ['1.234%', [RANGE]], ['50', [SYNTAX]], ['50 %', [SYNTAX]],
+                                          ['+5%', [SYNTAX]], ['05%', [SYNTAX]], ['%', [SYNTAX]]];
     const kinds = format.kinds;
     const byKey = Object.fromEntries(format.keys.map(entry => [entry.key, entry]));
     if (kinds.length !== 13 || format.keys.length !== 24 || format.version !== 1) console.error('  the format\'s shape'), ++failures;
@@ -57,11 +61,17 @@ let failures = 0, held = 0;
                 expect(of(kind, entry.key, entry.min), [OK], at), expect(of(kind, entry.key, entry.max), [OK], at);
                 expect(of(kind, entry.key, entry.min - 1), [RANGE], at), expect(of(kind, entry.key, entry.max + 1), [RANGE], at);
                 expect(of(kind, entry.key, 'x'), [SYNTAX], at);
+                for (const [value, codes] of entry.percent ? percentCases(entry.percent) : [])
+                    expect(of(kind, entry.key, value), codes, at + ' in percent');
                 break;
             case 'pair':
                 expect(of(kind, entry.key, [entry.min, entry.max]), [OK], at), expect(of(kind, entry.key, [entry.max, entry.min]), [OK], at);
                 expect(of(kind, entry.key, [entry.min - 1, 0]), [RANGE], at), expect(of(kind, entry.key, [0, entry.max + 1]), [RANGE], at);
                 expect(of(kind, entry.key, [1]), [SYNTAX], at);
+                for (const [value, codes] of entry.percent ? percentCases(entry.percent) : []) {
+                    expect(of(kind, entry.key, [value, 0]), codes, at + ' in percent');
+                    expect(of(kind, entry.key, [0, value]), codes, at + ' in percent');
+                }
                 break;
             case 'name':
                 expect(of(kind, entry.key, 'a_name'), [OK], at);
@@ -103,6 +113,8 @@ let failures = 0, held = 0;
         }
     }
     if (!byKey.children || byKey.children.kinds.join() !== 'box,frame,own') console.error('  the kinds that hold children'), ++failures;
+    if (['at', 'want', 'pad', 'gap'].some(key => !byKey[key].percent) || format.keys.filter(entry => entry.percent).length !== 4)
+        console.error('  the keys that take a percent'), ++failures;
     if (failures) {
         console.error(`test_format.js: ${failures} of ${held + failures} apart from the loader`);
         process.exit(1);

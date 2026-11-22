@@ -196,6 +196,20 @@ static bool fails_with(const char *json, int code, int offset, const char *name)
     return right;
 }
 
+/* the root widget of a page loaded alone, or NULL refused */
+static const dgx_ui_widget_t *loaded_root(const char *json)
+{
+    static dgx_ui_node_t nodes_one[4];
+    static dgx_ui_t      tree;
+    static void         *room[256]; /* aligned as a pointer */
+    static bool          used;
+    if (used) dgx_ui_free(&tree);
+    used = true;
+    dgx_ui_init(&tree, nodes_one, 4, 1);
+    dgx_ui_load_error_t err;
+    return dgx_ui_load(&tree, -1, json, strlen(json), &names, room, sizeof room, &err) < 0 ? NULL : dgx_ui_widget(&tree, 0);
+}
+
 /* ---- trees by chance, printed to JSON with their keys shuffled ---- */
 
 static uint32_t seed = 12345;
@@ -609,7 +623,7 @@ int main(void)
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"label\", \"value\": \"volume\"}}", DGX_UI_LOAD_FIELD, 40, "value"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"colour\": 1}}", DGX_UI_LOAD_KEY, 38, "colour"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"pad\": 1.5}}", DGX_UI_LOAD_RANGE, 45, NULL));
-    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"pad\": 256}}", DGX_UI_LOAD_RANGE, 45, NULL));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"pad\": 32768}}", DGX_UI_LOAD_RANGE, 45, NULL));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"pad\": 1e2}}", DGX_UI_LOAD_RANGE, 45, NULL));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"slider\", \"value\": \"loudness\"}}", DGX_UI_LOAD_UNKNOWN, 50, "loudness"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"slider\", \"value\": \"vol ume\"}}", DGX_UI_LOAD_NAME_BAD, 50, "vol ume"));
@@ -811,6 +825,56 @@ int main(void)
         CHECK(editors_off == 0 && edited_made > 300);
         CHECK(off == 0 && made > 300);
         free(memory);
+    }
+
+    /* sizes, places, pads and gaps in percent: a string of at most two decimals and "%", its flag set by the loader,
+       whichever of "flags" and the number comes first */
+    {
+        static const struct {
+            const char *json;
+            uint16_t    flags;
+            int16_t     pad, gap, at_x, at_y, want_w, want_h;
+        } taken[] = {
+            {"\"want\": [\"50%\", 24]", DGX_UI_PERCENT_W, 0, 0, 0, 0, 12800, 24},
+            {"\"at\": [\"10%\", \"-5%\"]", DGX_UI_PERCENT_X | DGX_UI_PERCENT_Y, 0, 0, 2560, -1280, 0, 0},
+            {"\"pad\": \"5%\", \"gap\": \"2.5%\"", DGX_UI_PERCENT_PAD | DGX_UI_PERCENT_GAP, 1280, 640, 0, 0, 0, 0},
+            {"\"want\": [\"33.33%\", \"127.99%\"]", DGX_UI_PERCENT_W | DGX_UI_PERCENT_H, 0, 0, 0, 0, 8532, 32765},
+            {"\"at\": [\"-128%\", \"0.5%\"]", DGX_UI_PERCENT_X | DGX_UI_PERCENT_Y, 0, 0, -32768, 128, 0, 0},
+            {"\"want\": [\"0%\", \"100%\"]", DGX_UI_PERCENT_W | DGX_UI_PERCENT_H, 0, 0, 0, 0, 0, 25600},
+            {"\"want\": [\"50%\", 0], \"flags\": [\"column\"]", DGX_UI_PERCENT_W | DGX_UI_COLUMN, 0, 0, 0, 0, 12800, 0},
+            {"\"flags\": [\"row\", \"rest\"], \"want\": [1, \"2%\"]", DGX_UI_PERCENT_H | DGX_UI_ROW | DGX_UI_REST, 0, 0, 0, 0, 1, 512},
+            {"\"pad\": 32767, \"gap\": 0", 0, 32767, 0, 0, 0, 0, 0},
+            {"\"gap\": \"\\u0035%\"", DGX_UI_PERCENT_GAP, 0, 1280, 0, 0, 0, 0}, /* "5%" by an escape: a string as any */
+        };
+        char json[256];
+        for (size_t k = 0; k < sizeof taken / sizeof *taken; ++k) {
+            snprintf(json, sizeof json, "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", %s}}", taken[k].json);
+            const dgx_ui_widget_t *w = loaded_root(json);
+            const bool right = w && w->flags == taken[k].flags && w->pad == taken[k].pad && w->gap == taken[k].gap && w->at_x == taken[k].at_x &&
+                               w->at_y == taken[k].at_y && w->want_w == taken[k].want_w && w->want_h == taken[k].want_h;
+            if (!right) fprintf(stderr, "  %s: %s\n", json, w ? "other fields" : "refused");
+            CHECK(right);
+        }
+        static const struct {
+            const char *json, *value; /* the value refused, its byte the error's */
+            int         code;
+        } refused[] = {
+            {"\"want\": [\"128%\", 0]", "\"128%\"", DGX_UI_LOAD_RANGE},     {"\"want\": [0, \"1.234%\"]", "\"1.234%\"", DGX_UI_LOAD_RANGE},
+            {"\"at\": [\"-129%\", 0]", "\"-129%\"", DGX_UI_LOAD_RANGE},     {"\"pad\": \"-1%\"", "\"-1%\"", DGX_UI_LOAD_RANGE},
+            {"\"pad\": -1", "-1", DGX_UI_LOAD_RANGE},                         {"\"gap\": \"128%\"", "\"128%\"", DGX_UI_LOAD_RANGE},
+            {"\"want\": [\"50\", 0]", "\"50\"", DGX_UI_LOAD_SYNTAX},        {"\"want\": [\"50 %\", 0]", "\"50 %\"", DGX_UI_LOAD_SYNTAX},
+            {"\"at\": [\"+5%\", 0]", "\"+5%\"", DGX_UI_LOAD_SYNTAX},        {"\"at\": [\"1e2%\", 0]", "\"1e2%\"", DGX_UI_LOAD_SYNTAX},
+            {"\"at\": [\"abc\", 0]", "\"abc\"", DGX_UI_LOAD_SYNTAX},        {"\"at\": [\"05%\", 0]", "\"05%\"", DGX_UI_LOAD_SYNTAX},
+            {"\"at\": [\".5%\", 0]", "\".5%\"", DGX_UI_LOAD_SYNTAX},        {"\"at\": [\"5.%\", 0]", "\"5.%\"", DGX_UI_LOAD_SYNTAX},
+            {"\"at\": [\"%\", 0]", "\"%\"", DGX_UI_LOAD_SYNTAX},            {"\"at\": [\"\", 0]", "\"\"", DGX_UI_LOAD_SYNTAX},
+            {"\"at\": [\"5%%\", 0]", "\"5%%\"", DGX_UI_LOAD_SYNTAX},        {"\"at\": [\"100.0000000%\", 0]", "\"100.0000000%\"", DGX_UI_LOAD_SYNTAX},
+            {"\"at\": [\"-%\", 0]", "\"-%\"", DGX_UI_LOAD_SYNTAX},          {"\"pad\": \"5%\", \"pad\": 1", "\"pad\": 1", DGX_UI_LOAD_KEY},
+        };
+        for (size_t k = 0; k < sizeof refused / sizeof *refused; ++k) {
+            snprintf(json, sizeof json, "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", %s}}", refused[k].json);
+            const char *value = strstr(json + 30, refused[k].value);
+            CHECK(fails_with(json, refused[k].code, (int)(value - json), NULL));
+        }
     }
 
     dgx_ui_free(&page);

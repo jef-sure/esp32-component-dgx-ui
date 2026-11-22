@@ -54,9 +54,10 @@ const char *preview_version(void);
 /**
  * The format of a page as the loader reads it, from its own tables, for a page that edits descriptions to draw its
  * controls by, while the loader keeps the last word: {"version": 1, "kinds": [...], "keys": [{"key", "type", "kinds",
- * and "words", "min" and "max", "table", "null" where they are said}, ...]}. The types: kind, words, int, pair (two of
- * min to max), name (of the table said; null where "null" is true; ctx a number of min to max too, for a handler that
- * takes one), text, id (a name of the page's own), children, editor.
+ * and "words", "min" and "max", "table", "null", "percent" where they are said}, ...]}. The types: kind, words, int, pair
+ * (two of min to max), name (of the table said; null where "null" is true; ctx a number of min to max too, for a handler
+ * that takes one), text, id (a name of the page's own), children, editor. An int or a pair of "percent": {"min", "max"}
+ * takes a percent too, a string such as "50%", of at most two decimals, from min % to max %.
  */
 const char *preview_format(void);
 /**

@@ -81,10 +81,10 @@ int dgx_ui_rect_subtract(const dgx_ui_rect_t *box, const dgx_ui_rect_t *cut, dgx
 
 /** Bits of a widget's state, dgx_ui_state_t::bits. */
 enum {
-    DGX_UI_HIDDEN   = 1u << 0, ///< not shown, takes no place in its row or column, not hit, not focused
-    DGX_UI_DISABLED = 1u << 1, ///< shown as its look draws it so, not hit, not focused
-    DGX_UI_FOCUSED  = 1u << 2, ///< the keys go to it
-    DGX_UI_PRESSED  = 1u << 3, ///< pressed: by a finger on it, or by the program
+    DGX_UI_HIDDEN   = 1u << 0,     ///< not shown, takes no place in its row or column, not hit, not focused
+    DGX_UI_DISABLED = 1u << 1,     ///< shown as its look draws it so, not hit, not focused
+    DGX_UI_FOCUSED  = 1u << 2,     ///< the keys go to it
+    DGX_UI_PRESSED  = 1u << 3,     ///< pressed: by a finger on it, or by the program
 };
 
 /**
@@ -132,16 +132,48 @@ enum {
 
 /** How a widget is built, dgx_ui_widget_t::flags: set by the program. */
 enum {
-    DGX_UI_COLUMN  = 1u << 0, ///< a box: children one under another
-    DGX_UI_ROW     = 1u << 1, ///< a box: children side by side
-    DGX_UI_STRETCH = 1u << 2, ///< across the stacking as wide (in a column) or as tall (in a row) as the box
-    DGX_UI_SWIPE   = 1u << 3, ///< a slider moved by the way the finger goes from where it went down
-    DGX_UI_DRAG    = 1u << 4, ///< a button dragged up or down as well as pressed (a scroll bar's knob)
-    DGX_UI_CANVAS  = 1u << 5, ///< the widget has a canvas of its own, made after the layout
-    DGX_UI_REST    = 1u << 6, ///< along the stacking of a column or a row, all the box has left after the others, the
-                              ///< gaps and the pads; several share it, the last taking the odd pixels; never below 0
-    DGX_UI_REPEAT  = 1u << 7, ///< a button told DGX_UI_ACTIVATED again and again while it is held (below): a stepper's "+"
+    DGX_UI_COLUMN      = 1u << 0,  ///< a box: children one under another
+    DGX_UI_ROW         = 1u << 1,  ///< a box: children side by side
+    DGX_UI_STRETCH     = 1u << 2,  ///< across the stacking as wide (in a column) or as tall (in a row) as the box
+    DGX_UI_SWIPE       = 1u << 3,  ///< a slider moved by the way the finger goes from where it went down
+    DGX_UI_DRAG        = 1u << 4,  ///< a button dragged up or down as well as pressed (a scroll bar's knob)
+    DGX_UI_CANVAS      = 1u << 5,  ///< the widget has a canvas of its own, made after the layout
+    DGX_UI_REST        = 1u << 6,  ///< along the stacking of a column or a row, all the box has left after the others, the
+                                   ///< gaps and the pads; several share it, the last taking the odd pixels; never below 0
+    DGX_UI_REPEAT      = 1u << 7,  ///< a button told DGX_UI_ACTIVATED again and again while it is held (below): a
+                                   ///< stepper's "+"
+    DGX_UI_PERCENT_X   = 1u << 8,  ///< at_x in percent (DGX_UI_PERCENT()), not in points
+    DGX_UI_PERCENT_Y   = 1u << 9,  ///< at_y in percent
+    DGX_UI_PERCENT_W   = 1u << 10, ///< want_w in percent
+    DGX_UI_PERCENT_H   = 1u << 11, ///< want_h in percent
+    DGX_UI_PERCENT_PAD = 1u << 12, ///< a box's pad in percent
+    DGX_UI_PERCENT_GAP = 1u << 13, ///< a box's gap in percent
 };
+
+/*
+ * Sizes, places, pads and gaps in percent: each of want_w, want_h, at_x, at_y, pad and gap is in percent when its flag
+ * DGX_UI_PERCENT_* is set, else in points. A percent is of pixels, the unit does not touch it:
+ *  - a box's pad: of the box's own width, on all four sides; the inside is the box less it;
+ *  - a box's gap: of the inside along its stacking, the width in a row, the height in a column;
+ *  - along a row's or a column's stacking, a child's size: of the room the children share, the inside less every gap
+ *    between the children shown, never below 0; the percents of the children taken by running totals in their order,
+ *    so that they add up with no pixel lost or twice: two of 50 % with a gap fill a row; a total past 255.99 % holds
+ *    there. A child of points takes its points, one of DGX_UI_REST what is left after the points and the percents;
+ *    neither takes from the percents. A hidden child is out of it all: no gap, no part of the room, no step of the
+ *    totals;
+ *  - across the stacking, and both ways in a box of neither, a size and a place: of the inside; a negative place from
+ *    the far edge, as in points;
+ *  - 0 with its flag is 0 %, no size, where 0 in points is the content's size.
+ * The root's children are of the root, laid on the screen or on the rect given.
+ */
+
+/**
+ * @brief A percent as a widget holds it, 8.8 fixed point in an int16_t: DGX_UI_PERCENT(50) is 12800, DGX_UI_PERCENT(33.33)
+ * 8532, a step 1/256 %. A constant expression. Past what an int16_t holds it holds the edge: 127.998 and above give
+ * 32767 (127.996 %), -128 and below -32768 (-128 %).
+ */
+#define DGX_UI_PERCENT(p)                                                                                                   \
+    ((p) * 256 >= 32767.5 ? (int16_t)32767 : (p) * 256 <= -32768.5 ? (int16_t)-32768 : (int16_t)((p) * 256 + ((p) < 0 ? -0.5 : 0.5)))
 
 /*
  * DGX_UI_REPEAT: a button told DGX_UI_ACTIVATED when the finger goes down on it, and again every DGX_UI_REPEAT_MS from
@@ -272,10 +304,11 @@ int dgx_ui_textbox_height(const dgx_ui_textbox_t *box);
  */
 typedef struct dgx_ui_widget_t {
     uint8_t        kind;           ///< DGX_UI_BOX ... DGX_UI_RADIO
-    uint8_t        flags;          ///< DGX_UI_COLUMN, ROW, STRETCH, SWIPE, DRAG, CANVAS
-    uint8_t        pad, gap;       ///< inside a box: around its children and between them, in points
-    int16_t        at_x, at_y;     ///< asked: from the parent's inside edge, in points; negative from the far edge
-    int16_t        want_w, want_h; ///< asked, in points; 0: the content's (a picture's size, a text's lines: of any widget with a text box; a button's, a
+    dgx_ui_bits_t  state;          ///< the state it starts with: HIDDEN, DISABLED
+    uint16_t       flags;          ///< DGX_UI_COLUMN, ROW, STRETCH, SWIPE, DRAG, CANVAS, REST, REPEAT, PERCENT_*
+    int16_t        pad, gap;       ///< inside a box: around its children and between them, in points, or in percent (above)
+    int16_t        at_x, at_y;     ///< asked: from the parent's inside edge, in points or percent; negative from the far edge
+    int16_t        want_w, want_h; ///< asked, in points or percent (0 % no size); 0 points: the content's (a picture's size, a text's lines: of any widget with a text box; a button's, a
                                    ///< dropdown's, a radio's and a checkbox's a point more above and below, the room of the frame of the focus; a
                                    ///< BUTTON's, a SWITCH's or a RADIO's with a picture, whatever look draws it, its first picture's and 5 points more
                                    ///< across and down, a point of face and the frame's point each side and one of a shadow; a text has no width of
@@ -283,7 +316,6 @@ typedef struct dgx_ui_widget_t {
     int16_t        min, max, step; ///< the range of a control; a list's first row and its last, and its step the least height of a row in points (0: a line of its text);
                                    ///< a RADIO's step the number it stands for
     int16_t        tag;            ///< the program's: found by dgx_ui_find(), kept and nothing more
-    dgx_ui_bits_t  state;          ///< the state it starts with: HIDDEN, DISABLED
     int32_t       *value;          ///< where its value lives, the program's memory; NULL: it has none (shows 0, nothing changes it)
     const dgx_ui_picture_t *picture; ///< PICTURE: one; ICON: an array of min..max; drawn by dgx_ui_look_picture_button, a BUTTON's one,
                                      ///< a SWITCH's or a RADIO's two: off and on, not chosen and chosen

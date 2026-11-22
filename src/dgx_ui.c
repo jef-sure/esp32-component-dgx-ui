@@ -268,8 +268,25 @@ static int picture_wants(const dgx_ui_t *ui, const dgx_ui_widget_t *w, bool acro
     return (across ? pw : ph) + (kind & ROOMED ? 5 * ui->unit : 0);
 }
 
-static int want_w(const dgx_ui_t *ui, const dgx_ui_widget_t *w)
+/* a percent of a length in pixels, the percent 8.8 fixed point, rounded half away from zero; a running total of
+   percents is held within +-65535 (255.99 %), so that a length of an int16_t times it stays within 32 bits */
+enum { PERCENT_TOTAL_MOST = 65535 };
+static int percent_of(int length, int32_t percent)
 {
+    const int32_t scaled = (int32_t)length * percent;
+    return scaled >= 0 ? (int)((scaled + 12800) / 25600) : -(int)((12800 - scaled) / 25600);
+}
+
+static int32_t percent_total(int32_t total, int16_t percent)
+{
+    total += percent;
+    return total > PERCENT_TOTAL_MOST ? PERCENT_TOTAL_MOST : total < -PERCENT_TOTAL_MOST ? -PERCENT_TOTAL_MOST : total;
+}
+
+/* the size a widget asks for across a length, in pixels: a percent of the length, its points, else its content's */
+static int want_w(const dgx_ui_t *ui, const dgx_ui_widget_t *w, int length)
+{
+    if (w->flags & DGX_UI_PERCENT_W) return percent_of(length, w->want_w);
     if (w->want_w) return w->want_w * ui->unit;
     const int pictured = picture_wants(ui, w, true);
     return pictured >= 0 ? pictured : 0;
@@ -282,8 +299,9 @@ static bool framed_with_text(const dgx_ui_widget_t *w)
     return w->kind < 32 && ((1u << w->kind) & FRAMED);
 }
 
-static int want_h(const dgx_ui_t *ui, const dgx_ui_widget_t *w)
+static int want_h(const dgx_ui_t *ui, const dgx_ui_widget_t *w, int length)
 {
+    if (w->flags & DGX_UI_PERCENT_H) return percent_of(length, w->want_h);
     if (w->want_h) return w->want_h * ui->unit;
     const int pictured = picture_wants(ui, w, false);
     if (pictured >= 0) return pictured;
@@ -340,52 +358,75 @@ static void place(dgx_ui_t *ui, int i, int x, int y, int w, int h)
     dgx_ui_touched(ui, i);
 }
 
+/* a place asked, at_x or at_y, in pixels from the near edge of a length: its points or its percent of the length; a
+   negative one, by the sign it was asked with, from the far edge, less the widget's size */
+static int place_in(const dgx_ui_t *ui, int16_t at, bool percent, int length, int size)
+{
+    const int pixels = percent ? percent_of(length, at) : at * ui->unit;
+    return at >= 0 ? pixels : length - size + pixels;
+}
+
 static void lay(dgx_ui_t *ui, int i)
 {
     const dgx_ui_node_t   *pn = NODE(ui, i);
     const dgx_ui_widget_t *p  = pn->widget;
-    const int  u = ui->unit, pad = p->pad * u, gap = p->gap * u;
+    const int  u = ui->unit, pad = p->flags & DGX_UI_PERCENT_PAD ? percent_of(pn->w, p->pad) : p->pad * u;
     const int  ix = pn->x + pad, iy = pn->y + pad, iw = pn->w - 2 * pad, ih = pn->h - 2 * pad;
     const bool column = p->flags & DGX_UI_COLUMN, row = !column && (p->flags & DGX_UI_ROW);
-    /* along the stacking: what the others take, the gaps between all; the rest shared by those that take it */
-    int fixed = 0, shown = 0, takers = 0;
+    const int  gap = p->flags & DGX_UI_PERCENT_GAP ? percent_of(column ? ih : iw, p->gap) : p->gap * u;
+    /* along the stacking: the room the children share, the inside less the gaps between those shown; what the children
+       of points take, the percents by their running total, and the rest shared by those that take it. A hidden child is
+       out of all of it: no gap, no part of the room, no step of the total */
+    const unsigned along_percent = column ? DGX_UI_PERCENT_H : DGX_UI_PERCENT_W;
+    int            fixed = 0, shown = 0, takers = 0;
+    int32_t        percents = 0;
     if (column || row)
         for (int c = pn->child; c >= 0; c = NODE(ui, c)->next) {
             const dgx_ui_widget_t *w = NODE(ui, c)->widget;
             if (NODE(ui, c)->state.bits & DGX_UI_HIDDEN) continue;
             ++shown;
             if (w->flags & DGX_UI_REST) ++takers;
-            else fixed += column ? want_h(ui, w) : want_w(ui, w);
+            else if (w->flags & along_percent) percents = percent_total(percents, column ? w->want_h : w->want_w);
+            else fixed += column ? want_h(ui, w, ih) : want_w(ui, w, iw);
         }
-    int left = (column ? ih : iw) - fixed - (shown > 1 ? (shown - 1) * gap : 0);
+    int room = (column ? ih : iw) - (shown > 1 ? (shown - 1) * gap : 0);
+    if (room < 0) room = 0;
+    int left = room - fixed - percent_of(room, percents);
     if (left < 0) left = 0;
     const int share = takers ? left / takers : 0;
-    int       along = 0, taken = 0;
+    int       along = 0, taken = 0, before = 0; /* before: the pixels of the percents laid so far */
+    int32_t   total = 0;
     for (int c = pn->child; c >= 0; c = NODE(ui, c)->next) {
         const dgx_ui_widget_t *w = NODE(ui, c)->widget;
         if (NODE(ui, c)->state.bits & DGX_UI_HIDDEN) continue;
-        int        ww = want_w(ui, w), wh = want_h(ui, w), x, y;
+        int        ww = want_w(ui, w, iw), wh = want_h(ui, w, ih), x, y;
         const bool rest = w->flags & DGX_UI_REST; /* a box of neither lays it where it asks */
         const int  took = !rest ? 0 : ++taken < takers ? share : left - share * (takers - 1); /* the last: the odd pixels */
+        if ((column || row) && !rest && (w->flags & along_percent)) { /* its part of the running total */
+            total          = percent_total(total, column ? w->want_h : w->want_w);
+            const int upto = percent_of(room, total);
+            *(column ? &wh : &ww) = upto - before, before = upto;
+        }
         if (column) {
             if (rest) wh = took;
-            if (w->flags & DGX_UI_STRETCH || !ww) ww = iw;
-            x = ix + (w->at_x >= 0 ? w->at_x * u : iw - ww + w->at_x * u), y = iy + along;
+            if (w->flags & DGX_UI_STRETCH || (!ww && !(w->flags & DGX_UI_PERCENT_W))) ww = iw;
+            x = ix + place_in(ui, w->at_x, w->flags & DGX_UI_PERCENT_X, iw, ww), y = iy + along;
             along += wh + gap;
         } else if (row) {
             if (rest) ww = took;
-            if (w->flags & DGX_UI_STRETCH || !wh) wh = ih;
-            if (!ww && w->text && !rest && !ui->told_width) {
+            if (w->flags & DGX_UI_STRETCH || (!wh && !(w->flags & DGX_UI_PERCENT_H))) wh = ih;
+            if (!ww && w->text && !rest && !(w->flags & DGX_UI_PERCENT_W) && !ui->told_width) {
                 ESP_LOGW(TAG, "widget %d of a text in a row has no width: give it want_w", c);
                 ui->told_width = true;
             }
-            x = ix + along, y = iy + (w->at_y >= 0 ? w->at_y * u : ih - wh + w->at_y * u);
+            x = ix + along, y = iy + place_in(ui, w->at_y, w->flags & DGX_UI_PERCENT_Y, ih, wh);
             along += ww + gap;
         } else {
-            if (!ww) ww = iw - (w->at_x >= 0 ? w->at_x * u : -w->at_x * u);
-            if (!wh) wh = ih - (w->at_y >= 0 ? w->at_y * u : -w->at_y * u);
-            x = w->at_x >= 0 ? ix + w->at_x * u : ix + iw + w->at_x * u - ww;
-            y = w->at_y >= 0 ? iy + w->at_y * u : iy + ih + w->at_y * u - wh;
+            const int ax = place_in(ui, w->at_x, w->flags & DGX_UI_PERCENT_X, iw, 0), ay = place_in(ui, w->at_y, w->flags & DGX_UI_PERCENT_Y, ih, 0);
+            if (!ww && !(w->flags & DGX_UI_PERCENT_W)) ww = w->at_x >= 0 ? iw - ax : ax; /* the rest of the inside beside its place */
+            if (!wh && !(w->flags & DGX_UI_PERCENT_H)) wh = w->at_y >= 0 ? ih - ay : ay;
+            x = ix + place_in(ui, w->at_x, w->flags & DGX_UI_PERCENT_X, iw, ww);
+            y = iy + place_in(ui, w->at_y, w->flags & DGX_UI_PERCENT_Y, ih, wh);
         }
         place(ui, c, x, y, ww, wh);
         lay(ui, c);

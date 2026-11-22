@@ -697,16 +697,18 @@ typedef struct key_type_t {
     int32_t     min, max; /* int, pair: each number's; ctx: of its number, which a handler that takes one takes */
     const char *table;    /* name: the table of the names, as preview_tables() names it */
     bool        null;     /* name: null may be said, look none */
+    bool        percent;  /* int, pair: a percent may be said too, "50%", from percent_min % to 127.99 % */
+    int32_t     percent_min;
 } key_type_t;
 
 static const key_type_t key_types[KEY_COUNT] = {
     [K_KIND] = {.type = "kind"},
     [K_FLAGS] = {.type = "words", .words = flag_words},
     [K_STATE] = {.type = "words", .words = state_words},
-    [K_PAD] = {.type = "int", .max = 255},
-    [K_GAP] = {.type = "int", .max = 255},
-    [K_AT] = {.type = "pair", .min = INT16_MIN, .max = INT16_MAX},
-    [K_WANT] = {.type = "pair", .min = INT16_MIN, .max = INT16_MAX},
+    [K_PAD] = {.type = "int", .max = INT16_MAX, .percent = true},
+    [K_GAP] = {.type = "int", .max = INT16_MAX, .percent = true},
+    [K_AT] = {.type = "pair", .min = INT16_MIN, .max = INT16_MAX, .percent = true, .percent_min = -128},
+    [K_WANT] = {.type = "pair", .min = INT16_MIN, .max = INT16_MAX, .percent = true, .percent_min = -128},
     [K_MIN] = {.type = "int", .min = INT16_MIN, .max = INT16_MAX},
     [K_MAX] = {.type = "int", .min = INT16_MIN, .max = INT16_MAX},
     [K_STEP] = {.type = "int", .min = INT16_MIN, .max = INT16_MAX},
@@ -777,6 +779,7 @@ const char *preview_format(void)
             grow(&format, ", \"min\": %ld, \"max\": %ld", (long)type->min, (long)type->max);
         if (type->table) grow(&format, ", \"table\": \"%s\"", type->table);
         if (type->null) grow(&format, ", \"null\": true");
+        if (type->percent) grow(&format, ", \"percent\": {\"min\": %ld, \"max\": 127.99}", (long)type->percent_min);
         grow(&format, "}");
     }
     grow(&format, "]}");

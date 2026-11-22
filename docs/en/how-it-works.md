@@ -74,8 +74,9 @@ The first nodes are in an array the program gives to `dgx_ui_init()`. When it is
 
 ## The layout
 
-Sizes and places are in points. A point is `unit` pixels, given to `dgx_ui_init()`: the same tree fits a display of
-another density with another unit.
+Sizes and places are in points, or in percent. A point is `unit` pixels, given to `dgx_ui_init()`: the same tree fits
+a display of another density with another unit. A percent is a share of the parent's box as it is laid, and takes
+no unit: it follows the screen's size and its turn.
 
 A box (`DGX_UI_BOX`, and a frame, which is a box with a fill and a border) lays its children:
 
@@ -103,6 +104,19 @@ column `at_x` moves a child across it as well, and in a row `at_y`.
 A child with the flag `DGX_UI_REST` takes, along the stacking, all the box has left after the other children, the
 gaps and the pads; several such children share it equally, the last taking the odd pixels. A row of a name and a value, or a column of a title, a
 content and buttons at the bottom, then needs no exact sizes and fits a screen of any width.
+
+Each of these numbers may be a percent instead, by its flag (`DGX_UI_PERCENT_W`, `_H`, `_X`, `_Y`, and a box's
+`_PAD`, `_GAP`):
+
+- a size along a row or a column: a percent of what the children share, the inside less the gaps, taken by running
+  totals so that two of 50 % fill a row exactly; a child of `DGX_UI_REST` takes what the points and the percents
+  leave;
+- a size across, a place, and both ways in a box of neither: a percent of the inside;
+- a pad: of the box's width, on all four sides; a gap: of the inside along the stacking.
+
+Points are for what should look the same size on every board, percents for a share of the screen. A program for
+several boards gets its unit from the board when it is built, as the fonts do:
+[One tree on every board](cookbook.md#one-tree-on-every-board).
 
 A hidden widget takes no place. A widget is drawn and hit only within its parent's box: what of it lies outside,
 because it is laid larger than the box or put out of it by `at_x` and `at_y`, is cut off.

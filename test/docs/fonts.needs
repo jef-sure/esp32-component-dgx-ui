@@ -18,3 +18,12 @@ need keys
 size 20px
 bits 4
 letters 0123456789
+need clock
+size 40pt
+bits 4
+letters 0123456789:
+need caption
+size 12pt
+bits 4
+text ../../docs/en/cookbook.md
+text ../../docs/ru/cookbook.md

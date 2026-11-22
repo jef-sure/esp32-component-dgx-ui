@@ -161,6 +161,78 @@ static const dgx_ui_widget_t down_w   = {.kind = DGX_UI_FRAME, .want_w = 1, .loo
   and a page names it, `{"kind": "frame", "look": "line", "want": [0, 1]}`. With no appearance, the line
   `look line &line_look` of the names file gives the look of C above.
 
+## One tree on every board
+
+A program for several boards describes its widgets once. The board gives one number when the program is built, its
+scale: how many pixels a point is. DGX makes the fonts of points for that scale, and the tree takes it as its unit;
+what is in percent is a share of the screen as it is.
+
+```cmake
+# main/CMakeLists.txt: the display of the board jef-sure/boards chose, the scale worked out on it, fonts of points
+dgx_fonts_board(PIXELS ${BOARD_PIXELS})
+dgx_fonts_scale(FIT 320 240)   # the largest whole scale at which 320x240 points fit: 1 on the CYD, 3 on a 10" of 1280x800
+dgx_font_need(clock SIZE 40pt BITS 4 LETTERS "0123456789:")
+dgx_font_need(caption SIZE 12pt BITS 4 TEXTS main.c)
+```
+
+```c
+static dgx_ui_font_variant_t clock_variant[1], caption_variant[1];
+static dgx_ui_text_style_t   st_clock, st_caption;
+static char                  face_time_buf[8], face_warm_buf[16], face_wet_buf[16];
+static dgx_ui_textbox_t      face_time_box, face_warm_box, face_wet_box;
+
+/* a face: the time over half the room, two values side by side under it; the margins and the gaps a share of it */
+static const dgx_ui_widget_t face_w      = {.kind  = DGX_UI_BOX,
+                                            .flags = DGX_UI_COLUMN | DGX_UI_PERCENT_PAD | DGX_UI_PERCENT_GAP,
+                                            .pad   = DGX_UI_PERCENT(4),
+                                            .gap   = DGX_UI_PERCENT(3)};
+static const dgx_ui_widget_t time_w      = {.kind = DGX_UI_LABEL, .flags = DGX_UI_PERCENT_H, .want_h = DGX_UI_PERCENT(55), .text = &face_time_box};
+static const dgx_ui_widget_t values_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW | DGX_UI_REST | DGX_UI_PERCENT_GAP, .gap = DGX_UI_PERCENT(4)};
+static const dgx_ui_widget_t half_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_PERCENT_W, .want_w = DGX_UI_PERCENT(50), .pad = 4};
+static const dgx_ui_widget_t warm_text_w = {.kind = DGX_UI_LABEL, .text = &face_warm_box};
+static const dgx_ui_widget_t wet_text_w  = {.kind = DGX_UI_LABEL, .text = &face_wet_box};
+
+/* the tree's unit, the board's scale: the fonts of points are made for it */
+static void face_ui_init(dgx_ui_t *ui, dgx_ui_node_t *nodes, int count)
+{
+    dgx_ui_init(ui, nodes, count, DGX_FONTS_SCALE);
+}
+
+static int face_add(dgx_ui_t *ui, int parent)
+{
+    clock_variant[0]   = (dgx_ui_font_variant_t){.font = &dgx_font_clock};
+    caption_variant[0] = (dgx_ui_font_variant_t){.font = &dgx_font_caption};
+    st_clock           = (dgx_ui_text_style_t){.variants = clock_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_caption         = (dgx_ui_text_style_t){.variants = caption_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    dgx_ui_textbox_init(&face_time_box, face_time_buf, sizeof face_time_buf, 1, &st_clock);
+    dgx_ui_textbox_init(&face_warm_box, face_warm_buf, sizeof face_warm_buf, 1, &st_caption);
+    dgx_ui_textbox_init(&face_wet_box, face_wet_buf, sizeof face_wet_buf, 1, &st_caption);
+    const int face   = dgx_ui_add(ui, parent, &face_w);
+    const int time   = dgx_ui_add(ui, face, &time_w);
+    const int values = dgx_ui_add(ui, face, &values_w);
+    const int warm   = dgx_ui_add(ui, dgx_ui_add(ui, values, &half_w), &warm_text_w);
+    const int wet    = dgx_ui_add(ui, dgx_ui_add(ui, values, &half_w), &wet_text_w);
+    dgx_ui_text_set(ui, time, "12:34");
+    dgx_ui_text_set(ui, warm, "21.5 C");
+    dgx_ui_text_set(ui, wet, "41 %");
+    return face;
+}
+```
+
+- **One number, chosen at the build**: `dgx_fonts_scale(FIT …)` takes the largest whole scale at which a frame of
+  320x240 points fits the board's display (DGX 0.12.2). On the CYD it is 1; on a 10" display of 1280x800 it is 3,
+  and the font `clock` is made 120 pixels high from the face itself, not a 40-pixel one enlarged. The program gets the
+  number as `DGX_FONTS_SCALE` and gives it to `dgx_ui_init()`, so its points and the fonts' are the same.
+- **Points for what should look the same, percents for a share**: the frames' pad of 4 points is 4 pixels on the CYD
+  and 12 on the 10"; the margins, the gaps, the time's height and the two halves are shares of the screen, and follow
+  its shape and its turn.
+- Along a row a percent is of what the children share, the inside less the gaps, and the percents are taken by running
+  totals: the two halves of 50 % and the gap between them fill the row exactly, to the pixel.
+- `DGX_UI_REST` gives the row of values what the time and the gap leave of the column.
+- In a description the same is written `"want": [0, "55%"]` and `"pad": "4%"`.
+- For a program with buttons rather than a frame, `dgx_fonts_scale(MM 0.3)` takes the scale at which a point is about
+  0.3 mm on every display.
+
 ## One message for several widgets
 
 A sensor sends the temperature and the humidity in one message. Two labels read it; neither claims it, so both see

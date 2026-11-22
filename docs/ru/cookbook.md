@@ -163,6 +163,77 @@ static const dgx_ui_widget_t down_w   = {.kind = DGX_UI_FRAME, .want_w = 1, .loo
   а страница называет его: `{"kind": "frame", "look": "line", "want": [0, 1]}`. Без внешнего вида облик из C
   выше даёт строка файла имён `look line &line_look`.
 
+## Одно дерево на всех платах
+
+Программа для нескольких плат описывает виджеты один раз. Плата при сборке программы даёт одно число, масштаб:
+сколько пикселей в точке. DGX делает шрифты в пунктах под этот масштаб, а дерево берёт его как свой `unit`; то, что
+в процентах, — доля экрана, какой он есть.
+
+```cmake
+# main/CMakeLists.txt: дисплей платы, выбранной jef-sure/boards, масштаб по нему и шрифты в пунктах
+dgx_fonts_board(PIXELS ${BOARD_PIXELS})
+dgx_fonts_scale(FIT 320 240)   # наибольший целый масштаб, при котором 320x240 точек помещаются: 1 на CYD, 3 на 10" 1280x800
+dgx_font_need(clock SIZE 40pt BITS 4 LETTERS "0123456789:")
+dgx_font_need(caption SIZE 12pt BITS 4 TEXTS main.c)
+```
+
+```c
+static dgx_ui_font_variant_t clock_variant[1], caption_variant[1];
+static dgx_ui_text_style_t   st_clock, st_caption;
+static char                  face_time_buf[8], face_warm_buf[16], face_wet_buf[16];
+static dgx_ui_textbox_t      face_time_box, face_warm_box, face_wet_box;
+
+/* a face: the time over half the room, two values side by side under it; the margins and the gaps a share of it */
+static const dgx_ui_widget_t face_w      = {.kind  = DGX_UI_BOX,
+                                            .flags = DGX_UI_COLUMN | DGX_UI_PERCENT_PAD | DGX_UI_PERCENT_GAP,
+                                            .pad   = DGX_UI_PERCENT(4),
+                                            .gap   = DGX_UI_PERCENT(3)};
+static const dgx_ui_widget_t time_w      = {.kind = DGX_UI_LABEL, .flags = DGX_UI_PERCENT_H, .want_h = DGX_UI_PERCENT(55), .text = &face_time_box};
+static const dgx_ui_widget_t values_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW | DGX_UI_REST | DGX_UI_PERCENT_GAP, .gap = DGX_UI_PERCENT(4)};
+static const dgx_ui_widget_t half_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_PERCENT_W, .want_w = DGX_UI_PERCENT(50), .pad = 4};
+static const dgx_ui_widget_t warm_text_w = {.kind = DGX_UI_LABEL, .text = &face_warm_box};
+static const dgx_ui_widget_t wet_text_w  = {.kind = DGX_UI_LABEL, .text = &face_wet_box};
+
+/* the tree's unit, the board's scale: the fonts of points are made for it */
+static void face_ui_init(dgx_ui_t *ui, dgx_ui_node_t *nodes, int count)
+{
+    dgx_ui_init(ui, nodes, count, DGX_FONTS_SCALE);
+}
+
+static int face_add(dgx_ui_t *ui, int parent)
+{
+    clock_variant[0]   = (dgx_ui_font_variant_t){.font = &dgx_font_clock};
+    caption_variant[0] = (dgx_ui_font_variant_t){.font = &dgx_font_caption};
+    st_clock           = (dgx_ui_text_style_t){.variants = clock_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_caption         = (dgx_ui_text_style_t){.variants = caption_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    dgx_ui_textbox_init(&face_time_box, face_time_buf, sizeof face_time_buf, 1, &st_clock);
+    dgx_ui_textbox_init(&face_warm_box, face_warm_buf, sizeof face_warm_buf, 1, &st_caption);
+    dgx_ui_textbox_init(&face_wet_box, face_wet_buf, sizeof face_wet_buf, 1, &st_caption);
+    const int face   = dgx_ui_add(ui, parent, &face_w);
+    const int time   = dgx_ui_add(ui, face, &time_w);
+    const int values = dgx_ui_add(ui, face, &values_w);
+    const int warm   = dgx_ui_add(ui, dgx_ui_add(ui, values, &half_w), &warm_text_w);
+    const int wet    = dgx_ui_add(ui, dgx_ui_add(ui, values, &half_w), &wet_text_w);
+    dgx_ui_text_set(ui, time, "12:34");
+    dgx_ui_text_set(ui, warm, "21.5 C");
+    dgx_ui_text_set(ui, wet, "41 %");
+    return face;
+}
+```
+
+- **Одно число, выбранное при сборке**: `dgx_fonts_scale(FIT …)` берёт наибольший целый масштаб, при котором кадр
+  320x240 точек помещается в дисплей платы (DGX 0.12.2). На CYD это 1; на 10" дисплее 1280x800 — 3, и шрифт `clock`
+  делается высотой 120 пикселей из самой гарнитуры, а не увеличенным 40-пиксельным. Программа получает число как
+  `DGX_FONTS_SCALE` и отдаёт его `dgx_ui_init()`, поэтому её точки и пункты шрифтов — одно и то же.
+- **Точки — для того, что выглядит одинаково, проценты — для доли**: отступ рамок в 4 точки — это 4 пикселя на CYD и
+  12 на 10"; поля, промежутки, высота времени и две половины — доли экрана и следуют за его формой и поворотом.
+- Вдоль строки процент берётся от того, что делят дети, — внутреннего размера за вычетом промежутков, — и проценты
+  складываются нарастающим итогом: две половины по 50 % и промежуток между ними заполняют строку ровно, до пикселя.
+- `DGX_UI_REST` отдаёт строке значений то, что оставили время и промежуток.
+- В описании то же самое пишется `"want": [0, "55%"]` и `"pad": "4%"`.
+- Программе с кнопками, а не с кадром, `dgx_fonts_scale(MM 0.3)` даёт масштаб, при котором точка — около 0,3 мм на
+  любом дисплее.
+
 ## Одно сообщение для нескольких виджетов
 
 Датчик шлёт температуру и влажность одним сообщением. Его читают две надписи; ни одна его не забирает, поэтому

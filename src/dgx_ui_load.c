@@ -39,6 +39,8 @@ typedef struct load_t {
 } load_t;
 
 enum { SKIP_LEVELS = DGX_UI_READ_LEVELS };
+/* the flags the numbers set, "50%": none is a word of "flags" */
+enum { PERCENTS = DGX_UI_PERCENT_X | DGX_UI_PERCENT_Y | DGX_UI_PERCENT_W | DGX_UI_PERCENT_H | DGX_UI_PERCENT_PAD | DGX_UI_PERCENT_GAP };
 
 /* the first error kept; false always */
 static bool fail(load_t *L, int code, size_t at, const char *name)
@@ -61,21 +63,28 @@ static int find(load_t *L, const void *table, int count, size_t stride)
 /* ---- the widgets ---- */
 
 /* a list of words into bits */
-static bool word_list(load_t *L, const char *words, uint8_t *out)
+static bool word_list(load_t *L, const char *words, uint32_t *out)
 {
-    uint32_t   bits;
-    const bool read = dgx_ui_read_words(&L->read, words, &bits);
-    *out            = (uint8_t)bits;
-    return read;
+    return dgx_ui_read_words(&L->read, words, out);
 }
 
-/* two integers [a, b] of int16 */
-static bool pair(load_t *L, int16_t *a, int16_t *b)
+/* a number of points, low_points..INT16_MAX, or a percent, "50%", its flag then set in *flags: -128 % to 127.99 % where
+   the points take negatives, 0 % to 127.99 % where they do not */
+static bool points_or_percent(load_t *L, int32_t low_points, int16_t *out, uint16_t flag, uint16_t *flags)
 {
-    int32_t x, y;
-    if (!dgx_ui_json_expect(&L->read.json, '[') || !dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &x) || !dgx_ui_json_expect(&L->read.json, ',') || !dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &y) || !dgx_ui_json_expect(&L->read.json, ']')) return false;
-    *a = (int16_t)x, *b = (int16_t)y;
+    int32_t v;
+    bool    percent;
+    if (!dgx_ui_json_number_or_percent(&L->read.json, low_points, INT16_MAX, low_points < 0 ? -12800 : 0, 12799, &v, &percent)) return false;
+    *out = (int16_t)v;
+    if (percent) *flags |= flag;
     return true;
+}
+
+/* two numbers [a, b] of int16, each of points or a percent */
+static bool pair(load_t *L, int16_t *a, int16_t *b, uint16_t flag_a, uint16_t flag_b, uint16_t *flags)
+{
+    return dgx_ui_json_expect(&L->read.json, '[') && points_or_percent(L, INT16_MIN, a, flag_a, flags) && dgx_ui_json_expect(&L->read.json, ',') &&
+           points_or_percent(L, INT16_MIN, b, flag_b, flags) && dgx_ui_json_expect(&L->read.json, ']');
 }
 
 /* bytes of the memory taken, aligned; laid when building */
@@ -99,6 +108,7 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
     uint32_t        seen = 0;
     size_t          key_at[KEY_COUNT] = {0}, text_at = 0, children_at = 0, text_len = 0;
     int32_t         v, text_size = 0, lines = 1;
+    uint32_t        bits;
     int             kind = -1, look = -2, style = -1, id = -1, on = -1, picture = -1; /* look -2: not said, -1: null */
     bool            ctx_number = false;
     char            id_name[24] = "";
@@ -127,12 +137,13 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
                 }
                 break;
             }
-            case K_FLAGS: ok = word_list(L, flag_words, &w.flags); break;
-            case K_STATE: ok = word_list(L, state_words, &w.state.bits); break;
-            case K_PAD: ok = dgx_ui_json_integer(&L->read.json, 0, 255, &v), w.pad = (uint8_t)v; break;
-            case K_GAP: ok = dgx_ui_json_integer(&L->read.json, 0, 255, &v), w.gap = (uint8_t)v; break;
-            case K_AT: ok = pair(L, &w.at_x, &w.at_y); break;
-            case K_WANT: ok = pair(L, &w.want_w, &w.want_h); break;
+            /* the words of "flags" beside the percents' bits, which the numbers set, whichever is read first */
+            case K_FLAGS: ok = word_list(L, flag_words, &bits), w.flags = (uint16_t)((w.flags & PERCENTS) | bits); break;
+            case K_STATE: ok = word_list(L, state_words, &bits), w.state.bits = (uint8_t)bits; break;
+            case K_PAD: ok = points_or_percent(L, 0, &w.pad, DGX_UI_PERCENT_PAD, &w.flags); break;
+            case K_GAP: ok = points_or_percent(L, 0, &w.gap, DGX_UI_PERCENT_GAP, &w.flags); break;
+            case K_AT: ok = pair(L, &w.at_x, &w.at_y, DGX_UI_PERCENT_X, DGX_UI_PERCENT_Y, &w.flags); break;
+            case K_WANT: ok = pair(L, &w.want_w, &w.want_h, DGX_UI_PERCENT_W, DGX_UI_PERCENT_H, &w.flags); break;
             case K_MIN: ok = dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &v), w.min = (int16_t)v; break;
             case K_MAX: ok = dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &v), w.max = (int16_t)v; break;
             case K_STEP: ok = dgx_ui_json_integer(&L->read.json, INT16_MIN, INT16_MAX, &v), w.step = (int16_t)v; break;

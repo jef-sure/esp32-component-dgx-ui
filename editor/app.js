@@ -263,7 +263,15 @@ const dgxUiBuilderMount = (() => {
                 return text === '' ? store.removeKey(props.field.key) : store.setKey(props.field.key, text, fold());
             };
             const one = (value) => JSON.stringify(value);
-            return { ...words, entry, rawText, pairText, fold, names, choice, choose, typeName, one, NEW_NAME, NULL_NAME, ABSENT };
+            // a number of the field shown as a percent: of the field, or of one of a pair's two
+            const isPercent = (k = null) => {
+                const node = k === null ? props.field.raw : props.field.raw?.t === 'array' ? props.field.raw.items[k] : null;
+                return node?.t === 'string' && node.value.endsWith('%');
+            };
+            const hint = computed(() => (entry.value ? `${entry.value.min} … ${entry.value.max}` + (entry.value.percent
+                ? words.t(', or {0}% … {1}%', entry.value.percent.min, entry.value.percent.max) : '') : ''));
+            return { ...words, entry, rawText, pairText, fold, names, choice, choose, typeName, one, isPercent, hint,
+                     NEW_NAME, NULL_NAME, ABSENT };
         },
         template: `
             <div class="field" :class="{ foreign: !entry, absent: !field.present }">
@@ -281,13 +289,20 @@ const dgxUiBuilderMount = (() => {
                                @change="store.toggleWord(field.key, word)">
                         {{ word }}</label>
                 </span>
-                <input v-else-if="entry.type === 'int'" type="text" inputmode="numeric" :value="rawText(field.raw)"
-                       :placeholder="entry.min + ' … ' + entry.max" @input="store.setNumber(field.key, $event.target.value, fold())">
+                <span v-else-if="entry.type === 'int'" class="pair">
+                    <input type="text" :value="rawText(field.raw)" :placeholder="hint"
+                           @input="store.setNumber(field.key, $event.target.value, fold())">
+                    <button v-if="entry.percent" class="percent" :class="{ here: isPercent() }" :disabled="!field.present"
+                            :title="t('in percent')" @click="store.togglePercent(field.key)">%</button>
+                </span>
                 <span v-else-if="entry.type === 'pair'" class="pair">
-                    <input type="text" inputmode="numeric" :value="pairText(0)"
-                           @input="store.setPair(field.key, $event.target.value, pairText(1), fold())">
-                    <input type="text" inputmode="numeric" :value="pairText(1)"
-                           @input="store.setPair(field.key, pairText(0), $event.target.value, fold())">
+                    <template v-for="k in [0, 1]" :key="k">
+                        <input type="text" :value="pairText(k)" :placeholder="hint"
+                               @input="k === 0 ? store.setPair(field.key, $event.target.value, pairText(1), fold())
+                                               : store.setPair(field.key, pairText(0), $event.target.value, fold())">
+                        <button v-if="entry.percent" class="percent" :class="{ here: isPercent(k) }" :disabled="!field.present"
+                                :title="t('in percent')" @click="store.togglePercent(field.key, k)">%</button>
+                    </template>
                 </span>
                 <span v-else-if="entry.type === 'name'" class="name">
                     <select :value="choice" @change="choose($event.target.value)">

@@ -21,7 +21,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
 | [`project_include.cmake`](#project_includecmake) | two calls of CMake: a description made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.48: the names
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.49: the names
 and the signatures may still change.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -118,9 +118,9 @@ of every member.
 | ------ | ------- |
 | `kind` | what it is: see the kinds below |
 | `flags` | how it is built: see the flags below |
-| `pad`, `gap` | of a box: points from its edges to its children, and between them |
-| `at_x`, `at_y` | where it asks to be, in points from the inner edge of its parent; negative: from the far edge. In a column only `at_x` is used, in a row only `at_y` |
-| `want_w`, `want_h` | its size in points; 0: the size of its content, or across the stacking all of the box. The content of a widget with a text is the lines of its text; a button, a dropdown, a radio button and a checkbox are a point higher above and below them, the room of the frame of the focus. A button, a switch or a radio button with a picture, whatever look draws it, asks for its first picture's size and 5 points more across and down: a point of face and the frame's point on each side, and one for a shadow |
+| `pad`, `gap` | of a box: from its edges to its children, and between them, in points, or in percent with `DGX_UI_PERCENT_PAD`, `DGX_UI_PERCENT_GAP` (the percents below) |
+| `at_x`, `at_y` | where it asks to be from the inner edge of its parent, in points, or in percent with `DGX_UI_PERCENT_X`, `DGX_UI_PERCENT_Y`; negative: from the far edge. In a column only `at_x` is used, in a row only `at_y` |
+| `want_w`, `want_h` | its size in points, or in percent with `DGX_UI_PERCENT_W`, `DGX_UI_PERCENT_H`; 0 in points: the size of its content, or across the stacking all of the box. The content of a widget with a text is the lines of its text; a button, a dropdown, a radio button and a checkbox are a point higher above and below them, the room of the frame of the focus. A button, a switch or a radio button with a picture, whatever look draws it, asks for its first picture's size and 5 points more across and down: a point of face and the frame's point on each side, and one for a shadow |
 | `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list, and in `step` the least height of its rows in points, 0 a line of its text; the values of an icon's pictures; in `step` of a radio button the number it stands for |
 | `tag` | the program's number of it, found by `dgx_ui_find()`; 0 for none |
 | `state` | the state it starts with: `.state = {.bits = DGX_UI_HIDDEN}`, or `DGX_UI_DISABLED` |
@@ -163,6 +163,9 @@ of every member.
 | `DGX_UI_REST` | along the stacking of a column or a row it takes all the box has left after the other children, the gaps and the pads; several share it equally; never less than 0 |
 | `DGX_UI_CANVAS` | the widget has a canvas of its own, a picture kept from pass to pass: `dgx_ui_canvas()` |
 | `DGX_UI_REPEAT` | a button told `DGX_UI_ACTIVATED` again and again while it is held: a stepper's "+" |
+| `DGX_UI_PERCENT_X`, `DGX_UI_PERCENT_Y` | `at_x`, `at_y` in percent, not in points |
+| `DGX_UI_PERCENT_W`, `DGX_UI_PERCENT_H` | `want_w`, `want_h` in percent |
+| `DGX_UI_PERCENT_PAD`, `DGX_UI_PERCENT_GAP` | a box's `pad`, `gap` in percent |
 
 A button of `DGX_UI_REPEAT` is told `DGX_UI_ACTIVATED` when the finger goes down on it, and again every
 `DGX_UI_REPEAT_MS` from `DGX_UI_REPEAT_FIRST_MS` on while the finger holds it, wherever the finger goes: it stays
@@ -174,8 +177,30 @@ finger goes up or the press is spent: a swipe told on it, the button hidden, dis
 over its tree. One repeats at a time, the last begun: a key held while the finger repeats takes over, and the
 other, still held, does not begin again when that one ends. `DGX_UI_PRESSED` set by the program shows the button
 pressed and repeats nothing, and a button also of `DGX_UI_DRAG` is the drag's and does not repeat. On any other kind
-the flag means nothing. With it all eight flags are taken. The recipe:
+the flag means nothing. The recipe:
 [A stepper: minus, a value, plus](cookbook.md#a-stepper-minus-a-value-plus).
+
+**Percents.** A number in percent is written by `DGX_UI_PERCENT(p)`, beside its flag:
+`.want_w = DGX_UI_PERCENT(50), .flags = DGX_UI_ROW | DGX_UI_PERCENT_W`. The member holds it as 8.8 fixed point,
+-128 % to 127.99 % in steps of 1/256 %, and the macro holds a number past those at the edge; it is a constant
+expression in C and in C++. A percent is of pixels: the unit multiplies the points, never the percents.
+
+| A percent of | Of what |
+| --- | --- |
+| `pad` | the box's own width, on all four sides |
+| `gap` | the inside along the stacking: its width in a row, its height in a column |
+| a size along a row's or a column's stacking | the room the children share: the inside less the gaps between the children shown, never below 0 |
+| a size across the stacking, and both ways in a box of neither | the inside |
+| a place, `at_x` and `at_y` | the inside; a negative one from the far edge, as in points |
+
+- Along the stacking the percents of the children are taken by running totals in their order, so they add up with no
+  pixel lost or doubled: two of 50 % with a gap fill a row exactly. A total past 255.99 % is held there.
+- A child of points takes its points, and one of `DGX_UI_REST` what is left after the points and the percents;
+  neither takes from the percents.
+- A hidden child is out of it all: no gap, no part of the room, no step of the totals.
+- 0 with its flag is 0 %, no size; 0 in points is the size of the content.
+- The root's children are of the root, laid on the screen or on the rectangle given.
+- The recipe: [One tree on every board](cookbook.md#one-tree-on-every-board).
 
 **Events**: what `on()` is told in `what`.
 
@@ -1478,8 +1503,8 @@ came before it gives any memory. A widget is an object of these keys, in any ord
 | `"kind"` | `"box"`, `"frame"`, `"label"`, `"picture"`, `"icon"`, `"list"`, `"switch"`, `"slider"`, `"button"`, `"input"`, `"dropdown"`, `"own"` or `"radio"`. A column or a row is a box with the flag `"column"` or `"row"`. |
 | `"flags"` | a list of `"column"`, `"row"`, `"stretch"`, `"swipe"`, `"drag"`, `"canvas"`, `"rest"`, `"repeat"` |
 | `"state"` | a list of `"hidden"`, `"disabled"` |
-| `"pad"`, `"gap"` | 0 to 255, for a box, a frame and a widget of the program's own |
-| `"at"`, `"want"` | `[x, y]` and `[w, h]`, in points |
+| `"pad"`, `"gap"` | 0 to 32767 points, or a percent, `"5%"`, 0 % to 127.99 %: for a box, a frame and a widget of the program's own |
+| `"at"`, `"want"` | `[x, y]` and `[w, h]`, each in points or a percent, `["50%", 24]`, -128 % to 127.99 % |
 | `"min"`, `"max"`, `"step"`, `"value"` | the range, and the name of the place of the value in the values' table: for a list, a switch, a slider, a dropdown, a radio, an icon and a widget of the program's own |
 | `"tag"` | a number of the program's |
 | `"look"` | a name of the looks' table, or `null`: none. Not said: none for a box, a frame and a label, else the look the table names by the kind's own word, `"button"` for a button; its absence is an error, not a widget nobody sees. |
@@ -1495,6 +1520,11 @@ Numbers are integers. Names are of letters, digits, `_`, `.` and `-`, at most 23
 not know is an error, so a typo is not passed over. `"colors"`, `"styles"` and `"looks"` at the top are the keys of
 an appearance, [dgx_ui_appearance.h](#dgx_ui_appearanceh), which a page refuses as keys it does not know; `"fonts"`
 and `"pages"` are kept for a later version and refused in this one.
+
+**A percent** is a string: an optional `-`, digits with no leading 0 but a lone one, at most two decimals, and `%`:
+`"33.33%"`. It sets the widget's flag of that value, `DGX_UI_PERCENT_W` for the first of `"want"`; `"flags"` has no
+words for them. More decimals, or a value past its range, is `DGX_UI_LOAD_RANGE`; another form, `"50"`, `"50 %"`,
+`"+5%"`, is `DGX_UI_LOAD_SYNTAX`, and so is a percent to a loader before 0.0.49.
 
 **The editor's object.** `"editor"` is where a tool that edits descriptions keeps what is its own and means nothing
 to a device: guides, notes, the screens a page was made for, a lock on a widget. Its value is an object, and the
@@ -1544,12 +1574,12 @@ about when there is one, its first 23 bytes ending on a whole character:
 | Code | What went wrong |
 | ---- | --------------- |
 | `DGX_UI_LOAD_OK` | nothing |
-| `DGX_UI_LOAD_SYNTAX` | not JSON, a string that is not well-formed UTF-8, or a value of the wrong type for its key: a number of any kind where a name or a list is read |
+| `DGX_UI_LOAD_SYNTAX` | not JSON, a string that is not well-formed UTF-8, or a value of the wrong type for its key: a number of any kind where a name or a list is read; a string of another form where a percent may be |
 | `DGX_UI_LOAD_VERSION` | no `"dgx-ui"`, or a version that is not the integer 1; told before everything but a text that is not JSON |
 | `DGX_UI_LOAD_KEY` | a key unknown, or twice in one object |
 | `DGX_UI_LOAD_KIND` | no kind, or one unknown |
 | `DGX_UI_LOAD_FIELD` | a key of no meaning for the kind; an integer `"ctx"` with no handler that takes a number |
-| `DGX_UI_LOAD_RANGE` | where a number is read, one out of its field, or with a fraction or an exponent; fewer pictures in the table than the widget shows |
+| `DGX_UI_LOAD_RANGE` | where a number is read, one out of its field, or with a fraction or an exponent; a percent with more than two decimals or past its range; fewer pictures in the table than the widget shows |
 | `DGX_UI_LOAD_NAME_BAD` | a name that is empty, of a character not allowed, or longer than 23 |
 | `DGX_UI_LOAD_UNKNOWN` | a name its table has not |
 | `DGX_UI_LOAD_NO_LOOK` | no look said, and the looks' table names none for the kind |

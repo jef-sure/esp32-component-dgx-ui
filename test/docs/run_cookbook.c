@@ -1758,6 +1758,27 @@ int main(int argc, char **argv)
         dgx_ui_free(&day_page), dgx_screen_destroy(&day_screen);
     }
 
+    /* one tree on every board: the face laid on the CYD's 320x240 at the scale 1 and on 1280x800 at 3, its halves and
+       their gap filling the row to the pixel, its frames' pad of points as many pixels as the scale */
+    {
+        static const int boards[2][3] = {{320, 240, 1}, {1280, 800, 3}};
+        for (int b = 0; b < 2; ++b) {
+            static dgx_ui_node_t face_nodes[12];
+            dgx_ui_t             face_ui;
+            dgx_ui_init(&face_ui, face_nodes, 12, boards[b][2]);
+            dgx_ui_screen(&face_ui, boards[b][0], boards[b][1], 0);
+            const int face = face_add(&face_ui, -1);
+            dgx_ui_layout(&face_ui);
+            const dgx_ui_node_t *whole = dgx_ui_node(&face_ui, face), *time = dgx_ui_node(&face_ui, face + 1), *row = dgx_ui_node(&face_ui, face + 2);
+            const dgx_ui_node_t *left = dgx_ui_node(&face_ui, face + 3), *right = dgx_ui_node(&face_ui, face + 5), *warm = dgx_ui_node(&face_ui, face + 4);
+            const int gap = right->x - (left->x + left->w);
+            printf("face on %dx%d at %d: the time %dx%d, the halves %d and %d with a gap of %d in a row of %d (%s), a frame's pad %d\n",
+                   boards[b][0], boards[b][1], boards[b][2], time->w, time->h, left->w, right->w, gap, row->w,
+                   left->w + gap + right->w == row->w && left->x == row->x ? "filled" : "NOT FILLED", warm->x - left->x);
+            if (whole->w != boards[b][0]) printf("face: NOT the whole screen\n");
+            dgx_ui_free(&face_ui);
+        }
+    }
     puts("cookbook: ran to the end");
     return 0;
 }

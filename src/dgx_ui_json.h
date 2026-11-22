@@ -54,6 +54,15 @@ bool dgx_ui_json_string(dgx_ui_json_t *json, char *out, size_t cap, size_t *leng
 /** An integer within low..high: no fraction, no exponent, no leading zero. */
 bool dgx_ui_json_integer(dgx_ui_json_t *json, int32_t low, int32_t high, int32_t *value);
 
+/**
+ * An integer within low..high, as dgx_ui_json_integer() reads it, or a percent: a string of an optional "-", digits with
+ * no leading zero but a lone one, an optional "." with one or two digits, and "%", its value 8.8 fixed point,
+ * round(hundredths * 256 / 100), the hundredths within hundredths_low..hundredths_high. *percent says which it was. A
+ * string of another form is SYNTAX; more than two decimals, or a percent out of its bounds, RANGE.
+ */
+bool dgx_ui_json_number_or_percent(dgx_ui_json_t *json, int32_t low, int32_t high, int32_t hundredths_low, int32_t hundredths_high, int32_t *value,
+                                   bool *percent);
+
 /** The word true, false or null, as said. */
 bool dgx_ui_json_word(dgx_ui_json_t *json, const char *word);
 

@@ -106,7 +106,7 @@ const home  = '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "child
     check(ownRefused.code === -1 && ownRefused.said.includes("appearance's names"), 'its own refused, in words: ' + JSON.stringify(ownRefused));
     check(preview.appearance(framedLook).code === 8, 'none given: the page\'s again');
     preview.appearance(null), preview.page(null), preview.names(null);
-    const broken = preview.page('{"dgx-ui": 1, "tree": {"kind": "box", "pad": 300}}');
+    const broken = preview.page('{"dgx-ui": 1, "tree": {"kind": "box", "pad": 32768}}');
     check(broken.code === 6 && broken.offset === 45 && preview.count() === 0 && preview.shown() === null,
           'a page refused: ' + JSON.stringify(broken));
     check(preview.page(null).code === 0 && preview.count() === 0 && preview.paint(now) === false, 'no page');

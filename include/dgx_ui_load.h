@@ -30,7 +30,10 @@
  *    "own" or "radio", as DGX_UI_BOX ... DGX_UI_RADIO; a column or a row is a box of the flag "column" or "row";
  *  - "flags": a list of "column", "row", "stretch", "swipe", "drag", "canvas", "rest", "repeat"; "state": of "hidden",
  *    "disabled";
- *  - "pad", "gap" (0..255), "at": [x, y], "want": [w, h], "min", "max", "step", "tag" (int16): integers alone;
+ *  - "pad", "gap" (0..32767), "at": [x, y], "want": [w, h], "min", "max", "step", "tag" (int16): integers; "pad", "gap",
+ *    and each of "at" and "want", in points or in percent, a string of at most two decimals and "%" ("50%", "-2.5%"):
+ *    -128 % to 127.99 % for "at" and "want", 0 % to 127.99 % for "pad" and "gap", its DGX_UI_PERCENT_* flag set (no
+ *    word of "flags" says it), the value DGX_UI_PERCENT() of it;
  *  - names of the program's tables: "look" (or null, none), "value", "picture", "style", "on", "take", and "ctx", a
  *    name of the contexts, or an integer for a handler the table says takes a number (a stepper's +5 and -5);
  *  - "text": a string, the widget's text box over it, a constant one, or of "text_size" bytes the program may write

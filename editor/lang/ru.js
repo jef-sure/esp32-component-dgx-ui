@@ -40,6 +40,8 @@ DGX_UI_LANGUAGES.ru = {
         'a new name or a number…': 'новое имя или число…',
         'a new name…': 'новое имя…',
         'the key removed': 'убрать ключ',
+        'in percent': 'в процентах',
+        ', or {0}% … {1}%': ', или {0}% … {1}%',
         'The page': 'Страница',
         'none, by the rule': 'нет, по правилу',
         none: 'нет',

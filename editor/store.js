@@ -42,6 +42,9 @@ const useDgxUiBuilder = (() => {
     const WAKE_MOST = 1000; // a page with nothing asking to be drawn is still drawn each second: its events read
     const EVENTS_KEPT = 40;
     const JSON_NUMBER = /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/;
+    const PERCENT = /^-?[0-9]+(\.[0-9]+)?%$/; // "50%": the loader judges its form and range
+    // a number typed: a number as JSON writes one, kept as typed; a percent, a string; null for anything else
+    const typedNode = (text) => (JSON_NUMBER.test(text) ? { t: 'number', raw: text } : PERCENT.test(text) ? text : null);
 
     const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
     const textOf = (bytes) => (bytes ? decoder.decode(bytes) : null);
@@ -663,21 +666,41 @@ const useDgxUiBuilder = (() => {
                 return this.edit((doc) => description.removeKey(doc, path, key));
             },
 
-            // a number field: empty, the key removed; a number as JSON writes one, set as typed; anything else waits,
-            // nothing set, so that no NaN reaches the document
+            // a number field: empty, the key removed; a number as JSON writes one, set as typed, or a percent, "50%", a
+            // string; anything else waits, nothing set, so that no NaN reaches the document
             setNumber(key, typed, fold = null) {
                 const text = String(typed).trim();
                 if (text === '') return this.removeKey(key);
-                if (!JSON_NUMBER.test(text)) return false;
-                return this.setKey(key, { t: 'number', raw: text }, fold);
+                const node = typedNode(text);
+                return node === null ? false : this.setKey(key, node, fold);
             },
 
-            // a pair of numbers: both empty, the key removed; one empty or not a number, it waits
+            // a pair of numbers or percents: both empty, the key removed; one empty or of neither, it waits
             setPair(key, first, second, fold = null) {
                 const one = String(first).trim(), two = String(second).trim();
                 if (one === '' && two === '') return this.removeKey(key);
-                if (!JSON_NUMBER.test(one) || !JSON_NUMBER.test(two)) return false;
-                return this.setKey(key, [{ t: 'number', raw: one }, { t: 'number', raw: two }], fold);
+                const nodes = [typedNode(one), typedNode(two)];
+                return nodes.includes(null) ? false : this.setKey(key, nodes, fold);
+            },
+
+            // a number made a percent, or a percent its number: of a field, or of one of a pair's two by index
+            togglePercent(key, index = null) {
+                const field = this.fields.find((one) => one.key === key);
+                if (!field || !field.present) return false;
+                const flip = (node) => {
+                    if (node?.t === 'number') return `${node.raw}%`;
+                    if (node?.t === 'string' && PERCENT.test(node.value)) return typedNode(node.value.slice(0, -1));
+                    return null;
+                };
+                if (index === null) {
+                    const flipped = flip(field.raw);
+                    return flipped === null ? false : this.setKey(key, flipped);
+                }
+                if (field.raw?.t !== 'array' || field.raw.items.length !== 2) return false;
+                const items = [...field.raw.items], flipped = flip(items[index]);
+                if (flipped === null) return false;
+                items[index] = flipped;
+                return this.setKey(key, items);
             },
 
             toggleWord(key, word) {

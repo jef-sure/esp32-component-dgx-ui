@@ -334,8 +334,11 @@ static void out_string(out_t *o, const char *text)
 static const struct {
     unsigned    bit;
     const char *word;
-} flag_words[] = {{DGX_UI_COLUMN, "DGX_UI_COLUMN"}, {DGX_UI_ROW, "DGX_UI_ROW"},   {DGX_UI_STRETCH, "DGX_UI_STRETCH"}, {DGX_UI_SWIPE, "DGX_UI_SWIPE"},
-                  {DGX_UI_DRAG, "DGX_UI_DRAG"},     {DGX_UI_CANVAS, "DGX_UI_CANVAS"}, {DGX_UI_REST, "DGX_UI_REST"},       {DGX_UI_REPEAT, "DGX_UI_REPEAT"}};
+} flag_words[] = {{DGX_UI_COLUMN, "DGX_UI_COLUMN"},           {DGX_UI_ROW, "DGX_UI_ROW"},           {DGX_UI_STRETCH, "DGX_UI_STRETCH"},
+                  {DGX_UI_SWIPE, "DGX_UI_SWIPE"},             {DGX_UI_DRAG, "DGX_UI_DRAG"},         {DGX_UI_CANVAS, "DGX_UI_CANVAS"},
+                  {DGX_UI_REST, "DGX_UI_REST"},               {DGX_UI_REPEAT, "DGX_UI_REPEAT"},     {DGX_UI_PERCENT_X, "DGX_UI_PERCENT_X"},
+                  {DGX_UI_PERCENT_Y, "DGX_UI_PERCENT_Y"},     {DGX_UI_PERCENT_W, "DGX_UI_PERCENT_W"}, {DGX_UI_PERCENT_H, "DGX_UI_PERCENT_H"},
+                  {DGX_UI_PERCENT_PAD, "DGX_UI_PERCENT_PAD"}, {DGX_UI_PERCENT_GAP, "DGX_UI_PERCENT_GAP"}};
 static const char *const kind_words[] = {
     [DGX_UI_BOX] = "DGX_UI_BOX",       [DGX_UI_FRAME] = "DGX_UI_FRAME",   [DGX_UI_LABEL] = "DGX_UI_LABEL",   [DGX_UI_PICTURE] = "DGX_UI_PICTURE",
     [DGX_UI_ICON] = "DGX_UI_ICON",     [DGX_UI_LIST] = "DGX_UI_LIST",     [DGX_UI_SWITCH] = "DGX_UI_SWITCH", [DGX_UI_SLIDER] = "DGX_UI_SLIDER",
@@ -555,23 +558,39 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
     out(&c_file, "\nstatic const dgx_ui_widget_t %s_widgets[%d] = {\n", prefix, laid);
     for (int at = 0; at < laid; ++at) {
         const dgx_ui_widget_t *w = dgx_ui_node(ui, order[at])->widget;
+        /* the members in the order of their declaration, as C++ asks of a designated initializer */
         out(&c_file, "    {.kind = %s", kind_words[w->kind]);
+        if (w->state.bits) {
+            const bool hidden = w->state.bits & DGX_UI_HIDDEN, disabled = w->state.bits & DGX_UI_DISABLED;
+            out(&c_file, ", .state = {%s%s%s}", hidden ? "DGX_UI_HIDDEN" : "", hidden && disabled ? " | " : "", disabled ? "DGX_UI_DISABLED" : "");
+        }
         if (w->flags) {
             out(&c_file, ", .flags = ");
             bool first = true;
             for (size_t k = 0; k < sizeof flag_words / sizeof *flag_words; ++k)
                 if (w->flags & flag_words[k].bit) out(&c_file, "%s%s", first ? "" : " | ", flag_words[k].word), first = false;
         }
-        if (w->state.bits)
-            out(&c_file, ", .state = {%s%s%s}", w->state.bits & DGX_UI_HIDDEN ? "DGX_UI_HIDDEN" : "",
-                (w->state.bits & DGX_UI_HIDDEN) && (w->state.bits & DGX_UI_DISABLED) ? " | " : "", w->state.bits & DGX_UI_DISABLED ? "DGX_UI_DISABLED" : "");
         const struct {
             const char *field;
             int         value;
-        } numbers[] = {{"pad", w->pad},       {"gap", w->gap}, {"at_x", w->at_x}, {"at_y", w->at_y}, {"want_w", w->want_w}, {"want_h", w->want_h},
-                       {"min", w->min},       {"max", w->max}, {"step", w->step}, {"tag", w->tag}};
-        for (size_t k = 0; k < sizeof numbers / sizeof *numbers; ++k)
-            if (numbers[k].value) out(&c_file, ", .%s = %d", numbers[k].field, numbers[k].value);
+            uint16_t    percent; /* its flag of a percent; 0 none */
+        } numbers[] = {{"pad", w->pad, DGX_UI_PERCENT_PAD}, {"gap", w->gap, DGX_UI_PERCENT_GAP}, {"at_x", w->at_x, DGX_UI_PERCENT_X},
+                       {"at_y", w->at_y, DGX_UI_PERCENT_Y}, {"want_w", w->want_w, DGX_UI_PERCENT_W}, {"want_h", w->want_h, DGX_UI_PERCENT_H},
+                       {"min", w->min, 0},                  {"max", w->max, 0},                     {"step", w->step, 0},
+                       {"tag", w->tag, 0}};
+        for (size_t k = 0; k < sizeof numbers / sizeof *numbers; ++k) {
+            if (!numbers[k].value) continue;
+            if (!(w->flags & numbers[k].percent)) {
+                out(&c_file, ", .%s = %d", numbers[k].field, numbers[k].value);
+                continue;
+            }
+            /* a percent by the hundredths the description said: round(value * 100 / 256) gives them back exactly */
+            const int v = numbers[k].value, hundredths = v >= 0 ? (v * 100 + 128) / 256 : -((-v * 100 + 128) / 256);
+            const int magnitude = hundredths < 0 ? -hundredths : hundredths;
+            out(&c_file, ", .%s = DGX_UI_PERCENT(%s%d", numbers[k].field, hundredths < 0 ? "-" : "", magnitude / 100);
+            if (magnitude % 100) out(&c_file, magnitude % 10 ? ".%02d" : ".%d", magnitude % 10 ? magnitude % 100 : magnitude % 100 / 10);
+            out(&c_file, ")");
+        }
         if (w->value) out(&c_file, ", .value = %s", c_of(T_VALUE, (uintptr_t)w->value, (uintptr_t)value_stand, sizeof *value_stand));
         if (w->picture) out(&c_file, ", .picture = %s", c_of(T_PICTURE, (uintptr_t)w->picture, (uintptr_t)picture_stand, sizeof *picture_stand));
         if (w->text) out(&c_file, ", .text = &%s_texts[%d]", prefix, text_of[at]);

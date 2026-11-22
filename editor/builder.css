@@ -89,6 +89,7 @@
 .dgx-ui-builder .field input[type=text] { flex: 1; min-width: 4em; }
 .dgx-ui-builder .field .pair { display: flex; gap: 4px; flex: 1; }
 .dgx-ui-builder .field .pair input { width: 5em; }
+.dgx-ui-builder .field .percent { padding: 0 5px; }
 .dgx-ui-builder .field .name { display: flex; gap: 4px; flex: 1; }
 .dgx-ui-builder .field .words { display: flex; flex-wrap: wrap; gap: 2px 8px; flex: 1; font-size: 12px; }
 .dgx-ui-builder .field .remove { padding: 0 6px; }

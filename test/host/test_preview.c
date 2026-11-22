@@ -293,7 +293,7 @@ int main(void)
     CHECK(changed[0] + changed[2] <= s->x + s->w && changed[1] + changed[3] <= s->y + s->h);
 
     /* the loader's verdict, the same as on a program's tables */
-    static const char broken[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"pad\": 300}}";
+    static const char broken[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"pad\": 32768}}";
     const preview_verdict_t *verdict = preview_page(broken, sizeof broken - 1);
     dgx_ui_load_need_t       need;
     dgx_ui_load_error_t      err;

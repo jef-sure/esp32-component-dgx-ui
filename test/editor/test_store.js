@@ -257,6 +257,19 @@ const boxOf = (store, widgetPath) => {
     check(store.setPair('want', '', '25') === false && store.setPair('want', '0', '25') &&
           store.files['main/home.json'].text.includes('"want": [0, 25]'), 'a pair');
     check(store.setPair('want', '', '') && !/"slider"[^\n]*"want"/.test(store.files['main/home.json'].text), 'a pair emptied: removed');
+    /* percents: typed, toggled, and judged by the loader */
+    const homeText = () => store.files['main/home.json'].text;
+    check(store.setPair('want', '50%', '20') && homeText().includes('"want": ["50%", 20]') && store.verdicts.page.code === 0,
+          'a percent typed in a pair');
+    check(store.togglePercent('want', 1) && homeText().includes('"want": ["50%", "20%"]'), 'the second made a percent');
+    check(store.togglePercent('want', 0) && homeText().includes('"want": [50, "20%"]') && store.verdicts.page.code === 0, 'the first made a number');
+    check(store.setPair('want', '50 %', '1') === false && store.setPair('want', '5%%', '1') === false, 'what is no percent nor number waits');
+    store.select([]);
+    check(store.setNumber('pad', '5%') && homeText().includes('"pad": "5%"') && store.verdicts.page.code === 0, 'a pad of 5 %');
+    check(store.setNumber('pad', '1.234%') && store.verdicts.page.code === 6 && same(store.refusedPath, []), 'three decimals: RANGE, the loader\'s');
+    check(store.setNumber('pad', '4') && store.verdicts.page.code === 0, 'and points again');
+    store.select([1]);
+    check(store.setPair('want', '', ''), 'the pair removed again');
     check(store.toggleWord('state', 'disabled') && store.files['main/home.json'].text.includes('"state": ["disabled"]'), 'a word');
     check(store.toggleWord('state', 'disabled') && !/"slider"[^\n]*"state"/.test(store.files['main/home.json'].text),
           'the last word off: the key removed');

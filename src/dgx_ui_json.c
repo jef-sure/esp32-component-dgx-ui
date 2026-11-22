@@ -147,6 +147,39 @@ bool dgx_ui_json_integer(dgx_ui_json_t *json, int32_t low, int32_t high, int32_t
     return true;
 }
 
+bool dgx_ui_json_number_or_percent(dgx_ui_json_t *json, int32_t low, int32_t high, int32_t hundredths_low, int32_t hundredths_high, int32_t *value,
+                                   bool *percent)
+{
+    *percent = dgx_ui_json_peek(json) == '"';
+    if (!*percent) return dgx_ui_json_integer(json, low, high, value);
+    enum { MOST = 12 }; /* "-127.99%" and room past it: a longer string is of no percent */
+    char         text[MOST];
+    size_t       length;
+    const size_t at = json->pos;
+    if (!dgx_ui_json_string(json, text, sizeof text, &length)) return false;
+    const char *c = text, *end = text + (length < sizeof text ? length : 0);
+    const bool  negative = c < end && *c == '-';
+    c += negative;
+    /* digits, no leading zero but a lone one; the whole held at 1000, past every percent; one or two decimals */
+    const char *digits = c;
+    int32_t     whole = 0, hundredths = 0, decimals = 0;
+    for (; c < end && *c >= '0' && *c <= '9'; ++c) whole = whole >= 1000 ? 1000 : whole * 10 + (*c - '0');
+    bool form = c > digits && (*digits != '0' || c == digits + 1);
+    if (form && c < end && *c == '.') {
+        const char *point = c++;
+        for (; c < end && *c >= '0' && *c <= '9'; ++c, ++decimals)
+            if (decimals < 2) hundredths = hundredths * 10 + (*c - '0');
+        form = c > point + 1;
+        if (decimals == 1) hundredths *= 10;
+    }
+    if (!form || c + 1 != end || *c != '%') return dgx_ui_json_fail(json, DGX_UI_JSON_SYNTAX, at);
+    const int32_t all = negative ? -(whole * 100 + hundredths) : whole * 100 + hundredths;
+    if (decimals > 2 || all < hundredths_low || all > hundredths_high) return dgx_ui_json_fail(json, DGX_UI_JSON_RANGE, at);
+    /* never a tie: hundredths * 64 / 25 is never a half */
+    *value = all >= 0 ? (all * 256 + 50) / 100 : -((-all * 256 + 50) / 100);
+    return true;
+}
+
 bool dgx_ui_json_word(dgx_ui_json_t *json, const char *word)
 {
     const size_t length = strlen(word);

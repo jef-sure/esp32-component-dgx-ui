@@ -145,6 +145,16 @@ class Chance:
         self.title_again  = False  # the widget after the wrong one takes its id too
         self.injected     = False
 
+    def number_or_percent(self, low, high, percent_low):
+        """points of low..high, or now and then a percent of percent_low % to 127.99 %, of 0, 1 or 2 decimals"""
+        rand = self.rand
+        if rand.randint(0, 3):
+            return str(rand.randint(low, high))
+        hundredths = rand.randint(percent_low * 100, 12799)
+        sign, whole, part = "-" if hundredths < 0 else "", abs(hundredths) // 100, abs(hundredths) % 100
+        decimals = rand.choice(["", f".{part // 10}", f".{part:02d}"]) if part else rand.choice(["", ".0", ".00"])
+        return f'"{sign}{whole}{decimals}%"'
+
     def widget(self, depth):
         rand, rule = self.rand, self.rule
         self.count += 1
@@ -155,9 +165,9 @@ class Chance:
         if rand.randint(0, 1):
             keys.append(f'"tag": {rand.randint(-100, 99)}')
         if rand.randint(0, 1):
-            keys.append(f'"want": [{rand.randint(0, 59)}, {rand.randint(0, 29)}]')
+            keys.append(f'"want": [{self.number_or_percent(0, 59, 0)}, {self.number_or_percent(0, 29, 0)}]')
         if rand.randint(0, 2) == 0:
-            keys.append(f'"at": [{rand.randint(-10, 9)}, {rand.randint(0, 19)}]')
+            keys.append(f'"at": [{self.number_or_percent(-10, 9, -128)}, {self.number_or_percent(0, 19, -128)}]')
         if rand.randint(0, 3) == 0:
             keys.append('"state": ' + rand.choice(['["disabled"]', '["hidden"]', '["hidden", "disabled"]']))
         flags = [f for f in ("stretch", "rest", "repeat") if rand.randint(0, 4) == 0]
@@ -166,9 +176,9 @@ class Chance:
         if flags:
             keys.append('"flags": [' + ", ".join(f'"{f}"' for f in flags) + "]")
         if holds:
-            keys.append(f'"pad": {rand.randint(0, 4)}')
+            keys.append(f'"pad": {self.number_or_percent(0, 4, 0)}')
             if rand.randint(0, 1):
-                keys.append(f'"gap": {rand.randint(0, 4)}')
+                keys.append(f'"gap": {self.number_or_percent(0, 4, 0)}')
         if kind == "own":
             keys.append('"look": "' + rand.choice(["ring", "level"]) + '"')
         if kind in VALUED:
@@ -303,7 +313,7 @@ REFUSED = [
     '{"dgx-ui": 1, "tree": {"kind": "label", "value": "volume"}}',
     '{"dgx-ui": 1, "tree": {"kind": "box", "colour": 1}}',
     '{"dgx-ui": 1, "tree": {"kind": "box", "pad": 1.5}}',
-    '{"dgx-ui": 1, "tree": {"kind": "box", "pad": 256}}',
+    '{"dgx-ui": 1, "tree": {"kind": "box", "pad": 32768}}',
     '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "loudnes"}}',
     '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "vol ume"}}',
     '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "aaaaaaaaaaaaaaaaaaaaaaaab"}}',
@@ -643,6 +653,50 @@ for pad in [1, 2]:
     status, said = tool_in(own, '{"dgx-ui": 1, "name": "again", "tree": {"kind": "box", "pad": %d}}' % pad)
     if status or f".pad = {pad}" not in file_text(os.path.join(own, "again.c")):
         failures.append(f"a file the tool made, written again with pad {pad}: {status} {said}")
+# percents written as the description says them, DGX_UI_PERCENT() of its hundredths with their flags, and every
+# hundredth of -128 % to 127.99 % given back by them: the tool's writing of each, compiled, against its value
+cases_of_percent = [("33.33%", "DGX_UI_PERCENT(33.33)"), ("50%", "DGX_UI_PERCENT(50)"), ("2.5%", "DGX_UI_PERCENT(2.5)"),
+                    ("-0.05%", "DGX_UI_PERCENT(-0.05)"), ("127.99%", "DGX_UI_PERCENT(127.99)"), ("-128%", "DGX_UI_PERCENT(-128)")]
+status, said = tool_in(own, '{"dgx-ui": 1, "name": "percents", "tree": {"kind": "box", "flags": ["row"], "pad": "2.5%", "gap": 3, '
+                            '"children": [{"kind": "box", "want": ["33.33%", "50%"], "at": ["-0.05%", "127.99%"]}, '
+                            '{"kind": "box", "at": ["-128%", 0]}]}}')
+made = file_text(os.path.join(own, "percents.c")) if status == 0 else ""
+expected = [".flags = DGX_UI_ROW | DGX_UI_PERCENT_PAD, .pad = DGX_UI_PERCENT(2.5), .gap = 3",
+            ".flags = DGX_UI_PERCENT_X | DGX_UI_PERCENT_Y | DGX_UI_PERCENT_W | DGX_UI_PERCENT_H, .at_x = DGX_UI_PERCENT(-0.05), "
+            ".at_y = DGX_UI_PERCENT(127.99), .want_w = DGX_UI_PERCENT(33.33), .want_h = DGX_UI_PERCENT(50)",
+            ".flags = DGX_UI_PERCENT_X, .at_x = DGX_UI_PERCENT(-128)"]
+for line in expected:
+    if line not in made:
+        failures.append(f"percents not written as said: {line}: {status} {said}")
+# every hundredth through the tool's writing of it, in one description of a column of boxes, and the C compiled
+values = list(range(-12800, 12800))
+compile_dir = os.path.join(work, "all_percents")
+os.makedirs(compile_dir, exist_ok=True)
+for chunk_at in range(0, len(values), 1600):
+    chunk = values[chunk_at:chunk_at + 1600]
+    as_text = lambda h: ("-" if h < 0 else "") + f"{abs(h) // 100}" + (f".{abs(h) % 100:02d}" if abs(h) % 100 else "") + "%"
+    children = ", ".join(f'{{"kind": "box", "at": ["{as_text(h)}", 0]}}' for h in chunk)
+    status, said = tool_in(compile_dir, '{"dgx-ui": 1, "name": "every", "tree": {"kind": "box", "children": [%s]}}' % children)
+    made = file_text(os.path.join(compile_dir, "every.c")) if status == 0 else ""
+    written = re.findall(r"\.at_x = (DGX_UI_PERCENT\([-0-9.]+\))", made)
+    if status or len(written) != len(chunk) - (1 if 0 in chunk else 0):
+        failures.append(f"the hundredths from {chunk[0]}: {status} {said[:200]}, {len(written)} written")
+        break
+    probe = os.path.join(compile_dir, "probe.c")
+    with open(probe, "w") as out:
+        out.write('#include <stdio.h>\n#include "dgx_ui.h"\nstatic const int16_t made[] = {%s};\n' % ", ".join(written))
+        wanted = [(h * 256 + 50) // 100 if h >= 0 else -((-h * 256 + 50) // 100) for h in chunk if h]
+        out.write('static const int16_t wanted[] = {%s};\n' % ", ".join(map(str, wanted)))
+        out.write("int main(void)\n{\n    for (unsigned k = 0; k < sizeof made / sizeof *made; ++k)\n"
+                  '        if (made[k] != wanted[k]) return printf("%u: %d, not %d\\n", k, made[k], wanted[k]), 1;\n    return 0;\n}\n')
+    paths = [f for f in compile_command if f.startswith("-I") or f.startswith("-include") or f.endswith(".h")]
+    built = subprocess.run(["cc", "-std=gnu11", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Werror", "-I", os.path.join(root, "include"), *paths,
+                            "-o", os.path.join(compile_dir, "probe"), probe], capture_output=True, text=True, timeout=120)
+    ran = subprocess.run([os.path.join(compile_dir, "probe")], capture_output=True, text=True, timeout=30) if built.returncode == 0 else built
+    if built.returncode or ran.returncode:
+        failures.append(f"the hundredths from {chunk[0]} through DGX_UI_PERCENT(): {(built.stderr + ran.stdout)[:300]}")
+        break
+
 # a file the tool made of the other kind: a tree's files for tables, the tables' for a tree
 for leftover in ["kindtree.c", "kindtree.h", "kindtables.c", "kindtables.h"]:
     if os.path.exists(os.path.join(own, leftover)):
