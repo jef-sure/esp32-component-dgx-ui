@@ -29,16 +29,10 @@ const random = (n) => ((chance = (chance * 1103515245 + 12345) >>> 0) >>> 8) % n
 
 (async () => {
     const preview = await DgxUiPreview.create({ log: () => {} });
-    const exports = preview.exports;
-    const memory = () => new Uint8Array(preview.memory.buffer);
-    const withBytes = (bytes, run) => {
-        const at = exports.preview_text(bytes.length + 1);
-        memory().set(bytes, at), (memory()[at + bytes.length] = 0);
-        return run(at, bytes.length);
-    };
-    const json = (bytes) => withBytes(bytes, (at, length) => exports.preview_json(at, length));
-    const verdict = (bytes) => preview.verdictAt(withBytes(bytes, (at, length) => exports.preview_page(at, length)));
-    const format = JSON.parse(preview.cString(exports.preview_format()));
+    const json = (bytes) => preview.json(bytes);
+    /* the page's bytes as they are: the texts held to the loader read as UTF-8, the same bytes */
+    const verdict = (bytes) => preview.page(Buffer.from(bytes).toString('utf8'));
+    const format = preview.format();
     const holding = format.keys.find((key) => key.key === 'children').kinds;
     preview.screen(96, 64, 16, 1), preview.names(null), preview.appearance(null);
 
@@ -128,7 +122,7 @@ const random = (n) => ((chance = (chance * 1103515245 + 12345) >>> 0) >>> 8) % n
             let selected;
             if (choice === 0 && holding.includes(kind)) {
                 const added = format.kinds[random(format.kinds.length)];
-                const tables = JSON.parse(preview.cString(exports.preview_tables()));
+                const tables = preview.tables();
                 const ownLook = tables.look.includes(added) || ['box', 'frame', 'label'].includes(added);
                 selected = description.addChild(doc, one.path, added, ownLook ? {} : { look: null });
             } else if (choice === 1 && one.path.length) {
@@ -173,6 +167,48 @@ const random = (n) => ((chance = (chance * 1103515245 + 12345) >>> 0) >>> 8) % n
         }
     }
 
+    /* positions: units and bytes, and the first byte that is not UTF-8, against TextEncoder and TextDecoder */
+    let positions = 0;
+    const pieces = ['a', 'é', '€', '😀', '\ud800', '\udc00', '"', '\n', 'ж', '\u0000'];
+    for (let round = 0; round < 3000; ++round) {
+        let text = '';
+        for (let n = random(12); n--;) text += pieces[random(pieces.length)];
+        const encoded = Buffer.from(new TextEncoder().encode(text));
+        for (let unit = 0; unit <= text.length; ++unit) {
+            const low = (text.charCodeAt(unit - 1) & 0xfc00) === 0xd800 && (text.charCodeAt(unit) & 0xfc00) === 0xdc00; // within a pair
+            if (low) continue;
+            const byte = description.byteOfUnit(text, unit);
+            check(byte === new TextEncoder().encode(text.slice(0, unit)).length, `byteOfUnit(${JSON.stringify(text)}, ${unit}): ${byte}`);
+            check(description.unitOfByte(text, byte) === unit, `unitOfByte(${JSON.stringify(text)}, ${byte}) is not ${unit}`);
+            ++positions;
+        }
+        check(description.unitOfByte(text, encoded.length + 5) === text.length, 'a byte past the end: the end');
+    }
+    const fatal = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+    const decodes = (bytes) => { try { fatal.decode(bytes); return true; } catch { return false; } };
+    for (let round = 0; round < 20000; ++round) {
+        const bytes = new Uint8Array(random(10));
+        for (let k = 0; k < bytes.length; ++k) bytes[k] = [random(256), 0x80 + random(64), 0xc2 + random(51), 0x41][random(4)];
+        const bad = description.illFormedAt(bytes);
+        if (bad < 0) {
+            check(decodes(bytes), `illFormedAt says none in ${Buffer.from(bytes).toString('hex')}, TextDecoder refuses it`);
+        } else {
+            /* well-formed before it, and the first sequence TextDecoder replaces starts there */
+            const lossy = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+            check(decodes(bytes.subarray(0, bad)) && !decodes(bytes) &&
+                  lossy.indexOf('\ufffd') === new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes.subarray(0, bad)).length,
+                  `illFormedAt ${bad} in ${Buffer.from(bytes).toString('hex')}`);
+            const said = description.read(bytes);
+            check(!said.ok && said.byte === bad && said.why === 'not UTF-8',
+                  `read() of ${Buffer.from(bytes).toString('hex')}: ${JSON.stringify(said)}`);
+        }
+        ++positions;
+    }
+    {
+        const said = description.read(Buffer.from('{"dgx-ui": 1, "tree": {"text": "Café", ]}'));
+        check(!said.ok && said.at === 39 && said.byte === 40, 'read(): a refusal past an é, at a unit and a byte: ' + JSON.stringify(said));
+    }
+
     /* the history against a list kept plainly */
     for (let round = 0; round < 200; ++round) {
         const history = new History(20);
@@ -214,7 +250,7 @@ const random = (n) => ((chance = (chance * 1103515245 + 12345) >>> 0) >>> 8) % n
         process.exit(1);
     }
     console.log(`test_description.js: ${read} texts read and ${refused} refused as the loader's reader does (${deep} deeper than it goes), ` +
-                `${written} written twice the same, ${taken.length} in the module's order, ${operations} operations taken`);
+                `${written} written twice the same, ${taken.length} in the module's order, ${operations} operations taken, ${positions} positions`);
 })().catch((error) => {
     console.error('test_description.js:', error);
     process.exit(1);

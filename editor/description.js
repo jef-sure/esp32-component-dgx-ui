@@ -4,6 +4,9 @@
 // the operations of the builder; and the writer, which gives the keys of a widget in one order and the span of bytes
 // of each widget in what it wrote. It judges nothing of the format: the loader of the preview does. The reader takes
 // what the loader's reader of JSON takes (src/dgx_ui_json.c) and refuses what it refuses.
+//
+// Positions: the reader's `at` counts the UTF-16 units of the text decoded, as JavaScript and a text field count; the
+// loader's offset, and `byte` here, count the bytes of its UTF-8. byteOfUnit() and unitOfByte() turn one into the other.
 'use strict';
 
 const TOP_ORDER = ['dgx-ui', 'name', 'editor', 'tree'];
@@ -160,16 +163,76 @@ function readText(text) {
     }
 }
 
-// the bytes of a file read: refused when not well-formed UTF-8, as the loader refuses them; a byte order mark kept, and
-// refused as the loader refuses it
+// ---- positions ----
+
+// the bytes of UTF-8 before a position counted in UTF-16 units; a surrogate with no pair is three, as TextEncoder writes it
+function byteOfUnit(text, unit) {
+    let bytes = 0;
+    for (let k = 0; k < unit && k < text.length; ++k) {
+        const code = text.charCodeAt(k);
+        if (code < 0x80) bytes += 1;
+        else if (code < 0x800) bytes += 2;
+        else if (code >= 0xd800 && code <= 0xdbff && k + 1 < unit && (text.charCodeAt(k + 1) & 0xfc00) === 0xdc00) bytes += 4, ++k;
+        else bytes += 3;
+    }
+    return bytes;
+}
+
+// the UTF-16 units before a byte of the text's UTF-8; a byte within a character counts as that character's start
+function unitOfByte(text, byte) {
+    let bytes = 0, k = 0;
+    while (k < text.length) {
+        const code = text.charCodeAt(k);
+        const pair = code >= 0xd800 && code <= 0xdbff && (text.charCodeAt(k + 1) & 0xfc00) === 0xdc00;
+        const size = code < 0x80 ? 1 : code < 0x800 ? 2 : pair ? 4 : 3;
+        if (bytes + size > byte) break;
+        bytes += size, k += pair ? 2 : 1;
+    }
+    return k;
+}
+
+// the first byte of the first sequence that is not well-formed UTF-8, as Unicode's table of well-formed sequences
+// and TextDecoder's fatal decoding judge it: a byte no sequence starts with, a sequence cut, overlong, of a surrogate
+// or past U+10FFFF; -1 when there is none
+function illFormedAt(bytes) {
+    for (let k = 0; k < bytes.length;) {
+        const lead = bytes[k];
+        if (lead < 0x80) {
+            ++k;
+            continue;
+        }
+        let size, low = 0x80, high = 0xbf;
+        if (lead >= 0xc2 && lead <= 0xdf) size = 2;
+        else if (lead >= 0xe0 && lead <= 0xef) size = 3, lead === 0xe0 ? (low = 0xa0) : lead === 0xed ? (high = 0x9f) : 0;
+        else if (lead >= 0xf0 && lead <= 0xf4) size = 4, lead === 0xf0 ? (low = 0x90) : lead === 0xf4 ? (high = 0x8f) : 0;
+        else return k;
+        if (k + size > bytes.length) return k;
+        if (bytes[k + 1] < low || bytes[k + 1] > high) return k;
+        for (let c = 2; c < size; ++c) if (bytes[k + c] < 0x80 || bytes[k + c] > 0xbf) return k;
+        k += size;
+    }
+    return -1;
+}
+
+// the bytes of a file read: refused when not well-formed UTF-8, as the loader refuses them, at the first byte that is
+// not, and the units of the text before it; a byte order mark kept, and refused as the loader refuses it. A text given
+// is read as it is. {ok: true, doc, text} or {ok: false, at, byte, why}
 function read(bytes) {
     let text;
-    try {
-        text = typeof bytes === 'string' ? bytes : new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
-    } catch {
-        return { ok: false, at: 0, why: 'not UTF-8' };
+    if (typeof bytes === 'string') {
+        text = bytes;
+    } else {
+        try {
+            text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+        } catch {
+            const byte = Math.max(0, illFormedAt(bytes));
+            return { ok: false, at: new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes.subarray(0, byte)).length, byte, why: 'not UTF-8' };
+        }
     }
-    return readText(text);
+    const said = readText(text);
+    if (said.ok) said.text = text;
+    else said.byte = byteOfUnit(text, said.at);
+    return said;
 }
 
 // ---- the document ----
@@ -264,8 +327,8 @@ function removeKey(doc, path, key) {
     return path;
 }
 
-// a child of a kind, last among the children; extra: its other keys, such as a look the kind's word has not
-function addChild(doc, path, kind, extra = {}) {
+// a child of a kind, at an index among the children or last; extra: its other keys, such as a look the kind's word has not
+function addChild(doc, path, kind, extra = {}, at = undefined) {
     const widget = widgetAt(doc, path);
     if (!widget) return null;
     let children = childrenOf(widget);
@@ -275,8 +338,9 @@ function addChild(doc, path, kind, extra = {}) {
         if (entry) entry[1] = children;
         else widget.entries.push([stringNode('children'), children]);
     }
-    children.items.push(plain({ kind, ...extra }));
-    return [...path, children.items.length - 1];
+    const index = at === undefined ? children.items.length : Math.max(0, Math.min(at, children.items.length));
+    children.items.splice(index, 0, plain({ kind, ...extra }));
+    return [...path, index];
 }
 
 function remove(doc, path) {
@@ -422,7 +486,6 @@ function pathAtByte(spans, at) {
 }
 
 const api = { read, readText, write, widgets, widgetAt, indexOf, pathOf, samePath, setKey, removeKey, addChild, remove, move, wrap, builderOf,
-              setBuilder,
-              shown, valueOf, pathAtByte, TOP_ORDER, WIDGET_ORDER, ONE_LINE, BUILDER };
+              setBuilder, shown, valueOf, pathAtByte, byteOfUnit, unitOfByte, illFormedAt, TOP_ORDER, WIDGET_ORDER, ONE_LINE, BUILDER };
 if (typeof module !== 'undefined') module.exports = api;
 else window.DgxUiDescription = api;

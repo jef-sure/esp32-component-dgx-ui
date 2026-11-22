@@ -111,9 +111,12 @@ class DgxUiPreview {
     /* a text into the module's memory, ended by a 0, for the call */
     withText(text, run) {
         if (text === null || text === undefined) return run(0, 0);
-        const bytes = this.encoder.encode(text);
-        const at    = this.call(() => this.exports.preview_text(bytes.length + 1));
-        const view  = new Uint8Array(this.memory.buffer);
+        return this.withBytes(this.encoder.encode(text), run);
+    }
+
+    withBytes(bytes, run) {
+        const at   = this.call(() => this.exports.preview_text(bytes.length + 1));
+        const view = new Uint8Array(this.memory.buffer);
         view.set(bytes, at), view[at + bytes.length] = 0;
         return run(at, bytes.length);
     }
@@ -126,6 +129,29 @@ class DgxUiPreview {
     /** What it was built of: {dgx_ui, dgx, toolchain, sources}. */
     version() {
         return JSON.parse(this.cString(this.call(() => this.exports.preview_version())));
+    }
+
+    /**
+     * The format of a description as the loader reads it, from its own tables: {version, kinds, keys: [{key, type, kinds,
+     * and words, min and max, table, null where they are said}]}, as preview_format() says.
+     */
+    format() {
+        return JSON.parse(this.cString(this.call(() => this.exports.preview_format())));
+    }
+
+    /** The names of the tables the last page given was read on: {look: [...], value: [...], ...}, as preview_tables() says. */
+    tables() {
+        return JSON.parse(this.cString(this.call(() => this.exports.preview_tables())));
+    }
+
+    /**
+     * Whether a text, or bytes, is JSON as the loader's reader of JSON reads it: 1 JSON, 0 not, 2 deeper than the reader
+     * goes. Bytes are given as they are, ill-formed UTF-8 too; a text is given as UTF-8.
+     */
+    json(textOrBytes) {
+        const bytes = typeof textOrBytes === 'string' ? this.encoder.encode(textOrBytes) : DgxUiPreview.bytesView(textOrBytes);
+        if (!bytes) throw new TypeError('json(): a text or bytes');
+        return this.withBytes(bytes, (at, length) => this.call(() => this.exports.preview_json(at, length)));
     }
 
     /**

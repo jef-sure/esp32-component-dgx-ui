@@ -14,7 +14,7 @@ let failures = 0, held = 0;
 
 (async () => {
     const preview = await DgxUiPreview.create({log: () => {}});
-    const format  = JSON.parse(preview.cString(preview.exports.preview_format()));
+    const format  = preview.format();
     preview.screen(64, 48, 16, 1), preview.names(null), preview.appearance(null);
     const page = widget => preview.page(JSON.stringify({'dgx-ui': 1, tree: widget}));
     const expect = (widget, codes, what) => {

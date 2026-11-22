@@ -1,0 +1,100 @@
+/* The builder's look: every rule under .dgx-ui-builder, so that a page hosting it keeps its own. */
+.dgx-ui-builder {
+    color-scheme: light dark;
+    --line: light-dark(#d5d9e0, #3a3f4a);
+    --soft: light-dark(#f3f5f8, #24272e);
+    --text: light-dark(#1d2129, #e6e8ec);
+    --muted: light-dark(#667085, #98a1b0);
+    --mark: light-dark(#dbe7ff, #2b3a57);
+    --accent: light-dark(#2559c9, #8db2ff);
+    --wrong: light-dark(#b42318, #ff9c91);
+    --good: light-dark(#157347, #6fd3a0);
+    --back: light-dark(#fff, #1a1c21);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    font: 14px/1.4 system-ui, sans-serif;
+    color: var(--text);
+    background: var(--back);
+}
+.dgx-ui-builder * { box-sizing: border-box; }
+.dgx-ui-builder button, .dgx-ui-builder input, .dgx-ui-builder select, .dgx-ui-builder textarea, .dgx-ui-builder .button {
+    font: inherit; color: inherit;
+}
+.dgx-ui-builder button, .dgx-ui-builder .button {
+    padding: 2px 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--soft); cursor: pointer;
+}
+.dgx-ui-builder button:disabled { opacity: 0.5; cursor: default; }
+.dgx-ui-builder button.here { background: var(--mark); }
+.dgx-ui-builder input[type=text], .dgx-ui-builder input[type=number], .dgx-ui-builder select {
+    padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; background: transparent; min-width: 0;
+}
+.dgx-ui-builder select option { background: var(--back); }
+.dgx-ui-builder code, .dgx-ui-builder pre, .dgx-ui-builder .path { font-family: ui-monospace, monospace; font-size: 12px; }
+.dgx-ui-builder .path, .dgx-ui-builder .note { color: var(--muted); }
+.dgx-ui-builder .wrong { color: var(--wrong); }
+.dgx-ui-builder .good { color: var(--good); }
+.dgx-ui-builder .heading { margin: 8px 0 4px; font-weight: 600; }
+
+.dgx-ui-builder header {
+    display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.dgx-ui-builder header h1 { margin: 0; font-size: 15px; }
+.dgx-ui-builder .top { display: flex; gap: 6px; align-items: center; margin-left: auto; font-size: 13px; flex-wrap: wrap; }
+.dgx-ui-builder .top input[type=number] { width: 64px; }
+.dgx-ui-builder .banner { margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--wrong); color: var(--wrong); font-weight: 600; }
+.dgx-ui-builder .start { padding: 24px; color: var(--muted); max-width: 60em; }
+
+.dgx-ui-builder main { flex: 1; display: grid; grid-template-columns: 270px minmax(0, 1fr) 320px; min-height: 0; }
+.dgx-ui-builder .pane { overflow: auto; padding: 8px; min-height: 0; }
+.dgx-ui-builder .pane.tree { border-right: 1px solid var(--line); }
+.dgx-ui-builder .pane.properties { border-left: 1px solid var(--line); }
+.dgx-ui-builder summary { cursor: pointer; font-weight: 600; }
+.dgx-ui-builder .note { font-size: 12px; }
+.dgx-ui-builder .node {
+    display: block; width: 100%; padding: 1px 6px; border: 0; border-radius: 4px; background: none; text-align: left;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dgx-ui-builder .node:hover { background: var(--soft); }
+.dgx-ui-builder .node.here { background: var(--mark); }
+.dgx-ui-builder .node.refused { outline: 2px solid var(--wrong); outline-offset: -2px; color: var(--wrong); }
+.dgx-ui-builder .widgets:focus { outline: 1px dotted var(--accent); }
+.dgx-ui-builder .operations { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+.dgx-ui-builder .project { margin-top: 10px; font-size: 13px; }
+.dgx-ui-builder ul.said { margin: 4px 0; padding-left: 18px; font-size: 12px; }
+
+.dgx-ui-builder .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.dgx-ui-builder .toolbar .close { margin-left: auto; }
+.dgx-ui-builder .keys { display: inline-flex; gap: 4px; }
+.dgx-ui-builder .opened { padding: 4px 8px; border: 1px solid var(--accent); border-radius: 4px; }
+.dgx-ui-builder .stage { position: relative; }
+.dgx-ui-builder .stage canvas { display: block; image-rendering: pixelated; border: 1px solid var(--line); cursor: crosshair; }
+.dgx-ui-builder .stage canvas.stale { opacity: 0.35; filter: grayscale(1); }
+.dgx-ui-builder .outline {
+    position: absolute; pointer-events: none; outline: 2px solid var(--accent); outline-offset: -1px; box-shadow: 0 0 0 1px var(--back);
+}
+.dgx-ui-builder .events pre { margin: 0; font-size: 12px; white-space: pre-wrap; }
+
+.dgx-ui-builder .texts { display: flex; flex-direction: column; }
+.dgx-ui-builder .texts textarea { flex: 1; min-height: 20em; width: 100%; font: 12px/1.45 ui-monospace, monospace; tab-size: 2; }
+.dgx-ui-builder .verdict { margin: 0 0 6px; cursor: pointer; }
+
+.dgx-ui-builder .files p { margin: 2px 0; }
+.dgx-ui-builder .files label { display: block; margin: 4px 0; }
+.dgx-ui-builder .files .buttons { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0; }
+.dgx-ui-builder .field { display: flex; gap: 6px; align-items: center; padding: 2px 0; flex-wrap: wrap; }
+.dgx-ui-builder .field .key { width: 70px; flex: none; font-family: ui-monospace, monospace; font-size: 12px; }
+.dgx-ui-builder .field.absent .key { color: var(--muted); }
+.dgx-ui-builder .field.foreign .key { color: var(--wrong); }
+.dgx-ui-builder .field input[type=text] { flex: 1; min-width: 4em; }
+.dgx-ui-builder .field .pair { display: flex; gap: 4px; flex: 1; }
+.dgx-ui-builder .field .pair input { width: 5em; }
+.dgx-ui-builder .field .name { display: flex; gap: 4px; flex: 1; }
+.dgx-ui-builder .field .words { display: flex; flex-wrap: wrap; gap: 2px 8px; flex: 1; font-size: 12px; }
+.dgx-ui-builder .field .remove { padding: 0 6px; }
+
+.dgx-ui-builder footer {
+    display: flex; gap: 12px; flex-wrap: wrap; padding: 4px 12px; border-top: 1px solid var(--line); font-size: 12px; max-height: 6em; overflow: auto;
+}
+.dgx-ui-builder .asking { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35); }
+.dgx-ui-builder .asking .dialog { max-width: 36em; padding: 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--back); }
