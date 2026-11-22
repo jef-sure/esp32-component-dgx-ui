@@ -13,7 +13,7 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 В конце на дисплее будет вот это. Значение меняется пять раз в секунду, часы — раз в секунду, а между изменениями
 задача, которая владеет дисплеем, спит:
 
-![Значение в рамке, под ним часы и подпись](../images/getting-started.png)
+![Значение в рамке, под ним часы и подпись](../images/first.png)
 
 Нужно уметь собирать и прошивать проект ESP-IDF. Знать dgx-ui или DGX не требуется: каждая часть программы
 объясняется там, где она появляется.
@@ -24,6 +24,11 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 - Дисплей, с которым работает [DGX](https://github.com/jef-sure/esp32-component-dgx). Можно и без дисплея: та же
   программа работает в окне на компьютере.
 - DGX 0.12.1 или новее из ветки 0.12. Она подтянется сама вместе с dgx-ui.
+- На машине сборки, кроме ESP-IDF: свой компилятор C, файлы разработки FreeType, `pkg-config`, fontconfig и одна из
+  гарнитур DejaVu Sans, Liberation Sans, Noto Sans, FreeSans и Arial — из неё DGX при сборке делает шрифты
+  программы. В Debian и Ubuntu:
+  `sudo apt install build-essential libfreetype-dev pkg-config fontconfig fonts-dejavu-core`; окну на компьютере
+  нужна ещё SDL2, `libsdl2-dev`.
 
 ## 1. Подключите компонент
 
@@ -50,6 +55,31 @@ CONFIG_DGX_ENABLE_SPI_ILI_9341=y
 Остальные дисплеи и шины описаны в разделе
 [Getting started у DGX](https://github.com/jef-sure/esp32-component-dgx#getting-started).
 
+Шрифты делает DGX, когда собирает программу: со сглаженными краями, 4 бита на пиксель, и только с теми буквами,
+которые программа пишет. `main/CMakeLists.txt`:
+
+```cmake
+idf_component_register(SRCS "main.c")
+# the value large, of the letters its line shows; the other texts of every letter of main.c
+dgx_fonts_rules(fonts.rules)
+dgx_font_need(large SIZE 32px BITS 4 LETTERS "CO2 pm0123456789")
+dgx_font_need(body SIZE 13px BITS 4 TEXTS main.c)
+```
+
+и рядом с ним `main/fonts.rules` — из каких гарнитур их делать: из первой, какая есть на машине сборки:
+
+```
+source system
+allow "DejaVu Sans"      7..
+allow "Liberation Sans"  7..
+allow "Noto Sans"        7..
+allow "FreeSans"         7..
+allow "Arial"            7..
+```
+
+Сборка печатает, какую гарнитуру взяла. Шрифт, который идёт с DGX, можно взять и готовым, без всего этого:
+[Сглаженные буквы](cookbook.md#сглаженные-буквы).
+
 ## 2. Напишите первую программу
 
 Ниже `main/main.c` по частям: части в этом порядке и есть весь файл. Пример
@@ -57,13 +87,12 @@ CONFIG_DGX_ENABLE_SPI_ILI_9341=y
 вертикально, 240 на 320.
 
 ```c
+#include "dgx_fonts.h" /* made by DGX at build time: dgx_font_large, dgx_font_body */
 #include "dgx_ui_paint.h"
 #include "dgx_ui_post.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_ticker.h"
 #include "esp_timer.h"
-#include "fonts/DejaVuSansBook32.h"
-#include "fonts/TerminusTTFMedium12.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 ```
@@ -119,8 +148,8 @@ DGX_UI_MESSAGE(co2, MSG_CO2, co2_t)
 static char                  co2_buf[24], clock_buf[16], note_buf[24];
 static dgx_ui_textbox_t      co2_box, clock_box, note_box;
 /* the value in the large font, or in the small one when it does not go in */
-static const dgx_ui_font_variant_t big[2]   = {{.font = &DejaVuSansBook32}, {.font = &TerminusTTFMedium12}};
-static const dgx_ui_font_variant_t small[1] = {{.font = &TerminusTTFMedium12}};
+static const dgx_ui_font_variant_t big[2]   = {{.font = &dgx_font_large}, {.font = &dgx_font_body}};
+static const dgx_ui_font_variant_t small[1] = {{.font = &dgx_font_body}};
 static const dgx_ui_text_style_t   st_big   = {.variants = big, .count = 2, .flags = DGX_UI_TEXT_MIDDLE, .align = DGX_FONT_ALIGN_CENTER};
 static const dgx_ui_text_style_t   st_left  = {.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
 static const dgx_ui_text_style_t   st_right = {.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};

@@ -1,6 +1,6 @@
 /* The pictures of the documentation, drawn by dgx-ui itself on a virtual screen of DGX; the code of the pages is here. Their
-   letters are the fonts of the cookbook's needs, soft-edged, made by DGX from test/docs/fonts.needs (run.mk); the picture
-   of the getting-started page alone is in the fonts its program names, which DGX ships. */
+   letters are the fonts of the cookbook's needs, soft-edged, made by DGX from test/docs/fonts.needs (run.mk), of the
+   sizes the getting-started page's program asks for too. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,8 +12,6 @@
 #include "dgx_ui_text.h"
 #include "dgx_fonts.h"
 #include "dgx_vscreen.h"
-#include "fonts/DejaVuSansBook32.h"
-#include "fonts/TerminusTTFMedium12.h"
 
 static void shot(dgx_screen_t *scr, const char *name)
 {
@@ -41,12 +39,12 @@ static void make_colors(dgx_screen_t *scr)
 }
 static dgx_ui_font_variant_t big[2], small[1];
 static dgx_ui_text_style_t   st_big, st_left, st_right, st_centre, st_important, st_plain;
-/* soft: the fonts of the needs, 4 bits a pixel; else those the getting-started page's program names */
-static void make_styles(bool soft)
+/* the fonts of the needs, 4 bits a pixel */
+static void make_styles(void)
 {
-    big[0]   = (dgx_ui_font_variant_t){.font = soft ? &dgx_font_large : &DejaVuSansBook32};
-    big[1]   = (dgx_ui_font_variant_t){.font = soft ? &dgx_font_body : &TerminusTTFMedium12};
-    small[0] = (dgx_ui_font_variant_t){.font = soft ? &dgx_font_body : &TerminusTTFMedium12};
+    big[0]   = (dgx_ui_font_variant_t){.font = &dgx_font_large};
+    big[1]   = (dgx_ui_font_variant_t){.font = &dgx_font_body};
+    small[0] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     st_big       = (dgx_ui_text_style_t){.variants = big, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     st_left      = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_right     = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
@@ -451,10 +449,7 @@ int main(int argc, char **argv)
     const char   *dir = argc > 1 ? argv[1] : ".";
     char          a[512], b[512];
     dgx_screen_t *scr = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
-    make_colors(scr), make_styles(false);
-    snprintf(a, sizeof a, "%s/getting-started.ppm", dir), scene_first(scr, a);
-    dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
-    make_styles(true);
+    make_colors(scr), make_styles();
     snprintf(a, sizeof a, "%s/first.ppm", dir), scene_first(scr, a);
     dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
     snprintf(a, sizeof a, "%s/settings.ppm", dir), snprintf(b, sizeof b, "%s/popup.ppm", dir), scene_settings(scr, a, b);

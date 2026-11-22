@@ -43,7 +43,7 @@ The pictures but the ring's and the strip's are drawn by `pictures.c`, as PPM, a
 palette of 256 colours holding every level of the soft edges:
 
 ```sh
-make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # getting-started, first, settings, popup, lines, list, dropdown, background, states
+make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # first, settings, popup, lines, list, dropdown, background, states
 python3 -c "from PIL import Image; import sys; [Image.open(f'/tmp/pictures/{n}.ppm').convert('P', palette=Image.ADAPTIVE, colors=256).save(f'docs/images/{n}.png', optimize=True) for n in sys.argv[1:]]" list dropdown
 ```
 

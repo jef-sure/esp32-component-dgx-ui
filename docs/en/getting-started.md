@@ -12,7 +12,7 @@ for ESP32. In this guide we add it to an ESP-IDF project and write its first pro
 At the end the display shows this. The value changes five times a second and the clock once a second, and between
 the changes the task that owns the display sleeps:
 
-![A value in a frame, a clock and a note under it](../images/getting-started.png)
+![A value in a frame, a clock and a note under it](../images/first.png)
 
 You need to know how an ESP-IDF project is built and flashed. Nothing of dgx-ui or of DGX is assumed: every part of
 the program is explained where it appears.
@@ -23,6 +23,11 @@ the program is explained where it appears.
 - A display that [DGX](https://github.com/jef-sure/esp32-component-dgx) drives, or no display at all: the same program
   runs in a window on the computer.
 - DGX 0.12.1 or a later 0.12. It comes by itself with dgx-ui.
+- On the build machine, beside ESP-IDF: a C compiler of its own, the development files of FreeType, `pkg-config`,
+  fontconfig and one of the faces DejaVu Sans, Liberation Sans, Noto Sans, FreeSans and Arial, of which DGX makes the
+  program's fonts as it builds it. On Debian and Ubuntu:
+  `sudo apt install build-essential libfreetype-dev pkg-config fontconfig fonts-dejavu-core`; the window on the
+  computer needs SDL2 too, `libsdl2-dev`.
 
 ## 1. Add the component
 
@@ -49,6 +54,31 @@ CONFIG_DGX_ENABLE_SPI_ILI_9341=y
 The other displays and buses are in
 [Getting started of DGX](https://github.com/jef-sure/esp32-component-dgx#getting-started).
 
+The fonts are made by DGX as it builds the program, with soft edges, 4 bits a pixel, and only of the letters the
+program writes. `main/CMakeLists.txt`:
+
+```cmake
+idf_component_register(SRCS "main.c")
+# the value large, of the letters its line shows; the other texts of every letter of main.c
+dgx_fonts_rules(fonts.rules)
+dgx_font_need(large SIZE 32px BITS 4 LETTERS "CO2 pm0123456789")
+dgx_font_need(body SIZE 13px BITS 4 TEXTS main.c)
+```
+
+and beside it `main/fonts.rules`, the faces to make them of, the first the build machine has:
+
+```
+source system
+allow "DejaVu Sans"      7..
+allow "Liberation Sans"  7..
+allow "Noto Sans"        7..
+allow "FreeSans"         7..
+allow "Arial"            7..
+```
+
+The build prints the face it took. A font DGX ships may be taken as it is, with none of this:
+[Letters with soft edges](cookbook.md#letters-with-soft-edges).
+
 ## 2. Write the first program
 
 The program below is `main/main.c`, piece by piece; the pieces in their order are the whole file. The example
@@ -56,13 +86,12 @@ The program below is `main/main.c`, piece by piece; the pieces in their order ar
 display upright, 240 by 320.
 
 ```c
+#include "dgx_fonts.h" /* made by DGX at build time: dgx_font_large, dgx_font_body */
 #include "dgx_ui_paint.h"
 #include "dgx_ui_post.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_ticker.h"
 #include "esp_timer.h"
-#include "fonts/DejaVuSansBook32.h"
-#include "fonts/TerminusTTFMedium12.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 ```
@@ -118,8 +147,8 @@ whole.
 static char                  co2_buf[24], clock_buf[16], note_buf[24];
 static dgx_ui_textbox_t      co2_box, clock_box, note_box;
 /* the value in the large font, or in the small one when it does not go in */
-static const dgx_ui_font_variant_t big[2]   = {{.font = &DejaVuSansBook32}, {.font = &TerminusTTFMedium12}};
-static const dgx_ui_font_variant_t small[1] = {{.font = &TerminusTTFMedium12}};
+static const dgx_ui_font_variant_t big[2]   = {{.font = &dgx_font_large}, {.font = &dgx_font_body}};
+static const dgx_ui_font_variant_t small[1] = {{.font = &dgx_font_body}};
 static const dgx_ui_text_style_t   st_big   = {.variants = big, .count = 2, .flags = DGX_UI_TEXT_MIDDLE, .align = DGX_FONT_ALIGN_CENTER};
 static const dgx_ui_text_style_t   st_left  = {.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
 static const dgx_ui_text_style_t   st_right = {.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
