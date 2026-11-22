@@ -221,6 +221,7 @@ static void chance_variant(printer_t *p, dgx_ui_font_variant_t *v)
     if (chance(2)) v->height = (int16_t)chance(40), print(p, ", \"height\": %d", v->height);
     if (chance(2)) v->narrow = (uint8_t)chance(101), print(p, ", \"narrow\": %d", v->narrow);
     if (chance(2)) v->joined = chance(2), print(p, ", \"joined\": %s", v->joined ? "true" : "false");
+    if (chance(2)) v->points = !v->hand && chance(2), print(p, ", \"points\": %s", v->points ? "true" : "false");
     const bool soft = chance(2);
     if (chance(2)) v->pen = (uint32_t)chance(6), print(p, ", \"pen\": %u", (unsigned)v->pen);
     if (soft) v->pen |= DGX_PEN_SOFT, print(p, ", \"soft\": true");
@@ -229,7 +230,8 @@ static void chance_variant(printer_t *p, dgx_ui_font_variant_t *v)
 
 static bool same_variant(const dgx_ui_font_variant_t *a, const dgx_ui_font_variant_t *b)
 {
-    return a->font == b->font && a->height == b->height && a->narrow == b->narrow && a->joined == b->joined && a->pen == b->pen && a->hand == b->hand;
+    return a->font == b->font && a->height == b->height && a->narrow == b->narrow && a->joined == b->joined && a->pen == b->pen && a->hand == b->hand &&
+           a->points == b->points;
 }
 
 int main(void)
@@ -404,6 +406,8 @@ int main(void)
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [\"small\"], \"middle\": true}}}", DGX_UI_LOAD_KEY, 141, "middle"));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [{\"font\": \"hand\", \"height\": 20}]}}}", DGX_UI_LOAD_MISSING, 131, "hand"));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [{\"height\": 20}]}}}", DGX_UI_LOAD_MISSING, 131, "font"));
+    CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [{\"font\": \"hand\", \"hand\": \"handwriting\", \"points\": true}]}}}", DGX_UI_LOAD_FIELD, 131, "points"));
+    CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [{\"font\": \"small\", \"points\": 1}]}}}", DGX_UI_LOAD_SYNTAX, 159, NULL));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [{\"font\": \"small\", \"hand\": \"pencil\"}]}}}", DGX_UI_LOAD_UNKNOWN, 157, "pencil"));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [{\"font\": \"small\", \"narrow\": 101}]}}}", DGX_UI_LOAD_RANGE, 159, NULL));
     {

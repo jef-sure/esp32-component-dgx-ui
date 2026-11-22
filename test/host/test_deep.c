@@ -292,7 +292,7 @@ int main(void)
         static dgx_ui_t              ua, ub;
         static const dgx_ui_widget_t col = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2};
         dgx_ui_textbox_init(&ta, ba, sizeof ba, 1, &style), dgx_ui_textbox_init(&tb, bb, sizeof bb, 1, &style);
-        const int line = dgx_ui_variant_line(&variant[0]);
+        const int line = dgx_ui_variant_line(&ua, &variant[0]);
         wa = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .value = new_place(), .text = &ta, .max = 5, .want_h = (int16_t)(2 * line), .look = &dgx_ui_look_list};
         wb = wa, wb.text = &tb, wb.value = new_place(); /* a copy shares the place otherwise */
         dgx_ui_init(&ua, na, 2, 1), dgx_ui_init(&ub, nb, 2, 1);

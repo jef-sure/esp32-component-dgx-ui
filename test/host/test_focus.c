@@ -390,7 +390,7 @@ int main(void)
             dgx_ui_paint(&ui, &paint, 0);
             const dgx_ui_node_t *n    = dgx_ui_node(&ui, i);
             const bool           knob = own.kind == DGX_UI_SLIDER || (own.kind == DGX_UI_SWITCH && !own.text);
-            if (own.text) CHECK(n->h == dgx_ui_textbox_height(own.text) + 2 * point); /* the frame's room */
+            if (own.text) CHECK(n->h == dgx_ui_textbox_height(&ui, own.text) + 2 * point); /* the frame's room */
             keep();
             dgx_ui_focus(&ui, i);
             CHECK(pass(&ui, 10, n, NULL));

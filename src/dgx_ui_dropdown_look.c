@@ -61,8 +61,9 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
         fill(paint, n->x, n->y, tw, n->h, face);
     } else {
         /* the option chosen, in the middle rows of the face: the rows above and below it, then its field */
-        const int cell = f->y_bottom_max - f->y_offset_lowest, base = n->y + (n->h - cell) / 2 - f->y_offset_lowest;
-        const int top = base + f->y_offset_lowest, bottom = base + f->y_bottom_max;
+        const int s    = dgx_ui_variant_scale(&box->style->variants[0], ui->unit); /* the pixels a pixel of the font takes */
+        const int cell = (f->y_bottom_max - f->y_offset_lowest) * s, base = n->y + (n->h - cell) / 2 - f->y_offset_lowest * s;
+        const int top = base + f->y_offset_lowest * s, bottom = base + f->y_bottom_max * s;
         int       px, py, pw, ph;
         dgx_screen_clip_get(paint->scr, &px, &py, &pw, &ph);
         fill(paint, n->x, n->y, tw, top - n->y, face);
@@ -76,7 +77,8 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
             dgx_screen_clip(paint->scr, px, cy0, pw, cy1 - cy0);
             fill(paint, n->x, top, pad < tw ? pad : tw, bottom - top, face);
             if (tw > pad) {
-                const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = face, .field = tw - pad, .align = DGX_FONT_ALIGN_LEFT};
+                const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = face, .scale = s, .field = tw - pad,
+                                                .align = DGX_FONT_ALIGN_LEFT};
                 dgx_font_draw(&ctx, n->x + pad - paint->ox, base - paint->oy, line);
             }
             dgx_screen_clip(paint->scr, px, py, pw, ph);

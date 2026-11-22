@@ -25,8 +25,8 @@ static const char ELLIPSIS[] = "...";
 #define width_of  dgx_ui_width_of
 
 /* the shared laying of lines, by the fonts' own measure; a variant of no bitmap or dot font is not drawn here */
-#define LINES_MEASURE(v, s, n) width_of((v)->font, s, n)
-#define LINES_HEIGHT(v)        (dgx_ui_variant_usable((v)->font) ? (v)->font->y_advance : 0)
+#define LINES_MEASURE(v, s, n, unit) (width_of((v)->font, s, n) * dgx_ui_variant_scale(v, unit))
+#define LINES_HEIGHT(v, unit)        (dgx_ui_variant_usable((v)->font) ? (v)->font->y_advance * dgx_ui_variant_scale(v, unit) : 0)
 #include "dgx_ui_lines_layout.h"
 
 /* the clip of the screen cut to rows top .. bottom of the tree's screen; false when nothing of them is left */
@@ -62,7 +62,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     /* the variant: fitted again when the text or the width changed */
     int v = box->variant;
     if (chosen >= 0) v = chosen;
-    else if (w->marks & DGX_UI_MARK_FIT) v = fit_lines(st, text, len, w->w, w->h);
+    else if (w->marks & DGX_UI_MARK_FIT) v = fit_lines(st, text, len, w->w, w->h, ui->unit);
     if (v < 0 || v >= st->count || !dgx_ui_variant_usable(st->variants[v].font)) {
         if (paint->whole) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, w->h);
         return false;
@@ -71,13 +71,15 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const uint32_t since = (box->flags & DGX_UI_TEXTBOX_START) ? now_ms : box->since_ms;
     const dgx_ui_font_variant_t *var = &st->variants[v];
     const dgx_font_t            *f = var->font, *f0 = dgx_ui_variant_usable(st->variants[0].font) ? st->variants[0].font : f;
-    const int      lh = f->y_advance, cell_top = f->y_offset_lowest, cell = f->y_bottom_max - f->y_offset_lowest;
+    /* the pixels a pixel of its font takes, and of the first variant's whose base line it stands on */
+    const int scale = dgx_ui_variant_scale(var, ui->unit), scale0 = f0 == f ? scale : dgx_ui_variant_scale(&st->variants[0], ui->unit);
+    const int      lh = f->y_advance * scale, cell_top = f->y_offset_lowest * scale, cell = (f->y_bottom_max - f->y_offset_lowest) * scale;
     const int      rows = w->h / lh > 0 ? w->h / lh : 1;
 
     /* the lines and letters of the text: counted again only when the text, the width or the variant changed */
     int total, all_letters;
     if (!(box->flags & DGX_UI_TEXTBOX_COUNTED) || (w->marks & (DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT)) || v != box->variant) {
-        total = count_lines(text, len, var, w->w, MAX_LINES, MAX_LINES, &all_letters);
+        total = count_lines(text, len, var, w->w, MAX_LINES, MAX_LINES, &all_letters, ui->unit);
     } else {
         total = box->total_lines, all_letters = box->total_letters;
     }
@@ -128,7 +130,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const int  shown = total - top < rows ? total - top : rows;
 
     /* the base line of the first row: the first variant's, or the block of the rows shown in the middle */
-    int base0 = w->y + (first_rows >= 0 ? first_rows : -f0->y_offset_lowest);
+    int base0 = w->y + (first_rows >= 0 ? first_rows : -f0->y_offset_lowest * scale0);
     if (st->flags & DGX_UI_TEXT_MIDDLE) {
         const int block = shown > 0 ? (shown - 1) * lh + cell : cell;
         base0           = w->y + (w->h - block) / 2 - cell_top;
@@ -151,7 +153,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
         /* the line of this row */
         int start = len, end = len;
         while (from < len && line <= top + k) {
-            const int next = lay_line(text, len, from, var, w->w, &end);
+            const int next = lay_line(text, len, from, var, w->w, &end, ui->unit);
             start          = from;
             if (line < top + k) letters_before += letters_in(text, from, end);
             from = next, ++line;
@@ -175,7 +177,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
             while (n > 0) {
                 while (n > 0 && s[n - 1] == ' ') --n;
                 memcpy(s + n, ELLIPSIS, sizeof ELLIPSIS);
-                if (width_of(f, s, (int)strlen(s)) <= w->w) break;
+                if (width_of(f, s, (int)strlen(s)) * scale <= w->w) break;
                 while (n > 0 && ((unsigned char)s[--n] & 0xC0) == 0x80) {}
                 s[n] = 0;
             }
@@ -187,7 +189,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
         if (come < all_letters) {
             const int here = come - row_first;
             if (st->align != DGX_FONT_ALIGN_LEFT && here > 0) {
-                const int room = w->w - width_of(f, s, (int)strlen(s));
+                const int room = w->w - width_of(f, s, (int)strlen(s)) * scale;
                 const int lead = room <= 0 ? 0 : st->align == DGX_FONT_ALIGN_CENTER ? room / 2 : room;
                 fx += lead, fw -= lead, align = DGX_FONT_ALIGN_LEFT;
                 if (lead > 0 && clip_rows(paint, part, band_top, band_bottom))
@@ -198,7 +200,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
             s[b] = 0;
         }
         if (clip_rows(paint, part, band_top, band_bottom)) {
-            const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = paper, .field = fw, .align = align};
+            const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = paper, .scale = scale, .field = fw, .align = align};
             dgx_ui_field_text(paint, &ctx, fx, base0 + k * lh - paint->oy, s, p->paper);
         }
     }

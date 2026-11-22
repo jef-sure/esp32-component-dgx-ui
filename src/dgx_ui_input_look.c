@@ -34,14 +34,15 @@ static bool draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui,
     }
     const bool  caret = dgx_ui_bits_shown(ui, n) & DGX_UI_FOCUSED;
     const int   cw    = caret ? (ui->unit > 1 ? ui->unit : 1) : 0;
-    const int   cell = f->y_bottom_max - f->y_offset_lowest;
-    const int   base = (box->style->flags & DGX_UI_TEXT_MIDDLE) ? n->y + (n->h - cell) / 2 - f->y_offset_lowest : n->y - f->y_offset_lowest;
-    const int   top = base + f->y_offset_lowest, bottom = base + f->y_bottom_max;
+    const int   s    = dgx_ui_variant_scale(&box->style->variants[0], ui->unit); /* the pixels a pixel of the font takes */
+    const int   cell = (f->y_bottom_max - f->y_offset_lowest) * s;
+    const int   base = (box->style->flags & DGX_UI_TEXT_MIDDLE) ? n->y + (n->h - cell) / 2 - f->y_offset_lowest * s : n->y - f->y_offset_lowest * s;
+    const int   top = base + f->y_offset_lowest * s, bottom = base + f->y_bottom_max * s;
     /* the rows above and below the text */
     dgx_ui_lay_paper(paint, p->paper, n->x, n->y, n->w, top - n->y);
     dgx_ui_lay_paper(paint, p->paper, n->x, bottom, n->w, n->y + n->h - bottom);
     /* the text up to the caret, its end when it is longer than the field */
-    const int room = n->w - cw, tw = dgx_ui_width_of(f, text, (int)strlen(text));
+    const int room = n->w - cw, tw = dgx_ui_width_of(f, text, (int)strlen(text)) * s;
     const int field = tw < room ? tw : room;
     int       px, py, pw, ph;
     dgx_screen_clip_get(paint->scr, &px, &py, &pw, &ph);
@@ -50,7 +51,8 @@ static bool draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui,
     if (y1 <= y0) return false;
     dgx_screen_clip(paint->scr, px, y0, pw, y1 - y0);
     if (field > 0) {
-        const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = paper, .field = field, .align = tw > room ? DGX_FONT_ALIGN_RIGHT : DGX_FONT_ALIGN_LEFT};
+        const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = paper, .scale = s, .field = field,
+                                        .align = tw > room ? DGX_FONT_ALIGN_RIGHT : DGX_FONT_ALIGN_LEFT};
         dgx_ui_field_text(paint, &ctx, n->x - paint->ox, base - paint->oy, text, p->paper);
     }
     fill(paint, n->x + field, top, cw, bottom - top, dgx_ui_color(paint, p->caret));

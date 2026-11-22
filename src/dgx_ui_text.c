@@ -14,16 +14,16 @@
 #include "dgx_ui_priv.h"
 #include "dgx_ui_text.h"
 
-int dgx_ui_variant_line(const dgx_ui_font_variant_t *v)
+int dgx_ui_variant_line(const dgx_ui_t *ui, const dgx_ui_font_variant_t *v)
 {
     if (!v || !v->font) return 0;
-    return v->font->f_type == DGX_FONT_HW ? v->height : v->font->y_advance;
+    return v->font->f_type == DGX_FONT_HW ? v->height : v->font->y_advance * (v->points && !v->hand && ui ? ui->unit : 1);
 }
 
-int dgx_ui_textbox_height(const dgx_ui_textbox_t *box)
+int dgx_ui_textbox_height(const dgx_ui_t *ui, const dgx_ui_textbox_t *box)
 {
     if (!box || !box->style || !box->style->count) return 0;
-    return box->lines * dgx_ui_variant_line(&box->style->variants[0]);
+    return box->lines * dgx_ui_variant_line(ui, &box->style->variants[0]);
 }
 
 void dgx_ui_textbox_init(dgx_ui_textbox_t *box, char *buf, int size, int lines, const dgx_ui_text_style_t *style)

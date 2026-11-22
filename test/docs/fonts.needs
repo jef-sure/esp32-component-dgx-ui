@@ -14,6 +14,9 @@ bits 4
 text ../../docs/en/cookbook.md
 text ../../docs/ru/cookbook.md
 text pictures.c
+need status
+dgx TerminusTTFMedium12
+letters 0123456789 CO2pm
 need keys
 size 20px
 bits 4

@@ -25,6 +25,12 @@ static inline int dgx_ui_next_char(const char *s, int i)
     return i;
 }
 
+/* the pixels of the screen a pixel of a variant's font takes: the unit for a bitmap variant of points, else 1 */
+static inline int dgx_ui_variant_scale(const dgx_ui_font_variant_t *v, int unit)
+{
+    return v->points && !v->hand ? unit : 1;
+}
+
 /* how wide n bytes of a text are in a font, as dgx_font_draw() would set them: at most DGX_UI_LINE bytes measured */
 static inline int dgx_ui_width_of(const dgx_font_t *font, const char *s, int n)
 {
@@ -71,9 +77,9 @@ static inline bool dgx_ui_variant_usable(const dgx_font_t *font)
 
 /* the base line of a style's first variant, in rows under the box's top: a text in a smaller variant stands on it.
    -1 when the first variant cannot be drawn: the text stands on its own */
-static inline int dgx_ui_first_base(const dgx_ui_text_style_t *style)
+static inline int dgx_ui_first_base(const dgx_ui_text_style_t *style, int unit)
 {
     const dgx_ui_font_variant_t *first = &style->variants[0];
     if (first->hand) return first->hand->base_rows(first);
-    return dgx_ui_variant_usable(first->font) ? -first->font->y_offset_lowest : -1;
+    return dgx_ui_variant_usable(first->font) ? -first->font->y_offset_lowest * dgx_ui_variant_scale(first, unit) : -1;
 }

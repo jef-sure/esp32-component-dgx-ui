@@ -18,7 +18,9 @@
  *    (dgx_ui_appearance_color(), or the constant the made C gives) and fills its parameters at the start.
  *  - "styles": a name and a style: "fonts", a list of its variants, the best first, each the name of a font of the
  *    program's table, or an object of a handwritten one, {"font", "hand", "height", "narrow", "joined", "pen",
- *    "soft"}; "align": "left", "center" or "right"; "flags": a list of "middle" and "important"; "scroll_ms".
+ *    "soft"}, or of a bitmap one whose pixels are points, {"font", "points": true}, "points" beside "hand" refused as a
+ *    field of no meaning; "align": "left", "center" or "right"; "flags": a list of "middle" and "important";
+ *    "scroll_ms".
  *  - "looks": a name and a look as dgx_ui_look_t is: "draw", a draw of the program's table; "fill", the colour it
  *    leaves under its children, or null, what lies under it; "params", the parameters of its draw by their names, as
  *    its description below gives them.

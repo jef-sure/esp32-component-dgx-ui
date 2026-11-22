@@ -255,6 +255,7 @@ static bool list_of(appearance_load_t *A, const dgx_ui_field_t *field, uint8_t *
                         return false;
                     }
                     if (made.font && made.font->f_type == DGX_FONT_HW && !made.hand) return fail(A, DGX_UI_LOAD_MISSING, at, "hand");
+                    if (made.points && made.hand) return fail(A, DGX_UI_LOAD_FIELD, at, "points"); /* a handwritten font's pixels are its own */
                     if (variant) variant[k] = made;
                 }
                 if (!pass && ++count > field->high) return fail(A, DGX_UI_LOAD_RANGE, list, field->name);

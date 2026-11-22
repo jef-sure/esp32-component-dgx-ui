@@ -151,7 +151,7 @@ int main(void)
         static dgx_ui_textbox_t      yes   = DGX_UI_TEXT_CONST(yes_text, 1, &style);
         static const dgx_ui_widget_t label = {.kind = DGX_UI_LABEL, .text = &yes};
         const int                    i     = make_one(&label);
-        CHECK(pass(&tree, 0) == 0 && written_in(&tree, i) > 0 && dgx_ui_node(&tree, i)->h == dgx_ui_textbox_height(&yes));
+        CHECK(pass(&tree, 0) == 0 && written_in(&tree, i) > 0 && dgx_ui_node(&tree, i)->h == dgx_ui_textbox_height(&tree, &yes));
         CHECK(!dgx_ui_text_set(&tree, i, "No") && !dgx_ui_text_printf(&tree, i, "%d", 5) && yes.buf == yes_text && strcmp(yes_text, "Yes") == 0);
         CHECK(pass(&tree, 10) == 0 && quiet(&tree, 15));
         yes.buf = (char *)"Oui";

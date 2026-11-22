@@ -88,6 +88,7 @@ static const dgx_ui_field_t variant_fields[] = {
     DGX_UI_BOOL_FIELD(dgx_ui_font_variant_t, joined),
     DGX_UI_NUMBER_FIELD(dgx_ui_font_variant_t, pen, 0, 255),
     {.name = "soft", .offset = offsetof(dgx_ui_font_variant_t, pen), .count_offset = 0, .kind = DGX_UI_FIELD_BIT, .size = sizeof(((dgx_ui_font_variant_t *)0)->pen),
-     .low = 0, .high = (int32_t)DGX_PEN_SOFT, .words = NULL}};
+     .low = 0, .high = (int32_t)DGX_PEN_SOFT, .words = NULL},
+    DGX_UI_BOOL_FIELD(dgx_ui_font_variant_t, points)};
 const dgx_ui_params_t dgx_ui_params_text_style   = DGX_UI_PARAMS(dgx_ui_text_style_t, 0, style_fields);
 const dgx_ui_params_t dgx_ui_params_font_variant = DGX_UI_PARAMS(dgx_ui_font_variant_t, 0, variant_fields);

@@ -73,7 +73,9 @@ static bool same_style(const dgx_ui_text_style_t *a, const dgx_ui_text_style_t *
     if (a->count != b->count || a->flags != b->flags || a->align != b->align || a->scroll_ms != b->scroll_ms) return false;
     for (int v = 0; v < a->count; ++v) {
         const dgx_ui_font_variant_t *x = &a->variants[v], *y = &b->variants[v];
-        if (x->font != y->font || x->height != y->height || x->narrow != y->narrow || x->joined != y->joined || x->pen != y->pen || x->hand != y->hand) return false;
+        if (x->font != y->font || x->height != y->height || x->narrow != y->narrow || x->joined != y->joined || x->pen != y->pen || x->hand != y->hand ||
+            x->points != y->points)
+            return false;
     }
     return true;
 }

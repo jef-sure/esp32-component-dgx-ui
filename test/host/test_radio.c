@@ -302,7 +302,7 @@ int main(void)
            below for the frame of the focus, the checkbox too */
         CHECK(pass(now += 10) == 0 && told_all() == 0);
         CHECK(middle_of(&home, radio[0]) == ink && middle_of(&home, radio[1]) != ink && middle_of(&home, radio[2]) != ink);
-        CHECK(dgx_ui_node(&home, tick)->h == dgx_ui_textbox_height(&tick_box) + 2 && dgx_ui_node(&home, radio[1])->h == dgx_ui_textbox_height(&two_box) + 2);
+        CHECK(dgx_ui_node(&home, tick)->h == dgx_ui_textbox_height(&home, &tick_box) + 2 && dgx_ui_node(&home, radio[1])->h == dgx_ui_textbox_height(&home, &two_box) + 2);
         CHECK(dgx_ui_node(&home, tick)->y + dgx_ui_node(&home, tick)->h <= PANEL_H);
         CHECK(idle(now += 10));
 

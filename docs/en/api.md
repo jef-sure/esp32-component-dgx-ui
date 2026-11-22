@@ -581,8 +581,9 @@ The recipes: [Pages and "back"](cookbook.md#pages-and-back), [A bar over the pag
 
 ### Other
 
-`int dgx_ui_textbox_height(const dgx_ui_textbox_t *box)`: the height a text box asks for, its lines times the line of
-its first font. The layout calls it.
+`int dgx_ui_textbox_height(const dgx_ui_t *ui, const dgx_ui_textbox_t *box)`: the height a text box asks for in a
+tree, its lines times the line of its first font (`dgx_ui_variant_line()`); `ui` `NULL` counts a unit of 1. The layout
+calls it.
 
 `void dgx_ui_dump(const dgx_ui_t *ui)`: the tree written to the log, a line a widget, indented by its depth: its
 number, kind, place and size, value, state, marks, tag and the beginning of its text; then the popups over it; then
@@ -602,6 +603,7 @@ typedef struct dgx_ui_font_variant_t {
     bool                 joined;
     uint32_t             pen;
     const dgx_ui_hand_t *hand;
+    bool                 points;
 } dgx_ui_font_variant_t;
 
 typedef struct dgx_ui_text_style_t {
@@ -613,8 +615,8 @@ typedef struct dgx_ui_text_style_t {
 } dgx_ui_text_style_t;
 ```
 
-A variant is a font a text may be drawn in, 16 bytes: a font of DGX of bitmaps or of dots, or a handwritten one. For
-a font of bitmaps or of dots the other members stay 0. For a handwritten font (`DGX_FONT_HW` of DGX):
+A variant is a font a text may be drawn in, 20 bytes: a font of DGX of bitmaps or of dots, or a handwritten one. For
+a font of bitmaps or of dots the other members stay 0 but `points`. For a handwritten font (`DGX_FONT_HW` of DGX):
 
 | Member | Meaning |
 | ------ | ------- |
@@ -639,7 +641,17 @@ hand.
 | `DGX_UI_TEXT_MIDDLE` | a text in a later variant stands in the middle of the height, not on the base line of the first variant, handwritten or not |
 | `DGX_UI_TEXT_IMPORTANT` | a text too long for its lines scrolls rather than being cut; for `dgx_ui_look_lines` and `dgx_ui_look_hand_lines` |
 
-`int dgx_ui_variant_line(const dgx_ui_font_variant_t *v)`: the height of a line of a variant.
+**A font as it is.** `points` true on a variant of a bitmap font draws its every pixel as a square of the tree's
+unit, `dgx_ui_init()`'s, crisp, with no smoothing; a soft font's pixel is a square of its coverage. Every measure of
+its text is so many times its own: the line's height, the widths, the fit of the variants, the ellipsis, the words laid
+into lines. It is for a font taken as it is, not made for the board: a pixel font of a game. A font made by a need
+under `DGX_FONTS_SCALE` has the board's size already, so a program of one tree for every board writes
+`.points = !DGX_FONT_<NEED>_MADE`. A handwritten variant reads it as nothing. The recipe:
+[One tree on every board](cookbook.md#one-tree-on-every-board).
+
+`int dgx_ui_variant_line(const dgx_ui_t *ui, const dgx_ui_font_variant_t *v)`: the height of a line of a variant in a
+tree: its own for a handwritten font, the font's advance for one of bitmaps, times the unit for a variant of `points`;
+`ui` `NULL` counts a unit of 1.
 
 ### The text box
 
@@ -1621,7 +1633,7 @@ values, the colours first, since the styles and the looks name them. A page refu
 | Key | Its value |
 | --- | --------- |
 | `"colors"` | an object, a name and `"#rrggbb"` each. `"paper"`, `"ink"`, `"fill"` and `"border"` are the indices 0, 1, 2 and 3 of the painter's table wherever they stand, as the library's own looks take them, and all four must be there. The others follow from 4 in the order written; 255 colours at most. |
-| `"styles"` | an object, a name and a text style each: `"fonts"`, a list of 1 to 255 variants, the best first; `"align"`, `"left"`, `"center"` or `"right"`; `"flags"`, a list of `"middle"` and `"important"`; `"scroll_ms"`, 0 to 65535. A variant is the name of a font of the program's table, or an object for a handwritten one: `"font"`, `"hand"`, a hand of the program's table, `"height"`, `"narrow"` 0 to 100, `"joined"`, `"pen"` 0 to 255, `"soft"`. |
+| `"styles"` | an object, a name and a text style each: `"fonts"`, a list of 1 to 255 variants, the best first; `"align"`, `"left"`, `"center"` or `"right"`; `"flags"`, a list of `"middle"` and `"important"`; `"scroll_ms"`, 0 to 65535. A variant is the name of a font of the program's table, or an object for a handwritten one: `"font"`, `"hand"`, a hand of the program's table, `"height"`, `"narrow"` 0 to 100, `"joined"`, `"pen"` 0 to 255, `"soft"`; or an object of a bitmap one whose pixels are points, `{"font": ..., "points": true}`, `"points"` beside `"hand"` refused as `DGX_UI_LOAD_FIELD`. |
 | `"looks"` | an object, a name and a look each, as `dgx_ui_look_t` is: `"draw"`, a draw of the program's table; `"fill"`, the colour it leaves under its children, or `null`; `"params"`, the parameters of its draw by their names, below. |
 | `"name"` | the appearance's name, a name of the format; `need.name` gives it |
 | `"editor"` | an object of the tool that edits it, passed over as a page's is; at the top only |
@@ -1652,7 +1664,7 @@ may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list o
 | `"ring"` | `on`; `off`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
 
 **What is not said.** `"fill"` of a look is `null`, what lies under it. A number, a word and a list of flags are
-0, as a member of C left out, and `"joined"`, `"soft"` and `"secret"` false. A colour of a look's parameters must be
+0, as a member of C left out, and `"joined"`, `"soft"`, `"points"` and `"secret"` false. A colour of a look's parameters must be
 said, `null` where it may be: a look that leaves one out is refused with `DGX_UI_LOAD_MISSING` and the field's name,
 so that no colour is forgotten into paper on paper. So must a style's `"fonts"`, a variant's `"font"`, and the
 `"hand"` of a handwritten font, which the fit would pass over with none.

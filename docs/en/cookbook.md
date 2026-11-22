@@ -173,13 +173,14 @@ dgx_fonts_board(PIXELS ${BOARD_PIXELS})
 dgx_fonts_scale(FIT 320 240)   # the largest whole scale at which 320x240 points fit: 1 on the CYD, 3 on a 10" of 1280x800
 dgx_font_need(clock SIZE 40pt BITS 4 LETTERS "0123456789:")
 dgx_font_need(caption SIZE 12pt BITS 4 TEXTS main.c)
+dgx_font_need(status DGX TerminusTTFMedium12 LETTERS "0123456789 CO2pm")   # a pixel font of DGX, taken as it is
 ```
 
 ```c
-static dgx_ui_font_variant_t clock_variant[1], caption_variant[1];
-static dgx_ui_text_style_t   st_clock, st_caption;
-static char                  face_time_buf[8], face_warm_buf[16], face_wet_buf[16];
-static dgx_ui_textbox_t      face_time_box, face_warm_box, face_wet_box;
+static dgx_ui_font_variant_t clock_variant[1], caption_variant[1], status_variant[1];
+static dgx_ui_text_style_t   st_clock, st_caption, st_status;
+static char                  face_time_buf[8], face_warm_buf[16], face_wet_buf[16], face_status_buf[16];
+static dgx_ui_textbox_t      face_time_box, face_warm_box, face_wet_box, face_status_box;
 
 /* a face: the time over half the room, two values side by side under it; the margins and the gaps a share of it */
 static const dgx_ui_widget_t face_w      = {.kind  = DGX_UI_BOX,
@@ -191,6 +192,7 @@ static const dgx_ui_widget_t values_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_
 static const dgx_ui_widget_t half_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_PERCENT_W, .want_w = DGX_UI_PERCENT(50), .pad = 4};
 static const dgx_ui_widget_t warm_text_w = {.kind = DGX_UI_LABEL, .text = &face_warm_box};
 static const dgx_ui_widget_t wet_text_w  = {.kind = DGX_UI_LABEL, .text = &face_wet_box};
+static const dgx_ui_widget_t status_w    = {.kind = DGX_UI_LABEL, .text = &face_status_box};
 
 /* the tree's unit, the board's scale: the fonts of points are made for it */
 static void face_ui_init(dgx_ui_t *ui, dgx_ui_node_t *nodes, int count)
@@ -202,19 +204,25 @@ static int face_add(dgx_ui_t *ui, int parent)
 {
     clock_variant[0]   = (dgx_ui_font_variant_t){.font = &dgx_font_clock};
     caption_variant[0] = (dgx_ui_font_variant_t){.font = &dgx_font_caption};
+    /* not made for the board: its every pixel a point, a square of the unit */
+    status_variant[0] = (dgx_ui_font_variant_t){.font = &dgx_font_status, .points = !DGX_FONT_STATUS_MADE};
+    st_status         = (dgx_ui_text_style_t){.variants = status_variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_clock           = (dgx_ui_text_style_t){.variants = clock_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     st_caption         = (dgx_ui_text_style_t){.variants = caption_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     dgx_ui_textbox_init(&face_time_box, face_time_buf, sizeof face_time_buf, 1, &st_clock);
     dgx_ui_textbox_init(&face_warm_box, face_warm_buf, sizeof face_warm_buf, 1, &st_caption);
     dgx_ui_textbox_init(&face_wet_box, face_wet_buf, sizeof face_wet_buf, 1, &st_caption);
+    dgx_ui_textbox_init(&face_status_box, face_status_buf, sizeof face_status_buf, 1, &st_status);
     const int face   = dgx_ui_add(ui, parent, &face_w);
     const int time   = dgx_ui_add(ui, face, &time_w);
     const int values = dgx_ui_add(ui, face, &values_w);
     const int warm   = dgx_ui_add(ui, dgx_ui_add(ui, values, &half_w), &warm_text_w);
     const int wet    = dgx_ui_add(ui, dgx_ui_add(ui, values, &half_w), &wet_text_w);
+    const int status = dgx_ui_add(ui, face, &status_w);
     dgx_ui_text_set(ui, time, "12:34");
     dgx_ui_text_set(ui, warm, "21.5 C");
     dgx_ui_text_set(ui, wet, "41 %");
+    dgx_ui_text_set(ui, status, "CO2 612 ppm");
     return face;
 }
 ```
@@ -232,6 +240,10 @@ static int face_add(dgx_ui_t *ui, int parent)
 - In a description the same is written `"want": [0, "55%"]` and `"pad": "4%"`.
 - For a program with buttons rather than a frame, `dgx_fonts_scale(MM 0.3)` takes the scale at which a point is about
   0.3 mm on every display.
+- **A font as it is**: `status` is DGX's pixel font Terminus 12 taken as it is, not made for the board
+  (`DGX_FONT_STATUS_MADE` is 0). Its variant of `.points` draws every pixel of it as a square of the unit, crisp: the
+  line is 13 pixels high on the CYD and 39 on the 10", as a pixel font of a game is meant to look. Written
+  `!DGX_FONT_STATUS_MADE`, it stays right if the need is one day made of points instead.
 
 ## One message for several widgets
 

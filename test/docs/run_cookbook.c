@@ -1785,10 +1785,11 @@ int main(int argc, char **argv)
             dgx_ui_layout(&face_ui);
             const dgx_ui_node_t *whole = dgx_ui_node(&face_ui, face), *time = dgx_ui_node(&face_ui, face + 1), *row = dgx_ui_node(&face_ui, face + 2);
             const dgx_ui_node_t *left = dgx_ui_node(&face_ui, face + 3), *right = dgx_ui_node(&face_ui, face + 5), *warm = dgx_ui_node(&face_ui, face + 4);
+            const dgx_ui_node_t *status = dgx_ui_node(&face_ui, face + 7);
             const int gap = right->x - (left->x + left->w);
-            printf("face on %dx%d at %d: the time %dx%d, the halves %d and %d with a gap of %d in a row of %d (%s), a frame's pad %d\n",
+            printf("face on %dx%d at %d: the time %dx%d, the halves %d and %d with a gap of %d in a row of %d (%s), a frame's pad %d, the status line %d high\n",
                    boards[b][0], boards[b][1], boards[b][2], time->w, time->h, left->w, right->w, gap, row->w,
-                   left->w + gap + right->w == row->w && left->x == row->x ? "filled" : "NOT FILLED", warm->x - left->x);
+                   left->w + gap + right->w == row->w && left->x == row->x ? "filled" : "NOT FILLED", warm->x - left->x, status->h);
             if (whole->w != boards[b][0]) printf("face: NOT the whole screen\n");
             dgx_ui_free(&face_ui);
         }

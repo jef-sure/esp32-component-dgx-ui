@@ -39,6 +39,12 @@ typedef struct dgx_ui_hand_t dgx_ui_hand_t;
  * of its width, told once in the log. A text too long for its box even narrowed is cut by the box. Letters coming
  * (dgx_ui_text_appear()) are written stroke by stroke at the pace of a pen, the whole text taking as long as so many
  * letters of letter_ms.
+ *
+ * A bitmap font taken as it is, not made for the board by a need, as a pixel font of a game: `.points = true` draws its
+ * every pixel as a square of dgx_ui_init()'s unit x unit pixels, crisp, no smoothing, and every measure of its text,
+ * the line's height, the widths, the fit of a ladder, the ellipsis, the words laid into lines, is so many times its
+ * own; a soft font's pixel is a square of its coverage. In a program of one tree for every board a font made by a need
+ * under DGX_FONTS_SCALE is at the board's size already: `.points = !DGX_FONT_TIME_MADE`.
  */
 typedef struct dgx_ui_font_variant_t {
     const dgx_font_t    *font;
@@ -47,6 +53,7 @@ typedef struct dgx_ui_font_variant_t {
     bool                 joined; ///< a handwritten font: its letters joined
     uint32_t             pen;    ///< a handwritten font: the width of the pen in pixels, DGX_PEN_SOFT added for a soft one; 0 is a pixel, a hairline
     const dgx_ui_hand_t *hand;   ///< a handwritten font: &dgx_ui_handwriting or &dgx_ui_handwriting_canvas; NULL, the variant is skipped
+    bool                 points; ///< a bitmap font: every pixel of it a point, unit x unit pixels, crisp (below); a handwritten one: read as nothing
 } dgx_ui_font_variant_t;
 
 /** @brief Letters coming in handwriting: a pass asked for every so many ms, fifty frames a second. A pass called
@@ -124,8 +131,9 @@ struct dgx_ui_textbox_t {
     {.buf = (char *)(text), .size = 0, .lines = (line_count), .variant = 0, .style = (text_style), .top = 0, .letter_ms = 0, \
      .flags = 0, .since_ms = 0, .letters_drawn = 0, .total_lines = 0, .total_letters = 0}
 
-/** @brief The height of a line of a variant: its own for a handwritten font, the font's advance for a bitmap one. */
-int dgx_ui_variant_line(const dgx_ui_font_variant_t *v);
+/** @brief The height of a line of a variant in a tree: its own for a handwritten font, the font's advance for a bitmap
+    one, times the tree's unit for a variant of points; ui NULL, a unit of 1. */
+int dgx_ui_variant_line(const dgx_ui_t *ui, const dgx_ui_font_variant_t *v);
 
 /**
  * @brief A text box over the program's buffer, empty, of so many lines in a style.

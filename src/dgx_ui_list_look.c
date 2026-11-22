@@ -42,8 +42,8 @@ static const char *line_of(const char *text, int k, int *len)
 /* row r of the window of so many rows, each rh high and rw wide, showing the line `line`: its rows above and below the
    line's cell, then the line in a field as wide as the row, all under a clip of the row; its paper the index paper
    (DGX_UI_PAPER: what lies under the list) */
-static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dgx_font_t *f, int align, int r, int rows, int rh, int rw, int line_k,
-                     const char *text, uint8_t paper, uint32_t fg)
+static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dgx_font_t *f, int s, int align, int r, int rows, int rh, int rw,
+                     int line_k, const char *text, uint8_t paper, uint32_t fg)
 {
     const uint32_t bg = dgx_ui_color(paint, paper == DGX_UI_PAPER ? paint->paper : paper);
     const int      y = n->y + r * rh, h = r == rows - 1 ? n->h - r * rh : rh;
@@ -52,8 +52,8 @@ static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dgx_fo
     const int y0 = y - paint->oy > py ? y - paint->oy : py, y1 = y + h - paint->oy < py + ph ? y + h - paint->oy : py + ph;
     if (y1 <= y0) return; /* the row out of the part drawn */
     dgx_screen_clip(paint->scr, px, y0, pw, y1 - y0);
-    const int cell = f->y_bottom_max - f->y_offset_lowest, base = y + (h - cell) / 2 - f->y_offset_lowest;
-    const int top = base + f->y_offset_lowest, bottom = base + f->y_bottom_max;
+    const int cell = (f->y_bottom_max - f->y_offset_lowest) * s, base = y + (h - cell) / 2 - f->y_offset_lowest * s;
+    const int top = base + f->y_offset_lowest * s, bottom = base + f->y_bottom_max * s;
     dgx_ui_lay_paper(paint, paper, n->x, y, rw, top - y);
     dgx_ui_lay_paper(paint, paper, n->x, bottom, rw, y + h - bottom);
     int         len;
@@ -67,7 +67,8 @@ static void draw_row(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dgx_fo
     if (2 * pad >= rw) pad = 0;
     dgx_ui_lay_paper(paint, paper, n->x, top, pad, bottom - top);
     dgx_ui_lay_paper(paint, paper, n->x + rw - pad, top, pad, bottom - top);
-    const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = fg, .bg = bg, .field = rw - 2 * pad, .align = (dgx_font_align_t)align};
+    const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = fg, .bg = bg, .scale = s, .field = rw - 2 * pad,
+                                    .align = (dgx_font_align_t)align};
     dgx_ui_field_text(paint, &ctx, n->x + pad - paint->ox, base - paint->oy, line, paper);
     dgx_screen_clip(paint->scr, px, py, pw, ph);
 }
@@ -89,6 +90,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         return false;
     }
     const char    *text = box->buf ? box->buf : "";
+    const int      scale = dgx_ui_variant_scale(&box->style->variants[0], ui->unit); /* the pixels a pixel of the font takes */
     const bool     focused = dgx_ui_bits_shown(ui, n) & DGX_UI_FOCUSED, off = n->state.bits & DGX_UI_DISABLED;
     const uint8_t  bar = focused ? p->focused : p->pick;
     const uint32_t ink = dgx_ui_color(paint, off ? p->disabled : p->ink);
@@ -108,7 +110,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
                        ((n->state.bits ^ n->state_drawn.bits) & DGX_UI_DISABLED);
     for (int r = 0; r < rows; ++r) {
         if (!whole && r != picked && r != was) continue;
-        draw_row(paint, n, f, box->style->align, r, rows, rh, rw, top + r, text, r == picked ? bar : p->paper, r == picked ? bar_ink : ink);
+        draw_row(paint, n, f, scale, box->style->align, r, rows, rh, rw, top + r, text, r == picked ? bar : p->paper, r == picked ? bar_ink : ink);
     }
     if (bw && whole) {
         /* the window's share of the rows, at its place: the paper above and below it */

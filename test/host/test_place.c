@@ -263,7 +263,7 @@ int main(void)
     /* a page's slider and a list of the tree under it, of one place: the slider moved, the page closed, the list is
        right; then the list picked again: the row it showed and the row it shows, two rows and not three */
     {
-        const int line = dgx_ui_variant_line(&variant[0]);
+        const int line = dgx_ui_variant_line(NULL, &variant[0]);
         static char             buf[16], ref_buf[16];
         static dgx_ui_textbox_t box, ref_box;
         dgx_ui_textbox_init(&box, buf, sizeof buf, 1, &style), dgx_ui_textbox_init(&ref_box, ref_buf, sizeof ref_buf, 1, &style);
@@ -305,7 +305,7 @@ int main(void)
 
     /* a list that scrolls: its pick written into memory, its window follows */
     {
-        const int line = dgx_ui_variant_line(&variant[0]);
+        const int line = dgx_ui_variant_line(NULL, &variant[0]);
         static char             buf[64];
         static dgx_ui_textbox_t box;
         dgx_ui_textbox_init(&box, buf, sizeof buf, 1, &style);
@@ -485,7 +485,7 @@ int main(void)
     /* a list that scrolls, under a page: its pick written into memory while covered; the page gone, its window at the
        pick */
     {
-        const int               line = dgx_ui_variant_line(&variant[0]);
+        const int               line = dgx_ui_variant_line(NULL, &variant[0]);
         static char             buf[64];
         static dgx_ui_textbox_t box;
         dgx_ui_textbox_init(&box, buf, sizeof buf, 1, &style);

@@ -39,8 +39,9 @@ static void lay(dgx_ui_paint_t *paint, int x, int y, int w, int h)
    set in it as the field sets them (the room left by their advances, a half of it centred), cut to it */
 static void text(dgx_ui_paint_t *paint, const dgx_font_context_t *ctx, int x, int y, const char *s, uint8_t paper)
 {
-    const dgx_font_t *f   = ctx->font;
-    const int         top = y + f->y_offset_lowest, h = f->y_bottom_max - f->y_offset_lowest;
+    const dgx_font_t *f     = ctx->font;
+    const int         scale = ctx->scale > 1 ? ctx->scale : 1; /* a variant of points */
+    const int         top = y + f->y_offset_lowest * scale, h = (f->y_bottom_max - f->y_offset_lowest) * scale;
     lay(paint, x + paint->ox, top + paint->oy, ctx->field, h);
     dgx_font_context_t c = *ctx;
     c.field = 0, c.flags &= ~(uint32_t)(DGX_FONT_FILL | DGX_FONT_BG);

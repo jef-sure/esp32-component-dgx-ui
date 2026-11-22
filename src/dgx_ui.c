@@ -305,7 +305,7 @@ static int want_h(const dgx_ui_t *ui, const dgx_ui_widget_t *w, int length)
     if (w->want_h) return w->want_h * ui->unit;
     const int pictured = picture_wants(ui, w, false);
     if (pictured >= 0) return pictured;
-    if (w->text) return dgx_ui_textbox_height(w->text) + (framed_with_text(w) ? 2 * ui->unit : 0); /* the frame's room */
+    if (w->text) return dgx_ui_textbox_height(ui, w->text) + (framed_with_text(w) ? 2 * ui->unit : 0); /* the frame's room */
     return 0;
 }
 
@@ -314,7 +314,7 @@ int dgx_ui_list_rows(const dgx_ui_t *ui, const dgx_ui_node_t *n, int *rh, int *t
     const dgx_ui_widget_t  *w   = n->widget;
     const dgx_ui_textbox_t *box = w->text;
     const int               all = w->max - w->min + 1;
-    const int line  = box && box->style && box->style->count ? dgx_ui_variant_line(&box->style->variants[0]) : 0;
+    const int line  = box && box->style && box->style->count ? dgx_ui_variant_line(ui, &box->style->variants[0]) : 0;
     const int least = line > w->step * ui->unit ? line : w->step * ui->unit;
     int       shown = all > 0 ? all : 0;
     if (all > 0 && least > 0 && all * least > n->h) shown = n->h / least > 0 ? n->h / least : 1; /* it scrolls */

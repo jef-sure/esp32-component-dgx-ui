@@ -106,7 +106,8 @@ def chance_appearance(rand, name, every=False):
             return '"small"'
         hand = rand.random() < 0.5
         parts = [f'"font": "{"hand" if hand else "small"}"']
-        if hand or rand.random() < 0.3:
+        with_hand = hand or rand.random() < 0.3
+        if with_hand:
             parts.append(f'"hand": "{rand.choice(["handwriting", "handwriting_canvas"])}"')
         for key, low, high in (("height", 0, 40), ("narrow", 0, 100), ("pen", 0, 5)):
             if rand.random() < 0.5:
@@ -114,6 +115,8 @@ def chance_appearance(rand, name, every=False):
         for key in ("joined", "soft"):
             if rand.random() < 0.5:
                 parts.append(f'"{key}": {rand.choice(["true", "false"])}')
+        if rand.random() < 0.5:  # a variant of points: a bitmap one only, refused beside a hand
+            parts.append(f'"points": {"false" if with_hand or rand.random() < 0.5 else "true"}')
         rand.shuffle(parts)
         return "{" + ", ".join(parts) + "}"
 

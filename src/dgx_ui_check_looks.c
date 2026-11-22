@@ -77,7 +77,8 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const dgx_ui_textbox_t    *box  = n->widget->text;
     const dgx_font_t          *font = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
     if (!dgx_ui_variant_usable(font)) font = NULL;
-    const int cell = font ? font->y_bottom_max - font->y_offset_lowest : n->h;
+    const int s    = font ? dgx_ui_variant_scale(&box->style->variants[0], ui->unit) : 1; /* the pixels a pixel of the font takes */
+    const int cell = font ? (font->y_bottom_max - font->y_offset_lowest) * s : n->h;
     /* the mark two points in from the edges: the frame of the focus, then a point of paper */
     const int point = ui->unit, margin = 2 * point;
     int       side  = cell < n->h - 2 * margin ? cell : n->h - 2 * margin;
@@ -115,8 +116,8 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
         dgx_ui_lay_paper(paint, p->paper, text_x, n->y, text_w, n->h);
         return;
     }
-    const int base = n->y + (n->h - cell) / 2 - font->y_offset_lowest;
-    const int top = base + font->y_offset_lowest, bottom = base + font->y_bottom_max;
+    const int base = n->y + (n->h - cell) / 2 - font->y_offset_lowest * s;
+    const int top = base + font->y_offset_lowest * s, bottom = base + font->y_bottom_max * s;
     dgx_ui_lay_paper(paint, p->paper, text_x, n->y, text_w, top - n->y);
     dgx_ui_lay_paper(paint, p->paper, text_x, bottom, text_w, n->y + n->h - bottom);
     const int rows_top = (top > n->y ? top : n->y) - paint->oy, rows_bottom = (bottom < n->y + n->h ? bottom : n->y + n->h) - paint->oy;
@@ -133,6 +134,7 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
                                       .font  = font,
                                       .color = dgx_ui_color(paint, off ? p->ink_disabled : p->ink),
                                       .bg    = dgx_ui_color(paint, paper == DGX_UI_PAPER ? paint->paper : paper),
+                                      .scale = s,
                                       .field = text_w,
                                       .align = DGX_FONT_ALIGN_LEFT};
     dgx_screen_clip(paint->scr, clip_x, from, clip_w, to - from);

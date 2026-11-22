@@ -50,7 +50,7 @@ bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_
     const int W = ui->screen_w, H = ui->screen_h, u = ui->unit, pad = u; /* the frame's border, one point */
     if (W <= 0 || H <= 0) return false;
     /* the rows as high as the dropdown, never lower than a line of its text: the list's step, in whole points */
-    const int rows = w->max - w->min + 1, line = w->text ? dgx_ui_textbox_height(w->text) / (w->text->lines ? w->text->lines : 1) : 0;
+    const int rows = w->max - w->min + 1, line = w->text ? dgx_ui_textbox_height(ui, w->text) / (w->text->lines ? w->text->lines : 1) : 0;
     const int step = ((n->h > line ? n->h : line) + u - 1) / u, rh = step * u;
     if (rh <= 0) return false;
     /* all of its rows under it; above it; else, all fitting the screen, moved up to fit over it. More rows than the

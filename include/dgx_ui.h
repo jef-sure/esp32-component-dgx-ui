@@ -292,8 +292,8 @@ static inline void dgx_ui_picture_size(const dgx_ui_picture_t *p, int *w, int *h
  */
 typedef struct dgx_ui_textbox_t dgx_ui_textbox_t;
 
-/** @brief The height a text box asks for: its lines times the line of its first font. */
-int dgx_ui_textbox_height(const dgx_ui_textbox_t *box);
+/** @brief The height a text box asks for in a tree: its lines times the line of its first font (dgx_ui_variant_line()). */
+int dgx_ui_textbox_height(const dgx_ui_t *ui, const dgx_ui_textbox_t *box);
 
 /**
  * @brief A widget: what the program says of it. Constant: the library never writes it, so it may lie in flash.

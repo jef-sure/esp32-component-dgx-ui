@@ -994,8 +994,9 @@ static void write_appearance(const char *directory, const char *const *headers, 
             const dgx_ui_font_variant_t *variant = &style->variants[v];
             const char *font = appearance_tables[A_FONT].entries[variant->font - font_stand].c;
             const char *hand = variant->hand ? appearance_tables[A_HAND].entries[(const uint8_t *)variant->hand - hand_stand].c : "NULL";
-            out(&c_file, "    {.font = %s, .height = %d, .narrow = %u, .joined = %s, .pen = %u%s, .hand = %s},\n", font, variant->height, (unsigned)variant->narrow,
-                variant->joined ? "true" : "false", (unsigned)(variant->pen & ~(uint32_t)DGX_PEN_SOFT), variant->pen & DGX_PEN_SOFT ? " | DGX_PEN_SOFT" : "", hand);
+            out(&c_file, "    {.font = %s, .height = %d, .narrow = %u, .joined = %s, .pen = %u%s, .hand = %s%s},\n", font, variant->height,
+                (unsigned)variant->narrow, variant->joined ? "true" : "false", (unsigned)(variant->pen & ~(uint32_t)DGX_PEN_SOFT),
+                variant->pen & DGX_PEN_SOFT ? " | DGX_PEN_SOFT" : "", hand, variant->points ? ", .points = true" : "");
         }
         out(&c_file, "};\n");
     }

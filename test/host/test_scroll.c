@@ -107,7 +107,7 @@ int main(void)
 {
     variant[0]     = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style          = (dgx_ui_text_style_t){.variants = variant, .count = 1};
-    const int line = dgx_ui_variant_line(&variant[0]);
+    const int line = dgx_ui_variant_line(NULL, &variant[0]); /* no tree yet: a unit of 1 */
     panel_t       *panel = panel_make();
     dgx_screen_t  *vr    = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     static tree_t  s, r;

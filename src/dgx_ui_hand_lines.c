@@ -25,18 +25,19 @@
 
 static const char *TAG = "dgx_ui";
 
-/* a variant of the ladder: a handwritten one measured at its height, its line that height; a bitmap one by its font */
-static int measure_variant(const dgx_ui_font_variant_t *variant, const char *s, int n)
+/* a variant of the ladder: a handwritten one measured at its height, its line that height; a bitmap one by its font,
+   a pixel of it unit pixels for a variant of points */
+static int measure_variant(const dgx_ui_font_variant_t *variant, const char *s, int n, int unit)
 {
-    return variant->hand ? dgx_ui_hand_span(variant, s, n) : dgx_ui_width_of(variant->font, s, n);
+    return variant->hand ? dgx_ui_hand_span(variant, s, n) : dgx_ui_width_of(variant->font, s, n) * dgx_ui_variant_scale(variant, unit);
 }
-static int line_height_of(const dgx_ui_font_variant_t *variant)
+static int line_height_of(const dgx_ui_font_variant_t *variant, int unit)
 {
     if (variant->hand) return dgx_ui_hand_base_rows(variant) >= 0 ? variant->height : 0;
-    return dgx_ui_variant_usable(variant->font) ? variant->font->y_advance : 0;
+    return dgx_ui_variant_usable(variant->font) ? variant->font->y_advance * dgx_ui_variant_scale(variant, unit) : 0;
 }
-#define LINES_MEASURE(v, s, n) measure_variant(v, s, n)
-#define LINES_HEIGHT(v)        line_height_of(v)
+#define LINES_MEASURE(v, s, n, unit) measure_variant(v, s, n, unit)
+#define LINES_HEIGHT(v, unit)        line_height_of(v, unit)
 #include "dgx_ui_lines_layout.h"
 
 enum { MAX_LINES = 1000 };
@@ -69,7 +70,7 @@ static laid_t *laid_lines(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_
     laid->hash = hash, laid->width = (int16_t)width, laid->variant = (uint8_t)v, laid->count = 0;
     for (int from = 0; from < len && laid->count < total;) {
         int       end;
-        const int next                 = lay_line(text, len, from, variant, width, &end);
+        const int next                 = lay_line(text, len, from, variant, width, &end, ui->unit);
         laid->line[laid->count].start  = (uint16_t)from;
         laid->line[laid->count].end    = (uint16_t)end;
         laid->line[laid->count].effort = -1.0f;
@@ -122,7 +123,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     /* the lines and letters: counted again only when the text, the width or the variant changed */
     int total, all_letters;
     if (!(box->flags & DGX_UI_TEXTBOX_COUNTED) || (node->marks & (DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT)) || other) {
-        total = count_lines(text, len, variant, node->w, MAX_LINES, MAX_LINES, &all_letters);
+        total = count_lines(text, len, variant, node->w, MAX_LINES, MAX_LINES, &all_letters, ui->unit);
     } else {
         total = box->total_lines, all_letters = box->total_letters;
     }
@@ -175,7 +176,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
             if (!canvas) paint->whole = true;
         }
     } else {
-        const int first = dgx_ui_first_base(style);
+        const int first = dgx_ui_first_base(style, ui->unit);
         base0           = node->y + (first >= 0 ? first : own);
     }
     /* a canvas: what it holds against what this call writes (dgx_ui_hand_held_t), kept with it; straight, how far the
@@ -234,7 +235,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
             row_start = laid->line[top + k].start, row_end = laid->line[top + k].end;
         } else {
             while (from < len && line <= top + k) {
-                const int next = lay_line(text, len, from, variant, node->w, &row_end);
+                const int next = lay_line(text, len, from, variant, node->w, &row_end, ui->unit);
                 row_start      = from;
                 if (line < top + k) letters_before += letters_in(text, from, row_end);
                 from = next, ++line;
@@ -291,13 +292,13 @@ bool dgx_ui_draw_hand_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dg
     const dgx_ui_text_style_t *style = box->style;
     const char                *text  = box->buf ? box->buf : "";
     int                        v     = box->variant;
-    if (node->marks & DGX_UI_MARK_FIT) v = fit_lines(style, text, (int)strlen(text), node->w, node->h);
-    if (v < 0 || v >= style->count || line_height_of(&style->variants[v]) <= 0) {
+    if (node->marks & DGX_UI_MARK_FIT) v = fit_lines(style, text, (int)strlen(text), node->w, node->h, ui->unit);
+    if (v < 0 || v >= style->count || line_height_of(&style->variants[v], ui->unit) <= 0) {
         if (paint->whole) dgx_ui_lay_paper(paint, params->paper, node->x, node->y, node->w, node->h);
         return false;
     }
     /* a bitmap variant of the ladder: the look of lines draws it, on the first variant's base line */
-    if (!style->variants[v].hand) return dgx_ui_draw_lines_in(look, paint, ui, i, now_ms, v, dgx_ui_first_base(style));
+    if (!style->variants[v].hand) return dgx_ui_draw_lines_in(look, paint, ui, i, now_ms, v, dgx_ui_first_base(style, ui->unit));
     return write_lines(look, paint, ui, i, now_ms, v);
 }
 

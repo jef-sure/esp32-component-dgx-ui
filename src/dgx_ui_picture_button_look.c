@@ -34,8 +34,9 @@ static const dgx_ui_picture_t *shown_picture(const dgx_ui_node_t *n)
 }
 
 /* the face's inside: the picture in the middle of the face, cut to it, the face laid round it */
-static void picture_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int fy, int fw, int fh, uint32_t face, uint32_t ink)
+static void picture_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int fy, int fw, int fh, uint32_t face, uint32_t ink, int unit)
 {
+    (void)unit;
     const dgx_ui_picture_t *pic = shown_picture(n);
     if (!pic || !pic->image || pic->image->format != DGX_IMAGE_1BPP) {
         static bool told; /* once for the program, every tree and task */

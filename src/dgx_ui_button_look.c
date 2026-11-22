@@ -22,7 +22,7 @@ static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
 }
 
 /* the face, fx, fy, fw, fh: its rows above and below the text's field, then the field */
-static void draw_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int fy, int fw, int fh, uint32_t face, uint32_t ink)
+static void draw_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int fy, int fw, int fh, uint32_t face, uint32_t ink, int unit)
 {
     const dgx_ui_textbox_t *box = n->widget->text;
     const dgx_font_t       *f   = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
@@ -30,8 +30,9 @@ static void draw_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int
         fill(paint, fx, fy, fw, fh, face);
         return;
     }
-    const int cell = f->y_bottom_max - f->y_offset_lowest, base = fy + (fh - cell) / 2 - f->y_offset_lowest;
-    const int top = base + f->y_offset_lowest, bottom = base + f->y_bottom_max;
+    const int s    = dgx_ui_variant_scale(&box->style->variants[0], unit); /* the pixels a pixel of the font takes */
+    const int cell = (f->y_bottom_max - f->y_offset_lowest) * s, base = fy + (fh - cell) / 2 - f->y_offset_lowest * s;
+    const int top = base + f->y_offset_lowest * s, bottom = base + f->y_bottom_max * s;
     fill(paint, fx, fy, fw, top - fy, face);
     fill(paint, fx, bottom, fw, fy + fh - bottom, face);
     /* the field kept to the rows of the face: in a button lower than the font it would write over the strips */
@@ -41,7 +42,8 @@ static void draw_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int
     const int y0 = t > py ? t : py, y1 = b < py + ph ? b : py + ph;
     if (y1 > y0) {
         dgx_screen_clip(paint->scr, px, y0, pw, y1 - y0);
-        const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = face, .field = fw, .align = DGX_FONT_ALIGN_CENTER};
+        const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = face, .scale = s, .field = fw,
+                                        .align = DGX_FONT_ALIGN_CENTER};
         dgx_font_draw(&ctx, fx - paint->ox, base - paint->oy, box->buf ? box->buf : "");
         dgx_screen_clip(paint->scr, px, py, pw, ph);
     }
@@ -77,7 +79,7 @@ void dgx_ui_draw_button_face(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, d
     /* the face, and round it the frame of the focus, which moves with it */
     const int      fw = w - d, fh = h - d;
     dgx_ui_frame_t frame;
-    if (dgx_ui_frame_begin(paint, ui, i, dgx_ui_rect(fx, fy, fw, fh), p->focused, &frame)) inside(paint, n, fx, fy, fw, fh, face, ink);
+    if (dgx_ui_frame_begin(paint, ui, i, dgx_ui_rect(fx, fy, fw, fh), p->focused, &frame)) inside(paint, n, fx, fy, fw, fh, face, ink, ui->unit);
     dgx_ui_frame_end(paint, ui, &frame);
 }
 

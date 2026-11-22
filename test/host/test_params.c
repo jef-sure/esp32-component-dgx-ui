@@ -96,8 +96,8 @@ int main(void)
           {.on = 1, .off = 2, .paper = 3, .width = 4, .start = 5, .sweep = 6, .band_count = 8, .bands_by = 7, .bands = (const dgx_ui_band_t *)m});
     HOLDS(dgx_ui_params_text_style, dgx_ui_text_style_t, "fonts align flags scroll_ms",
           {.variants = (const dgx_ui_font_variant_t *)m, .count = 1, .flags = 3, .align = (dgx_font_align_t)2, .scroll_ms = 4});
-    HOLDS(dgx_ui_params_font_variant, dgx_ui_font_variant_t, "font hand height narrow joined pen soft",
-          {.font = (const dgx_font_t *)m, .height = 3, .narrow = 4, .joined = true, .pen = 6 | DGX_PEN_SOFT, .hand = (const dgx_ui_hand_t *)m});
+    HOLDS(dgx_ui_params_font_variant, dgx_ui_font_variant_t, "font hand height narrow joined pen soft points",
+          {.font = (const dgx_font_t *)m, .height = 3, .narrow = 4, .joined = true, .pen = 6 | DGX_PEN_SOFT, .hand = (const dgx_ui_hand_t *)m, .points = true});
     CHECK(dgx_ui_params_box.size == 0 && dgx_ui_params_box.field_count == 0);
 
     /* words and flags: a word's place its constant, a flag's bit its constant */

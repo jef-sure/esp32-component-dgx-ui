@@ -134,7 +134,7 @@ bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
        cannot be drawn); across as the style sets it, from the box's left when it does not go in, so that its beginning
        shows */
     const dgx_ui_text_style_t *style    = box->style;
-    const int                  own_rows = dgx_ui_hand_base_rows(variant), first_rows = dgx_ui_first_base(style);
+    const int                  own_rows = dgx_ui_hand_base_rows(variant), first_rows = dgx_ui_first_base(style, ui->unit);
     if (style->flags & DGX_UI_TEXT_MIDDLE) line.base = node->y + (node->h - variant->height) / 2 + own_rows;
     else line.base = node->y + (first_rows >= 0 ? first_rows : own_rows);
     int room = 0;
