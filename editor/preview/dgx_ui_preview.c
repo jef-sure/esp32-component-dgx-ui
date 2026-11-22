@@ -26,6 +26,8 @@
 #include "dgx_ui.h"
 #include "dgx_ui_appearance.h"
 #include "dgx_ui_load.h"
+#include "dgx_ui_json.h"
+#include "dgx_ui_load_tables.h"
 #include "dgx_ui_names.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_text.h"
@@ -672,6 +674,145 @@ static bool draw_named(const dgx_ui_look_t *look, dgx_ui_paint_t *on, dgx_ui_t *
         dgx_font_draw(&text, x + 2, y + (h + font->y_advance) / 2 - 2, name_of_look(look));
     }
     return false;
+}
+
+/* ---- the format, as the loader's tables have it, for a page that edits descriptions ---- */
+
+/* a key's value: what it is, its range for a number, the table a name of it is found in */
+typedef struct key_type_t {
+    const char *type;     /* kind, words, int, pair, name, text, id, children, editor */
+    const char *words;    /* words: of the loader's */
+    int32_t     min, max; /* int, pair: each number's; ctx: of its number, which a handler that takes one takes */
+    const char *table;    /* name: the table of the names, as preview_tables() names it */
+    bool        null;     /* name: null may be said, look none */
+} key_type_t;
+
+static const key_type_t key_types[KEY_COUNT] = {
+    [K_KIND] = {.type = "kind"},
+    [K_FLAGS] = {.type = "words", .words = flag_words},
+    [K_STATE] = {.type = "words", .words = state_words},
+    [K_PAD] = {.type = "int", .max = 255},
+    [K_GAP] = {.type = "int", .max = 255},
+    [K_AT] = {.type = "pair", .min = INT16_MIN, .max = INT16_MAX},
+    [K_WANT] = {.type = "pair", .min = INT16_MIN, .max = INT16_MAX},
+    [K_MIN] = {.type = "int", .min = INT16_MIN, .max = INT16_MAX},
+    [K_MAX] = {.type = "int", .min = INT16_MIN, .max = INT16_MAX},
+    [K_STEP] = {.type = "int", .min = INT16_MIN, .max = INT16_MAX},
+    [K_TAG] = {.type = "int", .min = INT16_MIN, .max = INT16_MAX},
+    [K_LOOK] = {.type = "name", .table = "look", .null = true},
+    [K_VALUE] = {.type = "name", .table = "value"},
+    [K_PICTURE] = {.type = "name", .table = "picture"},
+    [K_STYLE] = {.type = "name", .table = "style"},
+    [K_ON] = {.type = "name", .table = "on"},
+    [K_TAKE] = {.type = "name", .table = "take"},
+    [K_CTX] = {.type = "name", .min = INT32_MIN, .max = INT32_MAX, .table = "ctx"},
+    [K_TEXT] = {.type = "text"},
+    [K_TEXT_SIZE] = {.type = "int", .min = 1, .max = UINT16_MAX},
+    [K_LINES] = {.type = "int", .min = 1, .max = 255},
+    [K_ID] = {.type = "id"},
+    [K_CHILDREN] = {.type = "children"},
+    [K_EDITOR] = {.type = "editor"},
+};
+
+/* a text that grows */
+typedef struct grown_t {
+    char  *text;
+    size_t used, room;
+} grown_t;
+
+static void grow(grown_t *to, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+static void grow(grown_t *to, const char *fmt, ...)
+{
+    for (;;) {
+        va_list args;
+        va_start(args, fmt);
+        const int wrote = vsnprintf(to->text ? to->text + to->used : NULL, to->text ? to->room - to->used : 0, fmt, args);
+        va_end(args);
+        if (wrote < 0) return;
+        if (to->text && to->used + (size_t)wrote < to->room) {
+            to->used += (size_t)wrote;
+            return;
+        }
+        to->room = (to->room + (size_t)wrote + 1) * 2;
+        to->text = realloc(to->text, to->room);
+        if (!to->text) names_no_memory();
+    }
+}
+
+/* words of the loader's, each ended by a 0, as a list of JSON */
+static void grow_words(grown_t *to, const char *words)
+{
+    grow(to, "[");
+    for (const char *word = words; *word; word += strlen(word) + 1) grow(to, "%s\"%s\"", word == words ? "" : ", ", word);
+    grow(to, "]");
+}
+
+const char *preview_format(void)
+{
+    static grown_t format;
+    if (format.text) return format.text;
+    grow(&format, "{\"version\": 1, \"kinds\": [");
+    for (int k = 0; k < KIND_COUNT; ++k) grow(&format, "%s\"%s\"", k ? ", " : "", kinds[k]);
+    grow(&format, "], \"keys\": [");
+    for (int k = 0; k < KEY_COUNT; ++k) {
+        const key_type_t *type = &key_types[k];
+        grow(&format, "%s\n  {\"key\": \"%s\", \"type\": \"%s\", \"kinds\": [", k ? "," : "", keys[k], type->type);
+        for (int kind = 0, first = 1; kind < KIND_COUNT; ++kind)
+            if (key_kinds[k] & 1u << kind) grow(&format, "%s\"%s\"", first ? "" : ", ", kinds[kind]), first = 0;
+        grow(&format, "]");
+        if (type->words) grow(&format, ", \"words\": "), grow_words(&format, type->words);
+        if (strcmp(type->type, "int") == 0 || strcmp(type->type, "pair") == 0 || type->max)
+            grow(&format, ", \"min\": %ld, \"max\": %ld", (long)type->min, (long)type->max);
+        if (type->table) grow(&format, ", \"table\": \"%s\"", type->table);
+        if (type->null) grow(&format, ", \"null\": true");
+        grow(&format, "}");
+    }
+    grow(&format, "]}");
+    return format.text;
+}
+
+int preview_json(const char *text, size_t length)
+{
+    dgx_ui_json_t json = {.text = text, .len = length};
+    if (dgx_ui_json_peek(&json) != '{') return 0;
+    if (!dgx_ui_json_skip(&json, DGX_UI_JSON_LEVELS)) return json.error == DGX_UI_JSON_DEPTH ? 2 : 0;
+    return dgx_ui_json_peek(&json) == -1 ? 1 : 0;
+}
+
+/* the names of the tables the page given is read on, as a JSON object of lists */
+const char *preview_tables(void)
+{
+    static grown_t tables_said;
+    tables_said.used = 0;
+    grow(&tables_said, "{");
+    const dgx_ui_load_names_t *names = &home.names;
+    const struct {
+        const char *table;
+        const void *entries;
+        size_t      size;
+        int         count;
+    } lists[] = {
+        {"look", names->looks, sizeof *names->looks, names->look_count},
+        {"value", names->values, sizeof *names->values, names->value_count},
+        {"picture", names->pictures, sizeof *names->pictures, names->picture_count},
+        {"style", names->styles, sizeof *names->styles, names->style_count},
+        {"on", names->handlers, sizeof *names->handlers, names->handler_count},
+        {"take", names->takes, sizeof *names->takes, names->take_count},
+        {"ctx", names->contexts, sizeof *names->contexts, names->context_count},
+        {"id", names->ids, sizeof *names->ids, names->id_count},
+    };
+    for (size_t t = 0; t < sizeof lists / sizeof *lists; ++t) {
+        grow(&tables_said, "%s\"%s\": [", t ? ", " : "", lists[t].table);
+        for (int k = 0, first = 1; k < lists[t].count; ++k) {
+            /* every table's entry begins with its name */
+            const char *name = *(const char *const *)((const uint8_t *)lists[t].entries + (size_t)k * lists[t].size);
+            if (strcmp(name, DEFAULT_STYLE) == 0) continue; /* no description names the style of a text that names none */
+            grow(&tables_said, "%s\"%s\"", first ? "" : ", ", name), first = 0;
+        }
+        grow(&tables_said, "]");
+    }
+    grow(&tables_said, "}");
+    return tables_said.text;
 }
 
 /* ---- the calls ---- */

@@ -18,7 +18,7 @@ CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
 # a name DGX 1.0 takes away, warned at by DGX, is an error here
 WARN     := -Wall -Wextra -Wno-unused-parameter -Werror=deprecated-declarations
 
-all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance run-test_preview run-test_preview_module run-test_preview_class check-werror check-lists $(if $(DGX_DI),run-test_di) check-cxx
+all: run-test_rect run-test_core run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance run-test_preview run-test_preview_module run-test_preview_class run-test_preview_format run-test_description check-werror check-lists $(if $(DGX_DI),run-test_di) check-cxx
 
 run-%: $(BUILD)/%
 	$<
@@ -241,6 +241,16 @@ run-test_preview_module: $(BUILD)/scene run-test_generate run-test_generate_appe
 run-test_preview_class: $(ROOT)/test/preview/test_class.js $(ROOT)/editor/preview/dgx_ui_preview.js $(BUILD)/fontfiles/dgx_fonts-files.txt
 	timeout 300 node $(ROOT)/test/preview/test_class.js $(ROOT)/editor/preview/dgx_ui_preview.js $(BUILD)/fontfiles
 
+# the format the module describes from the loader's tables, held to its loader; in Node
+run-test_preview_format: $(ROOT)/test/preview/test_format.js $(ROOT)/editor/preview/dgx_ui_preview.js
+	timeout 300 node $(ROOT)/test/preview/test_format.js $(ROOT)/editor/preview/dgx_ui_preview.js
+
+# the builder's reading, writing and operations of a description, and its history, held to the module's loader on
+# test_generate's descriptions; in Node
+run-test_description: $(ROOT)/test/editor/test_description.js $(ROOT)/editor/description.js $(ROOT)/editor/history.js \
+                      $(ROOT)/editor/preview/dgx_ui_preview.js run-test_generate
+	timeout 900 node $(ROOT)/test/editor/test_description.js $(ROOT)/editor/preview/dgx_ui_preview.js $(BUILD)/generate
+
 # fonts of DGX as files, each by DGX's font2bin of its C, and their index as DGX writes one: for the module's tests
 FONT_FILES := DejaVuSansBook32 DroidSansRegular9 IBMPlexMonoMedium28 LiberationSansRegular12 NotoMonoRegular28 TerminusTTFMedium12 font0ss
 $(BUILD)/fontfiles/%.dgxf: $(DGX_ROOT)/font2c/font2bin.c $(DGX_ROOT)/src/fonts/%.c
@@ -343,4 +353,4 @@ check-docs:
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all clean run-test_generate run-test_generate_appearance run-test_preview_module run-test_preview_class check-cxx check-werror check-lists check-docs
+.PHONY: all clean run-test_generate run-test_generate_appearance run-test_preview_module run-test_preview_class run-test_preview_format run-test_description check-cxx check-werror check-lists check-docs

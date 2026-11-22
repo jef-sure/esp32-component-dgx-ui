@@ -52,6 +52,9 @@ files:
     - "tools/README.md"
     # the preview of a description built to WebAssembly: the file a page loads, the page to try it by hand, what it is
     # made of and how, and the licences of what is in it
+    # the builder of pages: the description as it reads, writes and edits it, and its history
+    - "editor/description.js"
+    - "editor/history.js"
     - "editor/preview/README.md"
     - "editor/preview/dgx_ui_preview.js"
     - "editor/preview/index.html"

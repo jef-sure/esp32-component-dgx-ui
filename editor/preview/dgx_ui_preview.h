@@ -51,6 +51,27 @@ typedef struct preview_widget_t {
 const char *preview_version(void);
 
 /**
+ * The format of a page as the loader reads it, from its own tables, for a page that edits descriptions to draw its
+ * controls by, while the loader keeps the last word: {"version": 1, "kinds": [...], "keys": [{"key", "type", "kinds",
+ * and "words", "min" and "max", "table", "null" where they are said}, ...]}. The types: kind, words, int, pair (two of
+ * min to max), name (of the table said; null where "null" is true; ctx a number of min to max too, for a handler that
+ * takes one), text, id (a name of the page's own), children, editor.
+ */
+const char *preview_format(void);
+/**
+ * The names of the tables the page given is read on, by the names file or, with none, by the rule, the appearance's
+ * looks and styles first: {"look": [...], "value": [...], "picture": [...], "style": [...], "on": [...], "take": [...],
+ * "ctx": [...], "id": [...]}. Kept from the last preview_page(), whether the page was taken or not.
+ */
+const char *preview_tables(void);
+/**
+ * Whether a text is JSON as the loader's reader of JSON reads it, in the first pass that judges a description: an
+ * object at the top, nothing but white space after it. 1 JSON; 0 not; 2 deeper than the reader goes, which the
+ * loader refuses by its bound of depth, not as syntax. A page's own reader of descriptions is held to it.
+ */
+int preview_json(const char *text, size_t length);
+
+/**
  * The panel: the board's width and height in pixels, its depth, 16, 18 or 24, and the pixels a point of the board's
  * program, what it gives dgx_ui_init(), 1 to 16; 0, or PREVIEW_NO_SCREEN. A screen refused leaves none: nothing is drawn
  * and preview_frame() is NULL until one is taken.
