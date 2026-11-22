@@ -114,6 +114,34 @@ static const dgx_ui_widget_t bottom_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_RO
 - When nothing is left, such a child gets no size and is not seen.
 - In a box that is neither a column nor a row the flag does nothing.
 
+## A line between rows
+
+A frame one point high in a column is a line across it, and one point wide in a row, a line down it. Its look
+fills the whole box in one colour: the frame's draw with a border of no width, the line's colour as its fill.
+
+```c
+/* a line: the frame's draw with a border of no width fills its box in one colour, at any unit */
+static const dgx_ui_frame_look_t line_params = {.border = BORDER, .width = 0};
+static const dgx_ui_look_t       line_look   = {.draw = dgx_ui_draw_frame, .params = &line_params, .fill = BORDER};
+
+/* across a column, as wide as it; down a row, as high as it */
+static const dgx_ui_widget_t across_w = {.kind = DGX_UI_FRAME, .want_h = 1, .look = &line_look};
+static const dgx_ui_widget_t down_w   = {.kind = DGX_UI_FRAME, .want_w = 1, .look = &line_look};
+```
+
+- Not the frame's own look: its border is a point wide, so a frame one point thick comes out all fill where a
+  point is one pixel, all border where it is two, and striped where it is three.
+- The line is a point thick, as every size of the tree: two pixels where a point is two.
+- The gap of the column stands on both sides of the line, as of any child.
+- In a description the look is a name. An appearance gives it to every page by one entry of its `"looks"`:
+
+```json
+"line": {"draw": "frame", "fill": "border", "params": {"border": "border", "width": 0}}
+```
+
+  and a page names it, `{"kind": "frame", "look": "line", "want": [0, 1]}`. With no appearance, the line
+  `look line &line_look` of the names file gives the look of C above.
+
 ## One message for several widgets
 
 A sensor sends the temperature and the humidity in one message. Two labels read it; neither claims it, so both see
