@@ -49,7 +49,7 @@ A preview is a copy of the module with memory of its own: two of them on a page 
 | `names(text)` | The program's names file, or `null`: then every name a text uses is taken, as `dgx_ui_c` takes them with no names file. A verdict; a file refused counts as none. |
 | `font(cName, bytes)` | The file of a font, a `.dgxf` of DGX, for the name of C the font is taken by: `null` lets that name's file go. The bytes are a `Uint8Array`, an `ArrayBuffer` or a view of one, and are copied. A verdict. |
 | `fonts(index, read)` | Every font of `dgx_fonts-files.txt`, the index DGX writes beside a project's fonts. `read(file)` gives the bytes of a file of the index's directory, or a promise of them. A promise of `[{name, verdict}]`, a line of the index each. |
-| `appearance(text)` | The appearance, or `null` for none. A verdict. |
+| `appearance(text, names)` | The appearance, or `null` for none, read on the names as `dgx_ui_c -a` reads it: with `names` left out on the page's names file; with `names` a text, on that file of its own, as a `dgx_ui_appearance()` with `NAMES`; with `null`, by the rule, as one without. A verdict, the own file's refusal first. |
 | `page(text)` | The page, or `null` for none. A verdict. |
 | `paint(nowMs)` | The time given and the page drawn where it changed: `true` when pixels were written. |
 | `wake(nowMs)` | The milliseconds after which a widget asks to be drawn again; `Infinity` when none does. |
@@ -65,6 +65,9 @@ A preview is a copy of the module with memory of its own: two of them on a page 
 | `widgetAt(x, y)` | The widget a finger there would take, -1 for none. |
 | `events()` | What happened since the last call, a line each. |
 | `notes()` | The stand-ins the pages in use take, a line each. |
+| `format()` | The format of a page as the loader reads it: `{version, kinds, keys}`, each key with its type, the kinds it means something for, its words or its range, the table of its names. A page that edits descriptions draws its controls by it. |
+| `tables()` | The names of the tables the page given is read on, `{look, value, picture, style, on, take, ctx, id}`, the appearance's looks and styles first. |
+| `json(text)` | Whether a text, or bytes, is JSON as the loader's reader reads it: 1, 0, or 2 for one deeper than it goes. |
 
 A verdict is `{code, offset, name, said}`. For a text taken `code` is 0. For a page or an appearance refused it is the
 loader's `DGX_UI_LOAD_*`, with the byte and the name it stopped at: the errors of

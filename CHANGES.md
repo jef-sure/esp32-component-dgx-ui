@@ -1,5 +1,15 @@
 # Changes
 
+## 0.0.48 - 2026-11-22
+
+- The builder of pages, editor/index.html, a first cut opened from the disk: a project's pages found by its
+  CMakeLists' calls and drawn by the preview at the board's size, their widgets selected, set, added, moved and
+  wrapped with undo; only the files edited are saved.
+- The preview reads an appearance on its own names file as dgx_ui_c does (`preview_appearance_on()`,
+  `appearance(text, names)`), and its class gives `format()`, `tables()` and `json()`.
+- Docs: the recipes, the pictures and the keypad of examples/controls in soft-edged fonts made at build time; the docs
+  check needs FreeType's development files, pkg-config and fontconfig.
+
 ## 0.0.47 - 2026-11-22
 
 - DGX 0.12.1 at least, whose glyphs give their data by offsets: a font built by hand takes its new form, a glyph's

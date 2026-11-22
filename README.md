@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.47: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.48: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -73,7 +73,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.47"
+    version: "0.0.48"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.12.1 or a later 0.12; DGX comes by itself, from the registry. Start with
@@ -87,6 +87,7 @@ It needs ESP-IDF 5.2 or later and DGX 0.12.1 or a later 0.12; DGX comes by itsel
 | [How it works](docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
 | [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a handwritten text, a popup, keys, touch, a field and a keyboard, a look of your own, a control of your own, the tree as a layer in another compositor's strips |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
+| [The builder of pages](editor/README.md) | a project's pages edited in a browser, drawn as the board draws them: opening a project, the panel, the properties, saving, in another page |
 | [The preview](editor/preview/README.md) | a description drawn in a browser as the board draws it: the page to try it by hand, the calls for a page that edits descriptions |
 
 Examples, each for a CYD board and for a window on the computer: [thin_paint](examples/thin_paint/main/thin_paint.c),
@@ -118,6 +119,9 @@ to be made: the fonts DGX ships are ready. See [Letters with soft edges](docs/en
 - **A description drawn in a browser**: [the preview](editor/preview/README.md) is dgx-ui itself built to
   WebAssembly, one file a page loads. It draws a page, an appearance and a names file on a panel of the board's
   size as the board draws them, and gives the loader's verdict on each: the drawing part of a builder.
+- **A builder of pages**: [editor/index.html](editor/README.md), opened from the disk, opens a project's directory,
+  draws its pages by the preview at the board's size and edits their widgets: selected on the panel, set by their
+  properties, added, moved, wrapped, with undo. Only the files edited are saved.
 - **Rows and columns**: a box stacks its children as a column or a row, with a padding and a gap, in points that are
   so many pixels; a child may take all that is left. The layout is made again only when the screen, the widgets or
   their sizes change, and then only what moved is drawn.
@@ -155,7 +159,8 @@ to be made: the fonts DGX ships are ready. See [Letters with soft edges](docs/en
 
 ## Not there yet
 
-- a builder of interfaces on the computer; what draws for it, [the preview](editor/preview/README.md), is here.
+- a builder of every part of an interface: [the builder of pages](editor/README.md) edits the widgets of a page; its
+  appearance, colours, styles and looks, is edited by hand for now.
 
 An interface of tables, graphs and long texts is a task for
 [DGX-LVGL](https://github.com/jef-sure/esp32-component-dgx-lvgl).
