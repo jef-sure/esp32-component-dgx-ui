@@ -1,0 +1,4 @@
+dependencies:
+  # the registry's; inside the repository of dgx-ui the checkout takes its place (CMakeLists.txt of the project).
+  # DGX, the display library, comes with it
+  jef-sure/dgx-ui: "*"

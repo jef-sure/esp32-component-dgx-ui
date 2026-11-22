@@ -88,6 +88,16 @@ files:
     - "editor/preview/licenses/wasi-libc.copyright"
     - "editor/preview/licenses/libclang-rt-21-dev-wasm32.copyright"
     - "editor/preview/licenses/taken.txt"
+    # the one example the registry hands out, each of its files named: it takes the component from the registry, as a
+    # project made of it does. The other examples take the component by the path of a checkout and stay out
+    - "examples/hello/.gitignore"
+    - "examples/hello/CMakeLists.txt"
+    - "examples/hello/README.md"
+    - "examples/hello/sdkconfig.defaults"
+    - "examples/hello/sdkconfig.defaults.linux"
+    - "examples/hello/main/CMakeLists.txt"
+    - "examples/hello/main/idf_component.yml"
+    - "examples/hello/main/main.c"
     - "README.md"
     - "README-ru.md"
     - "docs/en/*.md"

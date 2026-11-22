@@ -1,0 +1,5 @@
+# a tick of 1 ms: the loop of dgx-ui waits a tick at least while a widget asks for time
+CONFIG_FREERTOS_HZ=1000
+# the display of a CYD (ESP32-2432S028R), an ILI9341 on SPI: DGX builds only the buses and the drivers named here
+CONFIG_DGX_ENABLE_SPI=y
+CONFIG_DGX_ENABLE_SPI_ILI_9341=y

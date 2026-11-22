@@ -91,20 +91,23 @@ on a board or in a window on the computer.
 | [The builder of pages](editor/README.md) | a project's pages edited in a browser, drawn as the board draws them: opening a project, the panel, the properties, saving, in another page |
 | [The preview](editor/preview/README.md) | a description drawn in a browser as the board draws it: the page to try it by hand, the calls for a page that edits descriptions |
 
-Examples, each for a CYD board and for a window on the computer: [thin_paint](examples/thin_paint/main/thin_paint.c),
-a value sent by a task and a clock; [controls](examples/controls/main/controls.c), a button with a popup, a switch, a
-dropdown, a slider and two fields, a code and a PIN shown as stars, each edited in a strip over a keypad of DGX-DI;
-worked by a finger and by the keys, on a board taken from
-[boards](https://github.com/jef-sure/esp32-component-boards). The list of changes is in [CHANGES.md](CHANGES.md).
+Examples, each for a CYD board and for a window on the computer: [hello](examples/hello/main/main.c), a text and a
+count another task sends once a second, in fonts DGX ships, the one to start a project of your own from;
+[thin_paint](examples/thin_paint/main/thin_paint.c), a value sent by a task and a clock;
+[controls](examples/controls/main/controls.c), a button with a popup, a switch, a dropdown, a slider and two fields,
+a code and a PIN shown as stars, each edited in a strip over a keypad of DGX-DI; worked by a finger and by the keys,
+on a board taken from [boards](https://github.com/jef-sure/esp32-component-boards). The list of changes is in
+[CHANGES.md](CHANGES.md).
 
-The examples' letters have soft edges: DGX makes their fonts at build time, 4 bits a pixel, from a face installed
-on the build machine, the first of DejaVu Sans, Liberation Sans, Noto Sans, FreeSans and Arial that it has, as each
-example's `fonts.rules` lists them, and the build prints the one it took. For that the build machine needs, beside
-ESP-IDF, a C compiler of its own, the development files of FreeType, `pkg-config` and fontconfig; on Debian and
-Ubuntu: `sudo apt install build-essential libfreetype-dev pkg-config fontconfig fonts-dejavu-core`. The window on
-the computer needs SDL2 as well, `libsdl2-dev`. Without FreeType the build stops and says so; with none of the
-families, with "no face allowed by the rules". A program of your own needs none of this until it asks for a font
-to be made: the fonts DGX ships are ready. See [Letters with soft edges](docs/en/cookbook.md#letters-with-soft-edges).
+The letters of thin_paint and controls have soft edges: DGX makes their fonts at build time, 4 bits a pixel, from a
+face installed on the build machine, the first of DejaVu Sans, Liberation Sans, Noto Sans, FreeSans and Arial that it
+has, as the `fonts.rules` of each lists them, and the build prints the one it took. For that the build machine
+needs, beside ESP-IDF, a C compiler of its own, the development files of FreeType, `pkg-config` and fontconfig; on
+Debian and Ubuntu: `sudo apt install build-essential libfreetype-dev pkg-config fontconfig fonts-dejavu-core`. The
+window on the computer needs SDL2 as well, `libsdl2-dev`. Without FreeType the build stops and says so; with none of
+the families, with "no face allowed by the rules". A program of your own needs none of this until it asks for a font
+to be made: the fonts DGX ships are ready, and hello is written in two of them. See
+[Letters with soft edges](docs/en/cookbook.md#letters-with-soft-edges).
 
 ## What is in it
 

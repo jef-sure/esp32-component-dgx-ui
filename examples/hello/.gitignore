@@ -1,0 +1,8 @@
+# made by the builds; dependencies.lock is kept: it holds the versions the project was built with
+build/
+sdkconfig
+sdkconfig.old
+managed_components/
+# an editor's
+.cache/
+.vscode/
