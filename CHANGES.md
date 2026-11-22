@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.50 - 2026-11-22
+
+- A text's state for the program: `dgx_ui_text_state()`, whether its letters are still coming and whether its look has
+  shown all of it; `dgx_ui_text_whole()`, its letters shown at once, its scroll left to run.
+- A modal popup takes a finger's press inside it as it takes its move and its lift: `dgx_ui_pointer()` true for each.
+- Docs: a new getting-started page: a round CO2 scale on a GC9A01 fed by an SCD41 sensor, on an ESP32-C3 or in a window
+  on the computer, in fonts made at build time with soft edges.
+
 ## 0.0.49 - 2026-11-22
 
 - Sizes, places, pads and gaps in percent: `DGX_UI_PERCENT_W`, `_H`, `_X`, `_Y`, `_PAD`, `_GAP` and `DGX_UI_PERCENT()`;
