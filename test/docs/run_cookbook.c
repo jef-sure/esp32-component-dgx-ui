@@ -58,19 +58,6 @@ const uint16_t logo_pixels[64 * 32];
 const uint16_t map_pixels[320 * 240]  = {[0 ... 320 * 240 - 1] = 0x1084}; /* two maps of one colour each */
 const uint16_t rain_pixels[320 * 240] = {[0 ... 320 * 240 - 1] = 0x1f00};
 int64_t    esp_timer_get_time(void) { return 0; }
-/* the font of the need "title" of the recipe of soft letters: two letters, A and B, of 4 bits a pixel with levels of every kind,
-   a constant as DGX makes a font; the levels of A: 0 3 15 3 0 / 2 15 0 15 2 / 15 15 15 15 15 / 15 7 0 6 15, of B: 1 0 0 0 0 14 /
-   0 8 15 15 8 0 / 0 15 0 0 15 0 / 0 8 15 15 8 0 / 14 0 0 0 0 1, the leftmost pixel in the high bits of a byte, a row to a whole byte.
-   The glyphs hold the offsets of their pictures in the font's data, as DGX 0.12.1 has them. */
-enum { SOFT_A_W = 5, SOFT_A_H = 4, SOFT_B_W = 6, SOFT_B_H = 5, SOFT_A_BYTES = 12 };
-static const uint8_t           soft_bits[] = {0x03, 0xf3, 0x00, 0x2f, 0x0f, 0x20, 0xff, 0xff, 0xf0, 0xf7, 0x06, 0xf0,                    /* A */
-                                              0x10, 0x00, 0x0e, 0x08, 0xff, 0x80, 0x0f, 0x00, 0xf0, 0x08, 0xff, 0x80, 0xe0, 0x00, 0x01}; /* B */
-static const dgx_glyph_t       soft_glyphs[2] = {{.offset = 0, .width = SOFT_A_W, .height = SOFT_A_H, .x_advance = 7, .y_offset = -4},
-                                                 {.offset = SOFT_A_BYTES, .width = SOFT_B_W, .height = SOFT_B_H, .x_advance = 7, .y_offset = -5}};
-static const dgx_glyph_array_t soft_ranges[2] = {{.first = 'A', .number = 2, .glyph = 0}, {0, 0, 0}};
-const dgx_font_t               dgx_font_title = {.glyph_ranges = soft_ranges, .glyphs = soft_glyphs, .data = soft_bits, .y_advance = 8, .y_offset_lowest = -5,
-                                                 .x_widest = SOFT_B_W, .x_width_average = 6, .f_type = DGX_FONT_BITMAP_DEPTH4, .y_bottom_max = 1,
-                                                 .x_right_max = 6, .number_of_ranges = 1};
 /* NVS for the recipe of settings that stay: one blob in memory, and how many times it was committed */
 static uint8_t nvs_blob[64];
 static size_t  nvs_blob_size;
@@ -472,13 +459,13 @@ int main(int argc, char **argv)
     /* letters with soft edges: a heading in a font of 4 bits a pixel: the colours between the paper and the ink in its box */
     {
         static dgx_ui_node_t soft_nodes[2];
-        dgx_screen_t        *soft_screen = dgx_vscreen_init(120, 30, 16, DgxScreenRGB);
+        dgx_screen_t        *soft_screen = dgx_vscreen_init(200, 48, 16, DgxScreenRGB);
         dgx_ui_paint_t       soft_paint  = {.scr = soft_screen, .colors = table, .color_count = COLORS, .background = PAPER};
         dgx_ui_t             soft_ui;
         dgx_ui_init(&soft_ui, soft_nodes, 2, 1);
         dgx_ui_add(&soft_ui, -1, &col_w);
         const int heading = heading_add(&soft_ui, 0);
-        dgx_ui_text_set(&soft_ui, heading, "ABBA"); /* the two letters the runner's font has */
+        dgx_ui_text_set(&soft_ui, heading, "Living room");
         dgx_ui_paint(&soft_ui, &soft_paint, 0);
         const dgx_ui_node_t *heading_node = dgx_ui_node(&soft_ui, heading);
         uint32_t             seen[32];
@@ -1767,7 +1754,7 @@ int main(int argc, char **argv)
         printf("appearance: day made C, %d colours, accent the index %d packed %s; its style's font %s with nothing called; the page on it: added %d, a slider and a button of its looks %d, "
                "texts of its style %d\n",
                day_appearance.color_count, (int)day_color_accent, day_colors[day_color_accent] == dgx_screen_rgb(day_screen, 0xf0, 0xa0, 0x3c) ? "right" : "WRONG",
-               day_style[0].variants[0].font == &TerminusTTFMedium12 ? "there" : "NOT THERE", top >= 0, of_the_appearance, of_its_style);
+               day_style[0].variants[0].font == &dgx_font_body ? "there" : "NOT THERE", top >= 0, of_the_appearance, of_its_style);
         dgx_ui_free(&day_page), dgx_screen_destroy(&day_screen);
     }
 

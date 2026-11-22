@@ -64,16 +64,35 @@
 Заголовки, цвета и два стиля одного шрифта. Цвета — это номера в таблице, которую программа даёт отрисовке; рецепты
 называют их по именам.
 
+Шрифты делаются для программы при её сборке, со сглаженными краями, 4 бита на пиксель
+([Сглаженные буквы](#сглаженные-буквы)): для текста, для крупных цифр и для клавиатуры — из первого семейства списка
+правил, которое есть на машине сборки.
+
+```cmake
+# main/CMakeLists.txt: шрифты рецептов, их делает DGX при сборке, с буквами текстов программы
+dgx_fonts_rules(fonts.rules)
+dgx_font_need(body SIZE 13px BITS 4 TEXTS main.c)
+dgx_font_need(large SIZE 32px BITS 4 TEXTS main.c)
+dgx_font_need(keys SIZE 20px BITS 4 LETTERS "0123456789")
+```
+
+```
+# fonts.rules, рядом: семейства в порядке предпочтения, каждое от 7 пикселей
+source system
+allow "DejaVu Sans"      7..
+allow "Liberation Sans"  7..
+allow "Noto Sans"        7..
+```
+
 ```c
 #include "dgx_draw.h"
+#include "dgx_fonts.h" /* made by DGX at build time: dgx_font_body, dgx_font_large, dgx_font_keys */
 #include "dgx_ui_paint.h"
 #include "dgx_ui_post.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_ticker.h"
 #include "esp_attr.h"
 #include "esp_timer.h"
-#include "fonts/DejaVuSansBook32.h"
-#include "fonts/TerminusTTFMedium12.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -84,7 +103,7 @@ static dgx_ui_text_style_t   st_left, st_centre;
 
 static void styles_init(void)
 {
-    small[0]  = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    small[0]  = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     st_left   = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_centre = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
 }
@@ -997,30 +1016,24 @@ static dgx_ui_text_style_t   st_city;
 
 static void city_style_init(void)
 {
-    city_fonts[0] = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
-    city_fonts[1] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    city_fonts[0] = (dgx_ui_font_variant_t){.font = &dgx_font_large};
+    city_fonts[1] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     st_city = (dgx_ui_text_style_t){.variants = city_fonts, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
 }
 ```
 
 - Высота надписи — строка её первого шрифта, поэтому размер надписи не зависит от того, какой шрифт выбран.
 - Меньший шрифт стоит на базовой линии первого. С флагом `DGX_UI_TEXT_MIDDLE` он стоит посередине высоты.
-- Шрифты — из DGX, матричные и точечные. Такой шрифт не масштабируется. Рукописный шрифт пишется на любой
-  высоте: следующий рецепт.
+- Матричный шрифт, сделанный для программы или из поставки DGX, не масштабируется, как и точечный. Рукописный
+  шрифт пишется на любой высоте: следующий рецепт.
 
 ## Сглаженные буквы
 
-Шрифт DGX в 4 или 2 бита на пиксель хранит, какую долю каждого пикселя закрывает буква, поэтому у его букв нет
-ступенек. Облики рисуют его как любой шрифт: программа даёт его варианту, и больше ничего не меняется.
-
-```cmake
-# main/CMakeLists.txt: DejaVu Sans of 16 pixels and 4 bits a pixel, with the letters of the texts in strings.txt
-dgx_font_need(title POSTSCRIPT DejaVuSans SIZE 16px BITS 4 TEXTS strings.txt)
-```
+Шрифты рецептов — в 4 бита на пиксель. Шрифт DGX в 4 или 2 бита на пиксель хранит, какую долю каждого пикселя
+закрывает буква, поэтому у его букв нет ступенек. Облики рисуют его как любой шрифт: программа даёт его варианту, и
+больше ничего не меняется. Вот заголовок крупным из них:
 
 ```c
-extern const dgx_font_t dgx_font_title; /* of dgx_fonts.h, which DGX makes at build time: the font of the need "title" */
-
 static dgx_ui_font_variant_t soft[1];
 static dgx_ui_text_style_t   st_soft;
 static char                  heading_buf[24];
@@ -1030,7 +1043,7 @@ static const dgx_ui_widget_t heading_w = {.kind = DGX_UI_LABEL, .text = &heading
 
 static int heading_add(dgx_ui_t *ui, int parent)
 {
-    soft[0] = (dgx_ui_font_variant_t){.font = &dgx_font_title};
+    soft[0] = (dgx_ui_font_variant_t){.font = &dgx_font_large};
     st_soft = (dgx_ui_text_style_t){.variants = soft, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&heading_box, heading_buf, sizeof heading_buf, 1, &st_soft);
     const int heading = dgx_ui_add(ui, parent, &heading_w);
@@ -1039,9 +1052,11 @@ static int heading_add(dgx_ui_t *ui, int parent)
 }
 ```
 
-- **Шрифт делает DGX во время сборки** по заявке программы с `BITS 4` или `BITS 2`: см. раздел
+- **Шрифт делает DGX во время сборки** по заявке программы с `BITS 4` или `BITS 2`, как в рецепте
+  [Общее для всех рецептов](#общее-для-всех-рецептов): см. раздел
   [Soft edges](https://github.com/jef-sure/esp32-component-dgx/blob/main/docs/fonts-en.md#soft-edges) у DGX. Шрифты,
-  которые идут вместе с DGX, — в один бит.
+  которые идут вместе с DGX, — в один бит; программа называет такой без заявки и без чего-либо на машине сборки:
+  `#include "fonts/TerminusTTFMedium12.h"` и `&TerminusTTFMedium12`.
 - **Край буквы — это её чернила, смешанные с бумагой облика**: бумагой надписи, лицом кнопки, полосой выбранной
   строки списка. Этот цвет облик знает, дисплей не читается, поэтому края сглажены и на дисплее за шиной, а на 16
   битах каждый пиксель текста по-прежнему пишется один раз.
@@ -1055,23 +1070,9 @@ static int heading_add(dgx_ui_t *ui, int parent)
 - Рукописный шрифт — другое дело: его штрихи сглажены только в холсте виджета, мягким пером, как показывает
   следующий рецепт.
 
-**Гарнитура, которой на машине может не быть.** Заявка выше называет DejaVu Sans точно, и на машине без неё сборка
-остановится. Заявка, которая гарнитуры не называет, берёт первое семейство из списка, который программа даёт
-правилами, — программа соберётся везде, где установлено хоть одно из них:
-
-```cmake
-# main/CMakeLists.txt: гарнитура не названа, её выбирают правила
-dgx_fonts_rules(fonts.rules)
-dgx_font_need(title SIZE 16px BITS 4 TEXTS strings.txt)
-```
-
-```
-# fonts.rules, рядом: семейства в порядке предпочтения, каждое от 7 пикселей
-source system
-allow "DejaVu Sans"      7..
-allow "Liberation Sans"  7..
-allow "Noto Sans"        7..
-```
+**Гарнитура, которой на машине может не быть.** Заявки рецептов гарнитуры не называют: они берут первое семейство
+из правил, которые даёт программа, — программа соберётся везде, где установлено хоть одно из них. Заявка может
+назвать гарнитуру точно, `POSTSCRIPT DejaVuSans`, и тогда на машине без неё сборка остановится.
 
 - Выигрывает первая строка, семейство которой установлено и содержит все буквы. Если нет ни одной, сборка
   останавливается и говорит, какой размер и какие буквы искала.
@@ -1104,7 +1105,7 @@ static void greeting_init(void)
     /* DGX's handwritten face at two heights, then a bitmap font for a text too long even so */
     greeting_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
     greeting_fonts[1] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .narrow = 70, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
-    greeting_fonts[2] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    greeting_fonts[2] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     greeting_style    = (dgx_ui_text_style_t){.variants = greeting_fonts, .count = 3, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&greeting_box, greeting_text, sizeof greeting_text, 1, &greeting_style);
 }
@@ -1189,7 +1190,7 @@ static void note_init(void)
 {
     /* the hand at 20 pixels, then a bitmap font for a note too long for its lines */
     note_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
-    note_fonts[1] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    note_fonts[1] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     note_style    = (dgx_ui_text_style_t){.variants = note_fonts, .count = 2, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&note_box, note_text, sizeof note_text, 3, &note_style); /* three lines */
 }
@@ -2126,7 +2127,7 @@ static void edit_open(int field)
     if (edit_field >= 0) return;
     /* the keyboard keeps away from the field it is given: one at the very top sends its band to the bottom */
     const dgx_di_rect_t top = {.x = 0, .y = 0, .w = (int16_t)edit_scr->width, .h = 1};
-    if (!dgx_di_keyboard_open(&keypad_kb, edit_scr, edit_mm_w, edit_mm_h, keypad, keypad_size, &TerminusTTFMedium12, &top)) return;
+    if (!dgx_di_keyboard_open(&keypad_kb, edit_scr, edit_mm_w, edit_mm_h, keypad, keypad_size, &dgx_font_keys, &top)) return;
     const dgx_ui_widget_t *w = dgx_ui_widget(edit_ui, field);
     /* the copy: no longer than the field's own buffer, in the field's style and look */
     const int size = w->text->size < sizeof edit_buf ? w->text->size : (int)sizeof edit_buf;
@@ -2462,15 +2463,15 @@ static int made_page_load(const char *json, size_t len, void *memory, size_t siz
 # an appearance's own: draws and fonts
 draw      slider
 draw      button
-font      small     TerminusTTFMedium12
+font      small     dgx_font_body
 ```
 
 Ещё одна строка в `main/program.h` — она объявляет шрифт: сделанные файлы включают этот заголовок ради всего, к
 чему ведёт файл имён.
 
 ```c
-/* program.h, one line more: the font of vocab.txt */
-#include "fonts/TerminusTTFMedium12.h"
+/* program.h, one line more: the font of vocab.txt, the recipes' body text */
+#include "dgx_fonts.h"
 ```
 
 `main/CMakeLists.txt`: внешний вид переводится на C, и страница делается на нём.

@@ -1,4 +1,6 @@
-/* The pictures of the documentation, drawn by dgx-ui itself on a virtual screen of DGX; the code of the pages is here. */
+/* The pictures of the documentation, drawn by dgx-ui itself on a virtual screen of DGX; the code of the pages is here. Their
+   letters are the fonts of the cookbook's needs, soft-edged, made by DGX from test/docs/fonts.needs (run.mk); the picture
+   of the getting-started page alone is in the fonts its program names, which DGX ships. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +10,7 @@
 #include "dgx_ui_msg.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_text.h"
+#include "dgx_fonts.h"
 #include "dgx_vscreen.h"
 #include "fonts/DejaVuSansBook32.h"
 #include "fonts/TerminusTTFMedium12.h"
@@ -38,11 +41,12 @@ static void make_colors(dgx_screen_t *scr)
 }
 static dgx_ui_font_variant_t big[2], small[1];
 static dgx_ui_text_style_t   st_big, st_left, st_right, st_centre, st_important, st_plain;
-static void make_styles(void)
+/* soft: the fonts of the needs, 4 bits a pixel; else those the getting-started page's program names */
+static void make_styles(bool soft)
 {
-    big[0]   = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
-    big[1]   = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    small[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    big[0]   = (dgx_ui_font_variant_t){.font = soft ? &dgx_font_large : &DejaVuSansBook32};
+    big[1]   = (dgx_ui_font_variant_t){.font = soft ? &dgx_font_body : &TerminusTTFMedium12};
+    small[0] = (dgx_ui_font_variant_t){.font = soft ? &dgx_font_body : &TerminusTTFMedium12};
     st_big       = (dgx_ui_text_style_t){.variants = big, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     st_left      = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_right     = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
@@ -361,7 +365,7 @@ static void scene_background(dgx_screen_t *scr, const char *out)
    picture */
 static void scene_states(dgx_screen_t *scr, const char *out)
 {
-    enum { CELL_W = 84, CELL_H = 34, NAMES_W = 62, HEADS_H = 18, KINDS = 6, STATES = 3 };
+    enum { CELL_W = 80, CELL_H = 34, NAMES_W = 74, HEADS_H = 18, KINDS = 6, STATES = 3 };
     const uint32_t           four[4] = {colors[PAPER], colors[INK], colors[FILL], colors[BORDER]};
     static const char *const names[KINDS]  = {"button", "dropdown", "switch", "slider", "radio", "checkbox"};
     static const char *const heads[STATES] = {"plain", "the focus", "a finger"};
@@ -374,15 +378,15 @@ static void scene_states(dgx_screen_t *scr, const char *out)
     dgx_ui_paint_t               names_paint = {.scr = scr, .colors = four, .color_count = 4, .background = 0};
     dgx_ui_init(&names_tree, name_nodes, KINDS + STATES + 1, 1);
     dgx_ui_add(&names_tree, -1, &free_w);
+    const int line = small[0].font->y_advance; /* a label is as high as a line of its font */
     for (int k = 0; k < KINDS + STATES; ++k) {
         const bool head = k >= KINDS;
         name_box[k]     = (dgx_ui_textbox_t)DGX_UI_TEXT_CONST(head ? heads[k - KINDS] : names[k], 1, &st_left);
         name_w[k]       = (dgx_ui_widget_t){.kind   = DGX_UI_LABEL,
                                             .text   = &name_box[k],
                                             .at_x   = (int16_t)(head ? NAMES_W + (k - KINDS) * (CELL_W + 2) + 6 : 4),
-                                            .at_y   = (int16_t)(head ? 3 : HEADS_H + k * (CELL_H + 2) + 11),
-                                            .want_w = (int16_t)(head ? CELL_W - 6 : NAMES_W - 4),
-                                            .want_h = 12};
+                                            .at_y   = (int16_t)(head ? (HEADS_H - line) / 2 : HEADS_H + k * (CELL_H + 2) + (CELL_H - line) / 2),
+                                            .want_w = (int16_t)(head ? CELL_W - 6 : NAMES_W - 4)};
         dgx_ui_add(&names_tree, 0, &name_w[k]);
     }
     dgx_ui_paint(&names_tree, &names_paint, 0);
@@ -447,7 +451,10 @@ int main(int argc, char **argv)
     const char   *dir = argc > 1 ? argv[1] : ".";
     char          a[512], b[512];
     dgx_screen_t *scr = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
-    make_colors(scr), make_styles();
+    make_colors(scr), make_styles(false);
+    snprintf(a, sizeof a, "%s/getting-started.ppm", dir), scene_first(scr, a);
+    dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
+    make_styles(true);
     snprintf(a, sizeof a, "%s/first.ppm", dir), scene_first(scr, a);
     dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
     snprintf(a, sizeof a, "%s/settings.ppm", dir), snprintf(b, sizeof b, "%s/popup.ppm", dir), scene_settings(scr, a, b);

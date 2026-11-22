@@ -11,14 +11,17 @@ run-cookbook:
 	mkdir -p $(BUILD)/docs
 	python3 ../docs/check_docs.py $(DGX) $(DGX_DI) $(BUILD)/docs
 	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) -DDGX_HOST_WINDOW -I../docs/stubs -I. $(CPPFLAGS) $(DGX_FLAGS) -I$(DGX)/host/window \
-		-I$(DGX_DI)/include -I$(BUILD)/docs -I$(BUILD)/docs/made_en -DMADE_DIR='"$(BUILD)/docs/made_en"' -o $(BUILD)/run_cookbook ../docs/run_cookbook.c \
-		$(BUILD)/docs/made_en/sound.c $(BUILD)/docs/made_en/vocab.c $(BUILD)/docs/made_en/day.c $(BUILD)/docs/made_en/sound_day.c $(PAINT) $(ROOT)/src/dgx_ui_stats.c $(DGX_SRCS) $(DGX)/src/fonts/font0ss.c -lm
+		-I$(DGX_DI)/include -I$(BUILD)/docs -I$(BUILD)/docs/fonts -I$(BUILD)/docs/made_en -DMADE_DIR='"$(BUILD)/docs/made_en"' -o $(BUILD)/run_cookbook ../docs/run_cookbook.c \
+		$(BUILD)/docs/made_en/sound.c $(BUILD)/docs/made_en/vocab.c $(BUILD)/docs/made_en/day.c $(BUILD)/docs/made_en/sound_day.c $(BUILD)/docs/fonts/dgx_fonts.c $(PAINT) $(ROOT)/src/dgx_ui_stats.c $(DGX_SRCS) $(DGX)/src/fonts/font0ss.c -lm
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/run_cookbook $(OUT)
 
-# The pictures of docs/images but the ring's and the strip's, as PPM in $(OUT): make ... pictures OUT=<directory>
+# The pictures of docs/images but the ring's and the strip's, as PPM in $(OUT): make ... pictures OUT=<directory>; their
+# fonts made by DGX of ../docs/fonts.needs, as check_docs.py makes them for the pages' code
 pictures:
 	mkdir -p $(BUILD) $(OUT)
-	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $(BUILD)/pictures ../docs/pictures.c $(PAINT) $(DGX_SRCS) -lm
+	python3 $(DGX)/font2c/dgx_fonts.py build ../docs/fonts.needs $(BUILD)/pictures_fonts
+	$(CC) $(CFLAGS) -std=gnu11 $(RUN_WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(BUILD)/pictures_fonts -o $(BUILD)/pictures ../docs/pictures.c \
+		$(BUILD)/pictures_fonts/dgx_fonts.c $(PAINT) $(DGX_SRCS) -lm
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/pictures $(OUT)
 
 .PHONY: run-cookbook pictures

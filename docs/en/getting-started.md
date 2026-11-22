@@ -12,7 +12,7 @@ for ESP32. In this guide we add it to an ESP-IDF project and write its first pro
 At the end the display shows this. The value changes five times a second and the clock once a second, and between
 the changes the task that owns the display sleeps:
 
-![A value in a frame, a clock and a note under it](../images/first.png)
+![A value in a frame, a clock and a note under it](../images/getting-started.png)
 
 You need to know how an ESP-IDF project is built and flashed. Nothing of dgx-ui or of DGX is assumed: every part of
 the program is explained where it appears.

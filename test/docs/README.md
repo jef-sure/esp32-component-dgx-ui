@@ -10,7 +10,9 @@ python3 test/docs/check_docs.py <DGX> <DGX-DI> <build dir>
 
 It checks that:
 
-- the C code of every page compiles against `include/`, with the stubs of `test/docs/stubs` for FreeRTOS;
+- the C code of every page compiles against `include/`, with the stubs of `test/docs/stubs` for FreeRTOS, and with
+  the fonts the cookbook's needs name, `dgx_fonts.h` and `dgx_fonts.c` made by DGX's `font2c/dgx_fonts.py` of
+  `fonts.needs` and `fonts.rules` here, as a program's build makes them: soft-edged, 4 bits a pixel;
 - the files the cookbook prints for its recipe of a description made C, the description, the names file and the
   program's header, are made C by `dgx_ui_c` itself, built here by `tools/dgx_ui_c.py`, and what it makes compiles;
   so are those of the recipe of an appearance made C: the appearance, the lines it adds to the names file and to
@@ -25,8 +27,11 @@ It checks that:
 The code blocks of a page, in their order, are one file of C: a block is whole declarations and functions, and the
 Russian pages hold the same blocks as the English ones.
 
+Making those fonts asks of the machine what a program's needs ask of it: a C compiler, the development files of
+FreeType, `pkg-config` and fontconfig, and one of the families of `fonts.rules`.
+
 `run_cookbook.c` runs the recipes of the cookbook with the program's own functions stubbed, the made files of that
-recipe compiled in: the tree its function adds is held against the one loaded of the same file. Given a directory,
+recipe and the fonts compiled in: the tree its function adds is held against the one loaded of the same file. Given a directory,
 it also draws there the pictures of the ring scale, `ring.ppm` and `ring-layout.ppm`, by the very code of the page.
 
 ```sh
@@ -34,11 +39,12 @@ make -C test/host -f ../docs/run.mk run-cookbook            # the checker, then 
 make -C test/host -f ../docs/run.mk run-cookbook OUT=/tmp   # and the pictures of the ring drawn there
 ```
 
-The pictures but the ring's and the strip's are drawn by `pictures.c`, as PPM, and made PNG of the same pixels:
+The pictures but the ring's and the strip's are drawn by `pictures.c`, as PPM, and made PNG of the same pixels, a
+palette of 256 colours holding every level of the soft edges:
 
 ```sh
-make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # first, settings, popup, lines, list, dropdown, background, states
-python3 -c "from PIL import Image; import sys; [Image.open(f'/tmp/pictures/{n}.ppm').convert('P', palette=Image.ADAPTIVE, colors=16).save(f'docs/images/{n}.png', optimize=True) for n in sys.argv[1:]]" list dropdown
+make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # getting-started, first, settings, popup, lines, list, dropdown, background, states
+python3 -c "from PIL import Image; import sys; [Image.open(f'/tmp/pictures/{n}.ppm').convert('P', palette=Image.ADAPTIVE, colors=256).save(f'docs/images/{n}.png', optimize=True) for n in sys.argv[1:]]" list dropdown
 ```
 
 `docs/images/strip.png` is the example `examples/controls` itself, built for the computer and stopped while the PIN is

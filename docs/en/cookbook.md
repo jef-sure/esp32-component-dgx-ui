@@ -63,16 +63,35 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 The headers, the colours and two styles of one font. Colours are indices of the table the program gives the painter;
 the recipes name them.
 
+The fonts are made for the program when it is built, with soft edges, 4 bits a pixel
+([Letters with soft edges](#letters-with-soft-edges)): one for text, one for large figures and one for the keys of a
+keypad, all of the first family of a list of rules that the build machine has.
+
+```cmake
+# main/CMakeLists.txt: the fonts of the recipes, made by DGX at build time, with the letters of the program's texts
+dgx_fonts_rules(fonts.rules)
+dgx_font_need(body SIZE 13px BITS 4 TEXTS main.c)
+dgx_font_need(large SIZE 32px BITS 4 TEXTS main.c)
+dgx_font_need(keys SIZE 20px BITS 4 LETTERS "0123456789")
+```
+
+```
+# fonts.rules, beside it: the families in the order of preference, each from 7 pixels up
+source system
+allow "DejaVu Sans"      7..
+allow "Liberation Sans"  7..
+allow "Noto Sans"        7..
+```
+
 ```c
 #include "dgx_draw.h"
+#include "dgx_fonts.h" /* made by DGX at build time: dgx_font_body, dgx_font_large, dgx_font_keys */
 #include "dgx_ui_paint.h"
 #include "dgx_ui_post.h"
 #include "dgx_ui_text.h"
 #include "dgx_ui_ticker.h"
 #include "esp_attr.h"
 #include "esp_timer.h"
-#include "fonts/DejaVuSansBook32.h"
-#include "fonts/TerminusTTFMedium12.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -83,7 +102,7 @@ static dgx_ui_text_style_t   st_left, st_centre;
 
 static void styles_init(void)
 {
-    small[0]  = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    small[0]  = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     st_left   = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_centre = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
 }
@@ -983,8 +1002,8 @@ static dgx_ui_text_style_t   st_city;
 
 static void city_style_init(void)
 {
-    city_fonts[0] = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
-    city_fonts[1] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    city_fonts[0] = (dgx_ui_font_variant_t){.font = &dgx_font_large};
+    city_fonts[1] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     st_city = (dgx_ui_text_style_t){.variants = city_fonts, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
 }
 ```
@@ -992,22 +1011,16 @@ static void city_style_init(void)
 - The height of a label is the line of its first font, so the label keeps its size whichever font is taken.
 - A smaller font stands on the base line of the first one. With `DGX_UI_TEXT_MIDDLE` it stands in the middle of the
   height.
-- The fonts are those of DGX, of bitmaps and of dots. Such a font is not scaled. A handwritten font is written at
-  any height: the next recipe.
+- A font of bitmaps, made for the program or shipped by DGX, is not scaled, nor is one of dots. A handwritten font
+  is written at any height: the next recipe.
 
 ## Letters with soft edges
 
-A font of 4 or 2 bits a pixel of DGX keeps how much of each pixel a letter covers, so its letters have no steps.
-The looks draw it as any font: the program gives it to a variant, and nothing else changes.
-
-```cmake
-# main/CMakeLists.txt: DejaVu Sans of 16 pixels and 4 bits a pixel, with the letters of the texts in strings.txt
-dgx_font_need(title POSTSCRIPT DejaVuSans SIZE 16px BITS 4 TEXTS strings.txt)
-```
+The fonts of the recipes are of 4 bits a pixel. A font of 4 or 2 bits a pixel of DGX keeps how much of each pixel a
+letter covers, so its letters have no steps. The looks draw it as any font: the program gives it to a variant, and
+nothing else changes. Here a heading in the large one:
 
 ```c
-extern const dgx_font_t dgx_font_title; /* of dgx_fonts.h, which DGX makes at build time: the font of the need "title" */
-
 static dgx_ui_font_variant_t soft[1];
 static dgx_ui_text_style_t   st_soft;
 static char                  heading_buf[24];
@@ -1017,7 +1030,7 @@ static const dgx_ui_widget_t heading_w = {.kind = DGX_UI_LABEL, .text = &heading
 
 static int heading_add(dgx_ui_t *ui, int parent)
 {
-    soft[0] = (dgx_ui_font_variant_t){.font = &dgx_font_title};
+    soft[0] = (dgx_ui_font_variant_t){.font = &dgx_font_large};
     st_soft = (dgx_ui_text_style_t){.variants = soft, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&heading_box, heading_buf, sizeof heading_buf, 1, &st_soft);
     const int heading = dgx_ui_add(ui, parent, &heading_w);
@@ -1026,9 +1039,11 @@ static int heading_add(dgx_ui_t *ui, int parent)
 }
 ```
 
-- **The font is made by DGX at build time**, from a need of the program with `BITS 4` or `BITS 2`: see
+- **The font is made by DGX at build time**, from a need of the program with `BITS 4` or `BITS 2`, as in
+  [What the recipes share](#what-the-recipes-share): see
   [Soft edges](https://github.com/jef-sure/esp32-component-dgx/blob/main/docs/fonts-en.md#soft-edges) of DGX. The
-  fonts DGX ships are of one bit.
+  fonts DGX ships are of one bit; a program names one with no need and nothing on the build machine,
+  `#include "fonts/TerminusTTFMedium12.h"` and `&TerminusTTFMedium12`.
 - **The edge of a letter is its ink mixed with the paper of its look**: a label's paper, a button's face, the bar
   of the picked row of a list. The look knows that colour and the display is not read, so the edges are soft on a
   display behind a bus too, and on 16 bits every pixel of the text is still written once.
@@ -1041,23 +1056,9 @@ static int heading_add(dgx_ui_t *ui, int parent)
 - A handwritten font is another thing: its strokes are soft only in a widget's canvas, by a soft pen, as the next
   recipe shows.
 
-**A face the machine may not have.** The need above names DejaVu Sans exactly, and the build stops on a machine
-without it. A need that names no face takes the first family of a list the program gives as rules, so the program
-builds wherever one of them is installed:
-
-```cmake
-# main/CMakeLists.txt: no face named, the rules choose one
-dgx_fonts_rules(fonts.rules)
-dgx_font_need(title SIZE 16px BITS 4 TEXTS strings.txt)
-```
-
-```
-# fonts.rules, beside it: the families in the order of preference, each from 7 pixels up
-source system
-allow "DejaVu Sans"      7..
-allow "Liberation Sans"  7..
-allow "Noto Sans"        7..
-```
+**A face the machine may not have.** The needs of the recipes name no face: they take the first family of the
+rules the program gives, so the program builds wherever one of them is installed. A need may name a face exactly,
+`POSTSCRIPT DejaVuSans`, and the build then stops on a machine without it.
 
 - The first line whose family is installed and has all the letters wins. With none the build stops and says which
   size and which letters it looked for.
@@ -1090,7 +1091,7 @@ static void greeting_init(void)
     /* DGX's handwritten face at two heights, then a bitmap font for a text too long even so */
     greeting_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
     greeting_fonts[1] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .narrow = 70, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
-    greeting_fonts[2] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    greeting_fonts[2] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     greeting_style    = (dgx_ui_text_style_t){.variants = greeting_fonts, .count = 3, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&greeting_box, greeting_text, sizeof greeting_text, 1, &greeting_style);
 }
@@ -1175,7 +1176,7 @@ static void note_init(void)
 {
     /* the hand at 20 pixels, then a bitmap font for a note too long for its lines */
     note_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
-    note_fonts[1] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
+    note_fonts[1] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     note_style    = (dgx_ui_text_style_t){.variants = note_fonts, .count = 2, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&note_box, note_text, sizeof note_text, 3, &note_style); /* three lines */
 }
@@ -2100,7 +2101,7 @@ static void edit_open(int field)
     if (edit_field >= 0) return;
     /* the keyboard keeps away from the field it is given: one at the very top sends its band to the bottom */
     const dgx_di_rect_t top = {.x = 0, .y = 0, .w = (int16_t)edit_scr->width, .h = 1};
-    if (!dgx_di_keyboard_open(&keypad_kb, edit_scr, edit_mm_w, edit_mm_h, keypad, keypad_size, &TerminusTTFMedium12, &top)) return;
+    if (!dgx_di_keyboard_open(&keypad_kb, edit_scr, edit_mm_w, edit_mm_h, keypad, keypad_size, &dgx_font_keys, &top)) return;
     const dgx_ui_widget_t *w = dgx_ui_widget(edit_ui, field);
     /* the copy: no longer than the field's own buffer, in the field's style and look */
     const int size = w->text->size < sizeof edit_buf ? w->text->size : (int)sizeof edit_buf;
@@ -2434,15 +2435,15 @@ Three lines more in `main/vocab.txt`, what an appearance may name: its draws and
 # an appearance's own: draws and fonts
 draw      slider
 draw      button
-font      small     TerminusTTFMedium12
+font      small     dgx_font_body
 ```
 
 One line more in `main/program.h`, which declares the font: the made files include that header for everything the
 names file leads to.
 
 ```c
-/* program.h, one line more: the font of vocab.txt */
-#include "fonts/TerminusTTFMedium12.h"
+/* program.h, one line more: the font of vocab.txt, the recipes' body text */
+#include "dgx_fonts.h"
 ```
 
 `main/CMakeLists.txt`: the appearance made C, and the page made on it.

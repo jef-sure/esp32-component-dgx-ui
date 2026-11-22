@@ -14,6 +14,13 @@ dgx = sys.argv[1] if len(sys.argv) > 1 else os.path.join(repo, '..', 'esp32-comp
 dgx_di = sys.argv[2] if len(sys.argv) > 2 else os.path.join(repo, '..', 'esp32-component-dgx-di')
 build = os.path.abspath(sys.argv[3] if len(sys.argv) > 3 else os.path.join(here, 'build'))  # the tool is run from other directories
 os.makedirs(build, exist_ok=True)
+# the fonts the cookbook's code names, made by DGX of fonts.needs as a program's build makes its needs: dgx_fonts.h and
+# dgx_fonts.c in <build>/fonts, which the pages' code and the runner of the recipes are compiled with
+fonts = os.path.join(build, 'fonts')
+made_fonts = subprocess.run([sys.executable, os.path.join(dgx, 'font2c', 'dgx_fonts.py'), 'build', os.path.join(here, 'fonts.needs'), fonts],
+                            capture_output=True, text=True)
+if made_fonts.returncode:
+    sys.exit('the fonts of fonts.needs were not made by DGX: ' + (made_fonts.stdout + made_fonts.stderr)[-2000:])
 PRELUDE = {
     'README': '#include "dgx_ui_paint.h"\n#include "dgx_ui_post.h"\n#include "dgx_ui_text.h"\n#include "esp_timer.h"\n#include "freertos/task.h"\nint read_co2(void);\n',
     'getting-started': '',
@@ -32,7 +39,7 @@ known |= set(re.findall(r'\bdgx_ui_[a-z0-9_]+\b', cmake))
 cmake_calls = set(re.findall(r'^function\((dgx_ui_[a-z0-9_]+)', cmake, re.M))
 CC = ['cc', '-std=gnu11', '-fsyntax-only', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-unused-function', '-Wno-unused-variable',
       '-Wno-unused-but-set-variable', '-Wno-missing-field-initializers', '-Werror=implicit-function-declaration', '-Werror=incompatible-pointer-types',
-      '-DDGX_HOST_WINDOW', f'-I{here}/stubs', f'-I{repo}/include', f'-I{dgx}/include', f'-I{dgx}/host/stubs', f'-I{dgx}/host/window', f'-I{dgx_di}/include',
+      '-DDGX_HOST_WINDOW', f'-I{here}/stubs', f'-I{repo}/include', f'-I{dgx}/include', f'-I{dgx}/host/stubs', f'-I{dgx}/host/window', f'-I{dgx_di}/include', f'-I{fonts}',
       '-include', f'{dgx}/host/stubs/esp_log.h']
 MADE_FILES = {'sound.json': r'^```json\n(\{"dgx-ui": 1, "name": "sound".*?)^```', 'vocab.txt': r'^```text\n(# table.*?)^```',
               'program.h': r'^```c\n(/\* program\.h: .*?)^```', 'day.json': r'^```json\n(\{"dgx-ui": 1, "name": "day".*?)^```'}

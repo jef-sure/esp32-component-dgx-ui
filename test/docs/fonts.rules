@@ -1,0 +1,9 @@
+# The faces the fonts of the pages are made from: the first family of these that the machine has, with every
+# character a need asks for, as the examples' rules choose (DGX's docs/fonts-en.md, "Selection rules"). Sizes are in
+# pixels.
+source system
+allow "DejaVu Sans"      7..
+allow "Liberation Sans"  7..
+allow "Noto Sans"        7..
+allow "FreeSans"         7..
+allow "Arial"            7..
