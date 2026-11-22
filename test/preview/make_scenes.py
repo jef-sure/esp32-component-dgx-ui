@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-make_scenes.py <scene> <dgx_ui_preview.js> <DGX> <work directory> <generate directory> <generate_appearance directory>:
+make_scenes.py <scene> <dgx_ui_preview.js> <DGX> <work directory> <generate directory> <generate_appearance directory>
+<font files directory>:
 the module built to WebAssembly held to the same preview built for the computer, scene by scene, byte for byte. <scene>
 is scene.c built here, on the DGX of this run, and the module must be of that DGX's version: of another, the run fails,
 unless PREVIEW_SCENES_OTHER_DGX=skip says to pass by, for a run on a DGX the module is not built of (a checkout).
@@ -8,8 +9,10 @@ unless PREVIEW_SCENES_OTHER_DGX=skip says to pass by, for a run on a DGX the mod
 The scenes: the pages of test_generate (its directory: descriptions and names files), each by the rule and on a names
 file, drawn at 16, 18 and 24 bits and at a point of 1 and 2 pixels, clicked, keyed and given values; the appearances of
 test_generate_appearance under a page that names their looks; a page that opens another by the action page and goes
-back; and each of these texts spoiled at a byte. Every scene ends in a dump of the widgets, the events, the notes and
-the frame (scene.c).
+back; fonts given as files, a file of every font of the directory (dgx_fonts-files.txt) on a names file and by the
+rule, under an appearance whose style takes it, the handwritten through the hand, and files spoiled at a byte; and each
+of these texts spoiled at a byte. Every scene ends in a dump of the widgets, the events, the notes and the frame
+(scene.c).
 """
 import glob
 import json
@@ -20,7 +23,7 @@ import shutil
 import subprocess
 import sys
 
-scene_binary, module, dgx, work, generate, generate_appearance = sys.argv[1:7]
+scene_binary, module, dgx, work, generate, generate_appearance, font_files = sys.argv[1:8]
 rand = random.Random(4747)
 
 dgx_version = re.search(r'^version:\s*"?([^"\s]+)', open(os.path.join(dgx, "idf_component.yml")).read(), re.M).group(1)
@@ -113,6 +116,26 @@ for depth in (16, 18, 24):
            "pointer 48 24 1 1400", "paint 1400", "pointer 48 24 0 1450", "paint 1450", "dump"])
     scene([f"pagefile settings {text_file(spoiled(settings))}", f"screen 96 64 {depth} 1", "names -", "appearance -", f"page {text_file(home)}",
            "paint 1000", "pointer 48 8 1 1100", "paint 1100", "pointer 48 8 0 1150", "paint 1150", "dump"])
+
+# fonts as files: every font of the index on a names file and by the rule, then spoiled
+look = ('{"dgx-ui": 1, "colors": {"paper": "#102030", "ink": "#e0f0ff", "fill": "#204060", "border": "#808080"}, '
+        '"styles": {"body": {"fonts": [%s]}}}')
+font_page = ('{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "pad": 2, "children": ['
+             '{"kind": "label", "text": "ABAB 0123", "want": [0, 40]}, {"kind": "label", "text": "Text of 12"}]}}')
+files = [line.split() for line in open(os.path.join(font_files, "dgx_fonts-files.txt")) if line.strip()]
+for k, (c_name, file) in enumerate(files):
+    data = open(os.path.join(font_files, file), "rb").read()
+    written = c_name == "font0ss"
+    variant = '{"font": "f", "hand": "handwriting", "height": 20}' if written else '"f"'
+    names = f"font f {c_name}{' handwritten' if written else ''}\nhand handwriting\n"
+    for depth in (16, 24):
+        scene([f"screen 160 96 {depth} 1", f"names {text_file(names)}", f"font {c_name} {text_file(data)}", f"appearance {text_file(look % variant)}",
+               f"page {text_file(font_page)}", "paint 1000", "dump", f"font {c_name} -", "paint 1100", "dump"])
+    scene(["screen 160 96 16 1", "names -", f"font dgx_font_f {text_file(data)}", f"appearance {text_file(look % variant)}",
+           f"page {text_file(font_page)}", "paint 1000", "dump"])
+    for round in range(8):
+        scene(["screen 160 96 16 1", "names -", f"font dgx_font_f {text_file(spoiled(data))}", f"appearance {text_file(look % variant)}",
+               f"page {text_file(font_page)}", "paint 1000", "dump"])
 
 apart = 0
 for k, text in enumerate(scenes):

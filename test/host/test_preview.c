@@ -4,8 +4,10 @@
  * and of 1 as the program's dgx_ui_init() takes it; the loader's verdicts the same; the widgets of the page on the
  * screen as its tree has them; a click told, a value set, a page opened by the action page and closed by back; the
  * events and the notes in whole lines, those past their room counted; an appearance's colours and looks; the panel of
- * 16, 18 and 24 bits; a names file refused in dgx_ui_c's words; the stand-ins said; and texts spoiled at a byte given
- * to every call, none of them a fault.
+ * 16, 18 and 24 bits; a names file refused in dgx_ui_c's words; the stand-ins said; fonts given as their files, as
+ * DGX's font2c writes them, each drawn pixel for pixel as the same font of its C, a file winning over the font built
+ * in of its name, the names' kind against the file's said, a file given anew and let go, and files spoiled and cut;
+ * and texts spoiled at a byte given to every call, none of them a fault.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -13,12 +15,16 @@
 
 #include "check.h"
 #include "dgx_ui.h"
+#include "dgx_ui_appearance.h"
 #include "dgx_ui_load.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_preview.h"
 #include "dgx_ui_text.h"
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
+#include "dgxf_font.h"
+#include "fonts/IBMPlexMonoMedium28.h"
+#include "fonts/font0ss.h"
 
 static const char page[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 2, \"gap\": 2, \"children\": ["
                            "{\"kind\": \"frame\", \"want\": [0, 20], \"pad\": 2, \"children\": [{\"kind\": \"label\", \"text\": \"Hello\"}]},"
@@ -95,6 +101,123 @@ static void click(int i, uint32_t *now)
     const int               x = w->x + w->w / 2, y = w->y + w->h / 2;
     preview_pointer(x, y, 1, *now), preview_paint(*now), *now += 50;
     preview_pointer(x, y, 0, *now), preview_paint(*now), *now += 50;
+}
+
+/* ---- fonts as files ---- */
+
+/* a font's file as DGX's font2c writes it, into memory */
+static uint8_t *file_of(const dgx_font_t *font, size_t *length)
+{
+    char  *bytes = NULL;
+    size_t size  = 0;
+    FILE  *out   = open_memstream(&bytes, &size);
+    char   why[160] = "";
+    const int failed = dgxf_of_font(font, "name: a font of test_preview\n", out, why, sizeof why);
+    fclose(out);
+    if (failed) fprintf(stderr, "  dgxf_of_font: %s\n", why);
+    CHECK(!failed);
+    *length = size;
+    return (uint8_t *)bytes;
+}
+
+/* a font of 4 bits, two letters, by hand as DGX's test_soft_text.c makes one */
+static uint8_t           soft_bits[2][64];
+static dgx_glyph_t       soft_glyphs[2];
+static dgx_glyph_array_t soft_ranges[2]; /* the last ends the table */
+static dgx_font_t        soft_font;
+
+static void make_soft_font(void)
+{
+    for (int letter = 0; letter < 2; ++letter) {
+        const int width = letter ? 5 : 6, height = 8, pitch = (width * 4 + 7) / 8;
+        for (int y = 0; y < height; ++y)
+            for (int x = 0; x < width; ++x) soft_bits[letter][y * pitch + x / 2] |= (uint8_t)(((x + 2 * y + letter) % 16) << (x % 2 ? 0 : 4));
+        soft_glyphs[letter] = (dgx_glyph_t){.offset    = (uint32_t)(letter * sizeof soft_bits[0]),
+                                            .width     = (int16_t)width,
+                                            .height    = (int16_t)height,
+                                            .x_advance = 7,
+                                            .x_offset  = 0,
+                                            .y_offset  = -7};
+    }
+    soft_ranges[0] = (dgx_glyph_array_t){.first = 'A', .number = 2, .glyph = 0};
+    soft_font      = (dgx_font_t){.glyph_ranges     = soft_ranges,
+                                  .glyphs           = soft_glyphs,
+                                  .data             = soft_bits[0],
+                                  .y_advance        = 9,
+                                  .y_offset_lowest  = -7,
+                                  .x_widest         = 6,
+                                  .x_width_average  = 6,
+                                  .f_type           = DGX_FONT_BITMAP_DEPTH4,
+                                  .y_bottom_max     = 1,
+                                  .x_right_max      = 6,
+                                  .number_of_ranges = 1};
+}
+
+/* the appearance whose style "body" takes the font "f", a handwritten one through the library's hand, and a page of it */
+static const char font_look[] = "{\"dgx-ui\": 1, \"colors\": {\"paper\": \"#102030\", \"ink\": \"#e0f0ff\", \"fill\": \"#204060\", "
+                                "\"border\": \"#808080\"}, \"styles\": {\"body\": {\"fonts\": [\"f\"]}}}";
+static const char hand_look[] = "{\"dgx-ui\": 1, \"colors\": {\"paper\": \"#102030\", \"ink\": \"#e0f0ff\", \"fill\": \"#204060\", "
+                                "\"border\": \"#808080\"}, \"styles\": {\"body\": {\"fonts\": [{\"font\": \"f\", \"hand\": \"handwriting\", "
+                                "\"height\": 20}]}}}";
+static const char font_page[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 2, \"children\": ["
+                                "{\"kind\": \"label\", \"text\": \"ABAB\", \"want\": [0, 30]}, {\"kind\": \"label\", \"text\": \"Text 12\"}]}}";
+
+/* the page drawn by a program whose appearance takes the font of C */
+static panel_t *drawn_on(const dgx_font_t *font, bool written)
+{
+    const dgx_ui_font_name_t        fonts[] = {{"f", font}};
+    const dgx_ui_hand_name_t        hands[] = {DGX_UI_HAND_NAME(handwriting)};
+    const dgx_ui_appearance_names_t names   = {.fonts = fonts, .font_count = 1, .hands = hands, .hand_count = 1};
+    const char                     *look    = written ? hand_look : font_look;
+    dgx_ui_appearance_need_t        need;
+    dgx_ui_appearance_t             appearance;
+    dgx_ui_load_error_t             err;
+    static uint8_t                  memory[4096] __attribute__((aligned(16)));
+    CHECK(dgx_ui_appearance_need(look, strlen(look), &names, &need, &err) && need.bytes <= sizeof memory);
+    CHECK(dgx_ui_appearance_load(look, strlen(look), &names, memory, sizeof memory, &appearance, &err));
+    const dgx_ui_load_names_t page_names = {.styles = appearance.styles, .style_count = appearance.style_count};
+    static dgx_ui_node_t      nodes[8];
+    static uint8_t            page_memory[1024] __attribute__((aligned(16)));
+    static dgx_ui_t           ui;
+    dgx_ui_init(&ui, nodes, 8, 1);
+    CHECK(dgx_ui_load(&ui, -1, font_page, sizeof font_page - 1, &page_names, page_memory, sizeof page_memory, &err) == 0);
+    panel_t      *p   = panel_make();
+    dgx_screen_t *scr = &p->sbus.scr;
+    uint32_t      colors[4];
+    dgx_ui_appearance_pack(&appearance, dgx_ui_pack_screen, scr, colors);
+    dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = 4};
+    dgx_ui_time(&ui, 1000), dgx_ui_paint(&ui, &paint, 1000);
+    dgx_ui_paint_free(&paint), dgx_ui_free(&ui);
+    return p;
+}
+
+static void rgb_of(uint32_t pixel, uint8_t out[3]);
+
+/* the preview's frame against a program's panel: the pixels apart */
+static int apart_from(panel_t *direct)
+{
+    const uint8_t *frame = preview_frame();
+    int            apart = 0;
+    for (int y = 0; y < PANEL_H; ++y)
+        for (int x = 0; x < PANEL_W; ++x) {
+            uint8_t rgb[3];
+            rgb_of(direct->mem[y][x], rgb);
+            const uint8_t *got = frame + 4 * (y * PANEL_W + x);
+            apart += got[0] != rgb[0] || got[1] != rgb[1] || got[2] != rgb[2];
+        }
+    free(direct);
+    return apart;
+}
+
+/* the page in the preview on a names file, a font's file given for a name of C, the appearance and the page */
+static void preview_on_file(const char *names, const char *c_name, const uint8_t *bytes, size_t length, bool written)
+{
+    CHECK(preview_screen(PANEL_W, PANEL_H, 16, 1) == 0);
+    CHECK(preview_names(names, names ? strlen(names) : 0)->code == 0);
+    CHECK(preview_font(c_name, bytes, length)->code == 0);
+    const char *look = written ? hand_look : font_look;
+    CHECK(preview_appearance(look, strlen(look))->code == 0);
+    CHECK(preview_page(font_page, sizeof font_page - 1)->code == 0 && preview_paint(1000) == 1);
 }
 
 static uint32_t chance = 4646;
@@ -249,7 +372,7 @@ int main(void)
         const uint8_t          *middle = frame + 4 * ((go->y + go->h / 2) * PANEL_W + go->x + 3);
         CHECK(middle[0] > 0xc0 && middle[1] > 0x80 && middle[2] < 0x60); /* the accent's face */
     }
-    CHECK(strstr(preview_notes(), "font small: TerminusTTFMedium12 stands in") != NULL);
+    CHECK(strstr(preview_notes(), "font small: no file for dgx_font_small, TerminusTTFMedium12 stands in") != NULL);
     CHECK(strstr(preview_notes(), "style of a text that names none") == NULL); /* the appearance's style first */
     static const char wrong_look[] = "{\"dgx-ui\": 1, \"colors\": {\"paper\": \"#102030\"}}";
     CHECK(preview_appearance(wrong_look, sizeof wrong_look - 1)->code == DGX_UI_LOAD_MISSING);
@@ -274,6 +397,75 @@ int main(void)
     while (noted_last > noted && noted_last[-1] != '\n') --noted_last;
     unsigned noted_lost = 0;
     CHECK(strlen(noted) < 4096 && sscanf(noted_last, "lost %u\n", &noted_lost) == 1 && noted_lost > 0);
+
+    /* fonts as files, each drawn as the same font of its C */
+    preview_appearance(NULL, 0), preview_page(NULL, 0);
+    make_soft_font();
+    size_t   terminus_length, plex_length, soft_length, hand_length;
+    uint8_t *terminus = file_of(&TerminusTTFMedium12, &terminus_length), *plex = file_of(&IBMPlexMonoMedium28, &plex_length);
+    uint8_t *soft = file_of(&soft_font, &soft_length), *hand = file_of(&font0ss, &hand_length);
+    static const char terminus_names[] = "font f TerminusTTFMedium12\n", hand_names[] = "font f font0ss handwritten\nhand handwriting\n";
+    preview_on_file(terminus_names, "TerminusTTFMedium12", terminus, terminus_length, false);
+    CHECK(apart_from(drawn_on(&TerminusTTFMedium12, false)) == 0 && strstr(preview_notes(), "font f") == NULL);
+    /* a file wins over the font built in of its name: the project's font is the board's */
+    preview_on_file(terminus_names, "TerminusTTFMedium12", plex, plex_length, false);
+    CHECK(apart_from(drawn_on(&IBMPlexMonoMedium28, false)) == 0 && strstr(preview_notes(), "font f") == NULL);
+    preview_font("TerminusTTFMedium12", NULL, 0);
+    /* by the rule, a font of 4 bits */
+    preview_on_file(NULL, "dgx_font_f", soft, soft_length, false);
+    CHECK(apart_from(drawn_on(&soft_font, false)) == 0 && strstr(preview_notes(), "font f") == NULL);
+    /* given anew for its name, the page on the new one, the old freed after */
+    CHECK(preview_font("dgx_font_f", terminus, terminus_length)->code == 0 && preview_paint(1100) == 1);
+    CHECK(apart_from(drawn_on(&TerminusTTFMedium12, false)) == 0);
+    /* let go: the stand-in again, said */
+    CHECK(preview_font("dgx_font_f", NULL, 0)->code == 0 && strstr(preview_notes(), "font f: no file for dgx_font_f, TerminusTTFMedium12 stands in"));
+    /* a handwritten font, through the library's hand */
+    preview_on_file(hand_names, "font0ss", hand, hand_length, true);
+    CHECK(apart_from(drawn_on(&font0ss, true)) == 0 && strstr(preview_notes(), "font f") == NULL);
+    /* the names' kind against the file's: said, and the loader follows the file */
+    static const char unmarked[] = "font f font0ss\n", marked[] = "font f TerminusTTFMedium12 handwritten\nhand handwriting\n";
+    CHECK(preview_names(unmarked, sizeof unmarked - 1)->code == 0);
+    const preview_verdict_t *no_hand = preview_appearance(font_look, sizeof font_look - 1);
+    CHECK(no_hand->code == DGX_UI_LOAD_MISSING && strcmp(no_hand->name, "hand") == 0);
+    CHECK(strstr(preview_notes(), "font f: the names file does not call it handwritten, its file is a handwritten font") != NULL);
+    CHECK(preview_names(marked, sizeof marked - 1)->code == 0 && preview_font("TerminusTTFMedium12", terminus, terminus_length)->code == 0);
+    CHECK(preview_appearance(font_look, sizeof font_look - 1)->code == 0);
+    CHECK(strstr(preview_notes(), "font f: the names file calls it handwritten, its file is a bitmap font") != NULL);
+    CHECK(preview_names(NULL, 0)->code == 0 && preview_font("dgx_font_f", hand, hand_length)->code == 0);
+    CHECK(strstr(preview_notes(), "font f: taken for a bitmap font by the rule, its file is a handwritten font") != NULL);
+    preview_font("dgx_font_f", NULL, 0), preview_font("font0ss", NULL, 0), preview_font("TerminusTTFMedium12", NULL, 0);
+    /* names refused in words, never cut */
+    char long_name[80];
+    memset(long_name, 'n', 64), long_name[64] = 0;
+    const preview_verdict_t *named = preview_font(long_name, soft, soft_length);
+    CHECK(named->code == PREVIEW_FONT_REFUSED && strstr(named->said, "a name of C of 64 bytes: 1 to 63 are taken") != NULL);
+    long_name[63] = 0;
+    CHECK(preview_font(long_name, soft, soft_length)->code == 0 && preview_font(long_name, NULL, 0)->code == 0);
+    CHECK(preview_font("", soft, soft_length)->code == PREVIEW_FONT_REFUSED);
+    /* spoiled at every byte, cut at every length: a verdict, never a fault; a spoiled file refused keeps the one before */
+    CHECK(preview_appearance(font_look, sizeof font_look - 1)->code == 0 && preview_page(font_page, sizeof font_page - 1)->code == 0);
+    CHECK(preview_font("dgx_font_f", soft, soft_length)->code == 0);
+    int refused = 0, taken = 0;
+    for (size_t at = 0; at < soft_length; ++at)
+        for (int way = 0; way < 3; ++way) {
+            uint8_t spoiled[4096];
+            memcpy(spoiled, soft, soft_length);
+            spoiled[at] = way == 0 ? 0xff : way == 1 ? 0 : (uint8_t)(spoiled[at] + 1);
+            const preview_verdict_t *said = preview_font("dgx_font_f", spoiled, soft_length);
+            CHECK(said->code == 0 || (said->code == PREVIEW_FONT_REFUSED && strncmp(said->said, "dgx_font_f: ESP_ERR_", 20) == 0));
+            said->code ? ++refused : ++taken;
+            preview_paint(2000 + (uint32_t)at);
+        }
+    for (size_t length = 0; length < soft_length; ++length) CHECK(preview_font("dgx_font_f", soft, length)->code == PREVIEW_FONT_REFUSED);
+    CHECK(refused > 0 && taken > 0);
+    for (size_t at = 0; at < terminus_length; at += 7) {
+        uint8_t *spoiled = malloc(terminus_length);
+        memcpy(spoiled, terminus, terminus_length), spoiled[at] ^= 0x5a;
+        preview_font("dgx_font_f", spoiled, terminus_length), preview_paint(3000);
+        free(spoiled);
+    }
+    preview_font("dgx_font_f", NULL, 0);
+    free(terminus), free(plex), free(soft), free(hand);
 
     /* spoiled at a byte: a verdict, never a fault */
     const char *texts[]   = {page, look, file, home_page};

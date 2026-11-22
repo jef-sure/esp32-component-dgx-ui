@@ -22,18 +22,18 @@ the program is explained where it appears.
 - ESP-IDF 5.2 or later.
 - A display that [DGX](https://github.com/jef-sure/esp32-component-dgx) drives, or no display at all: the same program
   runs in a window on the computer.
-- DGX 0.12.0 or a later 0.12. It comes by itself with dgx-ui.
+- DGX 0.12.1 or a later 0.12. It comes by itself with dgx-ui.
 
 ## 1. Add the component
 
-Version 0.0.46 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
+Version 0.0.47 is a tag of the repository and is not in the ESP Component Registry yet. In `main/idf_component.yml` of
 the project:
 
 ```yaml
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.46"
+    version: "0.0.47"
 ```
 
 The component manager takes dgx-ui from GitHub at the next build, and DGX from the registry, as dgx-ui asks for it.

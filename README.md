@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.46: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.47: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -73,10 +73,10 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.46"
+    version: "0.0.47"
 ```
 
-It needs ESP-IDF 5.2 or later and DGX 0.12.0 or a later 0.12; DGX comes by itself, from the registry. Start with
+It needs ESP-IDF 5.2 or later and DGX 0.12.1 or a later 0.12; DGX comes by itself, from the registry. Start with
 [Getting started](docs/en/getting-started.md): a program that shows a value sent by another task, and a clock.
 
 ## Documentation

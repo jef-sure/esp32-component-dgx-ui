@@ -2,12 +2,16 @@
  * node test_class.js <dgx_ui_preview.js>: DgxUiPreview's own calls, as a page makes them: the version, the panel as the
  * module takes it and none after a refusal, the verdicts, the frame and its ImageData (a stand-in of the page's), the
  * page on the screen and its widgets, the events and notes as lines, a value, the keys, a page opened and closed, a
- * pageText that throws, a character of the log split between two writes, and the preview stopped by a fault.
+ * pageText that throws, fonts given as files one by one and by an index with the refusals of its lines, the module's
+ * memory as it was after a thousand files given anew and let go, a character of the log split between two writes, and
+ * the preview stopped by a fault. The files are DGX's fonts in the directory given, with dgx_fonts-files.txt.
  */
 'use strict';
 const path = require('path');
 
+const fs           = require('fs');
 const DgxUiPreview = require(path.resolve(process.argv[2]));
+const fontFiles    = process.argv[3];
 let failures       = 0;
 const check        = (held, what) => {
     if (!held) console.error('  failed: ' + what), ++failures;
@@ -94,6 +98,42 @@ const home  = '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "child
           'a page refused: ' + JSON.stringify(broken));
     check(preview.page(null).code === 0 && preview.count() === 0 && preview.paint(now) === false, 'no page');
     check(preview.wake(now) === Infinity, 'nothing asks for time');
+
+    /* fonts as files: one by one, then by an index */
+    const terminus = fs.readFileSync(path.join(fontFiles, 'TerminusTTFMedium12.dgxf'));
+    check(preview.names('font f TerminusTTFMedium12\n').code === 0, 'a names file of a font');
+    check(preview.font('TerminusTTFMedium12', terminus).code === 0, 'a font file');
+    const spoiled = Uint8Array.from(terminus.subarray(0, 40));
+    const cut     = preview.font('TerminusTTFMedium12', spoiled);
+    check(cut.code === -3 && cut.said.startsWith('TerminusTTFMedium12: ESP_ERR_'), 'a file cut: ' + JSON.stringify(cut));
+    check(preview.font('n'.repeat(64), terminus).code === -3 && preview.font('TerminusTTFMedium12', 'not bytes').code === -3, 'refused');
+    const nul = preview.font('TerminusTTFMedium12\u0000tail', terminus);
+    check(nul.code === -3 && nul.said === 'a name of C holding a NUL', 'a name holding a NUL refused, not cut');
+    check(preview.font('TerminusTTFMedium12', terminus.buffer.slice(terminus.byteOffset, terminus.byteOffset + terminus.length)).code === 0,
+          'a file of an ArrayBuffer');
+    check(preview.font('TerminusTTFMedium12', null).code === 0, 'let go');
+    const index = fs.readFileSync(path.join(fontFiles, 'dgx_fonts-files.txt'), 'utf8');
+    const read  = file => fs.promises.readFile(path.join(fontFiles, file));
+    const all   = await preview.fonts(index, read);
+    check(all.length === index.trim().split('\n').length && all.every(given => given.verdict.code === 0), 'every font of the index');
+    const odd = 'one two three\nTerminusTTFMedium12 TerminusTTFMedium12.dgxf\nTerminusTTFMedium12 TerminusTTFMedium12.dgxf\n' +
+                'a /etc/passwd\nb ../up.dgxf\nc missing.dgxf\nd empty.dgxf\n';
+    const lines = await preview.fonts(odd, file => file === 'empty.dgxf' ? null : read(file));
+    check(lines.length === 7 && lines[1].verdict.code === 0, 'an index of odd lines: ' + lines.length);
+    check(lines[0].verdict.said.startsWith('not a line of a name and a file') && lines[2].verdict.said.includes('given twice'), 'its words, 1');
+    check(lines[3].verdict.said.includes('not of the index') && lines[4].verdict.said.includes('not of the index'), 'its words, 2');
+    check(lines[5].verdict.code === -3 && lines[5].verdict.said.startsWith('c: missing.dgxf: ENOENT'), 'its words, 3: ' + lines[5].verdict.said);
+    check(lines[6].verdict.said === 'd: empty.dgxf: no bytes', 'its words, 4');
+    check(await preview.fonts(index, file => fs.readFileSync(path.join(fontFiles, file))).then(given => given.every(one => one.verdict.code === 0)),
+          'a reader of bytes, not of a Promise');
+
+    /* the module's memory: a thousand files given anew under one name, a thousand let go and given again */
+    preview.page(home), preview.paint(now);
+    preview.font('TerminusTTFMedium12', terminus);
+    const before = preview.memory.buffer.byteLength;
+    for (let round = 0; round < 1000; ++round) preview.font('TerminusTTFMedium12', terminus);
+    for (let round = 0; round < 1000; ++round) preview.font('TerminusTTFMedium12', null), preview.font('TerminusTTFMedium12', terminus);
+    check(preview.memory.buffer.byteLength === before, `the memory grew: ${before} to ${preview.memory.buffer.byteLength}`);
 
     /* a screen refused leaves none */
     check(preview.screen(10, 10, 12, 1) === -2 && preview.width === 0 && preview.frame() === null && preview.image() === null, 'a screen refused');

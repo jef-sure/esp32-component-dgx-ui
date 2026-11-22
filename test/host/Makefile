@@ -221,8 +221,8 @@ PREVIEW_FONTS := $(addprefix $(DGX_ROOT)/src/fonts/, font0ss.c LiberationSansReg
 $(BUILD)/test_preview: test_preview.c check.h panel.h $(PREVIEW) $(ROOT)/editor/preview/dgx_ui_preview.h $(ROOT)/tools/dgx_ui_names.h $(BUILD)/tools/dgx_ui_c \
                        $(PAINT) $(wildcard $(ROOT)/include/*.h)
 	mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(ROOT)/src -I$(ROOT)/tools -I$(ROOT)/editor/preview -I$(BUILD)/tools -o $@ \
-		test_preview.c $(PREVIEW) $(PAINT) $(DGX_SRCS) $(PREVIEW_FONTS) -lm
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(ROOT)/src -I$(ROOT)/tools -I$(ROOT)/editor/preview -I$(BUILD)/tools \
+		-I$(DGX_ROOT)/font2c -o $@ test_preview.c $(PREVIEW) $(PAINT) $(DGX_SRCS) $(PREVIEW_FONTS) $(DGX_ROOT)/src/fonts/IBMPlexMonoMedium28.c -lm
 
 # the module of the preview built to WebAssembly, editor/preview/dgx_ui_preview.js as it is in the tree, held to the
 # same glue built here, scene by scene, byte for byte (test/preview/make_scenes.py); in Node
@@ -232,13 +232,24 @@ $(BUILD)/scene: $(ROOT)/test/preview/scene.c $(PREVIEW) $(ROOT)/editor/preview/d
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(ROOT)/src -I$(ROOT)/tools -I$(ROOT)/editor/preview -I$(BUILD)/tools -o $@ \
 		$(ROOT)/test/preview/scene.c $(PREVIEW) $(PAINT) $(DGX_SRCS) $(PREVIEW_FONTS) -lm
 
-run-test_preview_module: $(BUILD)/scene run-test_generate run-test_generate_appearance $(ROOT)/test/preview/scene.js $(ROOT)/test/preview/make_scenes.py
+run-test_preview_module: $(BUILD)/scene run-test_generate run-test_generate_appearance $(ROOT)/test/preview/scene.js $(ROOT)/test/preview/make_scenes.py \
+                         $(BUILD)/fontfiles/dgx_fonts-files.txt
 	timeout 1500 python3 $(ROOT)/test/preview/make_scenes.py $(BUILD)/scene $(ROOT)/editor/preview/dgx_ui_preview.js $(DGX_ROOT) $(BUILD)/scenes \
-		$(BUILD)/generate $(BUILD)/generate_appearance
+		$(BUILD)/generate $(BUILD)/generate_appearance $(BUILD)/fontfiles
 
 # the class of the module, DgxUiPreview, by its own calls, as a page makes them; in Node
-run-test_preview_class: $(ROOT)/test/preview/test_class.js $(ROOT)/editor/preview/dgx_ui_preview.js
-	timeout 300 node $(ROOT)/test/preview/test_class.js $(ROOT)/editor/preview/dgx_ui_preview.js
+run-test_preview_class: $(ROOT)/test/preview/test_class.js $(ROOT)/editor/preview/dgx_ui_preview.js $(BUILD)/fontfiles/dgx_fonts-files.txt
+	timeout 300 node $(ROOT)/test/preview/test_class.js $(ROOT)/editor/preview/dgx_ui_preview.js $(BUILD)/fontfiles
+
+# fonts of DGX as files, each by DGX's font2bin of its C, and their index as DGX writes one: for the module's tests
+FONT_FILES := DejaVuSansBook32 DroidSansRegular9 IBMPlexMonoMedium28 LiberationSansRegular12 NotoMonoRegular28 TerminusTTFMedium12 font0ss
+$(BUILD)/fontfiles/%.dgxf: $(DGX_ROOT)/font2c/font2bin.c $(DGX_ROOT)/src/fonts/%.c
+	mkdir -p $(BUILD)/fontfiles
+	$(CC) -std=gnu11 -O1 -w -DFONT=$* -I$(DGX_ROOT)/include -I$(DGX_ROOT)/font2c -I$(DGX_HOST_DIR)/stubs -include $(DGX_HOST_DIR)/stubs/esp_log.h \
+		-o $(BUILD)/fontfiles/font2bin-$* $< $(DGX_ROOT)/src/fonts/$*.c
+	$(BUILD)/fontfiles/font2bin-$* $@
+$(BUILD)/fontfiles/dgx_fonts-files.txt: $(addprefix $(BUILD)/fontfiles/,$(addsuffix .dgxf,$(FONT_FILES)))
+	for name in $(FONT_FILES); do echo "$$name $$name.dgxf"; done > $@
 
 # the reader of JSON alone: no tree, no DGX
 $(BUILD)/test_params: test_params.c check.h $(ROOT)/src/dgx_ui_params.c $(wildcard $(ROOT)/include/*.h)

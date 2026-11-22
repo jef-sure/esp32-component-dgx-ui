@@ -75,7 +75,7 @@ static const uint8_t levels_a[AH][AW] = {{0, 3, 15, 3, 0}, {2, 15, 0, 15, 2}, {1
 static const uint8_t levels_b[BH][BW] = {{1, 0, 0, 0, 0, 14}, {0, 8, 15, 15, 8, 0}, {0, 15, 0, 0, 15, 0}, {0, 8, 15, 15, 8, 0}, {14, 0, 0, 0, 0, 1}};
 static uint8_t           soft_bits[2][64];
 static dgx_glyph_t       soft_glyphs[2];
-static dgx_glyph_array_t soft_ranges[1];
+static dgx_glyph_array_t soft_ranges[2]; /* the last ends the table */
 static dgx_font_t        soft_font;
 
 static void make_soft_font(void)
@@ -84,11 +84,25 @@ static void make_soft_font(void)
         const int w = k ? BW : AW, h = k ? BH : AH, pitch = (w * 4 + 7) / 8;
         for (int y = 0; y < h; ++y)
             for (int x = 0; x < w; ++x) soft_bits[k][y * pitch + x / 2] |= (uint8_t)((k ? levels_b[y][x] : levels_a[y][x]) << (x % 2 ? 0 : 4));
-        soft_glyphs[k] = (dgx_glyph_t){.bitmap = soft_bits[k], .width = (int16_t)w, .height = (int16_t)h, .x_advance = 7, .x_offset = 0, .y_offset = (int16_t)(k ? -5 : -4)};
+        soft_glyphs[k] = (dgx_glyph_t){.offset    = (uint32_t)(k * sizeof soft_bits[0]),
+                                       .width     = (int16_t)w,
+                                       .height    = (int16_t)h,
+                                       .x_advance = 7,
+                                       .x_offset  = 0,
+                                       .y_offset  = (int16_t)(k ? -5 : -4)};
     }
-    soft_ranges[0] = (dgx_glyph_array_t){.first = 'A', .number = 2, .glyphs = soft_glyphs};
-    soft_font      = (dgx_font_t){.glyph_ranges = soft_ranges, .y_advance = 8, .y_offset_lowest = -5, .x_widest = BW, .x_width_average = 6,
-                                  .f_type = DGX_FONT_BITMAP_DEPTH4, .y_bottom_max = 1, .x_right_max = 6, .number_of_ranges = 1};
+    soft_ranges[0] = (dgx_glyph_array_t){.first = 'A', .number = 2, .glyph = 0};
+    soft_font      = (dgx_font_t){.glyph_ranges     = soft_ranges,
+                                  .glyphs           = soft_glyphs,
+                                  .data             = soft_bits[0],
+                                  .y_advance        = 8,
+                                  .y_offset_lowest  = -5,
+                                  .x_widest         = BW,
+                                  .x_width_average  = 6,
+                                  .f_type           = DGX_FONT_BITMAP_DEPTH4,
+                                  .y_bottom_max     = 1,
+                                  .x_right_max      = 6,
+                                  .number_of_ranges = 1};
 }
 
 /* a look of the program's own: the paper laid on its left half, the accent on its right */

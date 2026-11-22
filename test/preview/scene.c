@@ -3,7 +3,7 @@
  * module built to WebAssembly, each writing what came of it in the same form, so that the two files are held equal byte
  * for byte (make_scenes.py). A scene, a command a line, the texts in files beside it:
  *
- *     screen <w> <h> <depth> <pixels a point>     names <file>|-     appearance <file>|-     page <file>
+ *     screen <w> <h> <depth> <pixels a point>     names <file>|-     font <name of C> <file>|-     appearance <file>|-     page <file>
  *     pagefile <name> <file>     paint <ms>     pointer <x> <y> <down> <ms>     key <key>     buttons <held> <ms>
  *     value <name> <v>     dump
  *
@@ -103,6 +103,10 @@ int main(int argc, char **argv)
                                                              : preview_page(text, text ? length : 0);
             verdict(word, said);
             free(text);
+        } else if (strcmp(word, "font") == 0 && sscanf(line, "%*s %255s %255s", a, b) == 2) {
+            char *bytes = strcmp(b, "-") == 0 ? NULL : read_file(b, &length);
+            verdict("font", preview_font(a, bytes, bytes ? length : 0));
+            free(bytes);
         } else if (strcmp(word, "pagefile") == 0 && sscanf(line, "%*s %23s %255s", a, b) == 2 && page_count < 16) {
             snprintf(pages[page_count].name, sizeof pages[page_count].name, "%s", a);
             pages[page_count].text = read_file(b, &pages[page_count].length);

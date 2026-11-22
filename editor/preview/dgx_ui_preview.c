@@ -19,6 +19,7 @@
 
 #include "dgx_draw.h"
 #include "dgx_font.h"
+#include "dgx_font_file.h"
 #include "dgx_image.h"
 #include "dgx_screen_functions.h"
 #include "dgx_screen_with_bus.h"
@@ -245,6 +246,26 @@ static const dgx_font_t *built_in_font(const char *c)
     return NULL;
 }
 
+/* ---- the files of fonts, by the names of C they stand for ---- */
+
+typedef struct font_file_t {
+    char              name[PREVIEW_FONT_NAME_MOST + 1];
+    void             *bytes;  /* a copy of the file, aligned as malloc() gives it: the tables read in place */
+    void             *memory; /* what dgx_font_file_load() lays */
+    const dgx_font_t *font;
+} font_file_t;
+
+static font_file_t *font_files;
+static int          font_file_count, font_file_room;
+
+/* the font of a file given for a C, "&<name>"; NULL none */
+static const dgx_font_t *font_file_of(const char *c)
+{
+    for (int k = 0; c && c[0] == '&' && k < font_file_count; ++k)
+        if (strcmp(font_files[k].name, c + 1) == 0) return font_files[k].font;
+    return NULL;
+}
+
 /* ---- the stand-ins that are the same for every page ---- */
 
 /* a style of the program's own */
@@ -351,13 +372,24 @@ static void appearance_read(void)
         if (!library) say(&notes, "draw %s: the program's own, a frame with the look's name\n", draw->name);
         ++named;
     }
+    /* a font: its file, which wins over a font built in of its name; else the one built in; else a stand-in */
     for (int k = 0; k < fonts_of->count; ++k) {
         const entry_t    *font  = &fonts_of->entries[k];
-        const dgx_font_t *built = built_in_font(font->c);
+        const dgx_font_t *filed = font_file_of(font->c), *built = filed ? NULL : built_in_font(font->c);
+        const char       *c     = font->c && font->c[0] == '&' ? font->c + 1 : font->c ? font->c : "";
         memcpy(a->names[named], font->name, 24);
-        a->fonts[k] = (dgx_ui_font_name_t){a->names[named], built ? built : font->handwritten ? &font0ss : &TerminusTTFMedium12};
-        if (!built)
-            say(&notes, "font %s: %s stands in, its measures not the board's\n", font->name, font->handwritten ? "font0ss" : "TerminusTTFMedium12");
+        a->fonts[k] = (dgx_ui_font_name_t){a->names[named], filed ? filed : built ? built : font->handwritten ? &font0ss : &TerminusTTFMedium12};
+        if (!filed && !built)
+            say(&notes, "font %s: no file for %s, %s stands in, its measures not the board's\n", font->name, c,
+                font->handwritten ? "font0ss" : "TerminusTTFMedium12");
+        /* the kind the names say, which dgx_ui_c follows, against the file's, which the loader and the board follow */
+        const bool written = filed && filed->f_type == DGX_FONT_HW;
+        if (filed && written != font->handwritten)
+            say(&notes, "font %s: %s, its file is %s\n", font->name,
+                font->handwritten ? "the names file calls it handwritten"
+                : names_given     ? "the names file does not call it handwritten"
+                                  : "taken for a bitmap font by the rule",
+                written ? "a handwritten font" : "a bitmap font");
         ++named;
     }
     for (int k = 0; k < hands_of->count; ++k) {
@@ -711,6 +743,59 @@ static void read_again(void)
         paint = (dgx_ui_paint_t){.scr = &panel->sbus.scr, .colors = colors, .color_count = color_count, .background = 0};
         memset(panel->rgba, 0, (size_t)panel->sbus.scr.width * (size_t)panel->sbus.scr.height * 4);
     }
+}
+
+const preview_verdict_t *preview_font(const char *name, const void *bytes, size_t length)
+{
+    static preview_verdict_t verdict;
+    verdict = (preview_verdict_t){0};
+    const size_t name_length = name ? strlen(name) : 0;
+    if (name_length == 0 || name_length > PREVIEW_FONT_NAME_MOST) {
+        verdict.code = PREVIEW_FONT_REFUSED;
+        snprintf(verdict.said, sizeof verdict.said, "a name of C of %zu bytes: 1 to %d are taken", name_length, PREVIEW_FONT_NAME_MOST);
+        return &verdict;
+    }
+    int found = -1;
+    for (int k = 0; k < font_file_count && found < 0; ++k)
+        if (strcmp(font_files[k].name, name) == 0) found = k;
+    font_file_t given = {0};
+    if (bytes) {
+        given.bytes = zeroed(1, length);
+        memcpy(given.bytes, bytes, length);
+        size_t    need = 0;
+        esp_err_t said = dgx_font_file_memory(given.bytes, length, &need);
+        if (said == ESP_OK) {
+            given.memory = zeroed(1, need);
+            said         = dgx_font_file_load(given.bytes, length, given.memory, need, &given.font);
+        }
+        if (said != ESP_OK) {
+            free(given.bytes), free(given.memory);
+            verdict.code = PREVIEW_FONT_REFUSED;
+            snprintf(verdict.said, sizeof verdict.said, "%s: %s", name,
+                     said == ESP_ERR_INVALID_VERSION ? "ESP_ERR_INVALID_VERSION, a file of a later format"
+                     : said == ESP_ERR_NOT_SUPPORTED ? "ESP_ERR_NOT_SUPPORTED, a file of the other byte order"
+                                                     : "ESP_ERR_INVALID_ARG, not a font, or spoiled or cut");
+            return &verdict;
+        }
+        memcpy(given.name, name, name_length + 1);
+    }
+    /* the new file in its place, the trees and the appearance laid on it, and only then the old one freed */
+    font_file_t old = found >= 0 ? font_files[found] : (font_file_t){0};
+    if (found >= 0 && bytes) {
+        font_files[found] = given;
+    } else if (found >= 0) {
+        font_files[found] = font_files[--font_file_count];
+    } else if (bytes) {
+        if (font_file_count == font_file_room) {
+            font_file_room = font_file_room ? 2 * font_file_room : 8;
+            font_files     = realloc(font_files, (size_t)font_file_room * sizeof *font_files);
+            if (!font_files) names_no_memory();
+        }
+        font_files[font_file_count++] = given;
+    }
+    read_again();
+    free(old.bytes), free(old.memory);
+    return &verdict;
 }
 
 int preview_screen(int width, int height, int depth, int pixels_a_point)

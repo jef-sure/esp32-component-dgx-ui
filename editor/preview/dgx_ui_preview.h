@@ -7,8 +7,10 @@
  *  (tools/dgx_ui_names.c). What is the program's C stands in:
  *  - a look or a draw of the program's own: a frame with the look's name;
  *  - a picture: a crossed square of 16 pixels;
- *  - a style of the program's own, and a font that is not one of the fonts built in: a font built in, the bitmap
- *    Terminus 12 or the handwritten font0ss, so the measures of the text, and the layout, may differ from the board's;
+ *  - a style of the program's own: Terminus 12;
+ *  - a font with no file given (preview_font()) and not one of the five built in: Terminus 12, or the handwritten
+ *    font0ss for one the names call handwritten, so the measures of the text, and the layout, may differ from the
+ *    board's;
  *  - a handler: told in the events, nothing more done; a take: takes nothing; the actions back and page are the
  *    library's, a page found by its name through preview_page_text();
  *  - a value: a place of its own, 0 until preview_value() sets it.
@@ -31,7 +33,9 @@ typedef struct preview_verdict_t {
     char    name[24];
     char    said[512];
 } preview_verdict_t;
-enum { PREVIEW_NAMES_REFUSED = -1, PREVIEW_NO_SCREEN = -2 };
+enum { PREVIEW_NAMES_REFUSED = -1, PREVIEW_NO_SCREEN = -2, PREVIEW_FONT_REFUSED = -3 };
+/** The longest name of C preview_font() takes. */
+enum { PREVIEW_FONT_NAME_MOST = 63 };
 
 /** A widget of the page as the tree has it after its layout. */
 typedef struct preview_widget_t {
@@ -58,6 +62,17 @@ char *preview_text(size_t size);
 
 /** The names file, kept for the pages after; NULL, by the rule. Its verdict, judged on its own. */
 const preview_verdict_t *preview_names(const char *text, size_t length);
+/**
+ * The file of a font, a .dgxf of DGX, given for the name of C a names file or the rule takes the font by: the names
+ * file's `font small TerminusTTFMedium12` takes "TerminusTTFMedium12", the rule's `small` "dgx_font_small", as
+ * dgx_fonts-files.txt of DGX names them. A file wins over a font built in of its name, the project's font being the
+ * board's. The bytes are copied; the file lives until it is given again for the name, or let go by NULL; any number
+ * live at once, through a change of the names or the appearance. The appearance and the page are read again on it, as
+ * by preview_names(). Its verdict: 0; or PREVIEW_FONT_REFUSED, the words in said, the file not taken and one given
+ * before for the name kept: a name longer than PREVIEW_FONT_NAME_MOST, a file of a later format, of the other byte
+ * order, or not a font, spoiled or cut. A page gives them in the order names, fonts, appearance, page.
+ */
+const preview_verdict_t *preview_font(const char *name, const void *bytes, size_t length);
 /** The appearance, kept and loaded again with each page, on the names; NULL, none. Its verdict on the names alone. */
 const preview_verdict_t *preview_appearance(const char *text, size_t length);
 /** The page: on the appearance's tables first and the names' after; drawn whole at the next paint. Its verdict. NULL, no
@@ -120,6 +135,7 @@ const char *preview_events(void);
 /**
  * The stand-ins the pages in use take, a line each, for a person to read: of the page given "<table> <name>: ...", of
  * a page opened "page <name>: <table> <name>: ...", the tables draw, font, look, picture and style, the style of a
- * text that names none said so; kept and counted as the events are, "lost <count>" the last line.
+ * text that names none said so; and a font whose file is of another kind than the names say, which dgx_ui_c follows
+ * where the board follows the file. Kept and counted as the events are, "lost <count>" the last line.
  */
 const char *preview_notes(void);

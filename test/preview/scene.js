@@ -74,6 +74,14 @@ const say          = text => out.push(Buffer.from(text, 'latin1'));
             verdict(words[0], withBytes(bytes, (at, length) => call(at, length)));
             break;
         }
+        case 'font': {
+            const name = Buffer.from(words[1], 'latin1'), bytes = words[2] === '-' ? null : fs.readFileSync(path.join(directory, words[2]));
+            const at   = exports.preview_text(name.length + 1 + (bytes ? bytes.length : 0));
+            memory().set(name, at), memory()[at + name.length] = 0;
+            if (bytes) memory().set(bytes, at + name.length + 1);
+            verdict('font', exports.preview_font(at, bytes ? at + name.length + 1 : 0, bytes ? bytes.length : 0));
+            break;
+        }
         case 'pagefile':
             pages.set(words[1], fs.readFileSync(path.join(directory, words[2])));
             break;

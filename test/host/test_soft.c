@@ -23,7 +23,7 @@ static const uint8_t levels_a[A_HEIGHT][A_WIDTH] = {{0, 3, 15, 3, 0}, {2, 15, 0,
 static const uint8_t levels_b[B_HEIGHT][B_WIDTH] = {{1, 0, 0, 0, 0, 14}, {0, 8, 15, 15, 8, 0}, {0, 15, 0, 0, 15, 0}, {0, 8, 15, 15, 8, 0}, {14, 0, 0, 0, 0, 1}};
 static uint8_t           soft_bits[2][64];
 static dgx_glyph_t       soft_glyphs[2];
-static dgx_glyph_array_t soft_ranges[1];
+static dgx_glyph_array_t soft_ranges[2]; /* the last ends the table */
 static dgx_font_t        soft_font;
 
 static void make_soft_font(void)
@@ -33,16 +33,25 @@ static void make_soft_font(void)
         for (int y = 0; y < height; ++y)
             for (int x = 0; x < width; ++x)
                 soft_bits[letter][y * pitch + x / 2] |= (uint8_t)((letter ? levels_b[y][x] : levels_a[y][x]) << (x % 2 ? 0 : 4));
-        soft_glyphs[letter] = (dgx_glyph_t){.bitmap    = soft_bits[letter],
+        soft_glyphs[letter] = (dgx_glyph_t){.offset    = (uint32_t)(letter * sizeof soft_bits[0]),
                                             .width     = (int16_t)width,
                                             .height    = (int16_t)height,
                                             .x_advance = 7,
                                             .x_offset  = 0,
                                             .y_offset  = (int16_t)(letter ? -5 : -4)};
     }
-    soft_ranges[0] = (dgx_glyph_array_t){.first = 'A', .number = 2, .glyphs = soft_glyphs};
-    soft_font      = (dgx_font_t){.glyph_ranges = soft_ranges, .y_advance = 8, .y_offset_lowest = -5, .x_widest = B_WIDTH, .x_width_average = 6,
-                                  .f_type = DGX_FONT_BITMAP_DEPTH4, .y_bottom_max = 1, .x_right_max = 6, .number_of_ranges = 1};
+    soft_ranges[0] = (dgx_glyph_array_t){.first = 'A', .number = 2, .glyph = 0};
+    soft_font      = (dgx_font_t){.glyph_ranges     = soft_ranges,
+                                  .glyphs           = soft_glyphs,
+                                  .data             = soft_bits[0],
+                                  .y_advance        = 8,
+                                  .y_offset_lowest  = -5,
+                                  .x_widest         = B_WIDTH,
+                                  .x_width_average  = 6,
+                                  .f_type           = DGX_FONT_BITMAP_DEPTH4,
+                                  .y_bottom_max     = 1,
+                                  .x_right_max      = 6,
+                                  .number_of_ranges = 1};
 }
 
 /* how many colours lie in a widget's box on the panel */

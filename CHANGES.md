@@ -1,5 +1,14 @@
 # Changes
 
+## 0.0.47 - 2026-11-22
+
+- DGX 0.12.1 at least, whose glyphs give their data by offsets: a font built by hand takes its new form, a glyph's
+  `.offset` and the font's `.glyphs` and `.data`.
+- The preview of a description in a browser, editor/preview: dgx-ui built to WebAssembly in one file a page loads with
+  no server, a page to try it by hand, and the fonts of a project given as the files DGX writes for it.
+- dgx_ui_c's reading of a names file in a source of its own, tools/dgx_ui_names.c.
+- Docs: the recipe of a line between rows.
+
 ## 0.0.46 - 2026-11-21
 
 - DGX 0.12.0 at least, whose fonts are constants. A font in a variant or in a table of fonts is `&Name` where it was

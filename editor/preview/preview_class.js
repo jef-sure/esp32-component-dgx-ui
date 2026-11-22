@@ -5,6 +5,9 @@
  *
  *     const preview = await DgxUiPreview.create({pageText: name => pages[name]});   // the pages the action page opens
  *     preview.screen(320, 240, 16, 1);                                             // the board's panel and unit
+ *     preview.names(namesFile);                                                    // null: by the rule
+ *     await preview.fonts(index, file => readFile(file));  // dgx_fonts-files.txt of DGX and its files
+ *     preview.appearance(appearance);
  *     const verdict = preview.page(description);          // {code, offset, name, said}: code 0, taken
  *     if (preview.paint(now)) context.putImageData(preview.image(), 0, 0);
  *
@@ -139,6 +142,73 @@ class DgxUiPreview {
     /** The names file, or null by the rule: {code, offset, name, said}, code -1 refused in said's words. */
     names(text) {
         return this.verdictAt(this.withText(text, (at, length) => this.call(() => this.exports.preview_names(at, length))));
+    }
+
+    /**
+     * The file of a font, a .dgxf of DGX, for the name of C the names or the rule take it by (preview_font()); null
+     * lets that name's file go. {code, offset, name, said}: code 0, or -3 refused in said's words, a name holding a NUL
+     * among them, refused here, before the module would end it there.
+     */
+    font(cName, bytes) {
+        if (String(cName).includes('\u0000')) return {code: -3, offset: 0, name: '', said: 'a name of C holding a NUL'};
+        const name = this.encoder.encode(String(cName));
+        const data = bytes === null || bytes === undefined ? null : DgxUiPreview.bytesView(bytes);
+        if (bytes !== null && bytes !== undefined && !data) return {code: -3, offset: 0, name: '', said: `${cName}: no bytes`};
+        const at   = this.call(() => this.exports.preview_text(name.length + 1 + (data ? data.length : 0)));
+        const view = new Uint8Array(this.memory.buffer);
+        view.set(name, at), view[at + name.length] = 0;
+        if (data) view.set(data, at + name.length + 1);
+        return this.verdictAt(this.call(() => this.exports.preview_font(at, data ? at + name.length + 1 : 0, data ? data.length : 0)));
+    }
+
+    /* bytes as a Uint8Array: of one, of an ArrayBuffer or of a view; null for anything else */
+    static bytesView(bytes) {
+        if (bytes instanceof Uint8Array) return bytes;
+        if (bytes instanceof ArrayBuffer) return new Uint8Array(bytes);
+        if (ArrayBuffer.isView(bytes)) return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        return null;
+    }
+
+    /**
+     * Every font of an index DGX writes beside a project's fonts, dgx_fonts-files.txt: a line `<name of C> <file>`, the
+     * file of the index's directory. read(file) gives its bytes, or a Promise of them, as File System Access and fetch
+     * do. A Promise of [{name, verdict}], a line each; refused in the result, not thrown: a line not of two words, a name
+     * given twice, a file that is absolute or climbs out by "..", a read that fails or gives no bytes.
+     */
+    async fonts(index, read) {
+        const results = [], seen = new Set();
+        const refuse  = (name, said) => results.push({name, verdict: {code: -3, offset: 0, name: '', said}});
+        for (const line of String(index).split('\n').map(text => text.trim()).filter(text => text)) {
+            const words = line.split(/\s+/);
+            if (words.length !== 2) {
+                refuse(words[0], `not a line of a name and a file: "${line}"`);
+                continue;
+            }
+            const [name, file] = words;
+            if (seen.has(name)) {
+                refuse(name, `${name}: given twice in the index`);
+                continue;
+            }
+            seen.add(name);
+            if (/^([\/\\]|[A-Za-z]:)/.test(file) || file.split(/[\/\\]/).includes('..')) {
+                refuse(name, `${name}: the file "${file}" is not of the index's directory`);
+                continue;
+            }
+            let bytes;
+            try {
+                bytes = await read(file);
+            } catch (error) {
+                refuse(name, `${name}: ${file}: ${error && error.message ? error.message : error}`);
+                continue;
+            }
+            const data = bytes === null || bytes === undefined ? null : DgxUiPreview.bytesView(bytes);
+            if (!data) {
+                refuse(name, `${name}: ${file}: no bytes`);
+                continue;
+            }
+            results.push({name, verdict: this.font(name, data)});
+        }
+        return results;
     }
 
     /** The appearance, or null: the loader's verdict. */

@@ -2,7 +2,8 @@
 <!--
   The preview of a description, by hand: dgx_ui_preview.js beside this file, opened from the disk with no server.
   A page, an appearance and a names file written or pasted, drawn as the board draws them on a panel of its size,
-  depth and unit; the finger is the mouse on the panel.
+  depth and unit; the finger is the mouse on the panel. The fonts of a project: the directory DGX writes them into
+  with dgx_fonts-files.txt (dgx_fonts_files() in its CMakeLists), chosen below.
 -->
 <html lang="en">
 <head>
@@ -62,6 +63,9 @@
             <textarea id="pages" spellcheck="false">{"settings": {"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "pad": 4, "children": [
   {"kind": "label", "text": "Settings"}, {"kind": "button", "text": "Back", "on": "back", "want": [0, 24]}]}}}</textarea>
             <div id="pages-said" class="said"></div>
+            <div>Font files <span class="small">(the directory of dgx_fonts-files.txt, as DGX writes it)</span></div>
+            <input id="fonts" type="file" webkitdirectory multiple>
+            <div id="fonts-said" class="said"></div>
         </div>
     </div>
     <div class="row">
@@ -138,6 +142,27 @@
         button.addEventListener('click', () => { preview.key(+button.dataset.key), wakeAt = 0; });
     element('set-value').addEventListener('click', () => { preview.value(element('value-name').value, +element('value').value), wakeAt = 0; });
     element('apply').addEventListener('click', apply);
+    /* the fonts of a project: the index found among the files chosen, each file read from the index's directory */
+    element('fonts').addEventListener('change', async () => {
+        const chosen = [...element('fonts').files], index = chosen.find(file => file.name === 'dgx_fonts-files.txt');
+        if (!index) {
+            element('fonts-said').textContent = 'no dgx_fonts-files.txt among the files chosen';
+            return;
+        }
+        const directory = index.webkitRelativePath.slice(0, -index.name.length);
+        const byPath    = new Map(chosen.map(file => [file.webkitRelativePath.slice(directory.length), file]));
+        const read      = async path => {
+            const file = byPath.get(path);
+            if (!file) throw new Error('not among the files chosen');
+            return new Uint8Array(await file.arrayBuffer());
+        };
+        const given   = await preview.fonts(await index.text(), read);
+        const refused = given.filter(one => one.verdict.code !== 0);
+        element('fonts-said').className   = 'said' + (refused.length ? ' refused' : '');
+        element('fonts-said').textContent = `${given.length - refused.length} of ${given.length} taken` +
+                                            refused.map(one => '\n' + one.verdict.said).join('');
+        apply();
+    });
     for (const id of ['page', 'appearance', 'names', 'pages']) element(id).addEventListener('input', apply);
     for (const id of ['width', 'height', 'depth', 'unit', 'zoom']) element(id).addEventListener('change', apply);
     apply();

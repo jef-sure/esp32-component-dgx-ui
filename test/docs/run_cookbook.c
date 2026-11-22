@@ -60,15 +60,17 @@ const uint16_t rain_pixels[320 * 240] = {[0 ... 320 * 240 - 1] = 0x1f00};
 int64_t    esp_timer_get_time(void) { return 0; }
 /* the font of the need "title" of the recipe of soft letters: two letters, A and B, of 4 bits a pixel with levels of every kind,
    a constant as DGX makes a font; the levels of A: 0 3 15 3 0 / 2 15 0 15 2 / 15 15 15 15 15 / 15 7 0 6 15, of B: 1 0 0 0 0 14 /
-   0 8 15 15 8 0 / 0 15 0 0 15 0 / 0 8 15 15 8 0 / 14 0 0 0 0 1, the leftmost pixel in the high bits of a byte, a row to a whole byte */
-enum { SOFT_A_W = 5, SOFT_A_H = 4, SOFT_B_W = 6, SOFT_B_H = 5 };
-static const uint8_t           soft_bits_a[] = {0x03, 0xf3, 0x00, 0x2f, 0x0f, 0x20, 0xff, 0xff, 0xf0, 0xf7, 0x06, 0xf0};
-static const uint8_t           soft_bits_b[] = {0x10, 0x00, 0x0e, 0x08, 0xff, 0x80, 0x0f, 0x00, 0xf0, 0x08, 0xff, 0x80, 0xe0, 0x00, 0x01};
-static const dgx_glyph_t       soft_glyphs[2] = {{.bitmap = soft_bits_a, .width = SOFT_A_W, .height = SOFT_A_H, .x_advance = 7, .y_offset = -4},
-                                                 {.bitmap = soft_bits_b, .width = SOFT_B_W, .height = SOFT_B_H, .x_advance = 7, .y_offset = -5}};
-static const dgx_glyph_array_t soft_ranges[1] = {{.first = 'A', .number = 2, .glyphs = soft_glyphs}};
-const dgx_font_t               dgx_font_title = {.glyph_ranges = soft_ranges, .y_advance = 8, .y_offset_lowest = -5, .x_widest = SOFT_B_W, .x_width_average = 6,
-                                                 .f_type = DGX_FONT_BITMAP_DEPTH4, .y_bottom_max = 1, .x_right_max = 6, .number_of_ranges = 1};
+   0 8 15 15 8 0 / 0 15 0 0 15 0 / 0 8 15 15 8 0 / 14 0 0 0 0 1, the leftmost pixel in the high bits of a byte, a row to a whole byte.
+   The glyphs hold the offsets of their pictures in the font's data, as DGX 0.12.1 has them. */
+enum { SOFT_A_W = 5, SOFT_A_H = 4, SOFT_B_W = 6, SOFT_B_H = 5, SOFT_A_BYTES = 12 };
+static const uint8_t           soft_bits[] = {0x03, 0xf3, 0x00, 0x2f, 0x0f, 0x20, 0xff, 0xff, 0xf0, 0xf7, 0x06, 0xf0,                    /* A */
+                                              0x10, 0x00, 0x0e, 0x08, 0xff, 0x80, 0x0f, 0x00, 0xf0, 0x08, 0xff, 0x80, 0xe0, 0x00, 0x01}; /* B */
+static const dgx_glyph_t       soft_glyphs[2] = {{.offset = 0, .width = SOFT_A_W, .height = SOFT_A_H, .x_advance = 7, .y_offset = -4},
+                                                 {.offset = SOFT_A_BYTES, .width = SOFT_B_W, .height = SOFT_B_H, .x_advance = 7, .y_offset = -5}};
+static const dgx_glyph_array_t soft_ranges[2] = {{.first = 'A', .number = 2, .glyph = 0}, {0, 0, 0}};
+const dgx_font_t               dgx_font_title = {.glyph_ranges = soft_ranges, .glyphs = soft_glyphs, .data = soft_bits, .y_advance = 8, .y_offset_lowest = -5,
+                                                 .x_widest = SOFT_B_W, .x_width_average = 6, .f_type = DGX_FONT_BITMAP_DEPTH4, .y_bottom_max = 1,
+                                                 .x_right_max = 6, .number_of_ranges = 1};
 /* NVS for the recipe of settings that stay: one blob in memory, and how many times it was committed */
 static uint8_t nvs_blob[64];
 static size_t  nvs_blob_size;
