@@ -4,7 +4,8 @@
  *  A description drawn as the board draws it, for a page that edits descriptions: dgx-ui itself, its loader and its
  *  painter, over a panel in memory of the board's size and depth that takes the pixels as a panel behind a bus takes
  *  them, on the program's names: a names file, or with none every name the description uses, as dgx_ui_c reads them
- *  (tools/dgx_ui_names.c). What is the program's C stands in:
+ *  (tools/dgx_ui_names.c), and the appearance on its own names file where it has one. What is the program's C stands
+ *  in:
  *  - a look or a draw of the program's own: a frame with the look's name;
  *  - a picture: a crossed square of 16 pixels;
  *  - a style of the program's own: Terminus 12;
@@ -96,6 +97,16 @@ const preview_verdict_t *preview_names(const char *text, size_t length);
 const preview_verdict_t *preview_font(const char *name, const void *bytes, size_t length);
 /** The appearance, kept and loaded again with each page, on the names; NULL, none. Its verdict on the names alone. */
 const preview_verdict_t *preview_appearance(const char *text, size_t length);
+/**
+ * The names file the appearance takes its draws, fonts and hands from, kept for the appearances given after it:
+ * PREVIEW_ON_PAGE, the page's of preview_names(), as at the start; PREVIEW_ON_OWN, a names file of its own, the text
+ * given, as dgx_ui_c -a reads an appearance made by dgx_ui_appearance() with NAMES (its -an); PREVIEW_ON_RULE, by the
+ * rule, as -a reads one made with no NAMES. PREVIEW_ON_OWN with NULL is by the rule. The page's tables stay the page's
+ * names file's. The appearance and the page are read again on it. The verdict of its own names file, judged on its own:
+ * 0, or PREVIEW_NAMES_REFUSED in words, the appearance then read by the rule.
+ */
+enum { PREVIEW_ON_PAGE = 0, PREVIEW_ON_OWN = 1, PREVIEW_ON_RULE = 2 };
+const preview_verdict_t *preview_appearance_on(int how, const char *text, size_t length);
 /** The page: on the appearance's tables first and the names' after; drawn whole at the next paint. Its verdict. NULL, no
     page: no widget, nothing drawn. */
 const preview_verdict_t *preview_page(const char *text, size_t length);

@@ -74,6 +74,11 @@ const say          = text => out.push(Buffer.from(text, 'latin1'));
             verdict(words[0], withBytes(bytes, (at, length) => call(at, length)));
             break;
         }
+        case 'appearance_on': {
+            const bytes = words[2] === '-' ? null : fs.readFileSync(path.join(directory, words[2]));
+            verdict(words[0], withBytes(bytes, (at, length) => exports.preview_appearance_on(number(1), at, length)));
+            break;
+        }
         case 'font': {
             const name = Buffer.from(words[1], 'latin1'), bytes = words[2] === '-' ? null : fs.readFileSync(path.join(directory, words[2]));
             const at   = exports.preview_text(name.length + 1 + (bytes ? bytes.length : 0));

@@ -228,22 +228,15 @@ const useDgxUiBuilder = (() => {
             const said = cmakeCalls(file, text);
             calls.push(...said.calls), project.notUnderstood.push(...said.notUnderstood);
         }
-        const appearanceNames = new Map();
         for (const call of calls.filter((one) => one.call === 'dgx_ui_appearance')) {
             if (!project.appearances.some((one) => one.path === call.file))
                 project.appearances.push({ path: call.file, names: call.names ?? null, from: call.from });
-            appearanceNames.set(call.file, call.names ?? null);
         }
         for (const call of calls.filter((one) => one.call === 'dgx_ui_names'))
             project.namesFiles.push({ path: call.file, appearance: call.appearance ?? null, from: call.from });
         for (const call of calls.filter((one) => one.call === 'dgx_ui_tree')) {
             if (project.pages.some((page) => page.path === call.file)) continue; // one page however many trees are made of it
-            const ownNames = appearanceNames.get(call.appearance) ?? null;
-            const names = call.names ?? ownNames;
-            if (call.appearance && ownNames && call.names && ownNames !== call.names)
-                project.notes.push({ text: '{0}: dgx_ui_c reads its appearance on {1}, the page on {2}; the preview reads both on {2}',
-                                     values: [call.file, ownNames, call.names] });
-            project.pages.push({ path: call.file, names, appearance: call.appearance ?? null, from: call.from });
+            project.pages.push({ path: call.file, names: call.names ?? null, appearance: call.appearance ?? null, from: call.from });
         }
         // the other descriptions: pages a program loads at run time
         const found = [], budget = { left: WALK_ENTRIES };
@@ -420,7 +413,8 @@ const useDgxUiBuilder = (() => {
                 const project = await readProject(host);
                 const files = {};
                 const pages = new Set(project.pages.map((page) => page.path));
-                const paths = new Set([...pages, ...project.namesFiles.map((one) => one.path), ...project.appearances.map((one) => one.path),
+                const paths = new Set([...pages, ...project.namesFiles.map((one) => one.path),
+                                       ...project.appearances.flatMap((one) => [one.path, one.names]).filter((path) => path),
                                        ...project.pages.flatMap((page) => [page.names, page.appearance]).filter((path) => path)]);
                 for (const path of paths) {
                     files[path] = fileState(await host.read(path), pages.has(path));
@@ -515,14 +509,17 @@ const useDgxUiBuilder = (() => {
                 this.giveAll();
             },
 
-            // the names, the appearance and the page given again, in that order; the fonts stay
+            // the names, the appearance and the page given again, in that order; the fonts stay. An appearance made by
+            // dgx_ui_appearance() is read on its own names file, or by the rule with none, as dgx_ui_c -a reads it
             giveAll() {
                 const preview = this.raw.preview, page = this.page;
                 if (!page) return;
                 const textAt = (path) => (path && this.files[path] && !this.files[path].missing ? this.files[path].text : null);
                 this.verdicts.names = page.names ? preview.names(textAt(page.names)) : null;
                 if (!page.names) preview.names(null);
-                this.verdicts.appearance = page.appearance ? preview.appearance(textAt(page.appearance)) : (preview.appearance(null), null);
+                const made = this.project.appearances.find((one) => one.path === page.appearance);
+                const itsNames = made ? (made.names ? textAt(made.names) : null) : undefined;
+                this.verdicts.appearance = page.appearance ? preview.appearance(textAt(page.appearance), itsNames) : (preview.appearance(null), null);
                 this.givePage();
             },
 

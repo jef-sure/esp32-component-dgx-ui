@@ -93,6 +93,19 @@ const home  = '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "child
     const missing = preview.appearance('{"dgx-ui": 1, "colors": {"paper": "#102030"}}');
     check(missing.code === 15 && missing.name === 'ink', 'an appearance refused: ' + JSON.stringify(missing));
     preview.appearance(null);
+
+    /* an appearance on a names file of its own, by the rule with null, on the page's with none given */
+    const framedLook = '{"dgx-ui": 1, "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#204060", "border": "#808080"}, ' +
+                       '"looks": {"pane": {"draw": "frame", "fill": "fill", "params": {"border": "border", "width": 1}}}}';
+    const framed = '{"dgx-ui": 1, "tree": {"kind": "frame", "look": "pane", "children": [{"kind": "slider", "value": "volume"}]}}';
+    check(preview.names('look slider\nvalue volume &volume\n').code === 0, 'the page\'s names file');
+    check(preview.appearance(framedLook).code === 8 && preview.page(framed).code === 8, 'on the page\'s, which has not its draw: refused');
+    check(preview.appearance(framedLook, 'draw frame\n').code === 0 && preview.page(framed).code === 0, 'on its own: taken');
+    check(preview.appearance(framedLook, null).code === 0 && preview.page(framed).code === 0, 'by the rule: taken');
+    const ownRefused = preview.appearance(framedLook, 'what is this\n');
+    check(ownRefused.code === -1 && ownRefused.said.includes("appearance's names"), 'its own refused, in words: ' + JSON.stringify(ownRefused));
+    check(preview.appearance(framedLook).code === 8, 'none given: the page\'s again');
+    preview.appearance(null), preview.page(null), preview.names(null);
     const broken = preview.page('{"dgx-ui": 1, "tree": {"kind": "box", "pad": 300}}');
     check(broken.code === 6 && broken.offset === 45 && preview.count() === 0 && preview.shown() === null,
           'a page refused: ' + JSON.stringify(broken));

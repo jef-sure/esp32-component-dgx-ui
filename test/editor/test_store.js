@@ -150,14 +150,15 @@ const boxOf = (store, widgetPath) => {
               'main/CMakeLists.txt:22',
                            'main/CMakeLists.txt:24', 'main/CMakeLists.txt:26', 'main/CMakeLists.txt:28', 'main/CMakeLists.txt:30',
                            'components/second/CMakeLists.txt:6']), 'the calls within if(): ' + JSON.stringify(lines));
-        check(store.project.notes.some((note) => note.values[0] === 'main/framed.json' && note.values[1] === 'components/second/words/names.txt'),
-              'the page whose appearance dgx_ui_c reads on another names file: said');
         check(store.current === 'main/pages/a.json' && store.verdicts.page.code === 0 && store.verdicts.names.code === 0,
               'the first page open and taken');
         for (const one of store.project.pages) {
             store.choose(one.path), paint(store);
-            const expect = one.path === 'main/framed.json' ? 8 : 0; // its appearance: see the note above
-            check(store.verdicts.page.code === expect, `${one.path}: ${JSON.stringify(store.verdicts.page)}`);
+            // framed.json's appearance read on its own names file, words/names.txt, the page on vocab.txt, as dgx_ui_c reads them
+            check(store.verdicts.page.code === 0 && (!store.verdicts.appearance || store.verdicts.appearance.code === 0),
+                  `${one.path}: ${JSON.stringify([store.verdicts.page, store.verdicts.appearance])}`);
+            // its font "small" is TerminusTTFMedium12 by words/names.txt, not dgx_font_small by the rule
+            if (one.appearance) check(!store.notes.some((note) => note.includes('dgx_font_small')), `${one.path}: ${store.notes.join(' | ')}`);
         }
         check(!store.dirty.length && !(await store.save(true)).length && !Object.keys(written).length, 'nothing edited, nothing written');
     }

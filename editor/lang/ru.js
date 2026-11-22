@@ -102,8 +102,6 @@ DGX_UI_LANGUAGES.ru = {
         'saved {0}': 'сохранён {0}',
         'downloaded {0}: put it in place of the file in the project': 'скачан {0}: положите его на место файла в проекте',
         '{0} not saved: {1}': '{0} не сохранён: {1}',
-        '{0}: dgx_ui_c reads its appearance on {1}, the page on {2}; the preview reads both on {2}':
-            '{0}: dgx_ui_c читает его оформление по {1}, а страницу по {2}; просмотр читает и то и другое по {2}',
         'CMakePresets.json: not JSON, its board not read': 'CMakePresets.json: не JSON, плата из него не прочитана',
         'fonts of several builds: {0} taken, another may be chosen': 'шрифты есть у нескольких сборок: взяты из {0}, можно выбрать другие',
         '{0}: no such file': '{0}: такого файла нет',

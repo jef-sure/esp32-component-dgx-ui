@@ -8,8 +8,8 @@ unless PREVIEW_SCENES_OTHER_DGX=skip says to pass by, for a run on a DGX the mod
 
 The scenes: the pages of test_generate (its directory: descriptions and names files), each by the rule and on a names
 file, drawn at 16, 18 and 24 bits and at a point of 1 and 2 pixels, clicked, keyed and given values; the appearances of
-test_generate_appearance under a page that names their looks; a page that opens another by the action page and goes
-back; fonts given as files, a file of every font of the directory (dgx_fonts-files.txt) on a names file and by the
+test_generate_appearance under a page that names their looks, and read on a names file of their own beside the page's
+or by the rule; a page that opens another by the action page and goes back; fonts given as files, a file of every font of the directory (dgx_fonts-files.txt) on a names file and by the
 rule, under an appearance whose style takes it, the handwritten through the hand, and files spoiled at a byte; and each
 of these texts spoiled at a byte. Every scene ends in a dump of the widgets, the events, the notes and the frame
 (scene.c).
@@ -104,6 +104,18 @@ for k, appearance in enumerate(appearances):
     if appearance_names:
         play(width, height, depth, unit, open(appearance_names[0], "rb").read(), text, themed)
     play(width, height, depth, unit, None, spoiled(text), themed)
+
+# the appearance on a names file of its own, as dgx_ui_c -a reads one made with NAMES, the page on another; by the rule,
+# as one made with none; its own spoiled; then on the page's again
+themed_names = "look slider\nlook button\nvalue volume &volume\non go\n"
+for k, appearance in enumerate(appearances):
+    text = open(appearance, "rb").read()
+    width, height, depth, unit = shapes[k % len(shapes)]
+    own = open(appearance_names[k % len(appearance_names)], "rb").read() if appearance_names else None
+    for how, names_text in ((1, own), (2, None), (1, spoiled(own) if own else None)):
+        scene([f"screen {width} {height} {depth} {unit}", f"names {text_file(themed_names)}",
+               f"appearance_on {how} {text_file(names_text) if names_text is not None else '-'}", f"appearance {text_file(text)}",
+               f"page {text_file(themed)}", "paint 1000", "dump", "appearance_on 0 -", "paint 1100", "dump"])
 
 home = ('{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": ['
         '{"kind": "button", "text": "More", "on": "page", "ctx": "settings", "want": [0, 16]},'

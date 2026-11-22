@@ -4,7 +4,8 @@
  * for byte (make_scenes.py). A scene, a command a line, the texts in files beside it:
  *
  *     screen <w> <h> <depth> <pixels a point>     names <file>|-     font <name of C> <file>|-     appearance <file>|-     page <file>
- *     pagefile <name> <file>     paint <ms>     pointer <x> <y> <down> <ms>     key <key>     buttons <held> <ms>
+ *     appearance_on <how> <file>|-     pagefile <name> <file>     paint <ms>     pointer <x> <y> <down> <ms>     key <key>
+ *     buttons <held> <ms>
  *     value <name> <v>     dump
  *
  * A verdict, a paint's answer, a value's, and at dump the widgets, the events, the notes, the rectangle written and the
@@ -102,6 +103,10 @@ int main(int argc, char **argv)
                                             : word[0] == 'a' ? preview_appearance(text, text ? length : 0)
                                                              : preview_page(text, text ? length : 0);
             verdict(word, said);
+            free(text);
+        } else if (strcmp(word, "appearance_on") == 0 && sscanf(line, "%*s %d %255s", &x, a) == 2) {
+            char *text = strcmp(a, "-") == 0 ? NULL : read_file(a, &length);
+            verdict(word, preview_appearance_on(x, text, text ? length : 0));
             free(text);
         } else if (strcmp(word, "font") == 0 && sscanf(line, "%*s %255s %255s", a, b) == 2) {
             char *bytes = strcmp(b, "-") == 0 ? NULL : read_file(b, &length);

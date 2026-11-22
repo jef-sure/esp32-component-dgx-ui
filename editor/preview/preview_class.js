@@ -7,7 +7,7 @@
  *     preview.screen(320, 240, 16, 1);                                             // the board's panel and unit
  *     preview.names(namesFile);                                                    // null: by the rule
  *     await preview.fonts(index, file => readFile(file));  // dgx_fonts-files.txt of DGX and its files
- *     preview.appearance(appearance);
+ *     preview.appearance(appearance, itsNames);          // its own names file; null by the rule; none, the page's
  *     const verdict = preview.page(description);          // {code, offset, name, said}: code 0, taken
  *     if (preview.paint(now)) context.putImageData(preview.image(), 0, 0);
  *
@@ -237,9 +237,19 @@ class DgxUiPreview {
         return results;
     }
 
-    /** The appearance, or null: the loader's verdict. */
-    appearance(text) {
-        return this.verdictAt(this.withText(text, (at, length) => this.call(() => this.exports.preview_appearance(at, length))));
+    /**
+     * The appearance, or null: the loader's verdict. Its draws, fonts and hands are read on the page's names file when
+     * names is not given, as at the start; on a names file of its own when names is its text, as dgx_ui_c -a reads an
+     * appearance made by dgx_ui_appearance() with NAMES; by the rule when names is null, as one made with none
+     * (preview_appearance_on()). A names file of its own refused: that verdict, code -1 in words, the appearance read by
+     * the rule.
+     */
+    appearance(text, names = undefined) {
+        const how = names === undefined ? 0 : names === null ? 2 : 1;
+        const own = this.verdictAt(this.withText(how === 1 ? names : null,
+                                                 (at, length) => this.call(() => this.exports.preview_appearance_on(how, at, length))));
+        const verdict = this.verdictAt(this.withText(text, (at, length) => this.call(() => this.exports.preview_appearance(at, length))));
+        return own.code ? own : verdict;
     }
 
     /** The page: the loader's verdict, {code, offset, name}; drawn whole at the next paint. */

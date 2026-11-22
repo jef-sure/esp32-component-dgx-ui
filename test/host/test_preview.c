@@ -378,6 +378,44 @@ int main(void)
     CHECK(preview_appearance(wrong_look, sizeof wrong_look - 1)->code == DGX_UI_LOAD_MISSING);
     CHECK(preview_appearance(NULL, 0)->code == 0);
 
+    /* an appearance on a names file of its own beside the page's, as dgx_ui_c -a reads one made with NAMES; by the rule,
+       as one made with none; on the page's, which has not its draw: the page then refused, its look unknown */
+    {
+        static const char page_names[]  = "look slider\nvalue volume &volume\n";
+        static const char its_names[]   = "draw frame\nfont small TerminusTTFMedium12\n";
+        static const char bad_names[]   = "what is this\n";
+        static const char framed_look[] = "{\"dgx-ui\": 1, \"colors\": {\"paper\": \"#000000\", \"ink\": \"#ffffff\", \"fill\": \"#204060\", "
+                                          "\"border\": \"#808080\"}, \"styles\": {\"body\": {\"fonts\": [\"small\"]}}, "
+                                          "\"looks\": {\"pane\": {\"draw\": \"frame\", \"fill\": \"fill\", "
+                                          "\"params\": {\"border\": \"border\", \"width\": 1}}}}";
+        static const char framed[]      = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"frame\", \"look\": \"pane\", \"pad\": 4, \"flags\": [\"column\"], "
+                                          "\"children\": [{\"kind\": \"slider\", \"value\": \"volume\"}, "
+                                          "{\"kind\": \"label\", \"text\": \"Framed\"}]}}";
+        const size_t look_length = sizeof framed_look - 1, page_length = sizeof framed - 1;
+        CHECK(preview_screen(PANEL_W, PANEL_H, 16, 1) == 0 && preview_names(page_names, sizeof page_names - 1)->code == 0);
+        CHECK(preview_appearance_on(PREVIEW_ON_PAGE, NULL, 0)->code == 0);
+        CHECK(preview_appearance(framed_look, look_length)->code == DGX_UI_LOAD_UNKNOWN);
+        const preview_verdict_t *unknown = preview_page(framed, page_length);
+        CHECK(unknown->code == DGX_UI_LOAD_UNKNOWN && strcmp(unknown->name, "pane") == 0);
+        CHECK(preview_appearance_on(PREVIEW_ON_OWN, its_names, sizeof its_names - 1)->code == 0);
+        CHECK(preview_appearance(framed_look, look_length)->code == 0);
+        CHECK(preview_page(framed, page_length)->code == 0 && preview_paint(now) == 1);
+        CHECK(strstr(preview_notes(), "font small: no file for TerminusTTFMedium12") == NULL); /* the font its own names give */
+        CHECK(preview_widget(0)->kind == DGX_UI_FRAME && preview_widget(1)->kind == DGX_UI_SLIDER);
+        const uint8_t *inside = preview_frame() + 4 * ((preview_widget(0)->y + 2) * PANEL_W + preview_widget(0)->x + 2);
+        CHECK(inside[0] < 0x30 && inside[1] > 0x30 && inside[1] < 0x50 && inside[2] > 0x50); /* the pane's fill */
+        CHECK(preview_appearance_on(PREVIEW_ON_RULE, NULL, 0)->code == 0 && preview_appearance(framed_look, look_length)->code == 0);
+        CHECK(preview_page(framed, page_length)->code == 0 && strstr(preview_notes(), "font small: no file for dgx_font_small") != NULL);
+        CHECK(preview_appearance_on(PREVIEW_ON_OWN, NULL, 0)->code == 0 && preview_appearance(framed_look, look_length)->code == 0);
+        CHECK(strstr(preview_notes(), "font small: no file for dgx_font_small") != NULL); /* its own with none: the rule */
+        const preview_verdict_t *refused = preview_appearance_on(PREVIEW_ON_OWN, bad_names, sizeof bad_names - 1);
+        CHECK(refused->code == PREVIEW_NAMES_REFUSED && strstr(refused->said, "appearance's names") != NULL);
+        CHECK(preview_appearance(framed_look, look_length)->code == 0); /* refused, it is read by the rule */
+        CHECK(preview_appearance_on(PREVIEW_ON_PAGE, NULL, 0)->code == 0);
+        CHECK(preview_appearance(framed_look, look_length)->code == DGX_UI_LOAD_UNKNOWN);
+        preview_appearance(NULL, 0), preview_page(NULL, 0), preview_names(NULL, 0);
+    }
+
     /* a look of the program's own and a picture: their stand-ins drawn and said */
     static const char own[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"row\"], \"children\": ["
                               "{\"kind\": \"own\", \"look\": \"dial\", "

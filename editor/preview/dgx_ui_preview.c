@@ -309,6 +309,10 @@ static appearance_load_t appearance_load;
 static char             *names_text;
 static size_t            names_length;
 static bool              names_given;
+/* the names file of the appearance's draws, fonts and hands: the page's, its own, or the rule */
+static int               appearance_on = PREVIEW_ON_PAGE;
+static char             *appearance_names_text;
+static size_t            appearance_names_length;
 
 static void names_free_all(void)
 {
@@ -331,6 +335,12 @@ static void names_file_lines(bool appearance_alone)
     free(said);
 }
 
+/* whether the appearance is read on a names file, its own or the page's, and not by the rule */
+static bool appearance_named(void)
+{
+    return appearance_on == PREVIEW_ON_OWN || (appearance_on == PREVIEW_ON_PAGE && names_given);
+}
+
 static bool draw_named(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 
 static void appearance_free(void)
@@ -348,7 +358,9 @@ static void appearance_read(void)
     a->verdict = (preview_verdict_t){0};
     if (!a->text) return;
     names_free_all();
-    if (names_given) {
+    if (appearance_on == PREVIEW_ON_OWN) {
+        free(names_read("appearance's names", appearance_names_text, appearance_names_length, true));
+    } else if (appearance_named()) {
         names_file_lines(true);
     } else {
         for (int k = 0; k < library_draw_count; ++k) {
@@ -388,9 +400,9 @@ static void appearance_read(void)
         const bool written = filed && filed->f_type == DGX_FONT_HW;
         if (filed && written != font->handwritten)
             say(&notes, "font %s: %s, its file is %s\n", font->name,
-                font->handwritten ? "the names file calls it handwritten"
-                : names_given     ? "the names file does not call it handwritten"
-                                  : "taken for a bitmap font by the rule",
+                font->handwritten    ? "the names file calls it handwritten"
+                : appearance_named() ? "the names file does not call it handwritten"
+                                     : "taken for a bitmap font by the rule",
                 written ? "a handwritten font" : "a bitmap font");
         ++named;
     }
@@ -989,6 +1001,30 @@ const preview_verdict_t *preview_appearance(const char *text, size_t length)
     appearance_load.text = text ? copy_text(text, length) : NULL, appearance_load.length = text ? length : 0;
     read_again();
     return &appearance_load.verdict;
+}
+
+const preview_verdict_t *preview_appearance_on(int how, const char *text, size_t length)
+{
+    static preview_verdict_t verdict;
+    verdict = (preview_verdict_t){0};
+    free(appearance_names_text);
+    appearance_names_text = NULL, appearance_names_length = 0;
+    appearance_on = how == PREVIEW_ON_OWN ? (text ? PREVIEW_ON_OWN : PREVIEW_ON_RULE) : how == PREVIEW_ON_RULE ? PREVIEW_ON_RULE : PREVIEW_ON_PAGE;
+    if (appearance_on == PREVIEW_ON_OWN) {
+        appearance_names_text = copy_text(text, length), appearance_names_length = length;
+        names_free_all();
+        char *said = names_read("appearance's names", appearance_names_text, appearance_names_length, false);
+        names_free_all();
+        if (said) {
+            verdict.code = PREVIEW_NAMES_REFUSED;
+            snprintf(verdict.said, sizeof verdict.said, "%s", said);
+            free(said);
+            free(appearance_names_text);
+            appearance_names_text = NULL, appearance_names_length = 0, appearance_on = PREVIEW_ON_RULE;
+        }
+    }
+    read_again();
+    return &verdict;
 }
 
 const preview_verdict_t *preview_page(const char *text, size_t length)
