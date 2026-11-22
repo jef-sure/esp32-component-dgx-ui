@@ -24,7 +24,7 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 - Дисплей, с которым работает [DGX](https://github.com/jef-sure/esp32-component-dgx). Здесь это круглый GC9A01
   240 на 240 на SPI.
 - Датчик CO2 Sensirion SCD41 по I2C. Подойдёт и SCD40 или SCD43: команды одни и те же, разница в точности и режимах.
-- DGX 0.12.1 или новее из ветки 0.12. Она подтянется сама вместе с dgx-ui.
+- DGX 0.12.3 или новее из ветки 0.12. Она подтянется сама вместе с dgx-ui.
 - На машине сборки, кроме ESP-IDF: свой компилятор C, файлы разработки FreeType, `pkg-config`, fontconfig и одна из
   гарнитур DejaVu Sans, Liberation Sans, Noto Sans, FreeSans и Arial — из неё DGX при сборке делает шрифты
   программы. В Debian и Ubuntu:
@@ -388,8 +388,8 @@ void app_main(void)
     /* the colours of the looks are indices of this table: 0 the paper, 1 the ink, 2..5 the ring; DGX's named colours,
        packed for a display of 16 bits */
     const uint32_t colors[] = {
-        DGX_BLACK(DGX_RGB_16),    DGX_WHITE(DGX_RGB_16),  DGX_DARKGREY(DGX_RGB_16),
-        DGX_GREEN(DGX_RGB_16),    DGX_YELLOW(DGX_RGB_16), DGX_RED(DGX_RGB_16),
+        DGX_BLACK(DGX_RGB_16), DGX_WHITE(DGX_RGB_16),  DGX_GRAY(DGX_RGB_16),
+        DGX_LIME(DGX_RGB_16),  DGX_YELLOW(DGX_RGB_16), DGX_RED(DGX_RGB_16),
     };
 
     dgx_ui_textbox_init(&ppm_box, ppm_buf, sizeof ppm_buf, 1, &st_big);

@@ -25,7 +25,7 @@ assumed: every part of the program is explained where it appears.
   240 on SPI.
 - A Sensirion SCD41 CO2 sensor on I2C. An SCD40 or an SCD43 does too: the commands are the same, they differ in
   accuracy and modes.
-- DGX 0.12.1 or a later 0.12. It comes by itself with dgx-ui.
+- DGX 0.12.3 or a later 0.12. It comes by itself with dgx-ui.
 - On the build machine, beside ESP-IDF: a C compiler of its own, the development files of FreeType, `pkg-config`,
   fontconfig and one of the faces DejaVu Sans, Liberation Sans, Noto Sans, FreeSans and Arial, of which DGX makes the
   program's fonts as it builds it. On Debian and Ubuntu:
@@ -390,8 +390,8 @@ void app_main(void)
     /* the colours of the looks are indices of this table: 0 the paper, 1 the ink, 2..5 the ring; DGX's named colours,
        packed for a display of 16 bits */
     const uint32_t colors[] = {
-        DGX_BLACK(DGX_RGB_16),    DGX_WHITE(DGX_RGB_16),  DGX_DARKGREY(DGX_RGB_16),
-        DGX_GREEN(DGX_RGB_16),    DGX_YELLOW(DGX_RGB_16), DGX_RED(DGX_RGB_16),
+        DGX_BLACK(DGX_RGB_16), DGX_WHITE(DGX_RGB_16),  DGX_GRAY(DGX_RGB_16),
+        DGX_LIME(DGX_RGB_16),  DGX_YELLOW(DGX_RGB_16), DGX_RED(DGX_RGB_16),
     };
 
     dgx_ui_textbox_init(&ppm_box, ppm_buf, sizeof ppm_buf, 1, &st_big);

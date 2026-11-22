@@ -76,7 +76,7 @@ dependencies:
     version: "0.0.51"
 ```
 
-It needs ESP-IDF 5.2 or later and DGX 0.12.1 or a later 0.12; DGX comes by itself, from the registry. Start with
+It needs ESP-IDF 5.2 or later and DGX 0.12.3 or a later 0.12; DGX comes by itself, from the registry. Start with
 [Getting started](docs/en/getting-started.md): a round CO2 scale fed by an SCD41 sensor from a task of its own,
 on a board or in a window on the computer.
 

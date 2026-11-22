@@ -84,7 +84,7 @@ int main(int argc, char **argv)
     static dgx_ui_t      ui;
     dgx_screen_t        *scr = dgx_vscreen_init(240, 240, 16, DgxScreenRGB);
     const uint32_t       table[AIR_COLORS] = {
-        DGX_BLACK(DGX_RGB_16), DGX_WHITE(DGX_RGB_16), DGX_DARKGREY(DGX_RGB_16), DGX_GREEN(DGX_RGB_16), DGX_YELLOW(DGX_RGB_16), DGX_RED(DGX_RGB_16),
+        DGX_BLACK(DGX_RGB_16), DGX_WHITE(DGX_RGB_16), DGX_GRAY(DGX_RGB_16), DGX_LIME(DGX_RGB_16), DGX_YELLOW(DGX_RGB_16), DGX_RED(DGX_RGB_16),
     };
     vbig[0]    = (dgx_ui_font_variant_t){.font = &dgx_font_large};
     vbig[1]    = (dgx_ui_font_variant_t){.font = &dgx_font_body};
