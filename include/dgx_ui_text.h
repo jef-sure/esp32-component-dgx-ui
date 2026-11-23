@@ -116,6 +116,16 @@ struct dgx_ui_textbox_t {
     uint16_t                   total_lines, total_letters; ///< the look of lines: of the text laid, while COUNTED
 };
 
+#if UINTPTR_MAX == 0xFFFFFFFFu
+#ifdef __cplusplus
+static_assert(sizeof(dgx_ui_font_variant_t) == 20, "a variant of a font is 20 bytes on a 32-bit chip");
+static_assert(sizeof(dgx_ui_textbox_t) == 28, "a text box is 28 bytes on a 32-bit chip");
+#else
+_Static_assert(sizeof(dgx_ui_font_variant_t) == 20, "a variant of a font is 20 bytes on a 32-bit chip");
+_Static_assert(sizeof(dgx_ui_textbox_t) == 28, "a text box is 28 bytes on a 32-bit chip");
+#endif
+#endif
+
 /**
  * @brief A text box over a string constant, of so many lines in a style: no buffer of RAM, no call to fill it.
  *

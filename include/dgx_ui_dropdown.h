@@ -57,6 +57,14 @@ typedef struct dgx_ui_dropdown_t {
     int16_t         i;        ///< that dropdown
 } dgx_ui_dropdown_t;
 
+#if UINTPTR_MAX == 0xFFFFFFFFu
+#ifdef __cplusplus
+static_assert(sizeof(dgx_ui_dropdown_t) == 284, "the popup of a dropdown's list is 284 bytes on a 32-bit chip");
+#else
+_Static_assert(sizeof(dgx_ui_dropdown_t) == 284, "the popup of a dropdown's list is 284 bytes on a 32-bit chip");
+#endif
+#endif
+
 /**
  * @brief The list of dropdown i of a tree opened as a popup over it (the tree may be a popup itself).
  *

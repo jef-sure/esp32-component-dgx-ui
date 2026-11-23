@@ -102,6 +102,16 @@ typedef struct dgx_ui_paint_stats_t {
     uint16_t               per_widget_count; ///< its entries: a widget at an index past them (a block of nodes) is not counted
 } dgx_ui_paint_stats_t;
 
+#if UINTPTR_MAX == 0xFFFFFFFFu
+#ifdef __cplusplus
+static_assert(sizeof(dgx_ui_paint_stats_t) == 104, "the statistics of a pass are 104 bytes on a 32-bit chip");
+static_assert(sizeof(dgx_ui_widget_stats_t) == 16, "an entry of a widget's statistics is 16 bytes on a 32-bit chip");
+#else
+_Static_assert(sizeof(dgx_ui_paint_stats_t) == 104, "the statistics of a pass are 104 bytes on a 32-bit chip");
+_Static_assert(sizeof(dgx_ui_widget_stats_t) == 16, "an entry of a widget's statistics is 16 bytes on a 32-bit chip");
+#endif
+#endif
+
 /**
  * @brief dgx_ui_paint(), measured: the same pass, its time and what it drew counted into stats. The paint's strips the
  * program named still draw, each part offered them as before; the member is the paint's own again after the call.

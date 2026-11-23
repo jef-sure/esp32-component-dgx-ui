@@ -757,6 +757,16 @@ typedef struct dgx_ui_idle_t {
     uint32_t  last_ms;
 } dgx_ui_idle_t;
 
+#if UINTPTR_MAX == 0xFFFFFFFFu
+#ifdef __cplusplus
+static_assert(sizeof(dgx_ui_t) == 104, "a tree is 104 bytes on a 32-bit chip");
+static_assert(sizeof(dgx_ui_idle_t) == 28, "the user's idle is 28 bytes on a 32-bit chip");
+#else
+_Static_assert(sizeof(dgx_ui_t) == 104, "a tree is 104 bytes on a 32-bit chip");
+_Static_assert(sizeof(dgx_ui_idle_t) == 28, "the user's idle is 28 bytes on a 32-bit chip");
+#endif
+#endif
+
 /**
  * @brief The program's idle named, counted from now; home's dgx_ui_time() tells it. The same named again is counted
  * anew from now, and told 0 at home's next step if it was told 1; another named in its place drops it, telling it
