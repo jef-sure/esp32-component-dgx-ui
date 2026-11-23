@@ -21,8 +21,20 @@ It checks that:
 - every `dgx_ui_` and `DGX_UI_` name a page prints is in a header or in `project_include.cmake`;
 - the API pages name every public function, type and constant of the headers and every call of
   `project_include.cmake`;
-- the links between the pages lead to files that are there;
-- a number a page writes beside the name of a constant, as in "`DGX_UI_POPUP_DEPTH`, 8", is the header's value.
+- the links between the pages lead to files that are there, and a link to a heading to a heading that is there, on
+  those pages and on the pages of `editor/`, `tools/` and this one;
+- a number a page writes beside the name of a constant, as in "`DGX_UI_POPUP_DEPTH`, 8", is the header's value;
+- a struct a page lists in C is the header's, member by member and in order; a listing whose last member is followed
+  by a comment of its own, as `/* the rest is the library's */`, lists the first members only;
+- the tables of the headers, in How it works and in the API page, name every header of `include/`;
+- the cookbook's list at the top is its recipes, in their order, each leading to its own heading;
+- a size a page marks is the one the headers assert for a 32-bit chip: `28 bytes<!-- sizeof dgx_ui_node_t -->`, or a
+  product, `1792 bytes<!-- sizeof dgx_ui_node_t * DGX_UI_BLOCK -->`. The mark is a comment, not seen on the page;
+  the size is an `_Static_assert` of the header, which a chip's build holds to the struct. A size written with no
+  mark is not checked;
+- a version a page names is the manifests': "Version 0.0.52" and `version: "0.0.52"` are dgx-ui's own, "DGX 0.12.3 or
+  a later" the least DGX that `idf_component.yml` asks for, `` `jef-sure/dgx-di` 0.2.0 `` the least DGX-DI the
+  examples ask for.
 
 The code blocks of a page, in their order, are one file of C: a block is whole declarations and functions, and the
 Russian pages hold the same blocks as the English ones.
