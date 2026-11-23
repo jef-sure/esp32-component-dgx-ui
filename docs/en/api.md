@@ -93,13 +93,13 @@ typedef struct dgx_ui_state_t {
 ```c
 typedef struct dgx_ui_widget_t {
     uint8_t        kind;
-    uint8_t        flags;
-    uint8_t        pad, gap;
+    dgx_ui_bits_t  state;
+    uint16_t       flags;
+    int16_t        pad, gap;
     int16_t        at_x, at_y;
     int16_t        want_w, want_h;
     int16_t        min, max, step;
     int16_t        tag;
-    dgx_ui_bits_t  state;
     int32_t       *value;
     const dgx_ui_picture_t *picture;
     dgx_ui_textbox_t       *text;
@@ -111,19 +111,19 @@ typedef struct dgx_ui_widget_t {
 } dgx_ui_widget_t;
 ```
 
-What the program says of a widget. The library never writes it; it is 56 bytes on a 32-bit chip. Zero is the default
+What the program says of a widget. The library never writes it; it is 56 bytes<!-- sizeof dgx_ui_widget_t --> on a 32-bit chip. Zero is the default
 of every member.
 
 | Member | Meaning |
 | ------ | ------- |
 | `kind` | what it is: see the kinds below |
+| `state` | the state it starts with: `.state = {.bits = DGX_UI_HIDDEN}`, or `DGX_UI_DISABLED` |
 | `flags` | how it is built: see the flags below |
 | `pad`, `gap` | of a box: from its edges to its children, and between them, in points, or in percent with `DGX_UI_PERCENT_PAD`, `DGX_UI_PERCENT_GAP` (the percents below) |
 | `at_x`, `at_y` | where it asks to be from the inner edge of its parent, in points, or in percent with `DGX_UI_PERCENT_X`, `DGX_UI_PERCENT_Y`; negative: from the far edge. In a column only `at_x` is used, in a row only `at_y` |
 | `want_w`, `want_h` | its size in points, or in percent with `DGX_UI_PERCENT_W`, `DGX_UI_PERCENT_H`; 0 in points: the size of its content, or across the stacking all of the box. The content of a widget with a text is the lines of its text; a button, a dropdown, a radio button and a checkbox are a point higher above and below them, the room of the frame of the focus. A button, a switch or a radio button with a picture, whatever look draws it, asks for its first picture's size and 5 points more across and down: a point of face and the frame's point on each side, and one for a shadow |
 | `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list, and in `step` the least height of its rows in points, 0 a line of its text; the values of an icon's pictures; in `step` of a radio button the number it stands for |
 | `tag` | the program's number of it, found by `dgx_ui_find()`; 0 for none |
-| `state` | the state it starts with: `.state = {.bits = DGX_UI_HIDDEN}`, or `DGX_UI_DISABLED` |
 | `value` | where its value lives, an `int32_t` of the program's: `.value = &volume`; `NULL`: it has none. See the value above |
 | `picture` | a picture: one; an icon: an array for the values `min..max`; drawn by `dgx_ui_look_picture_button`, a button's one, a switch's or a radio button's two: off and on, not chosen and chosen |
 | `text` | its text box, in RAM |
@@ -251,7 +251,7 @@ typedef struct dgx_ui_node_t {
 } dgx_ui_node_t;
 ```
 
-A widget in a tree, 28 bytes of RAM on a 32-bit chip. The program reads it and does not write it.
+A widget in a tree, 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM on a 32-bit chip. The program reads it and does not write it.
 
 | Member | Meaning |
 | ------ | ------- |
@@ -275,7 +275,7 @@ A widget in a tree, 28 bytes of RAM on a 32-bit chip. The program reads it and d
 
 ### The tree
 
-`dgx_ui_t` is a tree and what the pointer and the keys are doing to it, 104 bytes. The program fills it by
+`dgx_ui_t` is a tree and what the pointer and the keys are doing to it, 104 bytes<!-- sizeof dgx_ui_t -->. The program fills it by
 `dgx_ui_init()` and changes it by the calls only. Members a program may read: `focus`, the number of the focused
 widget, and `pressed`, the one the pointer is held on, both -1 for none; `popup`, the popup open over it; `level`,
 how many popups lie under it, 0 for a tree that is no popup.
@@ -587,7 +587,7 @@ calls it.
 
 `void dgx_ui_dump(const dgx_ui_t *ui)`: the tree written to the log, a line a widget, indented by its depth: its
 number, kind, place and size, value, state, marks, tag and the beginning of its text; then the popups over it; then
-how many nodes are in use, how many the program's array holds and how many blocks of 64 nodes, 1792 bytes each, were
+how many nodes are in use, how many the program's array holds and how many blocks of 64 nodes, 1792 bytes<!-- sizeof dgx_ui_node_t * DGX_UI_BLOCK --> each, were
 taken past it, with the size of an array that needs none. A file of its own: a program that does not call it does
 not carry it. It changes nothing.
 
@@ -597,7 +597,7 @@ not carry it. It changes nothing.
 
 ```c
 typedef struct dgx_ui_font_variant_t {
-    dgx_font_t          *font;
+    const dgx_font_t    *font;
     int16_t              height;
     uint8_t              narrow;
     bool                 joined;
@@ -615,7 +615,7 @@ typedef struct dgx_ui_text_style_t {
 } dgx_ui_text_style_t;
 ```
 
-A variant is a font a text may be drawn in, 20 bytes: a font of DGX of bitmaps or of dots, or a handwritten one. For
+A variant is a font a text may be drawn in, 20 bytes<!-- sizeof dgx_ui_font_variant_t -->: a font of DGX of bitmaps or of dots, or a handwritten one. For
 a font of bitmaps or of dots the other members stay 0 but `points`. For a handwritten font (`DGX_FONT_HW` of DGX):
 
 | Member | Meaning |
@@ -671,7 +671,7 @@ struct dgx_ui_textbox_t {
 };
 ```
 
-The string of a widget and how it is laid, 28 bytes. The program gives `buf`, `size`, `lines` and `style` through
+The string of a widget and how it is laid, 28 bytes<!-- sizeof dgx_ui_textbox_t -->. The program gives `buf`, `size`, `lines` and `style` through
 `dgx_ui_textbox_init()` and may read `buf`. The rest is the library's: the variant the text was fitted in, the first
 line shown, and what the look of lines and the handwriting count. Its flags `DGX_UI_TEXTBOX_START`, `DGX_UI_TEXTBOX_CAME`,
 `DGX_UI_TEXTBOX_ENDED`, `DGX_UI_TEXTBOX_COUNTED`, `DGX_UI_TEXTBOX_SEEN` and `DGX_UI_TEXTBOX_WHOLE` are the library's
@@ -715,7 +715,7 @@ struct dgx_ui_msg_t {
 };
 ```
 
-A message, 20 bytes on a 32-bit chip: the item of the program's queue. `what` is the program's number. By value,
+A message, 20 bytes<!-- sizeof dgx_ui_msg_t --> on a 32-bit chip: the item of the program's queue. `what` is the program's number. By value,
 `count` bytes lie in `bytes`, up to `DGX_UI_MSG_BYTES`, 12. By reference, `flags` has `DGX_UI_MSG_REF` and `ref` holds
 the data, its size, and the function called when the message is done with. `DGX_UI_MSG_KEPT` marks a message a widget
 kept.
@@ -1239,7 +1239,7 @@ typedef struct dgx_ui_dropdown_t {
 } dgx_ui_dropdown_t;
 ```
 
-The popup of a list, in the program's RAM: 284 bytes on a 32-bit chip, zeroed before its first use, as a `static`
+The popup of a list, in the program's RAM: 284 bytes<!-- sizeof dgx_ui_dropdown_t --> on a 32-bit chip, zeroed before its first use, as a `static`
 is. One list is open at a time, so one serves every dropdown of the program.
 
 | Call | What it does |
@@ -1446,9 +1446,9 @@ Of the frames:
 - The start of a transition, the two screens composed by `dgx_ui_page_open_by()`, is not a frame.
 - A struct is one transition's.
 
-A program that names the measured pass and its line carries about 1.8 KB more, and its struct, 104 bytes on a 32-bit
+A program that names the measured pass and its line carries about 1.8 KB more, and its struct, 104 bytes<!-- sizeof dgx_ui_paint_stats_t --> on a 32-bit
 chip. Each of the others named adds to it: `dgx_ui_changed_measured()` about 0.2 KB, the lines of each widget about
-0.3 KB and 16 bytes of RAM a widget, the frames about 0.5 KB and their struct.
+0.3 KB and 16 bytes<!-- sizeof dgx_ui_widget_stats_t --> of RAM a widget, the frames about 0.5 KB and their struct.
 
 The recipe: [How long a pass takes](cookbook.md#how-long-a-pass-takes).
 

@@ -15,8 +15,13 @@ things as code, and the [API reference](api.md) lists every call.
 | `dgx_ui_msg.h` | messages: offering one to the tree, decoders, code points typed | no |
 | `dgx_ui_post.h` | sending a message through a queue of FreeRTOS, from an interrupt too | no |
 | `dgx_ui_ticker.h` | a message every so many milliseconds | no |
-| `dgx_ui_paint.h` | the painter and the looks: this is all that draws | yes |
+| `dgx_ui_paint.h` | the painter and the looks: all that draws the widgets | yes |
+| `dgx_ui_dropdown.h` | the list of a dropdown, opened as a popup | no |
+| `dgx_ui_transition.h` | pages that change by a slide or a crossfade: two pictures of the screen, composed by the painter and sent | yes |
+| `dgx_ui_stats.h` | the statistics of painting: a pass measured | no |
+| `dgx_ui_load.h` | a tree made from a description in JSON | no |
 | `dgx_ui_di.h` | the touch of DGX-DI as the pointer of a tree; only when the program has DGX-DI | no |
+| `dgx_ui_appearance.h` | colours, text styles and looks from a description in JSON, one for all the pages | no, but `dgx_ui_pack_screen()`, which packs a colour for a screen |
 
 The core, the text box and the messages draw nothing, so they are tested on a computer without a display.
 
@@ -55,10 +60,10 @@ void owner_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 ## A widget is two parts
 
 What the program says of a widget is a `dgx_ui_widget_t`: its kind, its sizes, its range, its text box and picture,
-its look, its two functions. The library never writes it. It is 56 bytes on a 32-bit chip and lies in flash when it is
+its look, its two functions. The library never writes it. It is 56 bytes<!-- sizeof dgx_ui_widget_t --> on a 32-bit chip and lies in flash when it is
 `static const`.
 
-What changes while the program runs is a `dgx_ui_node_t`, 28 bytes of RAM: a pointer to the widget, the links to its
+What changes while the program runs is a `dgx_ui_node_t`, 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM: a pointer to the widget, the links to its
 parent, first child and next sibling, the rectangle it was laid in, and its state.
 
 `dgx_ui_add()` keeps the pointer to the widget and copies nothing. So the widget must live as long as it is in the
@@ -70,7 +75,7 @@ removed is given to the next one added, so a number kept by the program may come
 that comes and goes is better found by its tag, `dgx_ui_find()`.
 
 The first nodes are in an array the program gives to `dgx_ui_init()`. When it is full, the library allocates a block of
-64 nodes, 1792 bytes, and another when that is full. Nodes do not move.
+64 nodes, 1792 bytes<!-- sizeof dgx_ui_node_t * DGX_UI_BLOCK -->, and another when that is full. Nodes do not move.
 
 ## The layout
 
@@ -163,7 +168,7 @@ held down may show on the screen's "OK" without pressing it.
 ## Messages
 
 A message is a number of the program's and data: up to 12 bytes by value, or a pointer and a size by reference. It is
-20 bytes, the item of the program's queue. dgx-ui reserves no number and gives none a meaning.
+20 bytes<!-- sizeof dgx_ui_msg_t -->, the item of the program's queue. dgx-ui reserves no number and gives none a meaning.
 
 `dgx_ui_take()` offers a message to every widget in the order of the tree, parents before children, the hidden ones
 too, so that they are fresh when shown; then to the widgets of an open popup. A widget's `take()` returns `true` to
@@ -355,23 +360,23 @@ covers; a dialog or a list leaves the tree under it seen. See
 
 | What | Size on a 32-bit chip |
 | ---- | --------------------- |
-| a widget, constant | 56 bytes of flash |
-| its node | 28 bytes of RAM |
+| a widget, constant | 56 bytes<!-- sizeof dgx_ui_widget_t --> of flash |
+| its node | 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM |
 | the value of a control | an `int32_t` of the program's, 4 bytes of RAM |
-| a block of 64 nodes, when the program's array is full | 1792 bytes |
-| a message | 20 bytes |
-| a text box | 28 bytes and the program's buffer |
-| a tree, `dgx_ui_t` | 104 bytes |
+| a block of 64 nodes, when the program's array is full | 1792 bytes<!-- sizeof dgx_ui_node_t * DGX_UI_BLOCK --> |
+| a message | 20 bytes<!-- sizeof dgx_ui_msg_t --> |
+| a text box | 28 bytes<!-- sizeof dgx_ui_textbox_t --> and the program's buffer |
+| a tree, `dgx_ui_t` | 104 bytes<!-- sizeof dgx_ui_t --> |
 | the code of the smallest program, one label fed by a message | about 8 KB |
 | the library's own RAM | pointers of 4 bytes, through which a program reaches only what it names: five in the program of Getting started, 20 bytes (a text set, the place of pages, and three for the loop's `dgx_ui_time()`: the key's repeat, the finger's, the user's idle); a few more with keys, popups and input; and a byte in a look that warns once in the log |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB |
 | the roots told when their trees come to the screen and leave it, when the program opens a popup | about 0.65 KB |
 | the look of several lines, when named | about 2.5 KB |
-| a variant of a font | 16 bytes |
+| a variant of a font | 20 bytes<!-- sizeof dgx_ui_font_variant_t --> |
 | handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
 | handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
-| a tree from a description in JSON, when the program loads one | about 8 KB, and in RAM the widgets it describes, 56 bytes each beside their nodes, with their texts |
-| the statistics of painting, when the program names them | about 1.8 KB for the measured pass and its line, and 104 bytes of the program's RAM |
+| a tree from a description in JSON, when the program loads one | about 8 KB, and in RAM the widgets it describes, 56 bytes<!-- sizeof dgx_ui_widget_t --> each beside their nodes, with their texts |
+| the statistics of painting, when the program names them | about 1.8 KB for the measured pass and its line, and 104 bytes<!-- sizeof dgx_ui_paint_stats_t --> of the program's RAM |
 | a picture button, when a widget names the look | about 0.8 KB beside buttons with a text and pictures; 2.8 KB in a program with no picture yet, the drawing of pictures coming with it |
 | a level bar, when a widget names the look | about 0.9 KB |
 | a ring scale, when a widget names the look | about 3.8 KB |

@@ -295,7 +295,7 @@ Three rules of sizes are worth remembering:
 
 ### The tree, the queue and the sensor
 
-What changes while the program runs is held by the tree: a node of 28 bytes a widget, in an array the program gives.
+What changes while the program runs is held by the tree: a node of 28 bytes<!-- sizeof dgx_ui_node_t --> a widget, in an array the program gives.
 One task owns the tree and the display. Every other task only sends messages.
 
 ```c

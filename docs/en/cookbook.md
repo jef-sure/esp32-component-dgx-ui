@@ -9,6 +9,8 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 
 - [What the recipes share](#what-the-recipes-share)
 - [A row and a column that fit any screen](#a-row-and-a-column-that-fit-any-screen)
+- [A line between rows](#a-line-between-rows)
+- [One tree on every board](#one-tree-on-every-board)
 - [One message for several widgets](#one-message-for-several-widgets)
 - [A clock, or anything once in a while](#a-clock-or-anything-once-in-a-while)
 - [A button](#a-button)
@@ -43,6 +45,9 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A field and a keyboard](#a-field-and-a-keyboard)
 - [A field edited in a strip over the keypad](#a-field-edited-in-a-strip-over-the-keypad)
 - [Widgets that come and go](#widgets-that-come-and-go)
+- [A page from a description](#a-page-from-a-description)
+- [A description made C when the program is built](#a-description-made-c-when-the-program-is-built)
+- [An appearance made C when the program is built](#an-appearance-made-c-when-the-program-is-built)
 - [Large data: a message by reference](#large-data-a-message-by-reference)
 - [A message from an interrupt](#a-message-from-an-interrupt)
 - [A look of your own](#a-look-of-your-own)
@@ -52,6 +57,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A ring scale with widgets inside](#a-ring-scale-with-widgets-inside)
 - [A display of 18 or 24 bits](#a-display-of-18-or-24-bits)
 - [A loop that sleeps till the next moment](#a-loop-that-sleeps-till-the-next-moment)
+- [Dim the screen when nobody touches it](#dim-the-screen-when-nobody-touches-it)
 - [How long a pass takes](#how-long-a-pass-takes)
 - [A mirror of the screen](#a-mirror-of-the-screen)
 - [The tree as a layer in another compositor's strips](#the-tree-as-a-layer-in-another-compositors-strips)
@@ -379,7 +385,7 @@ static void captions_language(dgx_ui_t *ui, const int widgets[CAPTIONS], int lan
 - **`DGX_UI_TEXT_CONST(text, lines, style)`** makes a box whose buffer is the string and whose size is 0. The
   library never writes such a buffer: `dgx_ui_text_set()` on it changes nothing and returns `false`, and a field over
   it takes no letter.
-- **The box is still 28 bytes of RAM**: the library keeps in it how the text was fitted. What is saved is the
+- **The box is still 28 bytes<!-- sizeof dgx_ui_textbox_t --> of RAM**: the library keeps in it how the text was fitted. What is saved is the
   buffer, and the two calls that made the box and set its text. Measured on ten captions with buffers of 16 bytes on
   an ESP32: 168 bytes of RAM and 88 bytes of code less; the image is some 14 bytes a caption larger, as the boxes'
   first values now lie in flash.
@@ -625,7 +631,7 @@ static int fan_add(dgx_ui_t *ui, int parent)
   program is not given that key while the list is open.
 - **A finger moved along the list** takes the bar with it and, let go, chooses nothing: the list stays open, and a
   tap chooses.
-- **`dgx_ui_dropdown_t`** is the popup of the list, 284 bytes of the program's RAM on a 32-bit chip, zeroed before
+- **`dgx_ui_dropdown_t`** is the popup of the list, 284 bytes<!-- sizeof dgx_ui_dropdown_t --> of the program's RAM on a 32-bit chip, zeroed before
   its first use as a `static` is. One list is open at a time, so one serves every dropdown.
 - **The looks** of the popup are the last two arguments, its frame and its list; `NULL` is the library's.
 - **The tree knows its screen before the first list opens**: the list is placed on the screen the tree was laid
@@ -1241,7 +1247,7 @@ What the variant says:
 - **Which looks write it.** The one-line look, that is a label, and `dgx_ui_look_hand_lines` for several lines,
   below. In a button, a field, a list and `dgx_ui_look_lines` a handwritten variant is passed over.
 - **What it costs.** Named by a variant: about 31 KB, of which the font `font0ss` is 17.8 KB, DGX's pen 10 KB and
-  dgx-ui 1.6 KB. Not named: about 100 bytes. A variant is 16 bytes, handwritten or not.
+  dgx-ui 1.6 KB. Not named: about 100 bytes. A variant is 20 bytes<!-- sizeof dgx_ui_font_variant_t -->, handwritten or not.
 - **The time of a pass.** The pen keeps nothing between passes: each pass goes over the strokes already written
   without drawing them, then writes the new ones. On an ESP32 at 240 MHz with a display of 320 by 240 on SPI a pass
   takes 5 to 9 ms while a line of 12 to 30 letters is written at 24 pixels, under 3 ms of it for the strokes gone
@@ -1656,7 +1662,7 @@ static void air_message(const dgx_ui_msg_t *msg)
   `DGX_UI_SHOWN`.
 - **It is not `dgx_ui_show()`**: hiding and showing a widget tells nobody.
 - **What it costs**: about 0.65 KB in a program that opens popups, nothing in one that opens none; a tree is 104
-  bytes, 8 more than before.
+  bytes<!-- sizeof dgx_ui_t -->.
 
 ## Pages that slide
 
@@ -2403,7 +2409,7 @@ What to know of it:
 - **The letters of the fonts**: a font made at build time for the texts of a file takes the strings of a JSON file
   as well, so the description itself can be named in the need's `TEXTS`.
 - **What it costs**: about 8 KB of code in a program that loads a description, and in RAM what
-  `dgx_ui_load_need()` says: here 56 bytes a widget, its node as for any widget, a text box and the text for each
+  `dgx_ui_load_need()` says: here 56 bytes<!-- sizeof dgx_ui_widget_t --> a widget, its node as for any widget, a text box and the text for each
   that has one. A constant tree lies in flash; a described one in RAM.
 
 ## A description made C when the program is built
@@ -2517,7 +2523,7 @@ What to know of it:
   [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
-  one that loads it. The widgets are constants in flash, 56 bytes each; in RAM are the nodes, as for any widget,
+  one that loads it. The widgets are constants in flash, 56 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,
   the text boxes and the buffers of the texts the program writes.
 - **The made files are not to be edited**: they are written again whenever the description or the names file
   changes.
@@ -3267,7 +3273,7 @@ static bool saver_take(dgx_ui_t *home, int i, const dgx_ui_msg_t *msg)
   to the saver's page, which lies over home.
 - **A loop that does not wait by `dgx_ui_wake()`** hears of the idle when it next turns: `dgx_ui_time()` asks for
   no time for it.
-- **What it costs**: about 1 KB for a program that names an idle, and a struct of 28 bytes. A program that names
+- **What it costs**: about 1 KB for a program that names an idle, and a struct of 28 bytes<!-- sizeof dgx_ui_idle_t -->. A program that names
   none carries a test of a pointer in each input call it makes and in `dgx_ui_time()`.
 
 ## How long a pass takes
@@ -3333,7 +3339,7 @@ What to know of it:
 - The line is written when a pass comes: a loop that sleeps writes none while it sleeps.
 - Showing the line on the screen draws it, and that draw is counted too.
 - The measured pass reads the clock twice for every part it draws, so it is a few microseconds longer than the plain
-  one. A program that names none of this carries none; one that does, about 1.8 KB and the struct, 104 bytes.
+  one. A program that names none of this carries none; one that does, about 1.8 KB and the struct, 104 bytes<!-- sizeof dgx_ui_paint_stats_t -->.
 
 **Each widget.** The slowest draw names one widget; an array of the program's keeps a count for each of them.
 
@@ -3424,7 +3430,7 @@ static void mirror(dgx_ui_t *ui, dgx_ui_paint_t *paint, const dgx_di_keyboard_t 
 - **The keyboard and the pad of DGX-DI** draw themselves past the tree, so the painter does not put them in the
   picture. DGX-DI from 0.1.7 on draws them onto the same strip, after the tree: the keyboard as above, with the
   display's pixel at the strip's corner given, and the pad before it by `dgx_di_pad_draw_to(pad, band, 0, y)`. The
-  program's `main/idf_component.yml` then asks for `jef-sure/dgx-di` 0.1.7 or later.
+  program's `main/idf_component.yml` then asks for `jef-sure/dgx-di` 0.2.0 or later, the first on DGX 0.12.
 
 ## The tree as a layer in another compositor's strips
 
