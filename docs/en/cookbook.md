@@ -1829,7 +1829,8 @@ static bool prefs_edit_changed(void)
   left as it was until the user moves the control. Where the program uses the variable itself, it bounds it itself,
   or reads `dgx_ui_value()` of the widget.
 - **`nvs_flash_init()`** is called once at the start, as in any program that keeps something in NVS.
-- **On the computer** there is no NVS: a program built for the window keeps its array in a file, or not at all.
+- **On the computer**, in the window of ESP-IDF's linux target, NVS is ESP-IDF's own over a file in place of the
+  flash, as DGX-GE's example hello keeps its count in it; a test built with make has no NVS.
 
 ## Buttons of the board
 
@@ -1857,7 +1858,8 @@ static void buttons_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg, uint32_t now_
 - Up and down move the focus, left and right change the focused slider or switch, A activates, B and BACK are the
   program's.
 - A held up, down, left or right repeats after 500 ms, every 100 ms. The repeat is made by `dgx_ui_time()`, which the
-  loop calls before `dgx_ui_paint()`; while a button is held it returns `true`, and the loop does not sleep.
+  loop calls before `dgx_ui_paint()`; while a button is held it returns `true`, and `dgx_ui_wake()` gives the
+  loop the moment of the next repeat.
 - A single key of a dialog is `dgx_ui_key(ui, DGX_UI_KEY_NEXT)` and its kin.
 
 **Which key a button gives** is a table. By default:

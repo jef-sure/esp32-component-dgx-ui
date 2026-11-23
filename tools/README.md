@@ -18,7 +18,7 @@ folder to open: [From a terminal](../editor/README.md#from-a-terminal).
 
 ## From CMake
 
-A program built by ESP-IDF does not run the tool itself. Two calls in the CMakeLists of a component, after
+A program built by ESP-IDF does not run the tool itself. Three calls in the CMakeLists of a component, after
 `idf_component_register()`, build it once for the project and run it when the program is built:
 
 ```cmake

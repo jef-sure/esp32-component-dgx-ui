@@ -20,7 +20,7 @@
 | [`dgx_ui_load.h`](#dgx_ui_loadh) | дерево из описания в JSON |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | касание DGX-DI как указатель дерева |
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | цвета, стили текста и облики из описания в JSON, одного на все страницы |
-| [`project_include.cmake`](#project_includecmake) | два вызова CMake: описание, переведённое на C при сборке программы |
+| [`project_include.cmake`](#project_includecmake) | три вызова CMake: описания, файлы имён и внешний вид, переведённые на C при сборке программы |
 
 Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.0.52:
 имена и сигнатуры ещё могут измениться.
@@ -1774,9 +1774,9 @@ static const dgx_ui_params_t dial_described = DGX_UI_PARAMS(dial_params_t, 1u <<
 
 ## project_include.cmake
 
-Два вызова для `CMakeLists.txt` компонента, в том числе `main` программы, после `idf_component_register()`; вызов,
-написанный до него, ESP-IDF встречает словами `Unknown CMake command`. Они переводят описание на C при сборке
-программы — это делает `dgx_ui_c`, инструмент компонента, который работает на компьютере. Рецепт:
+Три вызова для `CMakeLists.txt` компонента, в том числе `main` программы, после `idf_component_register()`; вызов,
+написанный до него, ESP-IDF встречает словами `Unknown CMake command`. Они переводят описание, файл имён или внешний вид
+на C при сборке программы — это делает `dgx_ui_c`, инструмент компонента, который работает на компьютере. Рецепт:
 [Описание, переведённое на C при сборке](cookbook.md#описание-переведённое-на-c-при-сборке);
 страница самого инструмента:
 [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).

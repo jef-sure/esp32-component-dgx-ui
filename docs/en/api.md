@@ -19,7 +19,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_load.h`](#dgx_ui_loadh) | a tree made from a description in JSON |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
-| [`project_include.cmake`](#project_includecmake) | two calls of CMake: a description made C when the program is built |
+| [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
 All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.0.52: the names
 and the signatures may still change.
@@ -1757,9 +1757,9 @@ each draw it lists, 24 bytes a field; one that does not, nothing. On an ESP32 a 
 
 ## project_include.cmake
 
-Two calls for the `CMakeLists.txt` of a component, the program's `main` among them, after `idf_component_register()`;
-written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description C when the program is
-built, by `dgx_ui_c`, the component's tool that runs on the computer.
+Three calls for the `CMakeLists.txt` of a component, the program's `main` among them, after `idf_component_register()`;
+written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
+C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
 the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
 
