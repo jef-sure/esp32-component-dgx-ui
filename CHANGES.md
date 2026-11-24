@@ -1,5 +1,12 @@
 # Changes
 
+## 0.0.54 - 2026-11-24
+
+- The builder's server writes only the files the project's dgx_ui_tree(), dgx_ui_appearance() and dgx_ui_names()
+  calls name, and pages already there.
+- It refuses a body cut short.
+- Docs: the builder from a terminal, what its server writes.
+
 ## 0.0.53 - 2026-11-24
 
 - An example to start a project from, examples/hello: a text and a count another task sends once a second, in fonts
