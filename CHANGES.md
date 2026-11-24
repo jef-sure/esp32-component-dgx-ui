@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.53 - 2026-11-24
+
+- An example to start a project from, examples/hello: a text and a count another task sends once a second, in fonts
+  DGX ships and its named colours, for a CYD and a window on the computer.
+- A switch or a radio whose handler removes it or frees its tree at a click: nothing of it read after.
+- `dgx_ui_dump()` no longer stops a build for a chip on ESP-IDF 5.2 to 5.4.
+- Docs: plainer Russian in three pages.
+
 ## 0.0.52 - 2026-11-22
 
 - The builder served from a terminal, for a browser that gives a page no folder to open, as VS Code's:
