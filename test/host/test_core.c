@@ -429,6 +429,21 @@ static const dgx_ui_widget_t focus_dies  = {.kind = DGX_UI_BUTTON, .want_h = 20,
 static int32_t change_dies_place; /* its value */
 static const dgx_ui_widget_t change_dies = {.kind = DGX_UI_SLIDER, .value = &change_dies_place, .want_h = 20, .max = 100, .on = on_remove, .ctx = (void *)(intptr_t)DGX_UI_CHANGED};
 static const dgx_ui_widget_t tagged_box  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .tag = 5, .want_h = 40};
+/* at a value changed by a finger: its widget removed, or its whole tree freed (a page rebuilt when a setting is
+   toggled) */
+static void on_free(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    if (what == DGX_UI_CHANGED) dgx_ui_free(ui);
+}
+static int32_t               toggled_place; /* their value */
+static const dgx_ui_widget_t switch_dies  = {.kind = DGX_UI_SWITCH, .max = 1, .want_h = 20, .value = &toggled_place, .on = on_remove,
+                                             .ctx = (void *)(intptr_t)DGX_UI_CHANGED};
+static const dgx_ui_widget_t radio_dies   = {.kind = DGX_UI_RADIO, .step = 3, .want_h = 20, .value = &toggled_place, .on = on_remove,
+                                             .ctx = (void *)(intptr_t)DGX_UI_CHANGED};
+static const dgx_ui_widget_t switch_frees = {.kind = DGX_UI_SWITCH, .max = 1, .want_h = 20, .value = &toggled_place, .on = on_free};
+static const dgx_ui_widget_t radio_frees  = {.kind = DGX_UI_RADIO, .step = 3, .want_h = 20, .value = &toggled_place, .on = on_free};
+static const dgx_ui_widget_t slider_frees = {.kind = DGX_UI_SLIDER, .flags = DGX_UI_SWIPE, .max = 100, .want_h = 20, .value = &toggled_place,
+                                             .on = on_free};
 
 static void test_edges(void)
 {
@@ -481,6 +496,25 @@ static void test_edges(void)
     CHECK(dgx_ui_widget(&ui, cd) == NULL && ui.pressed == -1);
     (void)y;
     dgx_ui_free(&ui);
+
+    /* a switch and a radio clicked, whose on(CHANGED) removes them or frees their tree: nothing of them read after it;
+       a swiped slider moved, whose on(CHANGED) frees its tree, the same. The nodes in blocks of the heap, so that a
+       read of a freed one is caught */
+    const dgx_ui_widget_t *changed_dies[] = {&switch_dies, &radio_dies, &switch_frees, &radio_frees, &slider_frees};
+    for (size_t k = 0; k < sizeof changed_dies / sizeof *changed_dies; ++k) {
+        const bool frees = changed_dies[k]->on == on_free;
+        toggled_place    = 0;
+        dgx_ui_init(&ui, NULL, 0, 1);
+        dgx_ui_set_root(&ui, 0, 0, 100, 100);
+        dgx_ui_add(&ui, -1, &column);
+        const int dies = dgx_ui_add(&ui, 0, changed_dies[k]);
+        dgx_ui_layout(&ui);
+        CHECK(dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 10, .y = 10, .down = true, .pressed = true, .ms = 0}));
+        if (changed_dies[k]->kind == DGX_UI_SLIDER) CHECK(dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 70, .y = 10, .down = true, .ms = 20}));
+        else CHECK(dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 10, .y = 10, .released = true, .ms = 50}));
+        CHECK(toggled_place != 0 && ui.pressed == -1 && (frees ? ui.count == 0 : dgx_ui_widget(&ui, dies) == NULL));
+        dgx_ui_free(&ui);
+    }
 }
 
 /* a child that takes what is left: a row of a name and a value at the right edge on any width; a column of a title,

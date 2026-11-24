@@ -891,7 +891,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         const int i = ui->pressed;
         if (swiped_slider(w)) {
             swipe_to_value(ui, i, dx);
-            if (dgx_ui_value_of(n) != ui->press_value) ui->dragged = true; /* moved once: no tap when let go */
+            if (live(ui, i) && dgx_ui_value_of(n) != ui->press_value) ui->dragged = true; /* moved once: no tap when let go */
         } else if (w->kind == DGX_UI_SLIDER) {
             point_to_value(ui, i, p->x - n->x, p->y - n->y); /* the knob follows */
         } else if (w->kind == DGX_UI_LIST) {
@@ -935,9 +935,10 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         }
         if (w->kind == DGX_UI_SWITCH) user_value(ui, i, dgx_ui_value_of(n) ? 0 : 1);
         if (w->kind == DGX_UI_RADIO) user_value(ui, i, w->step); /* its number into the group's place */
+        if (!live(ui, i) || NODE(ui, i)->widget != w) return true; /* on(CHANGED) removed it, freed the tree, or put another in its place */
         /* a list that scrolls, a click: the row it went down on, picked now */
         if (list_scrolls(ui, n)) point_to_value(ui, i, ui->press_x - n->x, ui->press_y - n->y);
-        if (!live(ui, i) || NODE(ui, i)->widget != w) return true; /* on(CHANGED) removed it, or put another in its place */
+        if (!live(ui, i) || NODE(ui, i)->widget != w) return true; /* the same, by the list's on(CHANGED) */
         if (w->kind == DGX_UI_INPUT) tell(ui, i, DGX_UI_EDIT); /* a field clicked: to be edited */
         if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN) tell(ui, i, DGX_UI_ACTIVATED);
         return true;
