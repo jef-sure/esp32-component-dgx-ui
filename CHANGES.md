@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.55 - 2026-11-25
+
+- The text style's list of fonts is named `fonts`, as the appearance's JSON names it; `variants` is gone.
+- Docs: the pages' code and the listing of the style name `fonts`.
+
 ## 0.0.54 - 2026-11-24
 
 - The builder's server writes only the files the project's dgx_ui_tree(), dgx_ui_appearance() and dgx_ui_names()

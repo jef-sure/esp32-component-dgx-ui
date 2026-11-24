@@ -1,7 +1,7 @@
 /*
  * dgx_ui_preview.js: the preview of a description, dgx-ui built to WebAssembly, in one file a page loads with no
  * server (editor/preview/dgx_ui_preview.h, preview_class.js). Made by editor/preview/Makefile, not to be edited:
- * dgx-ui 0.0.54, DGX 0.12.3 of the registry, 3993723d2470e417,
+ * dgx-ui 0.0.55, DGX 0.12.3 of the registry, 3993723d2470e417,
  * clang 21.1.8, wasi-libc 0.0~git20250726.3f7eb4c-4, libclang-rt-21-dev-wasm32 1:21.1.8-6ubuntu1, lld-21 1:21.1.8-6ubuntu1,
  * sources sha256 6f87e687d753e9f818961aeddd4095139ec5338bf961ddf6f30d2ffeeb8c76f6.
  * The module, 317723 bytes, is MIT as dgx-ui and DGX, with code of wasi-libc and compiler-rt and five fonts of
@@ -3207,7 +3207,7 @@ const DGX_UI_PREVIEW_MODULE = [
     'BLkEGAGOBe0CFgTyAJcDAQM4Ba8BggFPAy8EHgDUBaIAEgMeA8IB3gMIAKwFAAFkAvEBZQU0AowCzwItA0wE4wWfAvgEHAUIBbEC',
     'SwUVAngAUgI8A/ED5ADDA30EzACqA3kFJAJuAW0DIgSrBEQA+wGuAIMDYADlAQcElAReBCsAWAE5AZIAwgWbAUMCRgH2BV19ACwg',
     'InBlcmNlbnQiOiB7Im1pbiI6ICVsZCwgIm1heCI6IDEyNy45OX0AdGhlIHJhbmdlcyBkbyBub3QgZW5kIGluIHswLCAwLCAwfQB7',
-    'ImRneF91aSI6ICIwLjAuNTQiLCAiZGd4IjogIjAuMTIuMyBvZiB0aGUgcmVnaXN0cnksIDM5OTM3MjNkMjQ3MGU0MTciLCAidG9v',
+    'ImRneF91aSI6ICIwLjAuNTUiLCAiZGd4IjogIjAuMTIuMyBvZiB0aGUgcmVnaXN0cnksIDM5OTM3MjNkMjQ3MGU0MTciLCAidG9v',
     'bGNoYWluIjogImNsYW5nIDIxLjEuOCwgd2FzaS1saWJjIDAuMH5naXQyMDI1MDcyNi4zZjdlYjRjLTQsIGxpYmNsYW5nLXJ0LTIx',
     'LWRldi13YXNtMzIgMToyMS4xLjgtNnVidW50dTEsIGxsZC0yMSAxOjIxLjEuOC02dWJ1bnR1MSIsICJzb3VyY2VzIjogInNoYTI1',
     'NiA2Zjg3ZTY4N2Q3NTNlOWY4MTg5NjFhZWRkZDQwOTUxMzllYzUzMzhiZjk2MWRkZjZmMzBkMmZmZWViOGM3NmY2In0AewBiYW5k',
