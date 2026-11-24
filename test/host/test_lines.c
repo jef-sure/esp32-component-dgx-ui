@@ -70,9 +70,9 @@ static void reference(dgx_screen_t *e, const dgx_ui_node_t *n, const char *const
 int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    plain      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    important  = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 100};
-    centred    = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
+    plain      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    important  = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 100};
+    centred    = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
     dgx_screen_t  *v = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB), *e = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     dgx_ui_paint_t pv = {.scr = v, .colors = colors, .color_count = 2};
 
@@ -367,7 +367,7 @@ int main(void)
         const dgx_font_align_t     aligns[3] = {DGX_FONT_ALIGN_LEFT, DGX_FONT_ALIGN_CENTER, DGX_FONT_ALIGN_RIGHT};
         for (int k = 0; k < 12; ++k) {
             const bool middle_k = k / 3 % 2, important_k = k / 6;
-            styles[k]           = (dgx_ui_text_style_t){.variants  = variant,
+            styles[k]           = (dgx_ui_text_style_t){.fonts  = variant,
                                                         .count     = 1,
                                                         .align     = aligns[k % 3],
                                                         .flags     = (uint8_t)((middle_k ? DGX_UI_TEXT_MIDDLE : 0) | (important_k ? DGX_UI_TEXT_IMPORTANT : 0)),

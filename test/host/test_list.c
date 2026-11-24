@@ -73,7 +73,7 @@ static int differ(const panel_t *p, dgx_screen_t *v)
 int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
     dgx_ui_textbox_init(&fruit_box, fruit_buf, sizeof fruit_buf, 1, &style);
     panel_t       *panel = panel_make();
     dgx_ui_paint_t pp    = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 4};

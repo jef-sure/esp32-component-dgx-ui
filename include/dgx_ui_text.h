@@ -76,7 +76,7 @@ enum {
 
 /** @brief How a text is drawn: its fonts, the best first, and where it stands in its field. */
 typedef struct dgx_ui_text_style_t {
-    const dgx_ui_font_variant_t *variants; ///< the best first
+    const dgx_ui_font_variant_t *fonts;    ///< the variants of a font tried in turn, the best first
     uint8_t                      count;
     uint8_t                      flags;     ///< DGX_UI_TEXT_*
     dgx_font_align_t             align;     ///< each line in the field

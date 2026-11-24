@@ -179,7 +179,7 @@ int main(void)
 {
     variant[0]             = (dgx_ui_font_variant_t){.font = &font0ss, .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
     variant[1]             = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style                  = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+    style                  = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
     dgx_screen_t *drawn    = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     dgx_screen_t *expected = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     static tree_t tree;
@@ -453,7 +453,7 @@ int main(void)
         paint = (dgx_ui_paint_t){.scr = drawn, .colors = colors, .color_count = 4};
         dgx_ui_paint(&tree.ui, &paint, 0);
         static dgx_ui_text_style_t bitmap_only;
-        bitmap_only = (dgx_ui_text_style_t){.variants = &variant[1], .count = 1};
+        bitmap_only = (dgx_ui_text_style_t){.fonts = &variant[1], .count = 1};
         memset(&plain, 0, sizeof plain);
         make(&plain, 150, 64, false, NOTE, &dgx_ui_look_lines);
         plain.box.style              = &bitmap_only;

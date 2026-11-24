@@ -191,7 +191,7 @@ int main(void)
 {
     variant[0]             = (dgx_ui_font_variant_t){.font = &font0ss, .height = 24, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
     variant[1]             = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style                  = (dgx_ui_text_style_t){.variants = variant, .count = 2};
+    style                  = (dgx_ui_text_style_t){.fonts = variant, .count = 2};
     dgx_screen_t *drawn    = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB); /* what the look draws */
     dgx_screen_t *expected = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB); /* what DGX draws by hand */
     static tree_t tree;
@@ -240,7 +240,7 @@ int main(void)
         static tree_t               ladder;
         variant[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
         variant[1] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
-        style      = (dgx_ui_text_style_t){.variants = variant, .count = 2};
+        style      = (dgx_ui_text_style_t){.fonts = variant, .count = 2};
         dgx_ui_paint_t ladder_paint = {.scr = drawn, .colors = colors, .color_count = 4};
         make(&ladder, 120, 40, false, "mmm");
         dgx_ui_paint(&ladder.ui, &ladder_paint, 0);
@@ -263,7 +263,7 @@ int main(void)
         const int behind_variant = ladder.box.variant, behind = ink_bottom(drawn, ladder_node) - (ladder_node->y + rows);
         dgx_ui_paint_free(&ladder_paint), dgx_ui_free(&ladder.ui);
         /* the same text with the bitmap alone, on its own base line: its letters as far from the line */
-        style        = (dgx_ui_text_style_t){.variants = &variant[1], .count = 1};
+        style        = (dgx_ui_text_style_t){.fonts = &variant[1], .count = 1};
         ladder_paint = (dgx_ui_paint_t){.scr = drawn, .colors = colors, .color_count = 4};
         make(&ladder, 120, 40, false, "mmm mmm mmm mmm mmm");
         dgx_ui_paint(&ladder.ui, &ladder_paint, 0);
@@ -271,7 +271,7 @@ int main(void)
         const int alone  = ink_bottom(drawn, ladder_node) - (ladder_node->y - TerminusTTFMedium12.y_offset_lowest);
         CHECK(behind_variant == 1 && behind == alone);
         dgx_ui_paint_free(&ladder_paint), dgx_ui_free(&ladder.ui);
-        style = (dgx_ui_text_style_t){.variants = variant, .count = 2};
+        style = (dgx_ui_text_style_t){.fonts = variant, .count = 2};
         variant[1] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 16, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
         /* a bitmap first: the handwriting on its base line */
         variant[0] = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
@@ -284,7 +284,7 @@ int main(void)
         dgx_ui_paint_free(&ladder_paint), dgx_ui_free(&ladder.ui);
         /* in the middle: one variant 24 high in a box 40 high */
         variant[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 24, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
-        style      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
+        style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
         ladder_paint = (dgx_ui_paint_t){.scr = drawn, .colors = colors, .color_count = 4};
         make(&ladder, 120, 40, false, "mmm");
         dgx_ui_paint(&ladder.ui, &ladder_paint, 0);
@@ -307,7 +307,7 @@ int main(void)
         static tree_t           aligned;
         const dgx_font_align_t  aligns[3] = {DGX_FONT_ALIGN_LEFT, DGX_FONT_ALIGN_CENTER, DGX_FONT_ALIGN_RIGHT};
         for (int k = 0; k < 3; ++k) {
-            style = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = aligns[k]};
+            style = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = aligns[k]};
             dgx_ui_paint_t aligned_paint = {.scr = k ? expected : drawn, .colors = colors, .color_count = 4};
             make(&aligned, 60, 30, false, text);
             dgx_ui_paint(&aligned.ui, &aligned_paint, 0);

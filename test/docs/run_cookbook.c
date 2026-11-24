@@ -981,7 +981,7 @@ int main(int argc, char **argv)
         static uint32_t              tb[COLORS];
         for (int k = 0; k < COLORS; ++k) tb[k] = dgx_screen_rgb(scr, (uint8_t)(30 * k), (uint8_t)(250 - 30 * k), (uint8_t)(10 + 25 * k));
         dgx_ui_paint_t pp = {.scr = scr, .colors = tb, .color_count = COLORS, .background = PAPER};
-        st_news = (dgx_ui_text_style_t){.variants = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
+        st_news = (dgx_ui_text_style_t){.fonts = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
         dgx_ui_textbox_init(&news_box, news_buf, sizeof news_buf, 2, &st_news);
         dgx_ui_textbox_init(&ask2_box, ask2_buf, sizeof ask2_buf, 1, &st_left);
         dgx_ui_init(&w, wn, 4, 2);
@@ -1768,7 +1768,7 @@ int main(int argc, char **argv)
         printf("appearance: day made C, %d colours, accent the index %d packed %s; its style's font %s with nothing called; the page on it: added %d, a slider and a button of its looks %d, "
                "texts of its style %d\n",
                day_appearance.color_count, (int)day_color_accent, day_colors[day_color_accent] == dgx_screen_rgb(day_screen, 0xf0, 0xa0, 0x3c) ? "right" : "WRONG",
-               day_style[0].variants[0].font == &dgx_font_body ? "there" : "NOT THERE", top >= 0, of_the_appearance, of_its_style);
+               day_style[0].fonts[0].font == &dgx_font_body ? "there" : "NOT THERE", top >= 0, of_the_appearance, of_its_style);
         dgx_ui_free(&day_page), dgx_screen_destroy(&day_screen);
     }
 

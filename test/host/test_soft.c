@@ -91,7 +91,7 @@ int main(void)
     static dgx_ui_font_variant_t variant[1];
     static dgx_ui_text_style_t   style;
     variant[0] = (dgx_ui_font_variant_t){.font = &soft_font};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     static char             label_text[16], button_text[16], list_text[32], lines_text[48], choice_text[32], field_text[16];
     static dgx_ui_textbox_t label_box, button_box, list_box, lines_box, choice_box, field_box;
     dgx_ui_textbox_init(&label_box, label_text, sizeof label_text, 1, &style);

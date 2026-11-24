@@ -24,7 +24,7 @@ int32_t                            volume           = 40;
 static const dgx_ui_text_look_t    mine_colours     = {.ink = 1, .paper = 0};
 const dgx_ui_look_t                mine             = {.draw = dgx_ui_draw_text, .params = &mine_colours, .fill = -1};
 static const dgx_ui_font_variant_t plain_variant[1] = {{.font = &TerminusTTFMedium12}};
-const dgx_ui_text_style_t          plain            = {.variants = plain_variant, .count = 1};
+const dgx_ui_text_style_t          plain            = {.fonts = plain_variant, .count = 1};
 bool draw_dial(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t *node = dgx_ui_node(ui, i);
@@ -72,7 +72,7 @@ static bool same_style(const dgx_ui_text_style_t *a, const dgx_ui_text_style_t *
 {
     if (a->count != b->count || a->flags != b->flags || a->align != b->align || a->scroll_ms != b->scroll_ms) return false;
     for (int v = 0; v < a->count; ++v) {
-        const dgx_ui_font_variant_t *x = &a->variants[v], *y = &b->variants[v];
+        const dgx_ui_font_variant_t *x = &a->fonts[v], *y = &b->fonts[v];
         if (x->font != y->font || x->height != y->height || x->narrow != y->narrow || x->joined != y->joined || x->pen != y->pen || x->hand != y->hand ||
             x->points != y->points)
             return false;

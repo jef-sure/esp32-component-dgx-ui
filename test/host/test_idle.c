@@ -36,7 +36,7 @@ static uint8_t        buffer[PANEL_W * 2 * 8];
 static dgx_ui_paint_t paint;
 
 static dgx_ui_font_variant_t variant[1];
-static dgx_ui_text_style_t   style = {.variants = variant, .count = 1};
+static dgx_ui_text_style_t   style = {.fonts = variant, .count = 1};
 static dgx_ui_textbox_t      go_box = DGX_UI_TEXT_CONST("Go", 1, &style), plus_box = DGX_UI_TEXT_CONST("+", 1, &style);
 static dgx_ui_textbox_t      options_box = DGX_UI_TEXT_CONST("A\nB", 1, &style);
 static char                  field_text[8] = "1";

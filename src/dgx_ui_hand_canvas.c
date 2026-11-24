@@ -33,7 +33,7 @@ static bool into_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui
     const dgx_ui_hand_held_t now  = {.text_hash  = dgx_ui_hand_hash(text, (int)strlen(text)),
                                      .since_ms   = line->since_ms,
                                      .written_ms = line->elapsed_ms,
-                                     .variant    = (uint8_t)(variant - box->style->variants),
+                                     .variant    = (uint8_t)(variant - box->style->fonts),
                                      .written    = 1};
     const bool anew = made || line->anew || !held || !held->written || held->text_hash != now.text_hash || held->since_ms != now.since_ms ||
                       held->variant != now.variant || now.written_ms < held->written_ms;

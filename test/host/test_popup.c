@@ -85,7 +85,7 @@ static int differ(const panel_t *p, dgx_screen_t *v)
 int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
     panel_t       *panel = panel_make();
     dgx_ui_paint_t pp    = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 4};
     dgx_screen_t  *v     = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
@@ -184,7 +184,7 @@ int main(void)
         static dgx_ui_node_t         n2[2], m2[2], q2[2];
         static const dgx_ui_widget_t cover_all = {.kind = DGX_UI_FRAME};
         two[0] = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32}, two[1] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-        st2    = (dgx_ui_text_style_t){.variants = two, .count = 2, .flags = DGX_UI_TEXT_MIDDLE};
+        st2    = (dgx_ui_text_style_t){.fonts = two, .count = 2, .flags = DGX_UI_TEXT_MIDDLE};
         dgx_ui_t a, b, all;
         dgx_ui_textbox_init(&t2, b2, sizeof b2, 1, &st2);
         w2 = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t2, .want_w = 80};

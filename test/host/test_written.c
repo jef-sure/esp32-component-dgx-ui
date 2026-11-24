@@ -31,10 +31,10 @@ static dgx_ui_paint_t paint;
 
 /* a bitmap font; a ladder of a large font then a small one; handwriting straight, and into a canvas */
 static dgx_ui_font_variant_t terminus[1], ladder[2], hand[1], hand_canvas[1];
-static dgx_ui_text_style_t   style        = {.variants = terminus, .count = 1};
-static dgx_ui_text_style_t   ladder_style = {.variants = ladder, .count = 2};
-static dgx_ui_text_style_t   hand_style   = {.variants = hand, .count = 1};
-static dgx_ui_text_style_t   canvas_style = {.variants = hand_canvas, .count = 1};
+static dgx_ui_text_style_t   style        = {.fonts = terminus, .count = 1};
+static dgx_ui_text_style_t   ladder_style = {.fonts = ladder, .count = 2};
+static dgx_ui_text_style_t   hand_style   = {.fonts = hand, .count = 1};
+static dgx_ui_text_style_t   canvas_style = {.fonts = hand_canvas, .count = 1};
 
 static const char yes_text[] = "Yes";
 

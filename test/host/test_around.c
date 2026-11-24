@@ -139,7 +139,7 @@ static void steps(panel_t *panel, dgx_screen_t *v, const dgx_ui_widget_t *root, 
 int main(void)
 {
     variant[0]     = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style          = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+    style          = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
     panel_t      *panel = panel_make();
     dgx_screen_t *v     = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
 

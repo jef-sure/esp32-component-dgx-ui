@@ -285,8 +285,8 @@ tree into the program's own strip or frame: see
 
 ## Texts
 
-A text box holds the program's buffer for the string, the number of lines it shows and a style. A style lists the
-variants: the fonts the text may be drawn in, the best first. The painter takes the first variant the text goes into
+A text box holds the program's buffer for the string, the number of lines it shows and a style. A style lists its
+fonts, `fonts`: the variants the text may be drawn in, the best first. The painter takes the first variant the text goes into
 whole; when none does, the one that shows the most letters.
 
 A label draws one line: the text in a field as wide as the widget, a text too long cut with an ellipsis. The look

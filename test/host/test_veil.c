@@ -36,7 +36,7 @@ static dgx_ui_paint_t paint;
 static bool           with_bands; /* over the program's picture */
 
 static dgx_ui_font_variant_t variant[1];
-static dgx_ui_text_style_t   style = {.variants = variant, .count = 1};
+static dgx_ui_text_style_t   style = {.fonts = variant, .count = 1};
 
 static dgx_ui_textbox_t go_box = DGX_UI_TEXT_CONST("Go", 1, &style), go2_box = DGX_UI_TEXT_CONST("Go", 1, &style);
 static dgx_ui_textbox_t options_box = DGX_UI_TEXT_CONST("One\nTwo", 1, &style), options2_box = DGX_UI_TEXT_CONST("One\nTwo", 1, &style);

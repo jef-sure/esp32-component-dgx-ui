@@ -34,7 +34,7 @@ static uint8_t        buffer[PANEL_W * 3 * 8];
 static dgx_ui_paint_t paint;
 
 static dgx_ui_font_variant_t variant[1];
-static dgx_ui_text_style_t   style = {.variants = variant, .count = 1};
+static dgx_ui_text_style_t   style = {.fonts = variant, .count = 1};
 
 /* the trees, and what their roots were told */
 enum { HOME, P1, P2, DIALOG, ALARM, HINT, TREES };

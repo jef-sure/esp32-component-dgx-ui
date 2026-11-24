@@ -52,7 +52,7 @@ static void on_go(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void
 }
 
 static const dgx_ui_font_variant_t terminus[1]  = {{.font = &TerminusTTFMedium12}};
-static const dgx_ui_text_style_t   plain        = {.variants = terminus, .count = 1};
+static const dgx_ui_text_style_t   plain        = {.fonts = terminus, .count = 1};
 static int32_t                     direct_value = 0;
 
 static panel_t *drawn_directly(int pixels_a_point)

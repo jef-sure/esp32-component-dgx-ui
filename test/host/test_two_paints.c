@@ -47,7 +47,7 @@ static void make(const dgx_ui_look_t *look, int width, int height, const char *t
                                          .pen    = 2 | (soft ? DGX_PEN_SOFT : 0),
                                          .hand   = way == INTO_CANVAS ? &dgx_ui_handwriting_canvas : &dgx_ui_handwriting};
     if (way == BITMAP) variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = important ? DGX_UI_TEXT_IMPORTANT : 0, .scroll_ms = important ? 300 : 0};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = important ? DGX_UI_TEXT_IMPORTANT : 0, .scroll_ms = important ? 300 : 0};
     dgx_ui_textbox_init(&box, buf, sizeof buf, 1, &style);
     label_w = (dgx_ui_widget_t){.kind   = DGX_UI_LABEL,
                                 .flags  = way == INTO_CANVAS ? DGX_UI_CANVAS : 0,

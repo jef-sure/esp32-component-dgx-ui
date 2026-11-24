@@ -25,12 +25,12 @@ static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
 static void draw_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int fy, int fw, int fh, uint32_t face, uint32_t ink, int unit)
 {
     const dgx_ui_textbox_t *box = n->widget->text;
-    const dgx_font_t       *f   = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
+    const dgx_font_t       *f   = box && box->style && box->style->count ? box->style->fonts[0].font : NULL;
     if (!dgx_ui_variant_usable(f) || fw <= 0) {
         fill(paint, fx, fy, fw, fh, face);
         return;
     }
-    const int s    = dgx_ui_variant_scale(&box->style->variants[0], unit); /* the pixels a pixel of the font takes */
+    const int s    = dgx_ui_variant_scale(&box->style->fonts[0], unit); /* the pixels a pixel of the font takes */
     const int cell = (f->y_bottom_max - f->y_offset_lowest) * s, base = fy + (fh - cell) / 2 - f->y_offset_lowest * s;
     const int top = base + f->y_offset_lowest * s, bottom = base + f->y_bottom_max * s;
     fill(paint, fx, fy, fw, top - fy, face);

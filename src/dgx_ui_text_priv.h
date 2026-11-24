@@ -79,7 +79,7 @@ static inline bool dgx_ui_variant_usable(const dgx_font_t *font)
    -1 when the first variant cannot be drawn: the text stands on its own */
 static inline int dgx_ui_first_base(const dgx_ui_text_style_t *style, int unit)
 {
-    const dgx_ui_font_variant_t *first = &style->variants[0];
+    const dgx_ui_font_variant_t *first = &style->fonts[0];
     if (first->hand) return first->hand->base_rows(first);
     return dgx_ui_variant_usable(first->font) ? -first->font->y_offset_lowest * dgx_ui_variant_scale(first, unit) : -1;
 }

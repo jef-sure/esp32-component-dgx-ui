@@ -45,12 +45,12 @@ static void make_styles(void)
     big[0]   = (dgx_ui_font_variant_t){.font = &dgx_font_large};
     big[1]   = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     small[0] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
-    st_big       = (dgx_ui_text_style_t){.variants = big, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
-    st_left      = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    st_right     = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
-    st_centre    = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
-    st_important = (dgx_ui_text_style_t){.variants = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
-    st_plain     = (dgx_ui_text_style_t){.variants = small, .count = 1};
+    st_big       = (dgx_ui_text_style_t){.fonts = big, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_left      = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    st_right     = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
+    st_centre    = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
+    st_important = (dgx_ui_text_style_t){.fonts = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
+    st_plain     = (dgx_ui_text_style_t){.fonts = small, .count = 1};
 }
 
 /* ---------------------------------------------------------------- scene 1: the first program */

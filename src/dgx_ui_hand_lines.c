@@ -112,7 +112,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     dgx_ui_textbox_t            *box     = node->widget->text;
     const dgx_ui_text_look_t    *params  = look->params;
     const dgx_ui_text_style_t   *style   = box->style;
-    const dgx_ui_font_variant_t *variant = &style->variants[v];
+    const dgx_ui_font_variant_t *variant = &style->fonts[v];
     const char                  *text    = box->buf ? box->buf : "";
     const int                    len     = (int)strlen(text);
     const bool                   commit  = !paint->composing && paint->part + 1 >= paint->parts; /* the painter's own pass, its last part */
@@ -293,12 +293,12 @@ bool dgx_ui_draw_hand_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dg
     const char                *text  = box->buf ? box->buf : "";
     int                        v     = box->variant;
     if (node->marks & DGX_UI_MARK_FIT) v = fit_lines(style, text, (int)strlen(text), node->w, node->h, ui->unit);
-    if (v < 0 || v >= style->count || line_height_of(&style->variants[v], ui->unit) <= 0) {
+    if (v < 0 || v >= style->count || line_height_of(&style->fonts[v], ui->unit) <= 0) {
         if (paint->whole) dgx_ui_lay_paper(paint, params->paper, node->x, node->y, node->w, node->h);
         return false;
     }
     /* a bitmap variant of the ladder: the look of lines draws it, on the first variant's base line */
-    if (!style->variants[v].hand) return dgx_ui_draw_lines_in(look, paint, ui, i, now_ms, v, dgx_ui_first_base(style, ui->unit));
+    if (!style->fonts[v].hand) return dgx_ui_draw_lines_in(look, paint, ui, i, now_ms, v, dgx_ui_first_base(style, ui->unit));
     return write_lines(look, paint, ui, i, now_ms, v);
 }
 

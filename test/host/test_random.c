@@ -35,7 +35,7 @@ enum { FIRST_SEED = 1, SEEDS = 24, STEPS = 200 };
 
 static uint32_t              colors[4];
 static dgx_ui_font_variant_t font[1];
-static dgx_ui_text_style_t   style = {.variants = font, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+static dgx_ui_text_style_t   style = {.fonts = font, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
 
 /* a bar of the program's own, filled up to the slider's value */
 static bool bar_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)

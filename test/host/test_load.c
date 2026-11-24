@@ -43,7 +43,7 @@ void       *__wrap_calloc(size_t count, size_t size)
 }
 
 static dgx_ui_font_variant_t variant[1];
-static dgx_ui_text_style_t   style = {.variants = variant, .count = 1}, style2 = {.variants = variant, .count = 1};
+static dgx_ui_text_style_t   style = {.fonts = variant, .count = 1}, style2 = {.fonts = variant, .count = 1};
 
 static int32_t                volume, choice = 2, ticked, picked;
 static const uint8_t          dot_bits[5] = {0x70, 0xf8, 0xf8, 0xf8, 0x70};

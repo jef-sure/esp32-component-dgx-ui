@@ -39,7 +39,7 @@ static int fit(const dgx_ui_text_style_t *st, const char *text, int field, int u
 {
     int best = -1, most = -1;
     for (int v = 0; v < st->count; ++v) {
-        const dgx_ui_font_variant_t *candidate = &st->variants[v];
+        const dgx_ui_font_variant_t *candidate = &st->fonts[v];
         const dgx_font_t            *f         = candidate->font;
         if (candidate->hand) {
             if (candidate->hand->width(candidate, text, field) <= field) return v;
@@ -73,15 +73,15 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
        that a composing does not hide from it that the variant, and with it the rows around the field, changed */
     int v = box->variant;
     if (w->marks & DGX_UI_MARK_FIT) v = fit(st, text, w->w, ui->unit);
-    if (v < 0 || v >= st->count || !(st->variants[v].hand || dgx_ui_variant_usable(st->variants[v].font))) {
+    if (v < 0 || v >= st->count || !(st->fonts[v].hand || dgx_ui_variant_usable(st->fonts[v].font))) {
         if (paint->whole) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, w->h);
         return false;
     }
     if (v != box->variant) paint->whole = true; /* another height: around it too */
     if (!paint->composing && paint->part + 1 >= paint->parts) box->variant = (uint8_t)v; /* stored by the last part only */
-    if (st->variants[v].hand) return st->variants[v].hand->draw(look, paint, ui, i, now_ms, &st->variants[v]); /* the library's handwriting */
-    const dgx_font_t *f = st->variants[v].font;
-    const int         s = dgx_ui_variant_scale(&st->variants[v], ui->unit); /* the pixels a pixel of the font takes */
+    if (st->fonts[v].hand) return st->fonts[v].hand->draw(look, paint, ui, i, now_ms, &st->fonts[v]); /* the library's handwriting */
+    const dgx_font_t *f = st->fonts[v].font;
+    const int         s = dgx_ui_variant_scale(&st->fonts[v], ui->unit); /* the pixels a pixel of the font takes */
     /* the base line: the first variant's, its own when the first cannot be drawn; or the middle of the box */
     const int first_rows = dgx_ui_first_base(st, ui->unit);
     /* the base line: the first variant's, or the middle of the box for a smaller one */

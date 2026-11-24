@@ -31,7 +31,7 @@ static const dgx_ui_font_name_t        fonts[]      = {{"small", &TerminusTTFMed
 static const dgx_ui_hand_name_t        hands[]      = {DGX_UI_HAND_NAME(handwriting), DGX_UI_HAND_NAME(handwriting_canvas)};
 static const dgx_ui_look_name_t        own_looks[]  = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(switch)};
 static const dgx_ui_font_variant_t     plain_variant[1] = {{.font = &TerminusTTFMedium12}};
-static const dgx_ui_text_style_t       plain            = {.variants = plain_variant, .count = 1};
+static const dgx_ui_text_style_t       plain            = {.fonts = plain_variant, .count = 1};
 static const dgx_ui_style_name_t       own_styles[] = {{"plain", &plain}};
 static const dgx_ui_appearance_names_t names        = {.draws = draws, .draw_count = DRAW_COUNT, .fonts = fonts, .font_count = 2, .hands = hands, .hand_count = 2,
                                                        .looks = own_looks, .look_count = 2, .styles = own_styles, .style_count = 1};
@@ -74,7 +74,7 @@ static const dgx_ui_look_t        made_look[4]       = {{.draw = dgx_ui_draw_but
                                                         {.draw = dgx_ui_draw_level, .params = &made_params_2, .fill = -1},
                                                         {.draw = dgx_ui_draw_frame, .params = &made_params_3, .fill = 2}};
 static const dgx_ui_font_variant_t made_variants_0[2] = {{.font = &TerminusTTFMedium12}, {.font = &font0ss, .height = 24, .narrow = 70, .joined = true, .pen = 2 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting}};
-static const dgx_ui_text_style_t  made_style[1]      = {{.variants = made_variants_0, .count = 2, .flags = DGX_UI_TEXT_MIDDLE | DGX_UI_TEXT_IMPORTANT, .align = DGX_FONT_ALIGN_CENTER, .scroll_ms = 900}};
+static const dgx_ui_text_style_t  made_style[1]      = {{.fonts = made_variants_0, .count = 2, .flags = DGX_UI_TEXT_MIDDLE | DGX_UI_TEXT_IMPORTANT, .align = DGX_FONT_ALIGN_CENTER, .scroll_ms = 900}};
 static const dgx_ui_look_name_t   made_looks[]       = {{"big", &made_look[0]}, {"slider", &made_look[1]}, {"tank", &made_look[2]}, {"pane", &made_look[3]},
                                                         DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(switch)};
 static const dgx_ui_style_name_t  made_styles[]      = {{"body", &made_style[0]}, {"plain", &plain}};
@@ -277,9 +277,9 @@ int main(void)
     const dgx_ui_text_style_t *body = appearance.styles[0].style;
     CHECK(strcmp(appearance.styles[0].name, "body") == 0 && body->count == 2 && body->align == DGX_FONT_ALIGN_CENTER &&
           body->flags == (DGX_UI_TEXT_MIDDLE | DGX_UI_TEXT_IMPORTANT) && body->scroll_ms == 900);
-    CHECK(body->variants[0].font == &TerminusTTFMedium12 && body->variants[0].hand == NULL && body->variants[1].font == &font0ss &&
-          body->variants[1].hand == &dgx_ui_handwriting && body->variants[1].height == 24 && body->variants[1].narrow == 70 && body->variants[1].joined &&
-          body->variants[1].pen == (2 | DGX_PEN_SOFT));
+    CHECK(body->fonts[0].font == &TerminusTTFMedium12 && body->fonts[0].hand == NULL && body->fonts[1].font == &font0ss &&
+          body->fonts[1].hand == &dgx_ui_handwriting && body->fonts[1].height == 24 && body->fonts[1].narrow == 70 && body->fonts[1].joined &&
+          body->fonts[1].pen == (2 | DGX_PEN_SOFT));
     CHECK(appearance.styles[1].style == &plain);
 
     /* two packers on one appearance: a table for each */
@@ -342,7 +342,7 @@ int main(void)
             const dgx_ui_text_style_t *made = made_appearance.styles[k].style, *loaded = appearance.styles[k].style;
             CHECK(strcmp(made_appearance.styles[k].name, appearance.styles[k].name) == 0 && made->count == loaded->count && made->flags == loaded->flags &&
                   made->align == loaded->align && made->scroll_ms == loaded->scroll_ms);
-            for (int v = 0; v < made->count && v < loaded->count; ++v) CHECK(same_variant(&made->variants[v], &loaded->variants[v]));
+            for (int v = 0; v < made->count && v < loaded->count; ++v) CHECK(same_variant(&made->fonts[v], &loaded->fonts[v]));
         }
         uint32_t made_packed[6];
         dgx_ui_appearance_pack(&made_appearance, as_is, NULL, made_packed);
@@ -522,7 +522,7 @@ int main(void)
             for (int k = 0; k < style_count; ++k) {
                 const dgx_ui_text_style_t *s = appearance.styles[k].style, *e = &styles_expected[k];
                 off += s->count != e->count || s->align != e->align || s->flags != e->flags || s->scroll_ms != e->scroll_ms;
-                for (int v = 0; v < s->count && v < e->count; ++v) off += !same_variant(&s->variants[v], &variants_expected[k][v]);
+                for (int v = 0; v < s->count && v < e->count; ++v) off += !same_variant(&s->fonts[v], &variants_expected[k][v]);
             }
             off += appearance.looks[look_count].look != &dgx_ui_look_slider || appearance.styles[style_count].style != &plain;
             /* spoiled at a byte: a refusal inside the text, or an appearance laid in what its need said */

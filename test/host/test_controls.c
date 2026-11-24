@@ -71,7 +71,7 @@ static bool once_in_box(panel_t *panel, dgx_ui_paint_t *pp, int i, uint32_t now)
 int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
     for (int k = 0; k < 12; ++k) rgb[k] = (uint16_t)(0x1111 * (k + 1)); /* as stored: high byte first is the value read back */
     panel_t       *panel = panel_make();
     dgx_ui_paint_t pp    = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 4};

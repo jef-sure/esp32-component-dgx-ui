@@ -170,7 +170,7 @@ int main(void)
         static dgx_ui_font_variant_t variant[1];
         static dgx_ui_text_style_t   style;
         variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-        style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+        style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
         static char                  label_bufs[2][24];
         static dgx_ui_textbox_t      label_boxes[2];
         static dgx_ui_widget_t       label_ws[2];
@@ -223,7 +223,7 @@ int main(void)
         static dgx_ui_font_variant_t bar_variant[1];
         static dgx_ui_text_style_t   bar_style;
         bar_variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-        bar_style      = (dgx_ui_text_style_t){.variants = bar_variant, .count = 1};
+        bar_style      = (dgx_ui_text_style_t){.fonts = bar_variant, .count = 1};
         dgx_ui_textbox_init(&bar_box, bar_buf, sizeof bar_buf, 1, &bar_style);
         static const dgx_ui_widget_t plain_root = {.kind = DGX_UI_BOX};
         const dgx_ui_widget_t        bar_w      = {.kind = DGX_UI_LABEL, .text = &bar_box, .look = &dgx_ui_look_lines, .want_h = 13};

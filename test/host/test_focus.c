@@ -29,7 +29,7 @@ static uint8_t        buffer[PANEL_W * 3 * 8];
 static dgx_ui_paint_t paint;
 
 static dgx_ui_font_variant_t variant[1];
-static dgx_ui_text_style_t   style = {.variants = variant, .count = 1};
+static dgx_ui_text_style_t   style = {.fonts = variant, .count = 1};
 
 static dgx_ui_textbox_t go_box = DGX_UI_TEXT_CONST("Go", 1, &style), options_box = DGX_UI_TEXT_CONST("One\nTwo", 1, &style);
 static dgx_ui_textbox_t radio_box = DGX_UI_TEXT_CONST("Radio", 1, &style), tick_box = DGX_UI_TEXT_CONST("Tick", 1, &style);

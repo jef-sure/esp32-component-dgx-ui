@@ -75,9 +75,9 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const unsigned             bits = n->state.bits;
     const bool                 off  = bits & DGX_UI_DISABLED;
     const dgx_ui_textbox_t    *box  = n->widget->text;
-    const dgx_font_t          *font = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
+    const dgx_font_t          *font = box && box->style && box->style->count ? box->style->fonts[0].font : NULL;
     if (!dgx_ui_variant_usable(font)) font = NULL;
-    const int s    = font ? dgx_ui_variant_scale(&box->style->variants[0], ui->unit) : 1; /* the pixels a pixel of the font takes */
+    const int s    = font ? dgx_ui_variant_scale(&box->style->fonts[0], ui->unit) : 1; /* the pixels a pixel of the font takes */
     const int cell = font ? (font->y_bottom_max - font->y_offset_lowest) * s : n->h;
     /* the mark two points in from the edges: the frame of the focus, then a point of paper */
     const int point = ui->unit, margin = 2 * point;

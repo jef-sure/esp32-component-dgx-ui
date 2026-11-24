@@ -54,7 +54,7 @@ static const dgx_ui_picture_t arrow = {.image = &arrow_im}, bells[2] = {{.image 
 static const dgx_ui_picture_t stars[2] = {{.image = &star_line_im}, {.image = &star_full_im}}, big = {.image = &big_im}, four = {.image = &four_im};
 
 static dgx_ui_font_variant_t variant[1];
-static dgx_ui_text_style_t   style = {.variants = variant, .count = 1};
+static dgx_ui_text_style_t   style = {.fonts = variant, .count = 1};
 static dgx_ui_textbox_t      go_box = DGX_UI_TEXT_CONST("Go", 1, &style);
 
 static int32_t on_place, choice = 1, odd_place;

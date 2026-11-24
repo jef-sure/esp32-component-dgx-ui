@@ -28,7 +28,7 @@ static dgx_ui_paint_t paint;
 static bool           with_map;
 
 static dgx_ui_font_variant_t variant[1];
-static dgx_ui_text_style_t   style = {.variants = variant, .count = 1};
+static dgx_ui_text_style_t   style = {.fonts = variant, .count = 1};
 
 /* the program's memory: the group's place and the checkbox's */
 static int32_t choice, ticked;

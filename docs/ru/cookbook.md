@@ -110,8 +110,8 @@ static dgx_ui_text_style_t   st_left, st_centre;
 static void styles_init(void)
 {
     small[0]  = (dgx_ui_font_variant_t){.font = &dgx_font_body};
-    st_left   = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    st_centre = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
+    st_left   = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    st_centre = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
 }
 ```
 
@@ -214,9 +214,9 @@ static int face_add(dgx_ui_t *ui, int parent)
     caption_variant[0] = (dgx_ui_font_variant_t){.font = &dgx_font_caption};
     /* not made for the board: its every pixel a point, a square of the unit */
     status_variant[0] = (dgx_ui_font_variant_t){.font = &dgx_font_status, .points = !DGX_FONT_STATUS_MADE};
-    st_status         = (dgx_ui_text_style_t){.variants = status_variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    st_clock           = (dgx_ui_text_style_t){.variants = clock_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
-    st_caption         = (dgx_ui_text_style_t){.variants = caption_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_status         = (dgx_ui_text_style_t){.fonts = status_variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    st_clock           = (dgx_ui_text_style_t){.fonts = clock_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_caption         = (dgx_ui_text_style_t){.fonts = caption_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
     dgx_ui_textbox_init(&face_time_box, face_time_buf, sizeof face_time_buf, 1, &st_clock);
     dgx_ui_textbox_init(&face_warm_box, face_warm_buf, sizeof face_warm_buf, 1, &st_caption);
     dgx_ui_textbox_init(&face_wet_box, face_wet_buf, sizeof face_wet_buf, 1, &st_caption);
@@ -1018,7 +1018,7 @@ static const dgx_ui_widget_t hint_w = {.kind = DGX_UI_LABEL, .text = &hint_box, 
 static void texts_add(dgx_ui_t *ui, int parent)
 {
     /* an important text too long scrolls a line up every 2 s; one that is not is cut with an ellipsis */
-    st_important = (dgx_ui_text_style_t){.variants = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
+    st_important = (dgx_ui_text_style_t){.fonts = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
     dgx_ui_textbox_init(&news_box, news_buf, sizeof news_buf, 3, &st_important);
     dgx_ui_textbox_init(&hint_box, hint_buf, sizeof hint_buf, 2, &st_left);
     const int news = dgx_ui_add(ui, parent, &news_w);
@@ -1133,7 +1133,7 @@ static void city_style_init(void)
 {
     city_fonts[0] = (dgx_ui_font_variant_t){.font = &dgx_font_large};
     city_fonts[1] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
-    st_city = (dgx_ui_text_style_t){.variants = city_fonts, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_city = (dgx_ui_text_style_t){.fonts = city_fonts, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
 }
 ```
 
@@ -1159,7 +1159,7 @@ static const dgx_ui_widget_t heading_w = {.kind = DGX_UI_LABEL, .text = &heading
 static int heading_add(dgx_ui_t *ui, int parent)
 {
     soft[0] = (dgx_ui_font_variant_t){.font = &dgx_font_large};
-    st_soft = (dgx_ui_text_style_t){.variants = soft, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    st_soft = (dgx_ui_text_style_t){.fonts = soft, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&heading_box, heading_buf, sizeof heading_buf, 1, &st_soft);
     const int heading = dgx_ui_add(ui, parent, &heading_w);
     dgx_ui_text_set(ui, heading, "Living room");
@@ -1221,7 +1221,7 @@ static void greeting_init(void)
     greeting_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
     greeting_fonts[1] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .narrow = 70, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
     greeting_fonts[2] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
-    greeting_style    = (dgx_ui_text_style_t){.variants = greeting_fonts, .count = 3, .align = DGX_FONT_ALIGN_LEFT};
+    greeting_style    = (dgx_ui_text_style_t){.fonts = greeting_fonts, .count = 3, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&greeting_box, greeting_text, sizeof greeting_text, 1, &greeting_style);
 }
 
@@ -1278,7 +1278,7 @@ static dgx_ui_textbox_t      signature_box;
 static void signature_init(void)
 {
     signature_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .pen = 3 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting_canvas};
-    signature_style    = (dgx_ui_text_style_t){.variants = signature_fonts, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+    signature_style    = (dgx_ui_text_style_t){.fonts = signature_fonts, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&signature_box, signature_text, sizeof signature_text, 1, &signature_style);
 }
 
@@ -1306,7 +1306,7 @@ static void note_init(void)
     /* the hand at 20 pixels, then a bitmap font for a note too long for its lines */
     note_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
     note_fonts[1] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
-    note_style    = (dgx_ui_text_style_t){.variants = note_fonts, .count = 2, .align = DGX_FONT_ALIGN_LEFT};
+    note_style    = (dgx_ui_text_style_t){.fonts = note_fonts, .count = 2, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&note_box, note_text, sizeof note_text, 3, &note_style); /* three lines */
 }
 
@@ -3082,7 +3082,7 @@ static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
     ring_table[RING_MID]  = dgx_screen_rgb(scr, 240, 200, 40);
     ring_table[RING_HIGH] = dgx_screen_rgb(scr, 230, 60, 50);
     ring_table[RING_OFF]  = dgx_screen_rgb(scr, 40, 46, 60);
-    st_ring_right = (dgx_ui_text_style_t){.variants = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
+    st_ring_right = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
     dgx_ui_textbox_init(&ppm_box, ppm_buf, sizeof ppm_buf, 1, &st_city); /* the large font, or the small one */
     dgx_ui_textbox_init(&temp_box, ring_temp_buf, sizeof ring_temp_buf, 1, &st_left);
     dgx_ui_textbox_init(&rh_box, ring_rh_buf, sizeof ring_rh_buf, 1, &st_ring_right);

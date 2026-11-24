@@ -107,9 +107,9 @@ static void stroke(dgx_di_touch_t *touch, int x, int y, int x2, int y2, uint32_t
 int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
     dgx_ui_textbox_init(&field_box, field_buf, sizeof field_buf, 1, &style);
-    middle = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
+    middle = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
     dgx_ui_textbox_init(&mid_box, mid_buf, sizeof mid_buf, 1, &middle);
     panel_t       *panel = panel_make();
     dgx_screen_t  *scr   = &panel->sbus.scr;

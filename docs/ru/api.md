@@ -616,7 +616,7 @@ typedef struct dgx_ui_font_variant_t {
 } dgx_ui_font_variant_t;
 
 typedef struct dgx_ui_text_style_t {
-    const dgx_ui_font_variant_t *variants;
+    const dgx_ui_font_variant_t *fonts;
     uint8_t                      count;
     uint8_t                      flags;
     dgx_font_align_t             align;
@@ -641,7 +641,7 @@ typedef struct dgx_ui_text_style_t {
 пишутся штрих за штрихом, весь текст — за время его букв по `letter_ms` каждая; облик просит проход каждые
 `DGX_UI_HAND_FRAME_MS`, 20 мс. Рецепт: [Рукописный текст](cookbook.md#рукописный-текст).
 
-Стиль перечисляет варианты, начиная с лучшего, и их число `count`. `align` — `DGX_FONT_ALIGN_LEFT`, `_CENTER` или
+Стиль перечисляет свои шрифты, `fonts`, — каждый вариантом, начиная с лучшего, — и их число `count`. `align` — `DGX_FONT_ALIGN_LEFT`, `_CENTER` или
 `_RIGHT` из DGX. `scroll_ms` — сколько важный текст показывает строку, прежде чем прокрутиться вверх; 0 — он
 прокручивается вручную.
 

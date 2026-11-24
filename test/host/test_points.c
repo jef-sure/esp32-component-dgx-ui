@@ -169,8 +169,8 @@ int main(void)
     const dgx_font_t           *terminus = &TerminusTTFMedium12;
     const dgx_ui_font_variant_t points[1] = {{.font = terminus, .points = true}}, own[1] = {{.font = terminus}};
     const dgx_ui_font_variant_t ladder[2] = {{.font = terminus, .points = true}, {.font = terminus}};
-    const dgx_ui_text_style_t   in_points = {.variants = points, .count = 1}, in_own = {.variants = own, .count = 1};
-    const dgx_ui_text_style_t   middle = {.variants = points, .count = 1, .flags = DGX_UI_TEXT_MIDDLE}, two = {.variants = ladder, .count = 2};
+    const dgx_ui_text_style_t   in_points = {.fonts = points, .count = 1}, in_own = {.fonts = own, .count = 1};
+    const dgx_ui_text_style_t   middle = {.fonts = points, .count = 1, .flags = DGX_UI_TEXT_MIDDLE}, two = {.fonts = ladder, .count = 2};
     dgx_screen_t               *v = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB), *ref = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
 
     /* a label at a unit of 1, 2 and 4: as DGX draws the text at that scale; its height the font's line so many times */
@@ -422,7 +422,7 @@ int main(void)
     {
         const dgx_ui_font_variant_t hand_on[1]  = {{.font = &font0ss, .height = 20, .pen = 1, .hand = &dgx_ui_handwriting, .points = true}};
         const dgx_ui_font_variant_t hand_off[1] = {{.font = &font0ss, .height = 20, .pen = 1, .hand = &dgx_ui_handwriting}};
-        const dgx_ui_text_style_t   on = {.variants = hand_on, .count = 1}, off = {.variants = hand_off, .count = 1};
+        const dgx_ui_text_style_t   on = {.fonts = hand_on, .count = 1}, off = {.fonts = hand_off, .count = 1};
         make(DGX_UI_LABEL, &dgx_ui_look_text, &off, "Hand", 0, 0, 3);
         paint_on(ref);
         make(DGX_UI_LABEL, &dgx_ui_look_text, &on, "Hand", 0, 0, 3);
@@ -436,7 +436,7 @@ int main(void)
     /* a soft font of 4 bits: squares of its coverage, its levels kept */
     {
         const dgx_ui_font_variant_t soft[1] = {{.font = &soft_font, .points = true}};
-        const dgx_ui_text_style_t   style   = {.variants = soft, .count = 1};
+        const dgx_ui_text_style_t   style   = {.fonts = soft, .count = 1};
         make(DGX_UI_LABEL, &dgx_ui_look_text, &style, "AB", 0, 0, 3);
         paint_on(v);
         const dgx_ui_node_t *n = dgx_ui_node(&ui, text_i);

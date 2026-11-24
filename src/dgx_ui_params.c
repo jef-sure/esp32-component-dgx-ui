@@ -75,8 +75,8 @@ const dgx_ui_params_t dgx_ui_params_ring           = DGX_UI_PARAMS(dgx_ui_ring_l
 
 /* a style and a variant of a font: "fonts" the style's variants, "soft" the pen's DGX_PEN_SOFT, named by the format */
 static const dgx_ui_field_t style_fields[] = {
-    {.name = "fonts", .offset = offsetof(dgx_ui_text_style_t, variants), .count_offset = offsetof(dgx_ui_text_style_t, count), .kind = DGX_UI_FIELD_VARIANTS,
-     .size = sizeof(((dgx_ui_text_style_t *)0)->variants), .low = 1, .high = 255, .words = NULL},
+    {.name = "fonts", .offset = offsetof(dgx_ui_text_style_t, fonts), .count_offset = offsetof(dgx_ui_text_style_t, count), .kind = DGX_UI_FIELD_VARIANTS,
+     .size = sizeof(((dgx_ui_text_style_t *)0)->fonts), .low = 1, .high = 255, .words = NULL},
     DGX_UI_WORD_FIELD(dgx_ui_text_style_t, align, "left\0center\0right\0"),
     DGX_UI_FIELD_OF(dgx_ui_text_style_t, flags, DGX_UI_FIELD_FLAGS, 0, 0, "middle\0important\0"),
     DGX_UI_NUMBER_FIELD(dgx_ui_text_style_t, scroll_ms, 0, UINT16_MAX)};

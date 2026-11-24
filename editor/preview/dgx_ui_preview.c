@@ -272,7 +272,7 @@ static const dgx_font_t *font_file_of(const char *c)
 
 /* a style of the program's own */
 static const dgx_ui_font_variant_t stand_variant[1] = {{.font = &TerminusTTFMedium12}};
-static const dgx_ui_text_style_t   stand_style      = {.variants = stand_variant, .count = 1};
+static const dgx_ui_text_style_t   stand_style      = {.fonts = stand_variant, .count = 1};
 
 /* a picture: a crossed square of 16 pixels, as many as a table may say */
 static const uint8_t crossed_bits[32] = {0xff, 0xff, 0xc0, 0x03, 0xa0, 0x05, 0x90, 0x09, 0x88, 0x11, 0x84, 0x21, 0x82, 0x41, 0x81, 0x81,

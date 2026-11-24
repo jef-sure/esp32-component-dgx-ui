@@ -49,9 +49,9 @@ static char                        co2_buf[24], clock_buf[16], build_buf[24];
 static dgx_ui_textbox_t            co2_box, clock_box, build_box;
 static const dgx_ui_font_variant_t vbig[2]   = {{.font = &dgx_font_large}, {.font = &dgx_font_small}};
 static const dgx_ui_font_variant_t vsmall[1] = {{.font = &dgx_font_small}};
-static const dgx_ui_text_style_t   st_big    = {.variants = vbig, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
-static const dgx_ui_text_style_t   st_left   = {.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-static const dgx_ui_text_style_t   st_right  = {.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
+static const dgx_ui_text_style_t   st_big    = {.fonts = vbig, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+static const dgx_ui_text_style_t   st_left   = {.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+static const dgx_ui_text_style_t   st_right  = {.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
 
 /* each widget catches its own value from the messages */
 static bool co2_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)

@@ -607,7 +607,7 @@ typedef struct dgx_ui_font_variant_t {
 } dgx_ui_font_variant_t;
 
 typedef struct dgx_ui_text_style_t {
-    const dgx_ui_font_variant_t *variants;
+    const dgx_ui_font_variant_t *fonts;
     uint8_t                      count;
     uint8_t                      flags;
     dgx_font_align_t             align;
@@ -632,7 +632,7 @@ rectangle at its end. Letters coming (`dgx_ui_text_appear()`) are written stroke
 long as its letters at `letter_ms` each, the look asking for a pass every `DGX_UI_HAND_FRAME_MS`, 20 ms. The recipe:
 [A handwritten text](cookbook.md#a-handwritten-text).
 
-A style lists the variants, the best first, with their `count`. `align` is `DGX_FONT_ALIGN_LEFT`, `_CENTER` or
+A style lists its fonts, `fonts`, each a variant, the best first, with their `count`. `align` is `DGX_FONT_ALIGN_LEFT`, `_CENTER` or
 `_RIGHT` of DGX. `scroll_ms` is how long an important text shows a line before it scrolls up; 0: it is scrolled by
 hand.
 

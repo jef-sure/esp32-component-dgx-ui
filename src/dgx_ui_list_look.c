@@ -81,7 +81,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     static bool               told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
     dgx_ui_tell_no_place(i, w, "a list", &told);
     dgx_ui_textbox_t         *box   = w->text;
-    const dgx_font_t         *f     = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
+    const dgx_font_t         *f     = box && box->style && box->style->count ? box->style->fonts[0].font : NULL;
     const int                 all   = w->max - w->min + 1;
     int                       rh, top;
     const int                 rows = all > 0 ? dgx_ui_list_rows(ui, n, &rh, &top) : 0;
@@ -90,7 +90,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         return false;
     }
     const char    *text = box->buf ? box->buf : "";
-    const int      scale = dgx_ui_variant_scale(&box->style->variants[0], ui->unit); /* the pixels a pixel of the font takes */
+    const int      scale = dgx_ui_variant_scale(&box->style->fonts[0], ui->unit); /* the pixels a pixel of the font takes */
     const bool     focused = dgx_ui_bits_shown(ui, n) & DGX_UI_FOCUSED, off = n->state.bits & DGX_UI_DISABLED;
     const uint8_t  bar = focused ? p->focused : p->pick;
     const uint32_t ink = dgx_ui_color(paint, off ? p->disabled : p->ink);

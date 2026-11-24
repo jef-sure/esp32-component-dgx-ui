@@ -156,7 +156,7 @@ static void pass(void)
 int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
     if (getenv("SKIP_SEED")) seed = (uint32_t)strtoul(getenv("SKIP_SEED"), NULL, 10); /* another run */
     for (int k = 0; k < LABELS; ++k) {
         dgx_ui_textbox_init(&label_box[k], label_buf[k], sizeof label_buf[k], 1, &style);

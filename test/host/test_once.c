@@ -111,7 +111,7 @@ int main(void)
     static dgx_ui_font_variant_t variant[1];
     static dgx_ui_text_style_t   style;
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
 
     for (int pictured = 0; pictured < 2; ++pictured) {
         with_map = pictured;

@@ -3,7 +3,7 @@
  * server (editor/preview/dgx_ui_preview.h, preview_class.js). Made by editor/preview/Makefile, not to be edited:
  * dgx-ui 0.0.54, DGX 0.12.3 of the registry, 3993723d2470e417,
  * clang 21.1.8, wasi-libc 0.0~git20250726.3f7eb4c-4, libclang-rt-21-dev-wasm32 1:21.1.8-6ubuntu1, lld-21 1:21.1.8-6ubuntu1,
- * sources sha256 a6c54c498e5a495482a12c68c0c819e6c3999d91c599f523ff8bae97923c6e7a.
+ * sources sha256 6f87e687d753e9f818961aeddd4095139ec5338bf961ddf6f30d2ffeeb8c76f6.
  * The module, 317723 bytes, is MIT as dgx-ui and DGX, with code of wasi-libc and compiler-rt and five fonts of
  * DGX under their own licences: licenses/ beside this file.
  */
@@ -3210,7 +3210,7 @@ const DGX_UI_PREVIEW_MODULE = [
     'ImRneF91aSI6ICIwLjAuNTQiLCAiZGd4IjogIjAuMTIuMyBvZiB0aGUgcmVnaXN0cnksIDM5OTM3MjNkMjQ3MGU0MTciLCAidG9v',
     'bGNoYWluIjogImNsYW5nIDIxLjEuOCwgd2FzaS1saWJjIDAuMH5naXQyMDI1MDcyNi4zZjdlYjRjLTQsIGxpYmNsYW5nLXJ0LTIx',
     'LWRldi13YXNtMzIgMToyMS4xLjgtNnVidW50dTEsIGxsZC0yMSAxOjIxLjEuOC02dWJ1bnR1MSIsICJzb3VyY2VzIjogInNoYTI1',
-    'NiBhNmM1NGM0OThlNWE0OTU0ODJhMTJjNjhjMGM4MTllNmMzOTk5ZDkxYzU5OWY1MjNmZjhiYWU5NzkyM2M2ZTdhIn0AewBiYW5k',
+    'NiA2Zjg3ZTY4N2Q3NTNlOWY4MTg5NjFhZWRkZDQwOTUxMzllYzUzMzhiZjk2MWRkZjZmMzBkMmZmZWViOGM3NmY2In0AewBiYW5k',
     'c19ieQBjdHgAYSBjaGVja2JveABtYXgALSsgICAwWDB4AC0wWCswWCAwWC0weCsweCAweABuYXJyb3cAc2hhZG93AGRyYXcAdGV4',
     'dABpbnB1dABFU1BfRVJSX0lOVkFMSURfQVJHLCBub3QgYSBmb250LCBvciBzcG9pbGVkIG9yIGN1dABhIGxpc3QAcmVzdABzdGFy',
     'dABhIGJpdG1hcCBmb250AHRoZSBwYXJ0IG9mIGEgaGFuZHdyaXR0ZW4gZm9udABhIG1lYXN1cmUgb2YgYSBoYW5kd3JpdHRlbiBm',

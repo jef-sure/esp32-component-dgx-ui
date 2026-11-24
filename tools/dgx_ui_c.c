@@ -991,7 +991,7 @@ static void write_appearance(const char *directory, const char *const *headers, 
         const dgx_ui_text_style_t *style = appearance.styles[k].style;
         out(&c_file, "\nstatic const dgx_ui_font_variant_t %s_variants_%d[%d] = {\n", p, k, style->count);
         for (int v = 0; v < style->count; ++v) {
-            const dgx_ui_font_variant_t *variant = &style->variants[v];
+            const dgx_ui_font_variant_t *variant = &style->fonts[v];
             const char *font = appearance_tables[A_FONT].entries[variant->font - font_stand].c;
             const char *hand = variant->hand ? appearance_tables[A_HAND].entries[(const uint8_t *)variant->hand - hand_stand].c : "NULL";
             out(&c_file, "    {.font = %s, .height = %d, .narrow = %u, .joined = %s, .pen = %u%s, .hand = %s%s},\n", font, variant->height,
@@ -1005,7 +1005,7 @@ static void write_appearance(const char *directory, const char *const *headers, 
         out(&c_file, "\nconst dgx_ui_text_style_t %s_style[%d] = {\n", p, styles);
         for (int k = 0; k < styles; ++k) {
             const dgx_ui_text_style_t *style = appearance.styles[k].style;
-            out(&c_file, "    {.variants = %s_variants_%d, .count = %u, .flags = %s%s%s, .align = %s, .scroll_ms = %u},  /* ", p, k, (unsigned)style->count,
+            out(&c_file, "    {.fonts = %s_variants_%d, .count = %u, .flags = %s%s%s, .align = %s, .scroll_ms = %u},  /* ", p, k, (unsigned)style->count,
                 style->flags & DGX_UI_TEXT_MIDDLE ? "DGX_UI_TEXT_MIDDLE" : style->flags ? "" : "0", style->flags == (DGX_UI_TEXT_MIDDLE | DGX_UI_TEXT_IMPORTANT) ? " | " : "",
                 style->flags & DGX_UI_TEXT_IMPORTANT ? "DGX_UI_TEXT_IMPORTANT" : "", aligns[style->align], (unsigned)style->scroll_ms);
             out_string(&c_file, appearance.styles[k].name), out(&c_file, " */\n");

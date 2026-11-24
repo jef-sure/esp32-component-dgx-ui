@@ -144,7 +144,7 @@ static bool ticked(panel_t *panel, dgx_screen_t *v, ticks_t *a, dgx_ui_paint_t *
 int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
     panel_t       *panel = panel_make();
     dgx_screen_t  *v     = dgx_vscreen_init(PANEL_W, PANEL_H, PANEL_BITS, DgxScreenRGB);
     static uint8_t buffer[96 * 3 * 4]; /* four rows of the panel's width */

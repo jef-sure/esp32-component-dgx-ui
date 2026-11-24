@@ -159,7 +159,7 @@ static void test_layout(void)
 /* a font is read for its advance only: no glyphs */
 static dgx_font_t                  font12 = {.y_advance = 12, .f_type = DGX_FONT_BITMAP_LINES};
 static const dgx_ui_font_variant_t v12[]  = {{.font = &font12}};
-static const dgx_ui_text_style_t   st12   = {.variants = v12, .count = 1};
+static const dgx_ui_text_style_t   st12   = {.fonts = v12, .count = 1};
 static char                        text_buf[8];
 static dgx_ui_textbox_t            text_box;
 static const dgx_ui_widget_t       text_w = {.kind = DGX_UI_LABEL, .text = &text_box};

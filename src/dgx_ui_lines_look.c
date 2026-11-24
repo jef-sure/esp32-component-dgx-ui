@@ -63,16 +63,16 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     int v = box->variant;
     if (chosen >= 0) v = chosen;
     else if (w->marks & DGX_UI_MARK_FIT) v = fit_lines(st, text, len, w->w, w->h, ui->unit);
-    if (v < 0 || v >= st->count || !dgx_ui_variant_usable(st->variants[v].font)) {
+    if (v < 0 || v >= st->count || !dgx_ui_variant_usable(st->fonts[v].font)) {
         if (paint->whole) dgx_ui_lay_paper(paint, p->paper, w->x, w->y, w->w, w->h);
         return false;
     }
     if (v != box->variant) paint->whole = true; /* another height: the rows around the fields too */
     const uint32_t since = (box->flags & DGX_UI_TEXTBOX_START) ? now_ms : box->since_ms;
-    const dgx_ui_font_variant_t *var = &st->variants[v];
-    const dgx_font_t            *f = var->font, *f0 = dgx_ui_variant_usable(st->variants[0].font) ? st->variants[0].font : f;
+    const dgx_ui_font_variant_t *var = &st->fonts[v];
+    const dgx_font_t            *f = var->font, *f0 = dgx_ui_variant_usable(st->fonts[0].font) ? st->fonts[0].font : f;
     /* the pixels a pixel of its font takes, and of the first variant's whose base line it stands on */
-    const int scale = dgx_ui_variant_scale(var, ui->unit), scale0 = f0 == f ? scale : dgx_ui_variant_scale(&st->variants[0], ui->unit);
+    const int scale = dgx_ui_variant_scale(var, ui->unit), scale0 = f0 == f ? scale : dgx_ui_variant_scale(&st->fonts[0], ui->unit);
     const int      lh = f->y_advance * scale, cell_top = f->y_offset_lowest * scale, cell = (f->y_bottom_max - f->y_offset_lowest) * scale;
     const int      rows = w->h / lh > 0 ? w->h / lh : 1;
 

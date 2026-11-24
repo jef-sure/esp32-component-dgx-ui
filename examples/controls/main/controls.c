@@ -74,8 +74,8 @@ static uint32_t buttons_held(void)
 enum { MSG_TOUCH = 1 };
 
 static const dgx_ui_font_variant_t variant[1] = {{.font = &dgx_font_text}};
-static const dgx_ui_text_style_t   left       = {.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_MIDDLE};
-static const dgx_ui_text_style_t   middle     = {.variants = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+static const dgx_ui_text_style_t   left       = {.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_MIDDLE};
+static const dgx_ui_text_style_t   middle     = {.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
 
 /* the texts, each in a box of its own */
 enum { T_TITLE, T_POPUP, T_MODE, T_SLIDER, T_CODE_LABEL, T_CODE, T_PIN_LABEL, T_PIN, T_STATUS, T_ASK, T_YES, T_NO, T_EDIT, TEXTS };

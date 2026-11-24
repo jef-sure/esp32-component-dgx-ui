@@ -238,7 +238,7 @@ int main(void)
         for (int x = 0; x < 6; ++x) bits4[y * 3 + x / 2] |= (uint8_t)(((x + y) % 4) << (x % 2 ? 0 : 4));
     for (int k = 0; k < 6 * 6; ++k) px565[k] = (uint16_t)(0xf81f - k); /* its bytes in memory: low first on this machine */
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    style      = (dgx_ui_text_style_t){.variants = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE, .align = DGX_FONT_ALIGN_CENTER};
+    style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE, .align = DGX_FONT_ALIGN_CENTER};
     map        = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     map_fill(0, 0, PANEL_W, PANEL_H, 0);
     panel_t       *panel = panel_make();
@@ -472,7 +472,7 @@ int main(void)
         static dgx_ui_font_variant_t sv[1];
         static dgx_ui_text_style_t   ss;
         sv[0] = (dgx_ui_font_variant_t){.font = &soft_font};
-        ss    = (dgx_ui_text_style_t){.variants = sv, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
+        ss    = (dgx_ui_text_style_t){.fonts = sv, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
         static dgx_ui_node_t    sn[3][2];
         static dgx_ui_t         su[3];
         static char             sb[3][8];

@@ -27,14 +27,14 @@ static bool draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui,
     const dgx_ui_input_look_t *p   = look->params;
     const dgx_ui_textbox_t    *box = n->widget->text;
     const uint32_t paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper), ink = dgx_ui_color(paint, p->ink);
-    const dgx_font_t *f = box && box->style && box->style->count ? box->style->variants[0].font : NULL;
+    const dgx_font_t *f = box && box->style && box->style->count ? box->style->fonts[0].font : NULL;
     if (!dgx_ui_variant_usable(f) || n->w <= 0) {
         dgx_ui_lay_paper(paint, p->paper, n->x, n->y, n->w, n->h);
         return false;
     }
     const bool  caret = dgx_ui_bits_shown(ui, n) & DGX_UI_FOCUSED;
     const int   cw    = caret ? (ui->unit > 1 ? ui->unit : 1) : 0;
-    const int   s    = dgx_ui_variant_scale(&box->style->variants[0], ui->unit); /* the pixels a pixel of the font takes */
+    const int   s    = dgx_ui_variant_scale(&box->style->fonts[0], ui->unit); /* the pixels a pixel of the font takes */
     const int   cell = (f->y_bottom_max - f->y_offset_lowest) * s;
     const int   base = (box->style->flags & DGX_UI_TEXT_MIDDLE) ? n->y + (n->h - cell) / 2 - f->y_offset_lowest * s : n->y - f->y_offset_lowest * s;
     const int   top = base + f->y_offset_lowest * s, bottom = base + f->y_bottom_max * s;

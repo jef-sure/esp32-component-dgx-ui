@@ -210,10 +210,10 @@ static dgx_ui_textbox_t      ppm_box, temp_box, rh_box;
 /* the value in the large font, or in the small one when it does not go in */
 static const dgx_ui_font_variant_t vbig[2]   = {{.font = &dgx_font_large}, {.font = &dgx_font_body}};
 static const dgx_ui_font_variant_t vsmall[1] = {{.font = &dgx_font_body}};
-static const dgx_ui_text_style_t   st_big    = {.variants = vbig, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
-static const dgx_ui_text_style_t   st_centre = {.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
-static const dgx_ui_text_style_t   st_left   = {.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-static const dgx_ui_text_style_t   st_right  = {.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
+static const dgx_ui_text_style_t   st_big    = {.fonts = vbig, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+static const dgx_ui_text_style_t   st_centre = {.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
+static const dgx_ui_text_style_t   st_left   = {.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+static const dgx_ui_text_style_t   st_right  = {.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
 
 static dgx_ui_textbox_t unit_box = DGX_UI_TEXT_CONST("ppm CO2", 1, &st_centre);
 ```

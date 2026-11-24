@@ -76,11 +76,11 @@ static int fit_lines(const dgx_ui_text_style_t *st, const char *text, int len, i
 {
     int best = -1, most = -1;
     for (int v = 0; v < st->count; ++v) {
-        const int line_height = LINES_HEIGHT(&st->variants[v], unit);
+        const int line_height = LINES_HEIGHT(&st->fonts[v], unit);
         if (line_height <= 0) continue;
         const int rows = height / line_height > 0 ? height / line_height : 1;
         int       letters;
-        const int n = count_lines(text, len, &st->variants[v], width, rows + 1, rows, &letters, unit);
+        const int n = count_lines(text, len, &st->fonts[v], width, rows + 1, rows, &letters, unit);
         if (n <= rows) return v;
         if (letters > most) best = v, most = letters;
     }

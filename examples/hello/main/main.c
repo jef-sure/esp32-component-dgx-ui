@@ -46,8 +46,8 @@ DGX_UI_MESSAGE(count, MSG_COUNT, count_t) /* gives msg_post_count() and msg_deco
    constant. The count takes the large font, or the small one when it does not go into its field */
 static const dgx_ui_font_variant_t vsmall[1] = {{.font = &LiberationSansRegular12}};
 static const dgx_ui_font_variant_t vlarge[2] = {{.font = &DejaVuSansBook32}, {.font = &LiberationSansRegular12}};
-static const dgx_ui_text_style_t   st_title  = {.variants = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-static const dgx_ui_text_style_t   st_count  = {.variants = vlarge, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+static const dgx_ui_text_style_t   st_title  = {.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+static const dgx_ui_text_style_t   st_count  = {.fonts = vlarge, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
 static dgx_ui_textbox_t            title_box = DGX_UI_TEXT_CONST("Hello, dgx-ui", 1, &st_title);
 static char                        count_buf[12];
 static dgx_ui_textbox_t            count_box;
