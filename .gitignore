@@ -24,6 +24,8 @@ managed_components/
 # IDE
 .vscode/
 .clangd
+# a formatter's settings of the author's own, kept beside the checkout
+.clang-format
 # the index of clangd, made by the IDE while it runs
 .cache/
 .idea/
