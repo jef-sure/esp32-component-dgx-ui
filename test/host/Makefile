@@ -19,7 +19,7 @@ CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
 # would shift is warned at, braces or members missing
 WARN     := -Wall -Wextra -Wmissing-braces -Wmissing-field-initializers -Wno-unused-parameter -Werror=deprecated-declarations
 
-all: run-test_rect run-test_core run-test_percent run-test_text_state run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_points run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance run-test_preview run-test_preview_module run-test_preview_class run-test_preview_format run-test_description run-test_builder_templates run-test_builder_store run-test_builder_page run-test_serve check-werror check-lists $(if $(DGX_DI),run-test_di) check-cxx
+all: run-test_rect run-test_core run-test_percent run-test_text_state run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_points run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance run-test_preview run-test_preview_module run-test_preview_class run-test_preview_format run-test_description run-test_builder_templates run-test_builder_store run-test_builder_page run-test_serve check-werror check-format-chip check-lists $(if $(DGX_DI),run-test_di) check-cxx
 
 run-%: $(BUILD)/%
 	$<
@@ -351,6 +351,17 @@ check-werror: $(BUILD)/tools/dgx_ui_c
 	done
 	@echo "the sources, the preview's and the names' reading among them: no warning, read and compiled at -O1, -O2 and -Os"
 
+# the sources read by a chip's compiler, its log's arguments checked against the format as ESP-IDF 5.2-5.4 checks them:
+# DGX's stub logs by fprintf, and a chip's int32_t is a long. It is not a build by ESP-IDF 5.2-5.4 itself, whose other
+# differences it does not see. CHIP_CC: the compiler, by default riscv32-esp-elf-gcc of the PATH, else the newest of
+# ESP-IDF's tools; with none the check fails, saying so, unless CHIP_CC=skip
+CHIP_CC ?= $(firstword $(shell command -v riscv32-esp-elf-gcc) $(lastword $(sort $(wildcard $(HOME)/.espressif/tools/riscv32-esp-elf/*/riscv32-esp-elf/bin/riscv32-esp-elf-gcc))))
+check-format-chip:
+	@if [ "$(CHIP_CC)" = skip ]; then echo "the sources for a chip: passed by, as CHIP_CC=skip asks"; exit 0; fi; \
+	test -n "$(CHIP_CC)" || { echo "no compiler of a chip: CHIP_CC=<riscv32-esp-elf-gcc>, or CHIP_CC=skip on a machine that has none"; exit 1; }; \
+	for source in $(SOURCES); do $(CHIP_CC) -std=gnu11 -fsyntax-only -Wformat -Werror=format $(CPPFLAGS) $$source || exit 1; done; \
+	echo "the sources for a chip: every log's arguments as its format says, by $(notdir $(CHIP_CC)) $$($(CHIP_CC) -dumpversion)"
+
 # every source of src/ in the component's list, and in the list of the build on a computer (host/dgx_ui_host.mk) but
 # the two of FreeRTOS's queues and esp_timer
 ALL_SRCS     := $(notdir $(wildcard $(ROOT)/src/*.c))
@@ -382,4 +393,4 @@ clean:
 	rm -rf $(BUILD)
 
 .PHONY: all clean run-test_generate run-test_generate_appearance run-test_preview_module run-test_preview_class run-test_preview_format run-test_description \
-        run-test_builder_templates run-test_builder_store run-test_builder_page run-test_serve check-cxx check-werror check-lists check-docs
+        run-test_builder_templates run-test_builder_store run-test_builder_page run-test_serve check-cxx check-werror check-format-chip check-lists check-docs
