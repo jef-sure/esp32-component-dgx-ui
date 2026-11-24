@@ -46,10 +46,12 @@ takes a free one and says so, and there the zoom and the language the browser ke
 
 - Only this computer reaches it: it listens on 127.0.0.1 alone, and the project's calls carry the token of the link,
   which a browser never sends in an address.
-- It writes what the builder writes and nothing else: descriptions and appearances of `.json` and names files of
-  `.txt`, into folders that are there. Never `CMakeLists.txt`, `requirements.txt`, `sdkconfig*` or
-  `dependencies.lock`, nothing under `build/`, `managed_components/` or `.git/`, nothing outside the project, links
-  followed. A names file of another ending is not saved, and the builder says why.
+- It writes only what the project gives the builder: the files its `dgx_ui_tree()`, `dgx_ui_appearance()` and
+  `dgx_ui_names()` calls name, read anew at each save, and descriptions of pages already there; of `.json` and
+  `.txt`, into folders that are there. Never a file or folder whose name begins with a dot, nor `CMakeLists.txt`,
+  `CMakeCache.txt`, `CMake*.json`, `requirements.txt`, `sdkconfig*` or `dependencies.lock`, in any case of letters;
+  nothing under `build/`, `managed_components/` or another folder of a build; nothing outside the project, links
+  followed. A file it refuses is not saved, and the builder says why.
 - A project with dgx-ui from the registry is served by its own copy, `managed_components/jef-sure__dgx-ui/`, whatever
   copy of the script was run: the builder is of the version the project builds with.
 - It takes only the standard library of Python, so ESP-IDF's Python runs it.

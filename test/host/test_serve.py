@@ -3,14 +3,19 @@
 test_serve.py: tools/dgx_ui_serve.py on a project in a temporary directory. The builder's files served, nothing else
 of the component; the project listed, read and written by the token of the link; each refusal: another Host, for a
 file of the page too, no token or another, a write from another page, a path with "..", from the root, of a
-backslash, a link leading out, a file the build reads by its name (CMakeLists.txt, sdkconfig), one of another kind,
-one under build/ or managed_components/, into a folder not there, a body too large; no answer to a question of
-another origin and no header that keeps the page out of a frame. A write through a link within the project writes the
-file it leads to and keeps a file's mode. A link of the page's folder leading out of it, to a folder beside it too, not
-followed. The project's own copy from the registry served by it, no other looked for;
-a fixed port, and another when it is taken.
+backslash, a link leading out, into a folder not there, a body too large or cut short; no answer to a question of
+another origin and no header that keeps the page out of a frame. What is written: the files the project's calls of
+dgx-ui name, read anew at each write, and pages already there; never a file or folder of a dot, a file the build reads
+by its name (CMakeLists.txt, CMakeCache.txt, CMake*.json, sdkconfig*) in any case of letters, nor anything under
+build/, managed_components/ or a folder of a build, even when a call names it. The builder's own reading of the calls
+(store.js, under node) gives no file the server's leaves out. A write through a link within the project writes the
+file it leads to and keeps a file's mode. A link of the page's folder leading out of it, to a folder beside it too,
+not followed. The project's own copy from the registry served by it, no other looked for; a fixed port, and another
+when it is taken.
 """
 import http.client
+import importlib.util
+import json
 import os
 import pathlib
 import re
@@ -20,6 +25,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 here = pathlib.Path(__file__).resolve().parent
 SERVER = here.parent.parent / "tools" / "dgx_ui_serve.py"
@@ -41,17 +47,56 @@ def start(project, *options, env=None, server=SERVER):
     process = subprocess.Popen([sys.executable, str(server), "--project", str(project), *options], stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, env=env)
     started.append(process)
-    said = []
-    for _ in range(10):
+    said, link = [], None
+    for _ in range(10):  # to the last line it prints at the start
         line = process.stdout.readline()
         if not line:
             break
         said.append(line.rstrip("\n"))
-        link = re.match(r"http://127\.0\.0\.1:(\d+)/editor/#project=([\w-]+)$", said[-1])
-        if link:
-            return process, int(link.group(1)), link.group(2), said
+        link = link or re.match(r"http://127\.0\.0\.1:(\d+)/editor/#project=([\w-]+)$", said[-1])
+        if said[-1] == "Ctrl-C stops the server.":
+            break
+    if link:
+        return process, int(link.group(1)), link.group(2), said
     process.kill()
     return process, None, None, said
+
+
+def server_module():
+    """The server's own functions, its file imported as a module."""
+    spec = importlib.util.spec_from_file_location("dgx_ui_serve", SERVER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# the builder's reading of a CMakeLists, store.js's cmakeCalls() in a context as the page's (the scripts of index.html
+# but app.js), on the files given: the paths of each call, its file, its names and its appearance
+STORE_CALLS = r"""
+const fs = require('fs'), path = require('path'), vm = require('vm');
+const [editor, root, ...lists] = process.argv.slice(1);
+const sandbox = { console, TextEncoder, TextDecoder, WebAssembly, atob, setTimeout, clearTimeout, queueMicrotask, Promise, URL,
+                  navigator: { userAgent: '' } };
+sandbox.window = sandbox;
+vm.createContext(sandbox);
+for (const [, script] of fs.readFileSync(path.join(editor, 'index.html'), 'utf8').matchAll(/<script src="([^"]+)">/g)) {
+    if (script === 'app.js') continue;
+    const exported = { 'vendor/vue.global.prod.js': 'Vue', 'vendor/pinia.iife.prod.js': 'Pinia' }[script];
+    vm.runInContext(fs.readFileSync(path.join(editor, script), 'utf8') + (exported ? `\n;window.${exported} = ${exported};` : ''), sandbox);
+}
+const paths = [];
+for (const list of lists) {
+    const said = vm.runInContext(`useDgxUiBuilder.cmakeCalls(${JSON.stringify(list)}, ${JSON.stringify(fs.readFileSync(path.join(root, list), 'utf8'))})`, sandbox);
+    for (const call of said.calls) paths.push(...[call.file, call.names, call.appearance].filter(Boolean));
+}
+console.log(JSON.stringify(paths));
+"""
+
+
+def store_paths(root, lists):
+    done = subprocess.run(["node", "-e", STORE_CALLS, str(SERVER.parent.parent / "editor"), str(root), *lists], capture_output=True,
+                          text=True, timeout=60)
+    return json.loads(done.stdout) if done.returncode == 0 else None
 
 
 def stop(process):
@@ -63,24 +108,46 @@ def stop(process):
 work = pathlib.Path(tempfile.mkdtemp(prefix="dgx-ui-serve-"))
 try:
     project, outside = work / "demo", work / "outside"
-    for folder in (project / "main", project / "build", project / "managed_components" / "dgx" / "include", outside / "deep"):
+    for folder in (project / "main", project / "build", project / "managed_components" / "dgx" / "include", outside / "deep", project / "pages",
+                   project / ".vscode", project / ".claude", project / "build-cyd", project / "build-x", project / "Build", project / "components" / "x"):
         folder.mkdir(parents=True)
     (outside / "secret.txt").write_text("not the project's\n")
     beside = work / "demo-beside"  # its name begins as the project's: out of it all the same
     beside.mkdir()
     (beside / "secret.json").write_text("{}\n")
     (outside / "deep" / "secret.json").write_text("{}\n")
-    (project / "CMakeLists.txt").write_text("project(demo)\n")
+    # calls of dgx-ui, some naming what is never written
+    top_list = ("project(demo)\ndgx_ui_tree(.vscode/tasks.json)\ndgx_ui_tree(CMakePresets.json)\ndgx_ui_tree(Build/page.json)\n"
+                "dgx_ui_tree(build-cyd/page.json)\ndgx_ui_names(Requirements.txt)\ndgx_ui_tree(SdkConfig.json)\n")
+    main_list = ("dgx_ui_tree(home.json NAMES names.txt APPEARANCE look.json)  # dgx_ui_tree(commented.json)\n"
+                 "dgx_ui_tree(new.json)\ndgx_ui_tree(linked.json)\ndgx_ui_names(cmakelists.txt)\ndgx_ui_names(CMakeCache.txt)\n"
+                 "dgx_ui_tree(nothere/page.json)\n")
+    (project / "CMakeLists.txt").write_text(top_list)
     (project / "sdkconfig").write_text("CONFIG_X=y\n")
-    (project / "main" / "CMakeLists.txt").write_text("dgx_ui_tree(home.json NAMES names.txt)\n")
+    (project / "main" / "CMakeLists.txt").write_text(main_list)
+    (project / "components" / "x" / "CMakeLists.txt").write_text('idf_component_register()\nDGX_UI_NAMES("other.txt" PREFIX volume)\n')
+    (project / "components" / "x" / "other.txt").write_text("value volume &volume\n")
     (project / "main" / "home.json").write_text('{"dgx-ui": 1}\n')
+    (project / "main" / "look.json").write_text('{"dgx-ui": 1, "colors": {}}\n')
+    (project / "main" / "data.json").write_text('{"rows": [1, 2]}\n')  # a .json of the program's, no description
+    (project / "main" / "linked.json").symlink_to(project / "main" / "CMakeLists.txt")  # named by a call, a link to what is never written
+    (project / "main" / "cmakelists.txt").write_text("")
+    (project / "pages" / "loaded.json").write_text('{"dgx-ui": 1, "tree": {"kind": "box"}}\n')  # a page loaded at run time
+    (project / "pages" / "look_like.json").write_text('{"dgx-ui": 1, "colors": {}}\n')  # an appearance no call names
+    (project / "build-x" / "page.json").write_text('{"dgx-ui": 1, "tree": {"kind": "box"}}\n')  # a page where pages are not looked for
+    (project / ".vscode" / "page.json").write_text('{"dgx-ui": 1, "tree": {"kind": "box"}}\n')
+    (project / ".vscode" / "settings.json").write_text("{}\n")
+    (project / "build-cyd" / "CMakeCache.txt").write_text("# a build's\n")
+    for name in ("CMakePresets.json", "package.json", "version.txt", ".mcp.json"):
+        (project / name).write_text("{}\n")
     (project / "main" / "names.txt").write_text("value volume &volume\n")
     (project / "main" / "names.txt").chmod(0o640)
     (project / "main" / "out.txt").symlink_to(outside / "secret.txt")
     (project / "main" / "out_dir").symlink_to(outside / "deep")
     (project / "main" / "out_new.json").symlink_to(outside / "made.json")  # leads to no file yet, out of the project
-    (project / "main" / "same.json").symlink_to(project / "main" / "home.json")
+    (project / "main" / "same.json").symlink_to(project / "main" / "look.json")
     (project / "main" / "beside.json").symlink_to(beside / "secret.json")
+    (project / ".alias.json").symlink_to(project / "main" / "look.json")  # a name of a dot, of a file the calls name
     (project / "main" / "alias.json").symlink_to(project / "main" / "CMakeLists.txt")  # a name the builder writes, of a file it does not
     (project / "main" / "into_build").symlink_to(project / "build")
 
@@ -136,9 +203,7 @@ try:
     check(ask("GET", "/project", token_given="x" + token)[0] == 401, "another token: refused")
     check(ask("GET", at("list", ""), host_given="evil.example")[0] == 403, "a call by another Host: refused")
     status, body, _ = ask("GET", at("list", ""))
-    check(status == 200 and body == b'[{"name": "CMakeLists.txt", "directory": false}, {"name": "build", "directory": true}, '
-          b'{"name": "main", "directory": true}, {"name": "managed_components", "directory": true}, {"name": "sdkconfig", "directory": false}]',
-          f"the project listed: {body}")
+    check(status == 200 and [entry["name"] for entry in json.loads(body)] == sorted(os.listdir(project)), f"the project listed: {body}")
     status, body, _ = ask("GET", at("list", "main"))
     check(status == 200 and b"home.json" in body and b"same.json" in body and b"out" not in body, f"links out not listed: {body}")
     check(ask("GET", at("list", "nothing"))[:2] == (204, b""), "a folder not there: 204, no content")
@@ -151,16 +216,20 @@ try:
         status, body, _ = ask("GET", at("file", rel))
         check(status == 400 and b"secret" not in body and b"not the project" not in body, f"{rel}: not read ({status})")
 
-    # writes
-    status, _, _ = ask("POST", at("file", "main/page.json"), '{"dgx-ui": 1, "name": "page"}\n')
-    check(status == 200 and (project / "main" / "page.json").read_text() == '{"dgx-ui": 1, "name": "page"}\n', f"a file written: {status}")
+    # writes: what the calls name, a file they name created, a page there; every other file of the project kept as it is
+    kept = {path: path.read_bytes() for path in project.rglob("*") if path.is_file() and not path.is_symlink()}
+    for rel, text in (("main/home.json", '{"dgx-ui": 1, "tree": {"kind": "label"}}\n'), ("main/look.json", '{"dgx-ui": 1, "colors": {}}\n'),
+                      ("main/new.json", '{"dgx-ui": 1, "tree": {"kind": "label"}}\n'), ("components/x/other.txt", "value level &level\n"),
+                      ("pages/loaded.json", '{"dgx-ui": 1, "tree": {"kind": "label"}}\n')):
+        status, body, _ = ask("POST", at("file", rel), text)
+        check(status == 200 and (project / rel).read_text() == text, f"{rel} written: {status} {body}")
     status, _, _ = ask("POST", at("file", "main/names.txt"), "value level &level\n")
     names = project / "main" / "names.txt"
     check(status == 200 and names.read_text() == "value level &level\n" and stat.S_IMODE(names.stat().st_mode) == 0o640,
           "a names file written, its mode kept")
     status, _, _ = ask("POST", at("file", "main/same.json"), '{"dgx-ui": 1, "name": "same"}\n')
     check(status == 200 and (project / "main" / "same.json").is_symlink() and
-          (project / "main" / "home.json").read_text() == '{"dgx-ui": 1, "name": "same"}\n', "a write through a link in the project: its file")
+          (project / "main" / "look.json").read_text() == '{"dgx-ui": 1, "name": "same"}\n', "a write through a link in the project: its file")
     check(not [name for name in os.listdir(project / "main") if name.startswith(".dgx_ui_serve.")], "no file left beside")
     refusals = [
         ("no token", dict(token_given=False), "main/a.json", 401),
@@ -170,6 +239,32 @@ try:
         ("another Origin", dict(origin_given="http://evil.example"), "main/a.json", 403),
         ("the Origin of another port", dict(origin_given=f"http://127.0.0.1:{port + 1}"), "main/a.json", 403),
         ("CMakeLists.txt", {}, "CMakeLists.txt", 400),
+        ("a file no call names", {}, "main/page.json", 400),
+        ("a .json of the program's", {}, "main/data.json", 400),
+        ("a description no call names, not of a page", {}, "pages/look_like.json", 400),
+        ("a call's file in a comment", {}, "main/commented.json", 400),
+        ("a .json no call names, a description in its body", {}, "pages/new.json", 400),
+        ("a page where pages are not looked for", {}, "build-x/page.json", 400),
+        ("a page in a folder of a dot", {}, ".vscode/page.json", 400),
+        (".vscode/tasks.json, a call naming it", {}, ".vscode/tasks.json", 400),
+        (".vscode/settings.json", {}, ".vscode/settings.json", 400),
+        (".claude/settings.json", {}, ".claude/settings.json", 400),
+        (".mcp.json", {}, ".mcp.json", 400),
+        (".devcontainer.json", {}, ".devcontainer.json", 400),
+        ("CMakePresets.json, a call naming it", {}, "CMakePresets.json", 400),
+        ("CMakeUserPresets.json", {}, "CMakeUserPresets.json", 400),
+        ("CMakeCache.txt", {}, "build-cyd/CMakeCache.txt", 400),
+        ("CMakeCache.txt where no build is, a call naming it", {}, "main/CMakeCache.txt", 400),
+        ("a folder not there, a call naming it", {}, "main/nothere/page.json", 400),
+        ("a name of a dot, a link to a file the calls name", {}, ".alias.json", 400),
+        ("a folder of a build, a call naming it", {}, "build-cyd/page.json", 400),
+        ("package.json", {}, "package.json", 400),
+        ("version.txt", {}, "version.txt", 400),
+        ("Build/, a call naming it", {}, "Build/page.json", 400),
+        ("Requirements.txt, a call naming it", {}, "Requirements.txt", 400),
+        ("SdkConfig.json, a call naming it", {}, "SdkConfig.json", 400),
+        ("cmakelists.txt, a call naming it", {}, "main/cmakelists.txt", 400),
+        ("a link named by a call, to a CMakeLists.txt", {}, "main/linked.json", 400),
         ("a component's CMakeLists.txt", {}, "main/CMakeLists.txt", 400),
         ("requirements.txt", {}, "main/requirements.txt", 400),
         ("sdkconfig", {}, "sdkconfig", 400),
@@ -193,10 +288,62 @@ try:
     check((outside / "secret.txt").read_text() == "not the project's\n" and (outside / "deep" / "secret.json").read_text() == "{}\n" and
           not (outside / "made.json").exists() and not (work / "a.json").exists() and (beside / "secret.json").read_text() == "{}\n",
           "nothing written out of the project")
-    check((project / "CMakeLists.txt").read_text() == "project(demo)\n" and (project / "sdkconfig").read_text() == "CONFIG_X=y\n" and
-          (project / "main" / "CMakeLists.txt").read_text() == "dgx_ui_tree(home.json NAMES names.txt)\n" and
-          not (project / "main" / "a.json").exists() and not (project / "build" / "a.json").exists() and
-          (project / "main" / "alias.json").is_symlink(), "nothing of the refused written")
+    written = {project / rel for rel in ("main/home.json", "main/look.json", "main/names.txt", "components/x/other.txt", "pages/loaded.json")}
+    changed = [str(path.relative_to(project)) for path, data in kept.items() if path not in written and path.read_bytes() != data]
+    made = [str(path.relative_to(project)) for path in project.rglob("*") if path.is_file() and not path.is_symlink() and path not in kept and
+            path.name != "new.json"]
+    check(not changed and not made and (project / "main" / "alias.json").is_symlink() and (project / "main" / "linked.json").is_symlink(),
+          f"nothing of the refused written: changed {changed}, made {made}")
+
+    # the calls read at each write: one added to main/CMakeLists.txt, its file written with no restart
+    status, _, _ = ask("POST", at("file", "main/later.json"), "{}\n")
+    (project / "main" / "CMakeLists.txt").write_text(main_list + "dgx_ui_tree(later.json)\n")
+    status_after, _, _ = ask("POST", at("file", "main/later.json"), "{}\n")
+    check(status == 400 and status_after == 200 and (project / "main" / "later.json").read_text() == "{}\n",
+          f"a call added, its file written at once: {status} then {status_after}")
+
+    # a body shorter than its length, the connection's writing side closed: refused, nothing written
+    def short_body(close):
+        connection = socket.create_connection(("127.0.0.1", port), timeout=40)
+        connection.sendall((f"POST {at('file', 'main/home.json')} HTTP/1.1\r\nHost: {host}\r\nAuthorization: Bearer {token}\r\n"
+                            f"Origin: {origin}\r\nContent-Length: 100\r\n\r\nshort!\n").encode())
+        if close:
+            connection.shutdown(socket.SHUT_WR)
+        answer = b""
+        while chunk := connection.recv(4096):  # to its end: the server closes after its answer
+            answer += chunk
+        connection.close()
+        return answer
+    before = (project / "main" / "home.json").read_bytes()
+    answer = short_body(True)
+    check(answer.startswith(b"HTTP/1.0 400") and b"ended before its length" in answer and (project / "main" / "home.json").read_bytes() == before,
+          f"a body cut short: {answer[:60]}")
+    # the same with the connection left open: ended by the server's time, the same answer
+    started_at = time.monotonic()
+    answer = short_body(False)
+    check(answer.startswith(b"HTTP/1.0 400") and b"ended before its length" in answer and time.monotonic() - started_at < 30 and
+          (project / "main" / "home.json").read_bytes() == before, f"a body cut short, the connection left open: {answer[:60]}")
+
+    # the builder's reading of the calls against the server's: every file the builder may write, the server lets it; on
+    # the hook project's CMakeLists and on calls of every form the builder reads
+    serve = server_module()
+    readers = work / "readers"
+    (readers / "main").mkdir(parents=True)
+    (readers / "components" / "c1").mkdir(parents=True)
+    (readers / "CMakeLists.txt").write_text("project(readers)\n")
+    (readers / "main" / "CMakeLists.txt").write_text(
+        'dgx_ui_tree("quoted page.json" NAMES "../shared/names.txt")  # dgx_ui_tree(no.json)\n'
+        "dgx_ui_appearance(looks/day.json NAMES vocab.txt PREFIX day)\n"
+        "dgx_ui_tree(settings.json HEADERS program.h other.h APPEARANCE looks/day.json)\n"
+        "DGX_UI_NAMES(vocab.txt)\n"
+        "dgx_ui_tree(\n    sound.json\n    PREFIX volume\n    NAMES vocab.txt\n)\n")
+    (readers / "components" / "c1" / "CMakeLists.txt").write_text("dgx_ui_tree(pages/sound.json PREFIX volume NAMES ../../main/vocab.txt)\n")
+    for root in (here.parent / "hook" / "project", readers):
+        lists = [rel for rel in serve.CALL_LISTS if (root / rel).is_file()]
+        lists += [f"components/{name}/CMakeLists.txt" for name in sorted(os.listdir(root / "components")) if (root / "components" / name / "CMakeLists.txt").is_file()]
+        paths = store_paths(root, lists)
+        allowed = serve.called_files(os.path.realpath(root))
+        check(paths and not set(paths) - allowed, f"{root.name}: the builder's files {paths}, the server's {sorted(allowed)}")
     status, body, _ = ask("POST", at("file", "main/big.json"), b"", headers={"Content-Length": str(5 * 1024 * 1024)})
     check(status == 413 and not (project / "main" / "big.json").exists(), f"a body too large: {status}")
     check(ask("POST", "/project/list?path=main", "{}")[0] == 404, "a write of no file: 404")

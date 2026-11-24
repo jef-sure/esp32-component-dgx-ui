@@ -13,14 +13,17 @@ this one hands over to it at the start, so the builder is of the version the pro
 only, so the Python of ESP-IDF runs it.
 
 Only this computer reaches it: bound to 127.0.0.1, every request of this Host. The project's calls carry a token the
-link gives, a write comes from the builder's own page, and the paths lie in the project. What is written: a file of
-.json or .txt, the builder's descriptions, appearances and names files, never one the build reads otherwise.
+link gives, a write comes from the builder's own page, and the paths lie in the project. What is written: the files the
+project's dgx_ui_tree(), dgx_ui_appearance() and dgx_ui_names() calls name, read at each write, and pages already
+there, of .json or .txt; never a file or folder of a dot, nor one the build reads by its name.
 """
 import argparse
 import http.server
 import json
 import os
 import pathlib
+import posixpath
+import re
 import secrets
 import sys
 import tempfile
@@ -31,18 +34,125 @@ ADDRESS = "127.0.0.1"  # this computer only: bound to it, and the Host of every 
 SERVED = ROOT / "editor"  # the builder's files: nothing else of the component is served
 DEFAULT_PORT = 8741  # fixed, so that the page's origin, and the settings it keeps in the browser, stay from run to run
 LONGEST_BODY = 4 * 1024 * 1024
+TIMEOUT_S = 20  # a connection that sends nothing for so long is closed: a body cut short ends so too
 HANDED = "DGX_UI_SERVE_HANDED"
 
-# what the builder writes, and what it never does: a file the build reads by its name, though it ends so
+# what the builder writes: of these endings only. What it never writes, whatever a call names, compared in any case of
+# letters (a disk of macOS or Windows takes cmakelists.txt for CMakeLists.txt): a file or folder of a dot, a tool's; a
+# file the build or CMake reads by its name, sdkconfig* and dependencies.lock* of no such ending; a folder of the build's
 WRITTEN_SUFFIXES = (".json", ".txt")
-NEVER_WRITTEN = ("CMakeLists.txt", "requirements.txt")  # by name; dependencies.lock and sdkconfig* below, of no such suffix
+NEVER_WRITTEN = ("cmakelists.txt", "cmakecache.txt", "requirements.txt")
 NEVER_WRITTEN_PREFIXES = ("sdkconfig", "dependencies.lock")
-NEVER_UNDER = ("build", "managed_components", ".git")
+NEVER_UNDER = ("build", "managed_components")
+
+# the calls whose files the builder edits, the CMakeLists it reads them in (components/<name>/ too), the words of
+# theirs that are no file, and the folders whose pages it does not look for
+CALLS = re.compile(r"(?<![A-Za-z0-9_])(dgx_ui_tree|dgx_ui_appearance|dgx_ui_names)[ \t]*\(", re.IGNORECASE)
+CALL_LISTS = ("CMakeLists.txt", "main/CMakeLists.txt")
+CALL_KEYWORDS = ("PREFIX", "NAMES", "APPEARANCE", "HEADERS")
+NOT_SEARCHED = ("node_modules", "managed_components", "dist", "vendor")
 
 
 def inside(root, path):
     """Whether a real path lies in the real root, or is it."""
     return path == root or path.startswith(root + os.sep)
+
+
+def without_comments(text):
+    """A CMakeLists' text with its comments made spaces, a quoted # kept."""
+    out, quoted, k = [], False, 0
+    while k < len(text):
+        c = text[k]
+        if quoted:
+            out.append(c)
+            if c == "\\" and k + 1 < len(text):
+                k += 1
+                out.append(text[k])
+            elif c == '"':
+                quoted = False
+        elif c == '"':
+            quoted = True
+            out.append(c)
+        elif c == "#":
+            while k < len(text) and text[k] != "\n":
+                out.append(" ")
+                k += 1
+            continue
+        else:
+            out.append(c)
+        k += 1
+    return "".join(out)
+
+
+def call_words(text, start):
+    """The words of a call's arguments from just after its "(" to its ")", their quotes taken off."""
+    words, word, quoted, depth, k = [], [], False, 1, start
+    while k < len(text) and depth:
+        c = text[k]
+        if quoted:
+            if c == "\\" and k + 1 < len(text):
+                k += 1
+                word.append(text[k])
+            elif c == '"':
+                quoted = False
+            else:
+                word.append(c)
+        elif c == '"':
+            quoted = True
+        elif c in "()":
+            depth += 1 if c == "(" else -1
+        elif c.isspace():
+            if word:
+                words.append("".join(word))
+                word = []
+        else:
+            word.append(c)
+        k += 1
+    if word:
+        words.append("".join(word))
+    return words
+
+
+def called_files(root):
+    """The paths of the project that a call of dgx_ui_tree(), dgx_ui_appearance() or dgx_ui_names() in its CMakeLists
+    names: each word of its arguments but the keywords, from the folder of its CMakeLists. Wider than the builder's own
+    reading of them (no block, variable or form of argument is told apart): what the builder writes is among them."""
+    lists = list(CALL_LISTS)
+    try:
+        lists += [f"components/{name}/CMakeLists.txt" for name in sorted(os.listdir(os.path.join(root, "components")))]
+    except OSError:
+        pass
+    named = set()
+    for rel in lists:
+        try:
+            with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as source:
+                text = without_comments(source.read(LONGEST_BODY))
+        except OSError:
+            continue
+        folder = posixpath.dirname(rel)
+        for call in CALLS.finditer(text):
+            for word in call_words(text, call.end()):
+                if word in CALL_KEYWORDS or word.startswith("/"):
+                    continue
+                path = posixpath.normpath(posixpath.join(folder, word))
+                if path != ".." and not path.startswith("../"):
+                    named.add(path)
+    return named
+
+
+def page_there(path):
+    """Whether a file is a description of a page as the builder finds one: a .json holding "dgx-ui" and "tree", read as
+    JSON, or by its text when it does not read (a page there to be mended)."""
+    try:
+        with open(path, "rb") as source:
+            data = source.read(LONGEST_BODY)
+    except OSError:
+        return False
+    try:
+        doc = json.loads(data)
+        return isinstance(doc, dict) and "dgx-ui" in doc and "tree" in doc
+    except ValueError:
+        return re.search(rb'"dgx-ui"[\s\S]*"tree"', data) is not None
 
 
 def problem_of(root, rel, writing=False, listing=False):
@@ -62,16 +172,33 @@ def problem_of(root, rel, writing=False, listing=False):
     if not inside(root, real):
         return "a path that leads out of the project"
     if writing:
-        # the rule for the file the path leads to, its links followed: the file that would be written
-        written = os.path.relpath(real, root).split(os.sep)
-        if not written[-1].endswith(WRITTEN_SUFFIXES):
-            return "the builder writes descriptions and appearances of .json and names files of .txt only"
-        if written[-1] in NEVER_WRITTEN or written[-1].startswith(NEVER_WRITTEN_PREFIXES):
-            return f"{written[-1]} is the build's own: not written by the builder"
-        if any(part in NEVER_UNDER for part in written[:-1]):
-            return "nothing is written under build/, managed_components/ or .git/"
-        if not os.path.isdir(os.path.dirname(real)):
+        # what is never written, by the path as it is named and by the file its links lead to
+        written = os.path.relpath(real, root).replace(os.sep, "/")
+        for path in (rel, written):
+            parts = [part.casefold() for part in path.split("/")]
+            name = parts[-1]
+            if any(part.startswith(".") for part in parts):
+                return "nothing of a dot is written: a folder or file of a tool's"
+            if not name.endswith(WRITTEN_SUFFIXES):
+                return "the builder writes descriptions and appearances of .json and names files of .txt only"
+            if name in NEVER_WRITTEN or name.startswith(NEVER_WRITTEN_PREFIXES) or (name.startswith("cmake") and name.endswith(".json")):
+                return f"{path.split('/')[-1]} is the build's own: not written by the builder"
+            if any(part in NEVER_UNDER for part in parts[:-1]):
+                return "nothing is written under build/ or managed_components/"
+        folder = os.path.dirname(real)
+        if not os.path.isdir(folder):
             return "a file of a folder that is there: no folder is made"
+        for above in [folder, *(str(parent) for parent in pathlib.Path(folder).parents)]:
+            if not inside(root, above):
+                break
+            if os.path.exists(os.path.join(above, "CMakeCache.txt")):
+                return "nothing is written in a folder of a build, one holding CMakeCache.txt"
+        # what is written: a file a call names, read now, as the person may have changed the CMakeLists; or a page there
+        named = called_files(root)
+        if rel not in named and written not in named:
+            searched = not any(part.casefold() in NOT_SEARCHED or part.casefold().startswith("build") for part in written.split("/")[:-1])
+            if not (searched and written.endswith(".json") and page_there(real)):
+                return "the builder writes the files the project's dgx_ui_tree(), dgx_ui_appearance() and dgx_ui_names() calls name, and pages already there"
     return None
 
 
@@ -97,6 +224,8 @@ def handler_of(project, token, port):
     own_origin = f"http://{ADDRESS}:{port}"
 
     class Page(http.server.SimpleHTTPRequestHandler):
+        timeout = TIMEOUT_S
+
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(ROOT), **kwargs)
 
@@ -194,7 +323,12 @@ def handler_of(project, token, port):
                 return self.answer(411)
             if int(length) > LONGEST_BODY:
                 return self.answer(413, {"error": f"a file of at most {LONGEST_BODY} bytes"})
-            data = self.rfile.read(int(length))
+            try:
+                data = self.rfile.read(int(length))
+            except OSError:  # nothing more came for TIMEOUT_S
+                data = b""
+            if len(data) < int(length):
+                return self.answer(400, {"error": "the body ended before its length: nothing written"})
             rel, problem = self.path_asked(address, writing=True)
             if problem:
                 return self.answer(400, {"error": problem})
