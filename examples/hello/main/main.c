@@ -4,6 +4,7 @@
  * is. On a CYD (ESP32-2432S028R), its ILI9341 standing, 240x320; on the computer, in a window of DGX of the same size.
  * The fonts are two of those DGX ships.
  */
+#include "dgx_colors.h" /* DGX_BLACK() and the other named colours */
 #include "dgx_ui_paint.h"
 #include "dgx_ui_post.h"
 #include "dgx_ui_text.h"
@@ -88,10 +89,10 @@ void app_main(void)
     if (!scr) return;
     /* the colours of the looks are indices of this table, packed for the screen */
     const uint32_t colors[] = {
-        dgx_screen_rgb(scr, 16, 20, 28),    /* 0 the paper */
-        dgx_screen_rgb(scr, 230, 230, 220), /* 1 the ink */
-        dgx_screen_rgb(scr, 32, 48, 72),    /* 2 the frame's fill */
-        dgx_screen_rgb(scr, 120, 160, 220), /* 3 its border */
+        DGX_BLACK(DGX_RGB_16),          /* 0 the paper */
+        DGX_GAINSBORO(DGX_RGB_16),      /* 1 the ink */
+        DGX_MIDNIGHTBLUE(DGX_RGB_16),   /* 2 the frame's fill */
+        DGX_CORNFLOWERBLUE(DGX_RGB_16), /* 3 its border */
     };
     dgx_ui_textbox_init(&count_box, count_buf, sizeof count_buf, 1, &st_count);
 
