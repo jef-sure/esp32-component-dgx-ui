@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.58 - 2026-11-25
+
+- A picture's `scale` in dgx_ui_picture_t: 0 draws it pixel for pixel, 1 a pixel of it as a point of the tree, more as
+  so many points; every look of a picture and its widget's size count it.
+- Docs: the picture's scale in the API page and the recipe of a picture from flash.
+
 ## 0.0.57 - 2026-11-25
 
 - A list or a dropdown picks only within its rows, one row too; with none, nothing.
