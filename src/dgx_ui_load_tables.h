@@ -18,8 +18,10 @@
 static const char *const kinds[] = {"box", "frame", "label", "picture", "icon", "list", "switch", "slider", "button", "input", "dropdown", "own", "radio"};
 enum { KIND_COUNT = sizeof kinds / sizeof *kinds };
 
-/* the words of "flags" and "state", each at its bit's place: DGX_UI_COLUMN is 1 << 0 ... DGX_UI_REPEAT 1 << 7 */
-static const char flag_words[]  = "column\0row\0stretch\0swipe\0drag\0canvas\0rest\0repeat\0";
+/* the words of "flags" and "state", each at its bit's place: DGX_UI_COLUMN is 1 << 0 ... DGX_UI_REPEAT 1 << 7; "scroll",
+   the ninth, is DGX_UI_SCROLL, past the percents' bits (FLAG_SCROLL) */
+static const char flag_words[]  = "column\0row\0stretch\0swipe\0drag\0canvas\0rest\0repeat\0scroll\0";
+enum { FLAG_SCROLL = 1u << 8 };
 static const char state_words[] = "hidden\0disabled\0";
 _Static_assert(DGX_UI_COLUMN == 1 << 0 && DGX_UI_ROW == 1 << 1 && DGX_UI_STRETCH == 1 << 2 && DGX_UI_SWIPE == 1 << 3 && DGX_UI_DRAG == 1 << 4 &&
                    DGX_UI_CANVAS == 1 << 5 && DGX_UI_REST == 1 << 6 && DGX_UI_REPEAT == 1 << 7 && DGX_UI_HIDDEN == 1 << 0 && DGX_UI_DISABLED == 1 << 1,
@@ -30,11 +32,12 @@ enum { K_KIND, K_FLAGS, K_STATE, K_PAD, K_GAP, K_AT, K_WANT, K_MIN, K_MAX, K_STE
 static const char *const keys[KEY_COUNT] = {"kind", "flags", "state", "pad", "gap", "at", "want", "min", "max", "step", "tag", "look", "value", "picture", "style", "on", "take", "ctx", "text", "text_size", "lines", "id", "children", "editor"};
 enum {
     ALL       = 0x1fff,
+    BOXED     = 1u << DGX_UI_BOX, /* a scrolling box's offset and step: a box of no "scroll" refused them */
     VALUED    = 1u << DGX_UI_LIST | 1u << DGX_UI_SWITCH | 1u << DGX_UI_SLIDER | 1u << DGX_UI_DROPDOWN | 1u << DGX_UI_OWN | 1u << DGX_UI_RADIO | 1u << DGX_UI_ICON,
     TEXTED    = 1u << DGX_UI_LABEL | 1u << DGX_UI_BUTTON | 1u << DGX_UI_LIST | 1u << DGX_UI_INPUT | 1u << DGX_UI_DROPDOWN | 1u << DGX_UI_RADIO | 1u << DGX_UI_SWITCH,
     PICTURED  = 1u << DGX_UI_PICTURE | 1u << DGX_UI_ICON | 1u << DGX_UI_BUTTON | 1u << DGX_UI_SWITCH | 1u << DGX_UI_RADIO,
     HOLDING   = 1u << DGX_UI_BOX | 1u << DGX_UI_FRAME | 1u << DGX_UI_OWN,
     OWN_LOOKS = 1u << DGX_UI_BOX | 1u << DGX_UI_FRAME | 1u << DGX_UI_LABEL, /* the core's own look when none is said */
 };
-static const uint16_t key_kinds[KEY_COUNT] = {ALL,    ALL,    ALL,    HOLDING, HOLDING,  ALL,    ALL,    VALUED, VALUED, VALUED, ALL, ALL,
-                                              VALUED, PICTURED, TEXTED, ALL,   ALL,      ALL,    TEXTED, TEXTED, TEXTED, ALL, HOLDING, ALL};
+static const uint16_t key_kinds[KEY_COUNT] = {ALL,    ALL,    ALL,    HOLDING, HOLDING,  ALL,    ALL,    VALUED, VALUED, VALUED | BOXED, ALL, ALL,
+                                              VALUED | BOXED, PICTURED, TEXTED, ALL,   ALL,      ALL,    TEXTED, TEXTED, TEXTED, ALL, HOLDING, ALL};

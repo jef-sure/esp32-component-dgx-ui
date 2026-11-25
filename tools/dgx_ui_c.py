@@ -3,12 +3,13 @@
 dgx_ui_c.py <DGX directory> <directory>: dgx_ui_c built for the computer into <directory>, the one way it is built.
 
 The tool is tools/dgx_ui_c.c, its reading of the names a description is read on in a source of its own,
-tools/dgx_ui_names.c, and nine sources of dgx-ui's src/ (the tree, its text boxes, rectangles and messages, the loader
-of pages and of appearances, their reader of JSON, what they share, and the descriptions of the draws' parameters),
+tools/dgx_ui_names.c, and ten sources of dgx-ui's src/ (the tree, its text boxes, rectangles and messages, the loader
+of pages and of appearances, their reader of JSON, what they share, the descriptions of the draws' parameters, and the
+scrolling box's behaviour beside its description),
 compiled against dgx-ui's include/ and src/ and DGX's include/ and host/stubs/, which DGX's package
 carries for its build on a computer: no source of DGX, no library but C's. The words of the library's looks, which a
 description may name with no names file, are read from include/dgx_ui_paint.h into library_looks.h; the library's
-draws and the types of their parameters from src/dgx_ui_params.c into library_draws.h.
+draws and the types of their parameters from src/dgx_ui_params.c and src/dgx_ui_scroll.c into library_draws.h.
 
 The compiler is the computer's, as DGX's font2c is built: $CC unless it is a chip's, else cc (gcc on Windows), with a
 PATH that does not lead to the chips' tools first. Run by the rule project_include.cmake makes once for a project, and
@@ -23,7 +24,7 @@ TOOLS = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TOOLS)
 SOURCES = [os.path.join(TOOLS, "dgx_ui_c.c"), os.path.join(TOOLS, "dgx_ui_names.c")] + [os.path.join(ROOT, "src", name) for name in
                                                  ("dgx_ui.c", "dgx_ui_text.c", "dgx_ui_rect.c", "dgx_ui_msg.c", "dgx_ui_load.c", "dgx_ui_json.c", "dgx_ui_read.c",
-                                                  "dgx_ui_appearance.c", "dgx_ui_params.c")]
+                                                  "dgx_ui_appearance.c", "dgx_ui_params.c", "dgx_ui_scroll.c")]
 
 
 def fail(text):
@@ -43,15 +44,17 @@ def library_looks():
 
 
 def library_draws():
-    """DRAW(word, type) for each draw of the library described in src/dgx_ui_params.c, the type of its parameters empty
+    """DRAW(word, type) for each draw of the library described in src/dgx_ui_params.c and src/dgx_ui_scroll.c, the type of its parameters empty
     for one of none; COUNT(type, member, count) for each list of bands, the member that holds their count"""
-    with open(os.path.join(ROOT, "src", "dgx_ui_params.c"), encoding="utf-8") as source:
-        text = source.read()
-    draws = re.findall(r"^const dgx_ui_params_t dgx_ui_params_(\w+)\s*=\s*(?:DGX_UI_PARAMS\((\w+),|\{)", text, re.M)
+    text = ""
+    for name in ("dgx_ui_params.c", "dgx_ui_scroll.c"):  # the scrolling box's description beside its behaviour
+        with open(os.path.join(ROOT, "src", name), encoding="utf-8") as source:
+            text += source.read()
+    draws = re.findall(r"^const dgx_ui_params_t dgx_ui_params_(\w+)\s*=\s*(?:DGX_UI_PARAMS(?:_BEHAVING)?\((\w+),|\{)", text, re.M)
     lines = [f"DRAW({word}, {kind})\n" for word, kind in draws if word not in ("text_style", "font_variant")]
     lines += [f"COUNT({kind}, {member}, {count})\n" for kind, member, count in re.findall(r"DGX_UI_BANDS_FIELD\((\w+), (\w+), (\w+)\)", text)]
     if len(lines) < 19:
-        fail("the draws of the library not found in src/dgx_ui_params.c")
+        fail("the draws of the library not found in src/dgx_ui_params.c and src/dgx_ui_scroll.c")
     return "".join(lines)
 
 

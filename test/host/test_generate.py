@@ -40,7 +40,7 @@ assert codes[0] == "DGX_UI_LOAD_OK" and "DGX_UI_LOAD_ID" in codes, codes
 
 # the program's vocabulary, as the tables of test_generate.c have it: the table, the name, the C, a word
 LIBRARY_LOOKS = ["button", "slider", "switch", "list", "dropdown", "input", "radio", "picture", "ring", "checkbox", "level", "text",
-                 "picture_button", "box", "frame"]
+                 "picture_button", "box", "frame", "scroll"]
 VOCABULARY = [("look", word, "&dgx_ui_look_" + word, "") for word in LIBRARY_LOOKS] + [
     ("look", "mine", "&mine", ""),
     ("value", "volume", "&volume", ""), ("value", "choice", "&choice", ""), ("value", "ticked", "&ticked", ""),
@@ -173,6 +173,14 @@ class Chance:
         flags = [f for f in ("stretch", "rest", "repeat") if rand.randint(0, 4) == 0]
         if kind in ("box", "frame"):
             flags.append(rand.choice(["column", "row"]))
+        # a scrolling box, by the rule, whose table has the look of the word "scroll": its offset named or its own
+        scrolls = rule and kind == "box" and "column" in flags and rand.randint(0, 2) == 0
+        if scrolls:
+            flags.append("scroll")
+            if rand.randint(0, 1):
+                keys.append('"value": "' + rand.choice(names_of("value", rule)) + '"')
+            if rand.randint(0, 2) == 0:
+                keys.append(f'"step": {rand.randint(1, 9)}')
         if flags:
             keys.append('"flags": [' + ", ".join(f'"{f}"' for f in flags) + "]")
         if holds:
@@ -298,6 +306,10 @@ cases += [
     ("constants", '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "label", "text": "a"}, {"kind": "button", "text": "b"}]}}',
      True, []),
     ("textless", '{"dgx-ui": 1, "tree": {"kind": "box", "children": [{"kind": "slider", "value": "volume", "max": 9}]}}', True, []),
+    ("scrolling", '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "box", "flags": ["column", "scroll"], "value": "volume", '
+                  '"step": 3, "want": [0, 40], "children": [{"kind": "label", "text": "a"}, {"kind": "button", "text": "b"}]}, {"kind": "box", "flags": ["scroll", '
+                  '"column"], "want": [0, 20], "children": [{"kind": "label", "text": "c"}]}, {"kind": "box", "flags": ["column", "scroll"], '
+                  '"want": [0, 20], "children": [{"kind": "label", "text": "d"}]}]}}', True, []),
     ("over_name", '{"dgx-ui": 1, "name": "my-page", "tree": {"kind": "label", "text": "x", "id": "title"}}', True, ["title"]),
     # by the file of two tables: an id with no table passed over; a handler, a style, a look the file has not
     ("partial_slider", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "volume", "max": 9, "id": "title"}}', False, []),
@@ -394,6 +406,12 @@ for name, text, rule, used in cases:
     bare = re.search(LOADER_SAID, bare_said)
     if not bare or bare.groups() != found.groups():
         failures.append(f"{name}: with no -p dgx_ui_c said {bare_said}, with -p {said}")
+# the scrolling boxes of no place named: each its own place of the array, the array as long as they are many
+with open(os.path.join(work, "scrolling.c")) as made:
+    scrolling = made.read()
+own = re.findall(r"&scrolling_offsets\[(\d+)\]", scrolling)
+if sorted(own) != ["0", "1"] or "static int32_t          scrolling_offsets[2];" not in scrolling:
+    failures.append(f"scrolling: the boxes' own offsets {own}")
 if not any(name.startswith("refused") for name, *_ in refused) or sum(1 for name, *_ in refused if name.startswith("chance")) < 5:
     failures.append(f"too few refusals: {[name for name, *_ in refused]}")
 if len([1 for name, *_ in taken if name.startswith("chance_names")]) < 50:

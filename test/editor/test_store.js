@@ -23,7 +23,8 @@
  *    of the names its page misses and written at a save;
  *  - pictures in an appearance: one line named by a page's widget and a look's pieces, used by both, renamed in the
  *    three files in one step, not deleted; a new look of the frame given the first picture of nine, else none and refused
- *    at its pieces; a picture of fewer refused in the words of the need.
+ *    at its pieces; a picture of fewer refused in the words of the need;
+ *  - a scrolling box's offset and step offered with "scroll" alone.
  */
 'use strict';
 const fs = require('fs');
@@ -424,7 +425,7 @@ const boxOf = (store, widgetPath) => {
         check(store.current === 'main/a.json' && store.verdicts.appearance.code === 0 && store.verdicts.page.code === 0 && store.look,
               'the appearance read: ' + JSON.stringify(store.verdicts));
         check(store.lookPrefix === 'sunny' && same(store.pagesOn, ['main/a.json', 'main/b.json']), 'its prefix, the call\'s PREFIX over its name, and its two pages');
-        check(store.lookFormat.draws.length === 20 && store.lookFormat.by_rule, 'what it may say, by the rule');
+        check(store.lookFormat.draws.length === 21 && store.lookFormat.by_rule, 'what it may say, by the rule');
         check(same(store.project.appearances.map((one) => [one.path, one.from]), [['main/look.json', 'main/CMakeLists.txt:2'], ['main/night.json', null]]),
               'an appearance loaded at run time found beside the call\'s: ' + JSON.stringify(store.project.appearances));
         store.setTab('appearance');
@@ -771,6 +772,23 @@ const boxOf = (store, widgetPath) => {
         check(added.params && !('pieces' in added.params) && store.verdicts.appearance.code === 15 && store.verdicts.appearance.name === 'pieces' &&
               same(store.appearanceAt, ['looks', 'framed']) && store.appearanceShort === null,
               'no pieces given; MISSING at them: ' + JSON.stringify([added, store.verdicts.appearance, store.appearanceAt]));
+    }
+
+    /* ---- a scrolling box's keys: its offset and step offered with "scroll" alone ---- */
+    {
+        const page = '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "label", "text": "a"}]}}\n';
+        const files = {
+            'main/CMakeLists.txt': bytes('idf_component_register(SRCS "main.c")\ndgx_ui_tree(s.json)\n'), 'main/s.json': bytes(page),
+        };
+        const { store } = await storeOf(files, 'properties');
+        store.select([]);
+        const keys = () => store.fields.map((field) => field.key);
+        check(!keys().includes('value') && !keys().includes('step') && store.fields.every((field) => field.kind === 'box'), 'a box: no offset, no step: ' + keys());
+        store.toggleWord('flags', 'scroll');
+        check(keys().includes('value') && keys().includes('step') && store.verdicts.page.code === 0, 'a scrolling box: its offset and step offered, taken: ' +
+              JSON.stringify([keys(), store.verdicts.page]));
+        store.undo();
+        check(!keys().includes('value') && store.files['main/s.json'].text === page, 'undone');
     }
 
     if (failures) {

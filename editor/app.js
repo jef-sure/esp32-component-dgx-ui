@@ -271,7 +271,11 @@ const dgxUiBuilderMount = (() => {
             };
             const hint = computed(() => (entry.value ? `${entry.value.min} … ${entry.value.max}` + (entry.value.percent
                 ? words.t(', or {0}% … {1}%', entry.value.percent.min, entry.value.percent.max) : '') : ''));
-            return { ...words, entry, rawText, pairText, fold, names, choice, choose, typeName, one, isPercent, hint,
+            // the words a kind takes: one of some kinds alone ("scroll", a box's) offered there, and where it is said
+            const offered = (entry, field) => entry.words.filter((word) => !entry.word_kinds?.[word] || entry.word_kinds[word].kinds.includes(field.kind) ||
+                                                                         (Array.isArray(field.value) && field.value.includes(word)));
+            const wordHint = (word) => (word === 'scroll' ? words.t('scrolling: the children of a column taller than the box, a scroll bar at its right') : '');
+            return { ...words, entry, rawText, pairText, fold, names, choice, choose, typeName, one, isPercent, hint, offered, wordHint,
                      NEW_NAME, NULL_NAME, ABSENT };
         },
         template: `
@@ -285,7 +289,7 @@ const dgxUiBuilderMount = (() => {
                     <option v-if="!store.format.kinds.includes(field.value)" :value="field.value">{{ field.value }}</option>
                 </select>
                 <span v-else-if="entry.type === 'words'" class="words">
-                    <label v-for="word in entry.words" :key="word">
+                    <label v-for="word in offered(entry, field)" :key="word" :title="wordHint(word)">
                         <input type="checkbox" :checked="Array.isArray(field.value) && field.value.includes(word)"
                                @change="store.toggleWord(field.key, word)">
                         {{ word }}</label>
@@ -334,7 +338,7 @@ const dgxUiBuilderMount = (() => {
     // a field of the appearance at a path, as the module describes its kind: a colour of the appearance's, null where it
     // may be, a number in its bounds, a word, flags, a list of bands; one the format does not describe is shown as text
     const LookField = {
-        props: ['path', 'field', 'node'],
+        props: ['path', 'field', 'node', 'hint'],
         setup(props) {
             const words = useWords(), store = words.store;
             const value = computed(() => (props.node === undefined ? undefined : window.DgxUiDescription.shown(props.node)));
@@ -354,7 +358,7 @@ const dgxUiBuilderMount = (() => {
         },
         template: `
             <div class="field" :class="{ absent: node === undefined }">
-                <span class="key" :title="field.type">{{ field.name }}</span>
+                <span class="key" :title="hint || field.type">{{ field.name }}</span>
                 <select v-if="field.type === 'color' || field.type === 'color_or_under'" :value="choice" @change="choose($event.target.value)">
                     <option :value="ABSENT">—</option>
                     <option v-if="field.type === 'color_or_under'" :value="NULL_NAME">{{ t('null, what lies under') }}</option>
@@ -507,7 +511,12 @@ const dgxUiBuilderMount = (() => {
                 if (newDraw.value && store.addLook(name, newDraw.value)) newLook.value = '';
             };
             const variantText = (node) => (node.t === 'string' ? node.value : '');
-            return { ...words, colorNames, made, verdict, twice, colors, styles, looks, picked, style, look, variants, styleFields, draw,
+            // the fields of a scrolling box's look, in words
+            const scrollHint = (name) => ({ track: () => words.t('the track of the scroll bar'), knob: () => words.t('the knob of the scroll bar'),
+                                            focused: () => words.t('the knob while the box has the focus'),
+                                            arrows: () => words.t('the arrows at the ends of the scroll bar'),
+                                            bar: () => words.t('the width of the scroll bar, in points') })[name]?.() ?? '';
+            return { ...words, colorNames, made, verdict, twice, colors, styles, looks, picked, style, look, variants, styleFields, draw, scrollHint,
                      described, params, paramOf, lookKeysAsText, isAt, atDepth, pickColor, fresh, plan, rename, confirmRename, cancelRename,
                      widgetCount, newColor, newStyle, newLook, newDraw, addColor, addStyle, addLook, variantText,
                      valueOf: describe.valueOf, one: (node) => JSON.stringify(describe.shown(node)) };
@@ -604,7 +613,7 @@ const dgxUiBuilderMount = (() => {
                                 <div v-if="described.fields.length" class="field"><span class="key">params</span>
                                     <span class="note">{{ t('of the draw {0}', draw) }}</span></div>
                                 <div class="sub">
-                                    <look-field v-for="field in described.fields" :key="field.name" :field="field"
+                                    <look-field v-for="field in described.fields" :key="field.name" :field="field" :hint="draw === 'scroll' ? scrollHint(field.name) : ''"
                                                 :path="['looks', picked('looks'), 'params', field.name]" :node="paramOf(field.name)"></look-field>
                                 </div>
                             </template>

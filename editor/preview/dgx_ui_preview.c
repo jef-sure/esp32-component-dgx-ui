@@ -795,6 +795,10 @@ const char *preview_format(void)
             grow(&format, ", \"min\": %ld, \"max\": %ld", (long)type->min, (long)type->max);
         if (type->table) grow(&format, ", \"table\": \"%s\"", type->table);
         if (type->null) grow(&format, ", \"null\": true");
+        /* the conditions the loader adds: the word "scroll" a box's of a column alone; a box's offset and step a
+           scrolling box's */
+        if (k == K_FLAGS) grow(&format, ", \"word_kinds\": {\"scroll\": {\"kinds\": [\"box\"], \"flags\": [\"column\"]}}");
+        if (k == K_VALUE || k == K_STEP) grow(&format, ", \"kind_flags\": {\"box\": [\"column\", \"scroll\"]}");
         if (type->percent) grow(&format, ", \"percent\": {\"min\": %ld, \"max\": 127.99}", (long)type->percent_min);
         grow(&format, "}");
     }
@@ -1348,14 +1352,14 @@ const char *preview_names_format(void)
     return said.text;
 }
 
-/* the looks a page's widgets take by their kind's word, naming none: a widget's object, then its children's; stopped at
-   what is not as it should be, which the loader then refuses */
+/* the looks a page's widgets take by their kind's word, naming none, a scrolling box by the word "scroll": a widget's
+   object, then its children's; stopped at what is not as it should be, which the loader then refuses */
 static void collect_kind_looks(dgx_ui_json_t *json, int depth, table_t *out, bool *unstyled)
 {
     if (depth > DGX_UI_LOAD_DEPTH || dgx_ui_json_peek(json) != '{') return;
     ++json->pos;
     int  kind = -1;
-    bool named = false, texted = false, styled = false;
+    bool named = false, texted = false, styled = false, scrolls = false;
     if (dgx_ui_json_peek(json) == '}') {
         ++json->pos;
         return;
@@ -1370,6 +1374,16 @@ static void collect_kind_looks(dgx_ui_json_t *json, int depth, table_t *out, boo
             word[length < 23 ? length : 23] = 0;
             for (int k = 0; k < KIND_COUNT; ++k)
                 if (strcmp(kinds[k], word) == 0) kind = k;
+        } else if (strcmp(key, "flags") == 0 && dgx_ui_json_peek(json) == '[') {
+            ++json->pos;
+            if (dgx_ui_json_peek(json) == ']') ++json->pos;
+            else
+                for (bool flag = true; flag;) {
+                    if (dgx_ui_json_peek(json) != '"' || !dgx_ui_json_string(json, word, 23, &length)) return;
+                    word[length < 23 ? length : 23] = 0;
+                    scrolls |= strcmp(word, "scroll") == 0;
+                    if (!dgx_ui_json_next(json, ']', &flag)) return;
+                }
         } else if (strcmp(key, "children") == 0 && dgx_ui_json_peek(json) == '[') {
             ++json->pos;
             if (dgx_ui_json_peek(json) == ']') ++json->pos;
@@ -1385,7 +1399,8 @@ static void collect_kind_looks(dgx_ui_json_t *json, int depth, table_t *out, boo
         }
         if (!dgx_ui_json_next(json, '}', &more)) return;
     }
-    if (kind >= 0 && !named && !(OWN_LOOKS & 1u << kind) && !entry_of(out, kinds[kind])) entry_add(out, kinds[kind]);
+    const char *word = kind == DGX_UI_BOX && scrolls ? "scroll" : kind >= 0 && !(OWN_LOOKS & 1u << kind) ? kinds[kind] : NULL;
+    if (word && !named && !entry_of(out, word)) entry_add(out, word);
     *unstyled |= texted && !styled;
 }
 

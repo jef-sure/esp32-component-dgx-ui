@@ -45,7 +45,7 @@ function(_dgx_ui_c_rule out)
         endif()
         set(tool_sources "${DGX_UI_COMPONENT_DIR}/tools/dgx_ui_c.py" "${DGX_UI_COMPONENT_DIR}/tools/dgx_ui_c.c" "${DGX_UI_COMPONENT_DIR}/tools/dgx_ui_names.c"
                          "${DGX_UI_COMPONENT_DIR}/tools/dgx_ui_names.h")
-        foreach(name dgx_ui.c dgx_ui_text.c dgx_ui_rect.c dgx_ui_msg.c dgx_ui_load.c dgx_ui_json.c dgx_ui_read.c dgx_ui_appearance.c dgx_ui_params.c)
+        foreach(name dgx_ui.c dgx_ui_text.c dgx_ui_rect.c dgx_ui_msg.c dgx_ui_load.c dgx_ui_json.c dgx_ui_read.c dgx_ui_appearance.c dgx_ui_params.c dgx_ui_scroll.c)
             list(APPEND tool_sources "${DGX_UI_COMPONENT_DIR}/src/${name}")
         endforeach()
         file(GLOB headers "${DGX_UI_COMPONENT_DIR}/include/*.h" "${DGX_UI_COMPONENT_DIR}/src/*.h")

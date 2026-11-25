@@ -506,6 +506,48 @@ static void scene_nine(dgx_screen_t *scr, const char *out)
     dgx_ui_paint_free(&paint);
 }
 
+/* ---------------------------------------------------------------- the cookbook's page that scrolls */
+enum { LONG_ROWS = 12 };
+static int32_t          long_offset; /* the rows moved up so many pixels; 0: the first row at the top */
+static char             long_buf[LONG_ROWS][20];
+static dgx_ui_textbox_t long_box[LONG_ROWS];
+static dgx_ui_widget_t  long_row_w[LONG_ROWS]; /* the program's RAM: a label each, filled before it is added */
+static const dgx_ui_widget_t long_page_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_SCROLL | DGX_UI_REST,
+                                            .pad = 4, .gap = 2, .step = 12, .value = &long_offset, .look = &dgx_ui_look_scroll};
+
+/* the page under parent, a column the rest of whose height it takes, its rows added; its index */
+static int long_page_add(dgx_ui_t *ui, int parent)
+{
+    const int page = dgx_ui_add(ui, parent, &long_page_w);
+    for (int k = 0; k < LONG_ROWS; ++k) {
+        dgx_ui_textbox_init(&long_box[k], long_buf[k], sizeof long_buf[k], 1, &st_left);
+        long_row_w[k] = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &long_box[k]};
+        dgx_ui_text_printf(ui, dgx_ui_add(ui, page, &long_row_w[k]), "Setting %d", k + 1);
+    }
+    return page;
+}
+
+static char                  long_title_buf[12];
+static dgx_ui_textbox_t      long_title_box;
+static const dgx_ui_widget_t long_root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 4, .gap = 2};
+static const dgx_ui_widget_t long_title_w = {.kind = DGX_UI_LABEL, .text = &long_title_box};
+
+static void scene_scroll(dgx_screen_t *scr, const char *out)
+{
+    static dgx_ui_node_t nodes[16];
+    static dgx_ui_t      ui;
+    dgx_ui_textbox_init(&long_title_box, long_title_buf, sizeof long_title_buf, 1, &st_big);
+    dgx_ui_init(&ui, nodes, 16, 2);
+    const int root = dgx_ui_add(&ui, -1, &long_root_w);
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, root, &long_title_w), "Settings");
+    long_page_add(&ui, root);
+    long_offset = 52; /* scrolled part of the way down */
+    dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = COLORS};
+    dgx_ui_paint(&ui, &paint, 0);
+    shot(scr, out);
+    dgx_ui_paint_free(&paint);
+}
+
 int main(int argc, char **argv)
 {
     const char   *dir = argc > 1 ? argv[1] : ".";
@@ -525,6 +567,8 @@ int main(int argc, char **argv)
     snprintf(a, sizeof a, "%s/states.ppm", dir), scene_states(scr, a);
     dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
     snprintf(a, sizeof a, "%s/nine.ppm", dir), scene_nine(scr, a);
+    dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
+    snprintf(a, sizeof a, "%s/scroll.ppm", dir), scene_scroll(scr, a);
     printf("sizes on this machine: widget %zu, node %zu, msg %zu, saved %d\n", sizeof(dgx_ui_widget_t), sizeof(dgx_ui_node_t), sizeof(dgx_ui_msg_t), saved);
     return 0;
 }

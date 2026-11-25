@@ -371,9 +371,12 @@ const useDgxUiBuilder = (() => {
                 if (!widget || !format) return [];
                 const kind = kindOf(widget);
                 const present = new Map(widget.entries.map(([key, value]) => [key.value, value]));
-                const ofKind = format.keys.filter((entry) => entry.key !== 'children' && entry.kinds.includes(kind));
+                // a key a kind takes only with flags beside it (a box's offset and step: a scrolling box's) offered with them
+                const flags = shown(present.get('flags'));
+                const ofKind = format.keys.filter((entry) => entry.key !== 'children' && entry.kinds.includes(kind) &&
+                                                  (entry.kind_flags?.[kind] ?? []).every((flag) => Array.isArray(flags) && flags.includes(flag)));
                 ofKind.sort((a, b) => description.WIDGET_ORDER.indexOf(a.key) - description.WIDGET_ORDER.indexOf(b.key));
-                const fields = ofKind.map((entry) => ({ key: entry.key, entry, present: present.has(entry.key), value: shown(present.get(entry.key)),
+                const fields = ofKind.map((entry) => ({ key: entry.key, entry, kind, present: present.has(entry.key), value: shown(present.get(entry.key)),
                                                        raw: present.get(entry.key) }));
                 const taken = new Set(ofKind.map((entry) => entry.key).concat('children'));
                 for (const [key, value] of present) {

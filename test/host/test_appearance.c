@@ -25,7 +25,7 @@
 #define DRAW(word) DGX_UI_DRAW_NAME(word)
 static const dgx_ui_draw_name_t draws[] = {DRAW(box),      DRAW(frame),         DRAW(text),  DRAW(lines),  DRAW(hand_lines), DRAW(button),  DRAW(picture_button),
                                            DRAW(input),    DRAW(switch),        DRAW(slider), DRAW(list),  DRAW(dropdown),   DRAW(picture), DRAW(rgb565),
-                                           DRAW(indexed),  DRAW(radio),         DRAW(checkbox), DRAW(level), DRAW(ring),     DRAW(nine)};
+                                           DRAW(indexed),  DRAW(radio),         DRAW(checkbox), DRAW(level), DRAW(ring),     DRAW(nine), DRAW(scroll)};
 enum { DRAW_COUNT = sizeof draws / sizeof *draws };
 static const dgx_ui_font_name_t        fonts[]      = {{"small", &TerminusTTFMedium12}, {"hand", &font0ss}};
 static const dgx_ui_hand_name_t        hands[]      = {DGX_UI_HAND_NAME(handwriting), DGX_UI_HAND_NAME(handwriting_canvas)};
@@ -547,6 +547,7 @@ int main(void)
                         for (int b = 0; b < e->band_count; ++b) off += bands[b].below != e->bands[b].below || bands[b].color != e->bands[b].color;
                         memset(params + described->fields[f].offset, 0, sizeof bands);
                     }
+                off += look->behavior != draws[e->draw].params->behavior; /* a scrolling box's look carries its behaviour */
                 off += strcmp(appearance.looks[k].name, e->name) != 0 || look->draw != draws[e->draw].draw || look->fill != e->fill ||
                        memcmp(params, e->params, described->size) != 0;
             }

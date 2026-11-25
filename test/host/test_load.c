@@ -71,7 +71,7 @@ static int           title = -77, unused_id = -55, slider_id = -1, less_id = -1,
 
 static const dgx_ui_look_name_t    looks[]    = {DGX_UI_LOOK_NAME(button), DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(switch), DGX_UI_LOOK_NAME(list),
                                                  DGX_UI_LOOK_NAME(dropdown), DGX_UI_LOOK_NAME(input), DGX_UI_LOOK_NAME(radio), DGX_UI_LOOK_NAME(picture),
-                                                 DGX_UI_LOOK_NAME(checkbox), DGX_UI_LOOK_NAME(ring), DGX_UI_LOOK_NAME(picture_button), {"icon", &dgx_ui_look_picture}};
+                                                 DGX_UI_LOOK_NAME(checkbox), DGX_UI_LOOK_NAME(ring), DGX_UI_LOOK_NAME(picture_button), {"icon", &dgx_ui_look_picture}, DGX_UI_LOOK_NAME(scroll)};
 static const dgx_ui_value_name_t   values[]   = {{"volume", &volume}, {"choice", &choice}, {"ticked", &ticked}, {"picked", &picked}};
 static const dgx_ui_picture_name_t pictures[] = {{"dot", &dots[0], 1}, {"dots", dots, 2}, {.name = "one", .picture = &dots[1]}};
 static const dgx_ui_style_name_t   styles[]   = {{"text", &style}, {"small", &style2}};
@@ -79,7 +79,7 @@ static const dgx_ui_on_name_t      handlers[] = {DGX_UI_ACTION_NAME(back), DGX_U
 static const dgx_ui_take_name_t    takes[]    = {{"take", on_take}};
 static const dgx_ui_context_name_t contexts[] = {{"settings", &page, true}, {"other", (void *)&volume, false}};
 static const dgx_ui_id_t           ids[]      = {{"title", &title}, {"unused", &unused_id}, {"slider", &slider_id}, {"less", &less_id}, {"back", &back_id}, {"go", &go_id}};
-static const dgx_ui_load_names_t   names      = {.looks = looks, .look_count = 12, .values = values, .value_count = 4, .pictures = pictures, .picture_count = 3,
+static const dgx_ui_load_names_t   names      = {.looks = looks, .look_count = 13, .values = values, .value_count = 4, .pictures = pictures, .picture_count = 3,
                                                  .styles = styles, .style_count = 2, .handlers = handlers, .handler_count = 4, .takes = takes, .take_count = 1,
                                                  .contexts = contexts, .context_count = 2, .ids = ids, .id_count = 6};
 
@@ -636,6 +636,27 @@ int main(void)
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"label\", \"text\": \"\\u0000\"}}", DGX_UI_LOAD_SYNTAX, 49, NULL));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"label\", \"text\": \"abc\", \"text_size\": 3}}", DGX_UI_LOAD_RANGE, 55, "text_size"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"own\"}}", DGX_UI_LOAD_NO_LOOK, 22, "own"));
+    /* a scrolling box: a box of a column alone; its offset and step a scrolling box's; its look the word "scroll"'s, of
+       none in the table NO_LOOK; of no place named, one of its own in the load's memory */
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"row\", \"scroll\"]}}", DGX_UI_LOAD_FIELD, 38, "scroll"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"frame\", \"flags\": [\"column\", \"scroll\"]}}", DGX_UI_LOAD_FIELD, 40, "scroll"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"label\", \"flags\": [\"scroll\"]}}", DGX_UI_LOAD_FIELD, 40, "scroll"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"value\": \"volume\"}}", DGX_UI_LOAD_FIELD, 38, "value"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"step\": 3}}", DGX_UI_LOAD_FIELD, 59, "step"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\", \"sroll\"]}}", DGX_UI_LOAD_UNKNOWN, 58, "sroll"));
+    {
+        const dgx_ui_widget_t *named = loaded_root("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\", \"scroll\"], \"value\": \"volume\", \"step\": 4}}");
+        CHECK(named && named->flags == (DGX_UI_COLUMN | DGX_UI_SCROLL) && named->value == &volume && named->step == 4 && named->look == &dgx_ui_look_scroll);
+        const dgx_ui_widget_t *own = loaded_root("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"scroll\", \"column\"], \"look\": \"button\"}}");
+        CHECK(own && own->value && *own->value == 0 && own->value != &volume && own->look == &dgx_ui_look_button);
+        static const dgx_ui_look_name_t     plain_looks[] = {DGX_UI_LOOK_NAME(button)};
+        static const dgx_ui_load_names_t    plain = {.looks = plain_looks, .look_count = 1};
+        dgx_ui_load_need_t                  need;
+        dgx_ui_load_error_t                 err;
+        static const char                   bare[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\", \"scroll\"]}}";
+        CHECK(!dgx_ui_load_need(bare, strlen(bare), &plain, &need, &err) && err.code == DGX_UI_LOAD_NO_LOOK && strcmp(err.name, "scroll") == 0);
+        CHECK(dgx_ui_load_need(bare, strlen(bare), &names, &need, &err));
+    }
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"label\", \"lines\": 2}}", DGX_UI_LOAD_FIELD, 40, NULL));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\"} x}", DGX_UI_LOAD_SYNTAX, 38, NULL));
     /* a description names only what the program listed: a number for ctx to a handler marked to take one alone; a

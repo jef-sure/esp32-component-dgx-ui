@@ -103,6 +103,7 @@ typedef struct dgx_ui_params_t {
     uint16_t              kinds;       ///< 1 << DGX_UI_BOX ...: what a builder offers it for; not checked by a load
     uint8_t               field_count;
     const dgx_ui_field_t *fields;
+    const dgx_ui_behavior_t *behavior; ///< what a look of the draw carries as its behavior: a scrolling box's; NULL none
 } dgx_ui_params_t;
 
 /**
@@ -130,12 +131,16 @@ typedef struct dgx_ui_params_t {
 #define DGX_UI_PARAMS(type, widget_kinds, field_table)                                                                       \
     {.size = sizeof(type), .align = __alignof__(type), .kinds = (widget_kinds), .field_count = sizeof(field_table) / sizeof *(field_table), \
      .fields = (field_table)}
+/** The same, of a draw whose looks carry a behaviour: dgx_ui_params_scroll's. */
+#define DGX_UI_PARAMS_BEHAVING(type, widget_kinds, field_table, behaving)                                                    \
+    {.size = sizeof(type), .align = __alignof__(type), .kinds = (widget_kinds), .field_count = sizeof(field_table) / sizeof *(field_table), \
+     .fields = (field_table), .behavior = (behaving)}
 
 /** The parameters of the library's draws, of its text styles and of a variant of a font, described. */
 extern const dgx_ui_params_t dgx_ui_params_box, dgx_ui_params_frame, dgx_ui_params_text, dgx_ui_params_lines, dgx_ui_params_hand_lines,
     dgx_ui_params_button, dgx_ui_params_picture_button, dgx_ui_params_input, dgx_ui_params_switch, dgx_ui_params_slider,
     dgx_ui_params_list, dgx_ui_params_dropdown, dgx_ui_params_picture, dgx_ui_params_rgb565, dgx_ui_params_indexed,
-    dgx_ui_params_radio, dgx_ui_params_checkbox, dgx_ui_params_level, dgx_ui_params_ring, dgx_ui_params_nine;
+    dgx_ui_params_radio, dgx_ui_params_checkbox, dgx_ui_params_level, dgx_ui_params_ring, dgx_ui_params_nine, dgx_ui_params_scroll;
 extern const dgx_ui_params_t dgx_ui_params_text_style, dgx_ui_params_font_variant;
 
 /** A draw by its word, and its parameters described: DGX_UI_DRAW_NAME(slider) is the library's. */

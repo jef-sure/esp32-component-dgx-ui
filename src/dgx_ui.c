@@ -367,12 +367,24 @@ static int place_in(const dgx_ui_t *ui, int16_t at, bool percent, int length, in
     return at >= 0 ? pixels : length - size + pixels;
 }
 
-static void lay(dgx_ui_t *ui, int i)
+int dgx_ui_pad(const dgx_ui_t *ui, const dgx_ui_node_t *n)
+{
+    return n->widget->flags & DGX_UI_PERCENT_PAD ? percent_of(n->w, n->widget->pad) : n->widget->pad * ui->unit;
+}
+
+/* the children of i laid in its inside, narrower: so many pixels narrower at its right, a scrolling box's bar there;
+   below 0, from the layout: a scrolling box's by its behaviour, which lays them here at the top of its column
+   (dgx_ui_lay_children()) and carries them to its offset */
+static void lay(dgx_ui_t *ui, int i, int narrower)
 {
     const dgx_ui_node_t   *pn = NODE(ui, i);
     const dgx_ui_widget_t *p  = pn->widget;
+    if (narrower < 0) {
+        if ((p->flags & DGX_UI_SCROLL) && p->look && p->look->behavior && p->look->behavior->scroll) return p->look->behavior->scroll(ui, i);
+        narrower = 0;
+    }
     const int  u = ui->unit, pad = p->flags & DGX_UI_PERCENT_PAD ? percent_of(pn->w, p->pad) : p->pad * u;
-    const int  ix = pn->x + pad, iy = pn->y + pad, iw = pn->w - 2 * pad, ih = pn->h - 2 * pad;
+    const int  ix = pn->x + pad, iy = pn->y + pad, iw = pn->w - 2 * pad - narrower, ih = pn->h - 2 * pad;
     const bool column = p->flags & DGX_UI_COLUMN, row = !column && (p->flags & DGX_UI_ROW);
     const int  gap = p->flags & DGX_UI_PERCENT_GAP ? percent_of(column ? ih : iw, p->gap) : p->gap * u;
     /* along the stacking: the room the children share, the inside less the gaps between those shown; what the children
@@ -430,8 +442,13 @@ static void lay(dgx_ui_t *ui, int i)
             y = iy + place_in(ui, w->at_y, w->flags & DGX_UI_PERCENT_Y, ih, wh);
         }
         place(ui, c, x, y, ww, wh);
-        lay(ui, c);
+        lay(ui, c, -1);
     }
+}
+
+void dgx_ui_lay_children(dgx_ui_t *ui, int i, int narrower)
+{
+    lay(ui, i, narrower);
 }
 
 bool dgx_ui_layout(dgx_ui_t *ui)
@@ -442,7 +459,7 @@ bool dgx_ui_layout(dgx_ui_t *ui)
     const dgx_ui_rect_t root = ui->root_given ? ui->root_rect : dgx_ui_rect(0, 0, ui->screen_w, ui->screen_h);
     ui->root_rect            = root; /* a popup on the whole screen: where the finger finds it and the trees under it are cut */
     place(ui, 0, root.x, root.y, root.w, root.h);
-    lay(ui, 0);
+    lay(ui, 0, -1);
     if (ui->turned) {
         for (int i = 0; i < ui->count; ++i) NODE(ui, i)->marks |= DGX_UI_MARK_WHOLE | DGX_UI_MARK_FIT;
         ui->turned = false;
@@ -463,6 +480,9 @@ static bool (*finger_repeat)(dgx_ui_t *home, uint32_t now_ms);
 
 bool (*dgx_ui_idle_hook)(dgx_ui_t *ui, int input, uint32_t ms, const dgx_ui_pointer_t *p, uint32_t *held);
 void (*dgx_ui_idle_step)(dgx_ui_t *ui, uint32_t now_ms);
+void (*dgx_ui_scroll_follow)(dgx_ui_t *ui, int i);
+bool (*dgx_ui_scroll_take)(dgx_ui_t *ui, int x, int y);
+bool (*dgx_ui_scroll_busy)(const dgx_ui_t *ui, int i);
 
 /* a repeat of home ended: the two members free, and the idle's moment back in them at once, for dgx_ui_wake() */
 static void repeat_ended(dgx_ui_t *home)
@@ -514,6 +534,7 @@ void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)
     if (!n || no_place(n->widget)) return;
     *n->widget->value = clamp_value(n->widget, value);
     if (n->widget->kind == DGX_UI_LIST) n->marks |= DGX_UI_MARK_WINDOW; /* its window brought to the pick when drawn */
+    if (n->widget->flags & DGX_UI_SCROLL) ui->needs_layout = true;      /* its children laid at the offset */
     dgx_ui_touched(ui, i);
 }
 
@@ -575,7 +596,7 @@ void dgx_ui_redraw(dgx_ui_t *ui, int i)
 /* the behaviour of a widget of the program's own, named by its look; NULL, none */
 static const dgx_ui_behavior_t *behavior_of(const dgx_ui_widget_t *w)
 {
-    return w->kind == DGX_UI_OWN && w->look ? w->look->behavior : NULL;
+    return (w->kind == DGX_UI_OWN || (w->flags & DGX_UI_SCROLL)) && w->look ? w->look->behavior : NULL;
 }
 
 static bool interactive(const dgx_ui_widget_t *w)
@@ -646,7 +667,13 @@ static bool focusable(const dgx_ui_t *ui, int i)
 {
     if (!usable(ui, i)) return false;
     const dgx_ui_behavior_t *b = behavior_of(NODE(ui, i)->widget);
+    if (b && (b->flags & DGX_UI_BEHAVIOR_ALONE) && dgx_ui_scroll_busy && dgx_ui_scroll_busy(ui, i)) return false; /* a widget under it takes the focus */
     return !b || (b->flags & DGX_UI_BEHAVIOR_FOCUS);
+}
+
+bool dgx_ui_focusable(const dgx_ui_t *ui, int i)
+{
+    return live(ui, i) && focusable(ui, i);
 }
 
 void dgx_ui_focus(dgx_ui_t *ui, int i)
@@ -659,6 +686,7 @@ void dgx_ui_focus(dgx_ui_t *ui, int i)
     if (i >= 0) {
         NODE(ui, i)->state.bits |= DGX_UI_FOCUSED;
         dgx_ui_touched(ui, i);
+        if (dgx_ui_scroll_follow) dgx_ui_scroll_follow(ui, i); /* in the view of the scrolling boxes above it */
         tell(ui, i, DGX_UI_FOCUS);
     }
 }
@@ -881,6 +909,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
     if (p->down) {
         const int dx = p->x - ui->press_x, dy = p->y - ui->press_y, ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
         ui->move_x = (int16_t)p->x, ui->move_y = (int16_t)p->y;
+        if (dgx_ui_scroll_take && dgx_ui_scroll_take(ui, p->x, p->y)) return true; /* up or down first: a scrolling box above it scrolls */
         const dgx_ui_behavior_t *b = behavior_of(w);
         if (b) {
             /* a widget of the program's own: the move its own, taken as a drag when it says so */

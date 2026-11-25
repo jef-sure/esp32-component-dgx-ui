@@ -56,7 +56,7 @@ static const dgx_ui_look_name_t looks[] = {
     DGX_UI_LOOK_NAME(button), DGX_UI_LOOK_NAME(slider),   DGX_UI_LOOK_NAME(switch),         DGX_UI_LOOK_NAME(list),  DGX_UI_LOOK_NAME(dropdown),
     DGX_UI_LOOK_NAME(input),  DGX_UI_LOOK_NAME(radio),    DGX_UI_LOOK_NAME(picture),        DGX_UI_LOOK_NAME(ring),  DGX_UI_LOOK_NAME(checkbox),
     DGX_UI_LOOK_NAME(level),  DGX_UI_LOOK_NAME(text),     DGX_UI_LOOK_NAME(picture_button), DGX_UI_LOOK_NAME(box),   DGX_UI_LOOK_NAME(frame),
-    {"mine", &mine}};
+    DGX_UI_LOOK_NAME(scroll), {"mine", &mine}};
 static const dgx_ui_value_name_t   values[]   = {{"volume", &volume}, {"choice", &choice}, {"ticked", &ticked}, {"picked", &picked}, {"loudness", &volume}};
 static const dgx_ui_picture_name_t pictures[] = {{"dot", dot, 1}, {"dots", dots, 2}, {"pip", dot, 1}};
 static const dgx_ui_style_name_t   styles[]   = {{"text", &text}, {"small", &small}, {"big", &small}};
@@ -112,11 +112,21 @@ static bool same_tables(const dgx_ui_load_names_t *a, const dgx_ui_load_names_t 
 
 /* two widgets the same: every field, the text boxes by their strings, sizes, lines and styles; the style the rule gave
    a text that names none is the program's first */
+/* a place of the program's table: not one a scrolling box of none named was given of its own */
+static bool named_place(const int32_t *place)
+{
+    for (size_t k = 0; k < sizeof values / sizeof *values; ++k)
+        if (values[k].value == place) return true;
+    return false;
+}
+
 static bool same_widget(const dgx_ui_widget_t *loaded, const dgx_ui_widget_t *made, const dgx_ui_text_style_t *default_style)
 {
     const dgx_ui_widget_t *a = loaded, *b = made;
+    /* a scrolling box's own offset: in the load's memory, in the made array; each 0, neither of the table */
+    const bool own_offsets = (a->flags & DGX_UI_SCROLL) && a->value && b->value && !named_place(a->value) && !named_place(b->value) && !*a->value && !*b->value;
     if (a->kind != b->kind || a->flags != b->flags || a->pad != b->pad || a->gap != b->gap || a->at_x != b->at_x || a->at_y != b->at_y || a->want_w != b->want_w ||
-        a->want_h != b->want_h || a->min != b->min || a->max != b->max || a->step != b->step || a->tag != b->tag || a->state.bits != b->state.bits || a->value != b->value ||
+        a->want_h != b->want_h || a->min != b->min || a->max != b->max || a->step != b->step || a->tag != b->tag || a->state.bits != b->state.bits || (a->value != b->value && !own_offsets) ||
         a->picture != b->picture || a->look != b->look || a->take != b->take || a->on != b->on || a->ctx != b->ctx || a->own != b->own || !a->text != !b->text)
         return false;
     if (!a->text) return true;

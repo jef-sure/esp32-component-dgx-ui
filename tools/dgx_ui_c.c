@@ -339,7 +339,7 @@ static const struct {
                   {DGX_UI_SWIPE, "DGX_UI_SWIPE"},             {DGX_UI_DRAG, "DGX_UI_DRAG"},         {DGX_UI_CANVAS, "DGX_UI_CANVAS"},
                   {DGX_UI_REST, "DGX_UI_REST"},               {DGX_UI_REPEAT, "DGX_UI_REPEAT"},     {DGX_UI_PERCENT_X, "DGX_UI_PERCENT_X"},
                   {DGX_UI_PERCENT_Y, "DGX_UI_PERCENT_Y"},     {DGX_UI_PERCENT_W, "DGX_UI_PERCENT_W"}, {DGX_UI_PERCENT_H, "DGX_UI_PERCENT_H"},
-                  {DGX_UI_PERCENT_PAD, "DGX_UI_PERCENT_PAD"}, {DGX_UI_PERCENT_GAP, "DGX_UI_PERCENT_GAP"}};
+                  {DGX_UI_PERCENT_PAD, "DGX_UI_PERCENT_PAD"}, {DGX_UI_PERCENT_GAP, "DGX_UI_PERCENT_GAP"}, {DGX_UI_SCROLL, "DGX_UI_SCROLL"}};
 static const char *const kind_words[] = {
     [DGX_UI_BOX] = "DGX_UI_BOX",       [DGX_UI_FRAME] = "DGX_UI_FRAME",   [DGX_UI_LABEL] = "DGX_UI_LABEL",   [DGX_UI_PICTURE] = "DGX_UI_PICTURE",
     [DGX_UI_ICON] = "DGX_UI_ICON",     [DGX_UI_LIST] = "DGX_UI_LIST",     [DGX_UI_SWITCH] = "DGX_UI_SWITCH", [DGX_UI_SLIDER] = "DGX_UI_SLIDER",
@@ -559,6 +559,14 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
         }
         if (constant_count) out(&c_file, "};\n");
     }
+    /* a scrolling box of no place named: its offset in a place of its own, as the loader gives it one */
+    int offsets = 0;
+    for (int at = 0; at < laid; ++at) {
+        const dgx_ui_widget_t *w = dgx_ui_node(ui, order[at])->widget;
+        offsets += (w->flags & DGX_UI_SCROLL) && w->value && ((uintptr_t)w->value < (uintptr_t)value_stand || (uintptr_t)w->value >= (uintptr_t)(value_stand + tables[T_VALUE].count));
+    }
+    if (offsets) out(&c_file, "static int32_t          %s_offsets[%d];\n", prefix, offsets);
+    offsets = 0;
     out(&c_file, "\nstatic const dgx_ui_widget_t %s_widgets[%d] = {\n", prefix, laid);
     for (int at = 0; at < laid; ++at) {
         const dgx_ui_widget_t *w = dgx_ui_node(ui, order[at])->widget;
@@ -595,7 +603,9 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
             if (magnitude % 100) out(&c_file, magnitude % 10 ? ".%02d" : ".%d", magnitude % 10 ? magnitude % 100 : magnitude % 100 / 10);
             out(&c_file, ")");
         }
-        if (w->value) out(&c_file, ", .value = %s", c_of(T_VALUE, (uintptr_t)w->value, (uintptr_t)value_stand, sizeof *value_stand));
+        if ((w->flags & DGX_UI_SCROLL) && w->value && ((uintptr_t)w->value < (uintptr_t)value_stand || (uintptr_t)w->value >= (uintptr_t)(value_stand + tables[T_VALUE].count)))
+            out(&c_file, ", .value = &%s_offsets[%d]", prefix, offsets++);
+        else if (w->value) out(&c_file, ", .value = %s", c_of(T_VALUE, (uintptr_t)w->value, (uintptr_t)value_stand, sizeof *value_stand));
         if (w->picture) out(&c_file, ", .picture = %s", c_of(T_PICTURE, (uintptr_t)w->picture, (uintptr_t)picture_stand, sizeof *picture_stand));
         if (w->text) out(&c_file, ", .text = &%s_texts[%d]", prefix, text_of[at]);
         if (w->look) out(&c_file, ", .look = %s", c_of(T_LOOK, (uintptr_t)w->look, (uintptr_t)look_stand, sizeof *look_stand));
@@ -1002,7 +1012,9 @@ static void write_appearance(const char *directory, const char *const *headers, 
             const entry_t       *draw  = &appearance_tables[A_DRAW].entries[(uintptr_t)look->draw - (uintptr_t)draw_stand];
             char                *fill  = look->fill < 0 ? copy_of("-1") : color_c(look->fill);
             char                *param = look->params ? printed("&%s_params_%d", p, k) : copy_of("NULL");
-            out(&c_file, "    {.draw = %s, .params = %s, .fill = %s},  /* ", draw->c, param, fill), out_string(&c_file, appearance.looks[k].name), out(&c_file, " */\n");
+            /* a scrolling box's draw: its looks carry the library's behaviour */
+            out(&c_file, "    {.draw = %s, .params = %s, .fill = %s%s},  /* ", draw->c, param, fill, look->behavior ? ", .behavior = &dgx_ui_scroll_behavior" : ""),
+                out_string(&c_file, appearance.looks[k].name), out(&c_file, " */\n");
             free(fill), free(param);
         }
         out(&c_file, "};\n");

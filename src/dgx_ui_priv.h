@@ -54,6 +54,21 @@ extern bool (*dgx_ui_idle_hook)(dgx_ui_t *ui, int input, uint32_t ms, const dgx_
 /* the idle's step of dgx_ui_time(), named with the hook: of two arguments, as it is in every loop */
 extern void (*dgx_ui_idle_step)(dgx_ui_t *ui, uint32_t now_ms);
 
+/* the scrolling boxes (dgx_ui_scroll.c), reached through these three, set at the first layout of one: so a program of none
+   carries their tests alone. follow: the focus came to i, the boxes above it bring it into their view. take: the
+   finger pressed on a widget moved to x, y; true when a scrolling box above it took the press and scrolled */
+/* the children of box i laid in its inside narrower by so many pixels at its right, as a box of a column lays them, at
+   the top of the column: for a scrolling box's behaviour, which then moves them to its offset */
+void dgx_ui_lay_children(dgx_ui_t *ui, int i, int narrower);
+
+/* a box's pad in pixels; whether widget i takes the focus now: for the scrolling boxes */
+int  dgx_ui_pad(const dgx_ui_t *ui, const dgx_ui_node_t *n);
+bool dgx_ui_focusable(const dgx_ui_t *ui, int i);
+extern void (*dgx_ui_scroll_follow)(dgx_ui_t *ui, int i);
+extern bool (*dgx_ui_scroll_take)(dgx_ui_t *ui, int x, int y);
+/* busy: a widget under scrolling box i takes the focus, so the box does not (DGX_UI_BEHAVIOR_ALONE) */
+extern bool (*dgx_ui_scroll_busy)(const dgx_ui_t *ui, int i);
+
 /* repeat_key past the keys: the idle's moment (its time repeat_at, read by dgx_ui_wake() as a repeat's), the finger's
    repeat */
 enum { DGX_UI_REPEAT_IDLE = 0x7e, DGX_UI_REPEAT_FINGER = 0x7f };

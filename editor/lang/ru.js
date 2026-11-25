@@ -190,5 +190,11 @@ DGX_UI_LANGUAGES.ru = {
         'fewer than {0}': 'меньше {0}',
         'a picture of the program\'s, {0} at least': 'картинки программы, не меньше {0}',
         '{0}: {1} pictures needed, the table\'s "{2}" has {3}': '{0}: нужно картинок: {1}, а в «{2}» таблицы их {3}',
+        'scrolling: the children of a column taller than the box, a scroll bar at its right': 'прокрутка: дети столбца выше окна, справа полоса прокрутки',
+        'the track of the scroll bar': 'дорожка полосы прокрутки',
+        'the knob of the scroll bar': 'бегунок полосы прокрутки',
+        'the knob while the box has the focus': 'бегунок, пока окно в фокусе',
+        'the arrows at the ends of the scroll bar': 'стрелки на концах полосы прокрутки',
+        'the width of the scroll bar, in points': 'ширина полосы прокрутки, в точках',
     },
 };

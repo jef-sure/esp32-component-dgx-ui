@@ -144,7 +144,10 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
                 break;
             }
             /* the words of "flags" beside the percents' bits, which the numbers set, whichever is read first */
-            case K_FLAGS: ok = word_list(L, flag_words, &bits), w.flags = (uint16_t)((w.flags & PERCENTS) | bits); break;
+            case K_FLAGS:
+                ok = word_list(L, flag_words, &bits), bits = (bits & ~(uint32_t)FLAG_SCROLL) | (bits & FLAG_SCROLL ? DGX_UI_SCROLL : 0);
+                w.flags = (uint16_t)((w.flags & PERCENTS) | bits);
+                break;
             case K_STATE: ok = word_list(L, state_words, &bits), w.state.bits = (uint8_t)bits; break;
             case K_PAD: ok = points_or_percent(L, 0, &w.pad, DGX_UI_PERCENT_PAD, &w.flags); break;
             case K_GAP: ok = points_or_percent(L, 0, &w.gap, DGX_UI_PERCENT_GAP, &w.flags); break;
@@ -209,6 +212,11 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
         const int reads = kind == DGX_UI_ICON ? (w.max >= w.min ? w.max - w.min + 1 : 0) : kind == DGX_UI_SWITCH || kind == DGX_UI_RADIO ? 2 : 1;
         if (reads > count) return fail(L, DGX_UI_LOAD_RANGE, key_at[K_PICTURE], L->names->pictures[picture].name);
     }
+    /* a scrolling box: a box of a column; its offset and its step a scrolling box's alone */
+    const bool scrolls = (w.flags & DGX_UI_SCROLL) != 0;
+    if (scrolls && (kind != DGX_UI_BOX || !(w.flags & DGX_UI_COLUMN))) return fail(L, DGX_UI_LOAD_FIELD, key_at[K_FLAGS], "scroll");
+    if (kind == DGX_UI_BOX && !scrolls && (seen & (1u << K_VALUE | 1u << K_STEP)))
+        return fail(L, DGX_UI_LOAD_FIELD, key_at[seen & 1u << K_VALUE ? K_VALUE : K_STEP], keys[seen & 1u << K_VALUE ? K_VALUE : K_STEP]);
     const bool texted = (seen & (1u << K_TEXT | 1u << K_TEXT_SIZE)) != 0;
     if (!texted && (seen & (1u << K_LINES | 1u << K_STYLE))) return fail(L, DGX_UI_LOAD_FIELD, key_at[seen & 1u << K_LINES ? K_LINES : K_STYLE], NULL);
     if (text_size && text_len + 1 > (size_t)text_size) return fail(L, DGX_UI_LOAD_RANGE, key_at[K_TEXT_SIZE], keys[K_TEXT_SIZE]);
@@ -216,10 +224,11 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
         if (!L->names->style_count) return fail(L, DGX_UI_LOAD_NO_STYLE, key_at[K_TEXT], NULL);
         style = 0;
     }
-    /* the look: the one said, none, or the one of the kind's word */
-    if (look == -2 && !(OWN_LOOKS & 1u << kind)) {
-        look = dgx_ui_read_lookup(L->names->looks, L->names->look_count, sizeof *L->names->looks, kinds[kind]);
-        if (look < 0) return fail(L, DGX_UI_LOAD_NO_LOOK, at, kinds[kind]);
+    /* the look: the one said, none, or the one of the kind's word; a scrolling box's of the word "scroll" */
+    if (look == -2 && (scrolls || !(OWN_LOOKS & 1u << kind))) {
+        const char *word = scrolls ? "scroll" : kinds[kind];
+        look             = dgx_ui_read_lookup(L->names->looks, L->names->look_count, sizeof *L->names->looks, word);
+        if (look < 0) return fail(L, DGX_UI_LOAD_NO_LOOK, at, word);
     }
     if (look >= 0) w.look = L->names->looks[look].look;
     /* an id of the table, met once */
@@ -231,11 +240,13 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
     /* laid and added, or counted: no more than a tree holds, refused before any is added */
     if (L->nodes >= MOST_NODES) return fail(L, DGX_UI_LOAD_NODES, at, NULL);
     dgx_ui_widget_t  *laid = take_bytes(L, sizeof w, _Alignof(dgx_ui_widget_t));
+    int32_t          *own_offset = scrolls && !w.value ? take_bytes(L, sizeof *own_offset, _Alignof(int32_t)) : NULL; /* its offset, of no place named */
     dgx_ui_textbox_t *box  = texted ? take_bytes(L, sizeof *box, _Alignof(dgx_ui_textbox_t)) : NULL;
     char             *buf  = texted ? take_bytes(L, text_size ? (size_t)text_size : text_len + 1, 1) : NULL;
     ++L->nodes;
     int self = -1;
     if (L->build) {
+        if (own_offset) *own_offset = 0, w.value = own_offset;
         if (texted) {
             const dgx_ui_text_style_t *s = L->names->styles[style].style;
             if (text_size) dgx_ui_textbox_init(box, buf, text_size, lines, s);

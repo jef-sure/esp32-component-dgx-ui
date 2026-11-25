@@ -64,7 +64,7 @@ static const dgx_ui_params_t *described_of(const dgx_ui_look_t *look)
 static bool same_look(const dgx_ui_look_t *a, const dgx_ui_look_t *b)
 {
     const dgx_ui_params_t *described = described_of(a);
-    if (a->draw != b->draw || a->fill != b->fill || !a->params != !b->params) return false;
+    if (a->draw != b->draw || a->fill != b->fill || a->behavior != b->behavior || !a->params != !b->params) return false;
     if (!a->params || !described) return true;
     uint8_t first[64], second[64];
     memcpy(first, a->params, described->size), memcpy(second, b->params, described->size);

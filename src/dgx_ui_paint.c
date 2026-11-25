@@ -213,6 +213,7 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
         const int     count = dgx_ui_rect_subtract(&closed, &band_left, parts); /* the place whole with no band left */
         for (int k = 0; k < count; ++k) compose(ui, paint, parts[k], false, true);
     }
+    if (paint->scroller) paint->scroller->before(paint, ui); /* an area of the panel a scrolling box held let go, composed again */
     int cx, cy, cw, ch;
     dgx_screen_clip_get(scr, &cx, &cy, &cw, &ch);
     dgx_screen_batch_begin(scr);
@@ -246,6 +247,7 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint)
     if (paint->indexed) dgx_screen_destroy(&paint->indexed);
     if (paint->strip) dgx_screen_destroy(&paint->strip);
     if (paint->canvases) paint->canvases->free(paint);
+    if (paint->scroller) paint->scroller->free(paint);
     free(paint->lut);
     paint->lut = NULL;
 }
@@ -273,6 +275,24 @@ static void walk_area(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper,
     }
     const uint8_t in = fills ? (uint8_t)look->fill : paper;
     for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) walk_area(paint, ui, c, in, on_bg && !fills, background, &seen, left_to_walk);
+}
+
+void dgx_ui_compose_left(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area)
+{
+    compose(ui, paint, area, false, true);
+}
+
+void dgx_ui_compose_in(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area)
+{
+    const dgx_ui_look_t *look = dgx_ui_look_of(dgx_ui_at(ui, i)->widget);
+    const uint8_t        paper = paint->paper, part = paint->part, parts = paint->parts;
+    const bool           on_bg = paint->on_background, whole = paint->whole, fills = look && look->fill >= 0;
+    int                  cx, cy, cw, ch;
+    dgx_screen_clip_get(paint->scr, &cx, &cy, &cw, &ch);
+    for (int c = dgx_ui_at(ui, i)->child; c >= 0; c = dgx_ui_at(ui, c)->next)
+        walk_area(paint, ui, c, fills ? (uint8_t)look->fill : paper, on_bg && !fills, false, &area, true);
+    dgx_screen_clip(paint->scr, cx, cy, cw, ch);
+    paint->paper = paper, paint->on_background = on_bg, paint->whole = whole, paint->part = part, paint->parts = parts;
 }
 
 void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)

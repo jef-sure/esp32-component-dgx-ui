@@ -31,6 +31,8 @@ let failures = 0, held = 0;
        number for a ctx of a number; every look null, so that no kind wants a look of the library's */
     const of = (kind, key, value) => {
         const widget = {kind, look: null};
+        const needs  = format.keys.find(entry => entry.key === key)?.kind_flags?.[kind]; /* the flags the key needs in the kind */
+        if (needs) widget.flags = needs;
         if (key === 'style' || key === 'lines') widget.text = 'x';
         if (key === 'ctx' && typeof value === 'number') widget.on = 'go';
         widget[key] = value;
@@ -52,11 +54,20 @@ let failures = 0, held = 0;
                 for (const word of kinds) expect({kind: word, look: null}, [OK], at);
                 expect({kind: 'nothing', look: null}, [KIND], at);
                 break;
-            case 'words':
-                for (const word of entry.words) expect(of(kind, entry.key, [word]), [OK], at);
-                expect(of(kind, entry.key, entry.words), [OK], at), expect(of(kind, entry.key, []), [OK], at);
+            case 'words': {
+                /* a word of some kinds alone, with the flags it needs beside it; refused as a field elsewhere */
+                const limited = word => entry.word_kinds?.[word];
+                for (const word of entry.words) {
+                    const only = limited(word);
+                    if (only && !only.kinds.includes(kind)) expect(of(kind, entry.key, [word]), [FIELD], at + ' of no meaning');
+                    else expect(of(kind, entry.key, [word, ...(only?.flags ?? [])]), [OK], at);
+                    if (only && only.kinds.includes(kind)) expect(of(kind, entry.key, [word]), [FIELD], at + ' without ' + only.flags);
+                }
+                const every = entry.words.filter(word => !limited(word) || limited(word).kinds.includes(kind));
+                expect(of(kind, entry.key, every), [OK], at), expect(of(kind, entry.key, []), [OK], at);
                 expect(of(kind, entry.key, ['nothing']), [UNKNOWN], at);
                 break;
+            }
             case 'int':
                 expect(of(kind, entry.key, entry.min), [OK], at), expect(of(kind, entry.key, entry.max), [OK], at);
                 expect(of(kind, entry.key, entry.min - 1), [RANGE], at), expect(of(kind, entry.key, entry.max + 1), [RANGE], at);
@@ -113,6 +124,11 @@ let failures = 0, held = 0;
         }
     }
     if (!byKey.children || byKey.children.kinds.join() !== 'box,frame,own') console.error('  the kinds that hold children'), ++failures;
+    /* a box's offset and step without "scroll": refused by their names */
+    for (const key of ['value', 'step']) {
+        const said = expect({kind: 'box', look: null, flags: ['column'], [key]: key === 'value' ? 'a_name' : 1}, [FIELD], `${key} of a box of no scroll`);
+        if (said.name !== key) console.error(`  ${key} of a box of no scroll: refused by "${said.name}"`), ++failures;
+    }
     if (['at', 'want', 'pad', 'gap'].some(key => !byKey[key].percent) || format.keys.filter(entry => entry.percent).length !== 4)
         console.error('  the keys that take a percent'), ++failures;
     if (failures) {

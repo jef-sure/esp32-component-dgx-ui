@@ -56,7 +56,7 @@ palette of 256 colours holding every level of the soft edges. `getting-started.p
 getting-started page's program, in the fonts DGX makes of `start.needs` as that program's CMakeLists asks for them:
 
 ```sh
-make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # first, getting-started, settings, popup, lines, list, dropdown, background, states, nine
+make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # first, getting-started, settings, popup, lines, list, dropdown, background, states, nine, scroll
 python3 -c "from PIL import Image; import sys; [Image.open(f'/tmp/pictures/{n}.ppm').convert('P', palette=Image.ADAPTIVE, colors=256).save(f'docs/images/{n}.png', optimize=True) for n in sys.argv[1:]]" list dropdown
 ```
 

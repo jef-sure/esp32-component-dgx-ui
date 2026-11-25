@@ -75,6 +75,9 @@ typedef struct dgx_ui_drawn_background_t dgx_ui_drawn_background_t;
 /** @brief The canvases a paint made for its widgets of DGX_UI_CANVAS (dgx_ui_canvas()), the painter's own. */
 typedef struct dgx_ui_canvases_t dgx_ui_canvases_t;
 
+/** @brief The painter's part of scrolling boxes (dgx_ui_look_scroll), set by their look's first draw. */
+typedef struct dgx_ui_scroller_t dgx_ui_scroller_t;
+
 /** @brief How a tree is drawn on a screen. Filled by the program; the members after `cover` are the painter's. */
 struct dgx_ui_paint_t {
     dgx_screen_t                    *scr;             ///< where
@@ -137,6 +140,10 @@ struct dgx_ui_paint_t {
                                                       ///< dgx_ui_paint_free(); NULL none
     dgx_ui_rect_t                    cover_was;       ///< the keyboard's band as the last pass left it: where it goes,
                                                       ///< the tree is composed again
+    const dgx_ui_scroller_t         *scroller;        ///< the scrolling boxes' part, set by their look's first draw;
+                                                      ///< NULL none
+    void                            *scroll_held;     ///< the scroller's: the area of the panel a scrolling box holds,
+                                                      ///< freed by dgx_ui_paint_free(); NULL none
 }; /* its name, dgx_ui_paint_t: dgx_ui.h */
 
 /*
@@ -319,11 +326,26 @@ typedef struct dgx_ui_nine_look_t {
     uint8_t                 ink;    ///< the ones of a piece of 1 bit, an index of the table
 } dgx_ui_nine_look_t;
 
+/**
+ * Parameters of a scrolling box (dgx_ui_look_scroll): its bar, a column of its own at the right of its inside while its
+ * children are taller than it: a track, an arrow at each end while the bar is four times as tall as it is wide, and a
+ * knob as long as the share of the children seen and where they are. The ground under the children is the look's
+ * `fill`; -1, what lies under the box.
+ */
+typedef struct dgx_ui_scroll_look_t {
+    uint8_t track, knob; ///< the track, the knob: indices of the table
+    uint8_t focused;     ///< the knob while the box has the focus (a box of no child that takes it); DGX_UI_PAPER: as the knob
+    uint8_t arrows;      ///< the arrows on the track; DGX_UI_PAPER: none
+    uint8_t bar;         ///< the bar's width in points; 0: none drawn, the children as wide as the inside
+} dgx_ui_scroll_look_t;
+
 #if UINTPTR_MAX == 0xFFFFFFFFu
 #ifdef __cplusplus
 static_assert(sizeof(dgx_ui_nine_look_t) == 8, "the parameters of a frame of nine pictures are 8 bytes on a 32-bit chip");
+static_assert(sizeof(dgx_ui_scroll_look_t) == 5, "the parameters of a scrolling box are 5 bytes");
 #else
 _Static_assert(sizeof(dgx_ui_nine_look_t) == 8, "the parameters of a frame of nine pictures are 8 bytes on a 32-bit chip");
+_Static_assert(sizeof(dgx_ui_scroll_look_t) == 5, "the parameters of a scrolling box are 5 bytes");
 #endif
 #endif
 
@@ -460,6 +482,18 @@ extern const dgx_ui_look_t dgx_ui_look_ring;
 extern const dgx_ui_look_t dgx_ui_look_nine;
 
 /**
+ * The look of a scrolling box, `dgx_ui_look_scroll`, for a BOX of DGX_UI_COLUMN | DGX_UI_SCROLL: a window over a column of
+ * children taller than it, its offset in pixels in its place (value), its bar at the right of its inside (above). A
+ * change of the offset moves the picture by dgx_scroll_no_fill() where the screen can and draws only the rows that came
+ * in, else the box is drawn again (see the API page). The finger drags the children or the bar's knob; a tap on an
+ * arrow, or half a step from an end, scrolls a step, on the track a page. Its own parameters: track 3, knob 1, arrows 1,
+ * a bar of 5 points; the ground what lies under the box. A program that names it not carries none of it.
+ */
+extern const dgx_ui_look_t dgx_ui_look_scroll;
+/** The behaviour of a scrolling box, for a program's own look of dgx_ui_draw_scroll: `.behavior = &dgx_ui_scroll_behavior`. */
+extern const dgx_ui_behavior_t dgx_ui_scroll_behavior;
+
+/**
  * The looks of the controls and pictures, of the colours 0 the paper, 1 the ink, 2 a fill, 3 a border:
  * - dgx_ui_look_button: BUTTON and DROPDOWN; its text from the widget's text box;
  * - dgx_ui_look_input: INPUT, its text in one line and, focused, a caret after it;
@@ -550,6 +584,7 @@ bool dgx_ui_draw_checkbox(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
 bool dgx_ui_draw_level(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_ring(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_nine(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_scroll(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 
 /**
  * @brief The tree drawn on the screen, and every popup open over it one over another: laid out first if they have to

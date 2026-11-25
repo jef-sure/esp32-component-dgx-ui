@@ -167,6 +167,7 @@ of every member.
 | `DGX_UI_PERCENT_X`, `DGX_UI_PERCENT_Y` | `at_x`, `at_y` in percent, not in points |
 | `DGX_UI_PERCENT_W`, `DGX_UI_PERCENT_H` | `want_w`, `want_h` in percent |
 | `DGX_UI_PERCENT_PAD`, `DGX_UI_PERCENT_GAP` | a box's `pad`, `gap` in percent |
+| `DGX_UI_SCROLL` | a box of a column whose children may be taller than it, a window over them: [A scrolling box](#a-scrolling-box) |
 
 A button of `DGX_UI_REPEAT` is told `DGX_UI_ACTIVATED` when the finger goes down on it, and again every
 `DGX_UI_REPEAT_MS` from `DGX_UI_REPEAT_FIRST_MS` on while the finger holds it, wherever the finger goes: it stays
@@ -482,27 +483,30 @@ typedef struct dgx_ui_behavior_t {
     bool (*move)(dgx_ui_t *ui, int i, int x, int y);
     void (*up)(dgx_ui_t *ui, int i, int x, int y, bool click);
     bool (*key)(dgx_ui_t *ui, int i, int key);
+    void (*scroll)(dgx_ui_t *ui, int i);
 } dgx_ui_behavior_t;
 ```
 
 A look is how a widget is drawn. `draw` draws the widget `i` in its state and returns `true` to be called again at
 the next pass; `params` is the look's own type; `fill` is the index of the colour it leaves under the widget's
-children, -1: what lay there. `behavior` is the behaviour of a widget of `DGX_UI_OWN` drawn by this look; `NULL`:
-the widget is only drawn. The looks of the library name none. The rules a `draw` keeps are in
+children, -1: what lay there. `behavior` is the behaviour of a widget of `DGX_UI_OWN` drawn by this look, or of a
+scrolling box; `NULL`: the widget is only drawn. Of the looks of the library only `dgx_ui_look_scroll` names one,
+`dgx_ui_scroll_behavior`. The rules a `draw` keeps are in
 [A look of your own](cookbook.md#a-look-of-your-own).
 
 A behaviour is how a widget of `DGX_UI_OWN` answers the finger and the keys. With it the core finds the widget
 under the finger, presses it and tells a click, as it does for its own kinds; without it the widget is only drawn.
-A behaviour named by the look of a widget of another kind is not called. Every function may be `NULL`. `x` and `y`
+A behaviour named by the look of a widget of another kind, but for a box of `DGX_UI_SCROLL`, is not called. Every function may be `NULL`. `x` and `y`
 are in the widget's own pixels, from its top left corner; while the finger is held they may lie outside the widget.
 
 | Member | When it is called |
 | ------ | ----------------- |
-| `flags` | `DGX_UI_BEHAVIOR_FOCUS`: the widget takes the focus, and the keys with it. Without it the widget is of the finger alone: a press on it leaves the focus where it was, the keys pass it, and `dgx_ui_focus()` on it leaves nobody focused |
+| `flags` | `DGX_UI_BEHAVIOR_FOCUS`: the widget takes the focus, and the keys with it. Without it the widget is of the finger alone: a press on it leaves the focus where it was, the keys pass it, and `dgx_ui_focus()` on it leaves nobody focused. `DGX_UI_BEHAVIOR_ALONE`, with it: the focus only while no widget under it can take it, as a scrolling box of text |
 | `down` | the finger went down on the widget; `DGX_UI_PRESSED` is set and the focus given by then |
 | `move` | at every look of the pointer while the widget holds the finger. `true`: a drag, so there is no click when it is let go, and `dgx_ui_dragging()` is true: a swipe from an edge is not the program's |
 | `up` | the finger let go; `click`: not dragged, not swiped, within `DGX_UI_CLICK_MS`. After a click the core tells `on()` `DGX_UI_ACTIVATED`, so `on()` sees a value `up` has set |
 | `key` | a key while the widget has the focus; it is asked first, for every key; `true`: taken. What it does not take is the core's: next and previous move the focus on, `DGX_UI_KEY_ACTIVATE` tells `DGX_UI_ACTIVATED` (with no `up`), back is the program's |
+| `scroll` | the layout of a box of `DGX_UI_SCROLL`: its children laid in its column at its offset, the place kept within the column, a child only carried along marked by nothing. The library's `dgx_ui_scroll_behavior` has it; `NULL` for a widget of the program's own |
 
 | Call | What it does |
 | ---- | ------------ |
@@ -821,6 +825,8 @@ typedef struct dgx_ui_paint_t {
     bool            painted;
     dgx_ui_canvases_t *canvases;
     dgx_ui_rect_t   cover_was;
+    const dgx_ui_scroller_t *scroller;
+    void           *scroll_held;
 } dgx_ui_paint_t;
 ```
 
@@ -1002,6 +1008,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_picture` | a picture or an icon of 1 bit, in the middle of the box | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_nine` | a box or a frame drawn as a frame of nine pictures, its pieces given by a look of the program's; colour 2 alone without them | `dgx_ui_nine_look_t` |
+| `dgx_ui_look_scroll` | a box of `DGX_UI_COLUMN \| DGX_UI_SCROLL`: a window over its children, its bar at the right while they are taller than it; [A scrolling box](#a-scrolling-box) | `dgx_ui_scroll_look_t` |
 | `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table; one of 1 bit too. It needs `CONFIG_DGX_ENABLE_VSCREEN`, the paint's buffer of a row of the picture at least, and a 16-bit screen; without them the widget is paper | `dgx_ui_picture_look_t` |
 
 A look that no widget names is not linked into the program.
@@ -1034,6 +1041,7 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_indexed` | `dgx_ui_look_indexed` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_nine` | `dgx_ui_look_nine` | `dgx_ui_nine_look_t`; its fill is the look's `fill` |
+| `dgx_ui_draw_scroll` | `dgx_ui_look_scroll` | `dgx_ui_scroll_look_t`; the look carries `.behavior = &dgx_ui_scroll_behavior` |
 
 A look of the program's with `dgx_ui_draw_box` or `dgx_ui_draw_frame` fills around its children as the library's box
 and frame do.
@@ -1134,6 +1142,13 @@ typedef struct dgx_ui_nine_look_t {
     uint8_t                 fill;   /* under them, an index, never DGX_UI_PAPER */
     uint8_t                 ink;    /* the ones of a piece of 1 bit */
 } dgx_ui_nine_look_t;
+
+typedef struct dgx_ui_scroll_look_t {
+    uint8_t track, knob; /* the bar's track and knob */
+    uint8_t focused;     /* the knob while the box has the focus; DGX_UI_PAPER: as the knob */
+    uint8_t arrows;      /* the arrows at the track's ends; DGX_UI_PAPER: none */
+    uint8_t bar;         /* the bar's width in points; 0: none drawn */
+} dgx_ui_scroll_look_t;
 ```
 
 The rows of a list and the options of a dropdown are the lines of the widget's text, parted by `\n`:
@@ -1146,6 +1161,57 @@ kept in `top` of its text box, and a bar on its right edge, two points wide, mar
 follows the pick. With all its rows shown a finger picks the row under it; on a list that scrolls a finger put
 down picks nothing, moved up or down it moves the pick a row for each row's height, up going on down the list, and
 let go without a move it clicks the row under it.
+
+### A scrolling box
+
+A box of `DGX_UI_COLUMN | DGX_UI_SCROLL` is a window over a column of children that may be taller than it. They are
+laid at the heights they want, not squeezed: a percent of a height is of the inside's, and `DGX_UI_REST` takes what
+the window leaves, never below 0. The offset, how far the column is moved up, is in pixels, not points, and lives in
+the box's place, `value`: `dgx_ui_value()` reads it and `dgx_ui_set_value()` sets it and lays the box at once; a
+value written straight into the place is seen when the box is next drawn. A program that keeps a position across
+boards scales it by the unit itself. The column is the children with the box's pad above the first and below the
+last: those pads scroll with them, the side pads stay. The layout keeps the offset within 0 and the column's height
+less the box's, and writes back a value it had to bring in, telling nobody: only the finger, the keys and
+`dgx_ui_scroll_to()` tell `on()` `DGX_UI_CHANGED`. A box of no place does not scroll, and the log says so once.
+
+Its look is `dgx_ui_look_scroll`, or a look of the program's by `dgx_ui_draw_scroll` that carries
+`.behavior = &dgx_ui_scroll_behavior`. Its parameters, `dgx_ui_scroll_look_t`, 5 bytes<!-- sizeof dgx_ui_scroll_look_t -->,
+are its bar: a column of its own the box's whole height, inside its right pad, while the column is taller than it, a track, an arrow
+at each end while the bar is four times as tall as it is wide, and a knob as long as the share seen; by default the
+track colour 3, the knob and the arrows colour 1, 5 points wide. The children are drawn and hit within the box, as
+any child, and are as wide as the inside less the bar.
+
+- **The finger** drags the children by pixels from its first move of 4 points. A press on a child that then moves up
+  or down goes to the box: the child is let go with no click, and a value it set is given back. A child that takes a
+  vertical drag itself keeps it, and a slider its sideways move. The bar is one target the height of the box: a tap
+  on an arrow, or within half a step of an end, scrolls a step, on the track a page, the box's height, and a drag
+  of the knob moves the children in proportion. The step is the box's `step` in points, else to the next child's
+  edge, else an eighth of the window. The target ends with the box: a box laid wider than what frames it gives the
+  finger more.
+- **The keys and the focus**: next and previous that bring the focus to a child scroll the box so that it is seen,
+  as `dgx_ui_scroll_to()` does. After the finger scrolled, a focused child no longer seen whole gives the focus to
+  the first child seen whole on the side the window came from, told `DGX_UI_FOCUS`. A box with no child that takes
+  the focus, a page of text, takes it itself: next and previous scroll it a step, and at its end the focus goes on.
+- **The move.** When only the offset changed, the rows still seen are moved by `dgx_scroll_no_fill()`, and only the
+  rows that came in, the bar, and the children that changed of their own are drawn. A screen that is read moves any
+  rectangle; a panel behind a bus only by its own scroll, along its long side and across the whole screen: an
+  ILI9341 standing, under a box as wide as the screen, and not lying. Elsewhere the box is drawn again whole. It is
+  drawn again too when the move is as large as the window, when a popup or the keyboard's band lies over it, when
+  what lies under it is the drawn background, under a composing (`dgx_ui_paint_area()`, pages that slide), and while
+  `dgx_ui_changed()` tells the rows instead of drawing them. A page of 60 rows on the whole screen, moved a row of 24
+  pixels: on a CYD standing 5.5 ms, against 49.1 ms drawn again; on the 10-inch P4 in its panel's orientation 29.1 ms
+  against 50.1 ms, 2 MB of PSRAM copied; on a CYD lying no move, 44.5 ms.
+- **The panel's area.** Such a panel moves one area at a time. The box that moved it holds it until it is hidden,
+  removed, covered by a popup, laid elsewhere, or another box needs the area, or `dgx_ui_paint_free()`: then the area
+  is let go and its rectangle drawn whole again, and in that pass some of its pixels are written twice.
+- **One paint.** The offset as drawn is the node's, so a scrolling box is drawn by one paint. A second paint that
+  composes, as a mirror does, draws its area whole and is right.
+
+`void dgx_ui_scroll_to(dgx_ui_t *ui, int i)` brings widget `i` wholly into the window of every scrolling box above it,
+each by the least move, the nearest first: a child brought from below comes with its bottom at the window's bottom,
+from above with its top at the window's top, the pad out of view; one taller than a window comes top to top. The
+boxes' places are written, and their `on()` told `DGX_UI_CHANGED`, as for the finger. The recipe:
+[A page that scrolls](cookbook.md#a-page-that-scrolls).
 
 ### A value, the focus and a finger
 
@@ -1552,13 +1618,13 @@ came before it gives any memory. A widget is an object of these keys, in any ord
 | Key | Its value |
 | --- | --------- |
 | `"kind"` | `"box"`, `"frame"`, `"label"`, `"picture"`, `"icon"`, `"list"`, `"switch"`, `"slider"`, `"button"`, `"input"`, `"dropdown"`, `"own"` or `"radio"`. A column or a row is a box with the flag `"column"` or `"row"`. |
-| `"flags"` | a list of `"column"`, `"row"`, `"stretch"`, `"swipe"`, `"drag"`, `"canvas"`, `"rest"`, `"repeat"` |
+| `"flags"` | a list of `"column"`, `"row"`, `"stretch"`, `"swipe"`, `"drag"`, `"canvas"`, `"rest"`, `"repeat"`, `"scroll"`; `"scroll"` for a box of `"column"` only |
 | `"state"` | a list of `"hidden"`, `"disabled"` |
 | `"pad"`, `"gap"` | 0 to 32767 points, or a percent, `"5%"`, 0 % to 127.99 %: for a box, a frame and a widget of the program's own |
 | `"at"`, `"want"` | `[x, y]` and `[w, h]`, each in points or a percent, `["50%", 24]`, -128 % to 127.99 % |
-| `"min"`, `"max"`, `"step"`, `"value"` | the range, and the name of the place of the value in the values' table: for a list, a switch, a slider, a dropdown, a radio, an icon and a widget of the program's own |
+| `"min"`, `"max"`, `"step"`, `"value"` | the range, and the name of the place of the value in the values' table: for a list, a switch, a slider, a dropdown, a radio, an icon and a widget of the program's own. A box of `"scroll"` takes `"value"`, the place of its offset, and `"step"`, in points; with no `"value"` it gets a place of the load's own memory |
 | `"tag"` | a number of the program's |
-| `"look"` | a name of the looks' table, or `null`: none. Not said: none for a box, a frame and a label, else the look the table names by the kind's own word, `"button"` for a button; its absence is an error, not a widget nobody sees. |
+| `"look"` | a name of the looks' table, or `null`: none. Not said: none for a box, a frame and a label, else the look the table names by the kind's own word, `"button"` for a button, and `"scroll"` for a box of `"scroll"`; its absence is an error, not a widget nobody sees. |
 | `"picture"` | a name of the pictures' table: for a picture, an icon, a button, a switch and a radio |
 | `"text"`, `"style"`, `"lines"`, `"text_size"` | the text, the name of its style (the first of the styles' table when none is said), its lines (1), and, when the program is to write it by `dgx_ui_text_set()`, the bytes of its buffer; without `"text_size"` the text is constant. For a label, a button, a list, an input, a dropdown, a radio and a switch. |
 | `"on"`, `"take"` | names of the handlers' and the takes' tables |
@@ -1705,6 +1771,7 @@ may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list o
 | `"level"` | `bar`; `rest`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
 | `"ring"` | `on`; `off`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
 | `"nine"` | `fill`; `ink`; `pieces`: a name of the program's pictures, 9 of them at least |
+| `"scroll"` | `track`; `knob`; `focused`°; `arrows`°; `bar` 0…32 |
 
 **What is not said.** `"fill"` of a look is `null`, what lies under it. A number, a word and a list of flags are
 0, as a member of C left out, and `"joined"`, `"soft"`, `"points"` and `"secret"` false. A colour of a look's parameters must be
@@ -1775,19 +1842,21 @@ static const dgx_ui_params_t dial_described = DGX_UI_PARAMS(dial_params_t, 1u <<
 ```
 
 `dgx_ui_params_t` is the size and the alignment of the parameters, the kinds of widget the draw is for, which a
-builder offers it by and a load does not check, and the fields; `dgx_ui_field_t` is a field: its name in a
+builder offers it by and a load does not check, the fields, and `behavior`, the behaviour a look of the draw carries,
+a scrolling box's, else `NULL`; `dgx_ui_field_t` is a field: its name in a
 description, the member's, where it lies and what it holds. The macros write one from the member:
 `DGX_UI_COLOR_FIELD`, `DGX_UI_COLOR_OR_UNDER_FIELD`, `DGX_UI_NUMBER_FIELD` with its bounds, `DGX_UI_BOOL_FIELD`,
 `DGX_UI_WORD_FIELD` with its words, each ended by 0, `DGX_UI_BANDS_FIELD` with the member of the count,
 `DGX_UI_PICTURE_FIELD` with the count of pictures it needs, over
-`DGX_UI_FIELD_OF`; `DGX_UI_PARAMS` writes the whole. What a field holds: `DGX_UI_FIELD_COLOR`,
+`DGX_UI_FIELD_OF`; `DGX_UI_PARAMS` writes the whole, and `DGX_UI_PARAMS_BEHAVING` the whole of a draw whose looks
+carry a behaviour. What a field holds: `DGX_UI_FIELD_COLOR`,
 `DGX_UI_FIELD_COLOR_OR_UNDER`, `DGX_UI_FIELD_NUMBER`, `DGX_UI_FIELD_BOOL`, `DGX_UI_FIELD_WORD`, `DGX_UI_FIELD_FLAGS`,
 `DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, `DGX_UI_FIELD_PICTURE`, a pointer to the program's pictures, and for a
 style and a variant `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND` and `DGX_UI_FIELD_VARIANTS`. The library's own: `dgx_ui_params_box`, `dgx_ui_params_frame`, `dgx_ui_params_text`,
 `dgx_ui_params_lines`, `dgx_ui_params_hand_lines`, `dgx_ui_params_button`, `dgx_ui_params_picture_button`,
 `dgx_ui_params_input`, `dgx_ui_params_switch`, `dgx_ui_params_slider`, `dgx_ui_params_list`,
 `dgx_ui_params_dropdown`, `dgx_ui_params_picture`, `dgx_ui_params_rgb565`, `dgx_ui_params_indexed`,
-`dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`, `dgx_ui_params_ring`, `dgx_ui_params_nine`, and
+`dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`, `dgx_ui_params_ring`, `dgx_ui_params_nine`, `dgx_ui_params_scroll`, and
 `dgx_ui_params_text_style` and `dgx_ui_params_font_variant` for a style and a variant of a font.
 
 **What an appearance cannot do.** It may only name what the program listed: its draws, its fonts and its hands are

@@ -36,7 +36,7 @@ const TABLE = /^(look|value|picture|style|on|take|ctx|id|draw|font|hand)[ \t]/;
     check(same(format.tables, ['look', 'value', 'picture', 'style', 'on', 'take', 'ctx', 'id']) && same(format.keys, format.tables) &&
           same(format.appearance, ['draw', 'font', 'hand']), 'the tables: ' + JSON.stringify(format.tables));
     check(same(format.bare.on, ['back', 'page']) && same(format.bare.hand, ['handwriting', 'handwriting_canvas']) &&
-          format.bare.look.includes('slider') && format.bare.draw.length === 20, 'the names that go with no expression');
+          format.bare.look.includes('slider') && format.bare.draw.length === 21, 'the names that go with no expression');
     const api = fs.readFileSync(path.join(ROOT, 'docs/en/api.md'), 'utf8');
     check(format.tables.every((table) => api.includes(`\`${table}\``)), 'every table in the documents');
 

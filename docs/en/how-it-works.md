@@ -250,6 +250,13 @@ wholly under them is not drawn and keeps its marks, so a text changed under a po
 closes. Where a cover was and is no more, the painter composes the tree again, and leaves to its walk every widget
 the walk will draw anyway, one that changed while it was covered: that widget is drawn whole, once.
 
+**Moved, not drawn.** A scrolling box whose offset alone changed is not drawn again: the rows still seen are moved
+on the screen by DGX's `dgx_scroll_no_fill()`, and only the rows that came in, the bar and the children that changed
+of their own are drawn. A screen that is read moves any rectangle in its memory; a panel behind a bus moves only by its
+own scroll, along its long side, under a box as wide as the screen, one such area at a time, which the painter lets go
+when the box that holds it goes. Where nothing can move the box is drawn again whole: the same picture, at the cost of
+drawing it. See [A scrolling box](api.md#a-scrolling-box).
+
 **Composing.** `dgx_ui_paint_area()` draws a rectangle of the screen from the root down: the background, then every
 widget that meets it, whole, under a clip. With `ox`, `oy` the screen may be a small buffer that holds a strip of the
 rectangle.

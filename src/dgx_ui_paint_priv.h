@@ -25,6 +25,21 @@ struct dgx_ui_strips_t {
     bool (*draw)(dgx_ui_paint_t *paint, const dgx_ui_look_t *look, dgx_ui_t *ui, int i, uint32_t now_ms, dgx_ui_rect_t r, bool *more);
 };
 
+/* the scrolling boxes' part of a paint (dgx_ui_scroll_look.c), reached by the painter through these two only: a program
+   of no scrolling box carries none of it */
+struct dgx_ui_scroller_t {
+    void (*before)(dgx_ui_paint_t *paint, dgx_ui_t *ui);          /* before a pass: an area of the panel let go and composed */
+    void (*free)(dgx_ui_paint_t *paint);                          /* the area let go, the state freed */
+};
+
+/* a place a cover left composed before the walk, as the painter's own composing of it: a widget the walk will draw
+   left to it, marked whole */
+void dgx_ui_compose_left(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_ui_rect_t area);
+
+/* the children of widget i composed within an area of the tree's screen, while its look draws: each drawn whole under
+   a clip of its part of the area, one the walk will draw left to it; the paint's state for the look given back */
+void dgx_ui_compose_in(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area);
+
 /* the drawn halves of laying the paper and of letters in a field (dgx_ui_background.c), named by the program through
    dgx_ui_background_set(): the drawn background under a clip of a rectangle of the tree's screen; letters over it */
 struct dgx_ui_drawn_background_t {

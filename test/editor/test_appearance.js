@@ -39,7 +39,7 @@ const docOf = (text) => description.read(text).doc;
     const withLook = (look) => ({ ...base(), looks: { one: look } });
 
     /* what the module says, held to its loader */
-    check(format.draws.length === 20 && format.by_rule, 'the library\'s twenty draws by the rule: ' + format.draws.length);
+    check(format.draws.length === 21 && format.by_rule, 'the library\'s twenty-one draws by the rule: ' + format.draws.length);
     for (const draw of format.draws) {
         // a field of pictures has no default of the library's: a picture by the rule, "card", of 65535 there
         const defaults = Object.fromEntries(Object.entries(draw.defaults ?? {}).map(([name, value]) =>

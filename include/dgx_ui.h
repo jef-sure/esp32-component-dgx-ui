@@ -148,6 +148,9 @@ enum {
     DGX_UI_PERCENT_H   = 1u << 11, ///< want_h in percent
     DGX_UI_PERCENT_PAD = 1u << 12, ///< a box's pad in percent
     DGX_UI_PERCENT_GAP = 1u << 13, ///< a box's gap in percent
+    DGX_UI_SCROLL      = 1u << 14, ///< a box of a column whose children may be taller than it: a window over them, its
+                                   ///< offset in pixels in its place (value), drawn by a look of scrolling
+                                   ///< (dgx_ui_look_scroll, below)
 };
 
 /*
@@ -252,11 +255,15 @@ typedef struct dgx_ui_behavior_t {
     bool (*move)(dgx_ui_t *ui, int i, int x, int y);           ///< the finger moved while it holds it, anywhere; true: a drag
     void (*up)(dgx_ui_t *ui, int i, int x, int y, bool click); ///< the finger let go; click: by the rule of a click
     bool (*key)(dgx_ui_t *ui, int i, int key);                 ///< a key while it has the focus; true: taken
+    /** a box of DGX_UI_SCROLL: its children laid, in its column at its offset, the place kept within it; a child only
+        carried by the offset marked by nothing. The library's (dgx_ui_look_scroll); NULL for a widget of the program's own */
+    void (*scroll)(dgx_ui_t *ui, int i);
 } dgx_ui_behavior_t;
 
 /** Flags of a dgx_ui_behavior_t. */
 enum {
     DGX_UI_BEHAVIOR_FOCUS = 1u << 0, ///< it takes the focus, and the keys with it; without it the finger alone
+    DGX_UI_BEHAVIOR_ALONE = 1u << 1, ///< with FOCUS: only while no widget under it can take the focus (a scrolling box of text)
 };
 
 /**
@@ -620,6 +627,13 @@ void dgx_ui_show(dgx_ui_t *ui, int i, bool shown);
 
 /** @brief A widget to be drawn whole when it is next drawn. */
 void dgx_ui_redraw(dgx_ui_t *ui, int i);
+
+/**
+ * @brief Widget i brought wholly into the view of every scrolling box above it (DGX_UI_SCROLL), each by the least
+ * move: the nearest first. One taller than a box's inside comes with its top at the inside's top. The boxes' places
+ * written, their on() told DGX_UI_CHANGED as for a scroll by the finger. The focus brings the widget it comes to so.
+ */
+void dgx_ui_scroll_to(dgx_ui_t *ui, int i);
 
 /** @brief Whether a widget is hidden, itself or by one above it. */
 bool dgx_ui_hidden(const dgx_ui_t *ui, int i);

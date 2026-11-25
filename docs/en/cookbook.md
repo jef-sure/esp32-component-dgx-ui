@@ -28,6 +28,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A picture under the widgets](#a-picture-under-the-widgets)
 - [A text of several lines](#a-text-of-several-lines)
 - [A log of the last lines](#a-log-of-the-last-lines)
+- [A page that scrolls](#a-page-that-scrolls)
 - [A font that fits](#a-font-that-fits)
 - [Letters with soft edges](#letters-with-soft-edges)
 - [A handwritten text](#a-handwritten-text)
@@ -1170,6 +1171,49 @@ static void log_add(dgx_ui_t *ui, int log, const char *line)
 - A line longer than the whole log is cut on a whole letter and stands alone in it.
 - `log_add()` is called by the task that owns the tree. Another task sends its line as a message, as in
   [Large data: a message by reference](#large-data-a-message-by-reference).
+
+## A page that scrolls
+
+A page longer than the screen: a box of `DGX_UI_COLUMN | DGX_UI_SCROLL` holds its rows, the finger drags them, and a
+bar at the right shows where the window is.
+
+```c
+enum { LONG_ROWS = 12 };
+static int32_t          long_offset; /* the rows moved up so many pixels; 0: the first row at the top */
+static char             long_buf[LONG_ROWS][20];
+static dgx_ui_textbox_t long_box[LONG_ROWS];
+static dgx_ui_widget_t  long_row_w[LONG_ROWS]; /* the program's RAM: a label each, filled before it is added */
+static const dgx_ui_widget_t long_page_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_SCROLL | DGX_UI_REST,
+                                            .pad = 4, .gap = 2, .step = 12, .value = &long_offset, .look = &dgx_ui_look_scroll};
+
+/* the page under parent, a column the rest of whose height it takes, its rows added; its index */
+static int long_page_add(dgx_ui_t *ui, int parent)
+{
+    const int page = dgx_ui_add(ui, parent, &long_page_w);
+    for (int k = 0; k < LONG_ROWS; ++k) {
+        dgx_ui_textbox_init(&long_box[k], long_buf[k], sizeof long_buf[k], 1, &st_left);
+        long_row_w[k] = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &long_box[k]};
+        dgx_ui_text_printf(ui, dgx_ui_add(ui, page, &long_row_w[k]), "Setting %d", k + 1);
+    }
+    return page;
+}
+```
+
+![A column of settings scrolled part of the way down, its bar at the right](../images/scroll.png)
+
+- **The offset** is the program's `int32_t`, in pixels: `dgx_ui_set_value(ui, page, 0)` brings the first row back to
+  the top, and the layout keeps any value within the rows. A box of no place does not scroll.
+- **The rows keep their heights**: they are laid as they want and the window shows a part of them. The bar comes only
+  while they are taller than the window, and their width is then the inside's less the bar.
+- **The finger** drags the rows, and a press on a row that moves up or down goes to the page: a button pressed and
+  dragged is not clicked. On the bar, an arrow scrolls a step, `step` points here, the track a page, and the knob
+  follows the finger.
+- **The keys**: next and previous bring the focused row into the window; `dgx_ui_scroll_to(ui, i)` brings any row.
+- **The picture** is moved, not drawn again, where the screen can: a screen that is read, or a panel that scrolls
+  itself along the page's height, as a CYD standing. Elsewhere the page is drawn again, the same picture; the API
+  page has the numbers.
+- In a description the page is `"kind": "box", "flags": ["column", "scroll", "rest"]`, with `"value"` the name of its
+  place, or none for a place of the load's own.
 
 ## A font that fits
 
