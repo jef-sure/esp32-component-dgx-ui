@@ -107,10 +107,17 @@ typedef struct dgx_ui_style_name_t {
     const char                *name;
     const dgx_ui_text_style_t *style;
 } dgx_ui_style_name_t;
+/**
+ * What a handler's ctx may be: a context of the program's own, as the program pairs them; a number, never read as a
+ * pointer, given to it alone of an integer "ctx"; a page's tree, a context whose page is true, for the library's page
+ * action. A handler of the program's own (DGX_UI_TAKES_OWN) is given whatever context of the program's own the
+ * description names; the loader checks only a number and a page.
+ */
+enum { DGX_UI_TAKES_OWN = 0, DGX_UI_TAKES_NUMBER = 1, DGX_UI_TAKES_PAGE = 2 };
 typedef struct dgx_ui_on_name_t {
     const char *name;
     void (*on)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
-    bool takes_number; ///< its ctx a number, never read as a pointer: a widget's "ctx" may be an integer with it alone
+    uint8_t takes; ///< DGX_UI_TAKES_*: what a widget's "ctx" may be with it
 } dgx_ui_on_name_t;
 typedef struct dgx_ui_take_name_t {
     const char *name;
@@ -118,7 +125,8 @@ typedef struct dgx_ui_take_name_t {
 } dgx_ui_take_name_t;
 typedef struct dgx_ui_context_name_t {
     const char *name;
-    void       *ctx; ///< a page's tree for DGX_UI_ACTION_NAME(page), or anything of the program's
+    void       *ctx;  ///< a page's tree, or anything of the program's
+    bool        page; ///< ctx is a page's tree, a dgx_ui_t: the context DGX_UI_ACTION_NAME(page) takes
 } dgx_ui_context_name_t;
 /** A widget the program finds: its index written to *index by the load, when the description has the id. */
 typedef struct dgx_ui_id_t {
@@ -134,7 +142,8 @@ typedef struct dgx_ui_id_t {
  * goes back a page (dgx_ui_page_back() of the tree's home), DGX_UI_ACTION_NAME(page) opens the page that is the
  * button's "ctx" (a tree of the contexts' table). A program that lists neither carries neither.
  */
-#define DGX_UI_ACTION_NAME(word) {#word, dgx_ui_load_on_##word, false}
+#define DGX_UI_ACTION_NAME(word) {#word, dgx_ui_load_on_##word, DGX_UI_LOAD_TAKES_##word}
+enum { DGX_UI_LOAD_TAKES_back = DGX_UI_TAKES_OWN, DGX_UI_LOAD_TAKES_page = DGX_UI_TAKES_PAGE };
 void dgx_ui_load_on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 void dgx_ui_load_on_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 

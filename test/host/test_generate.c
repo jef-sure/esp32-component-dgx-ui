@@ -62,7 +62,7 @@ static const dgx_ui_picture_name_t pictures[] = {{"dot", dot, 1}, {"dots", dots,
 static const dgx_ui_style_name_t   styles[]   = {{"text", &text}, {"small", &small}, {"big", &small}};
 static const dgx_ui_on_name_t      handlers[] = {DGX_UI_ACTION_NAME(back), DGX_UI_ACTION_NAME(page), {"saved", saved, false}, {"step", step, true}, {"tap", saved, false}};
 static const dgx_ui_take_name_t    takes[]    = {{"take", take}};
-static const dgx_ui_context_name_t contexts[] = {{"settings", &settings}, {"other", &other}};
+static const dgx_ui_context_name_t contexts[] = {{"settings", &settings, true}, {"other", &other, false}};
 static const dgx_ui_id_t           ids[]      = {{"title", &title_index}, {"slider", &slider_index}, {"less", &less_index}, {"go", &go_index}};
 enum { ID_COUNT = sizeof ids / sizeof *ids };
 #define COUNT(table) (uint16_t)(sizeof table / sizeof *table)
@@ -102,9 +102,10 @@ static bool same_tables(const dgx_ui_load_names_t *a, const dgx_ui_load_names_t 
         same = !strcmp(a->pictures[k].name, b->pictures[k].name) && a->pictures[k].picture == b->pictures[k].picture && a->pictures[k].count == b->pictures[k].count;
     for (int k = 0; same && k < a->style_count; ++k) same = !strcmp(a->styles[k].name, b->styles[k].name) && a->styles[k].style == b->styles[k].style;
     for (int k = 0; same && k < a->handler_count; ++k)
-        same = !strcmp(a->handlers[k].name, b->handlers[k].name) && a->handlers[k].on == b->handlers[k].on && a->handlers[k].takes_number == b->handlers[k].takes_number;
+        same = !strcmp(a->handlers[k].name, b->handlers[k].name) && a->handlers[k].on == b->handlers[k].on && a->handlers[k].takes == b->handlers[k].takes;
     for (int k = 0; same && k < a->take_count; ++k) same = !strcmp(a->takes[k].name, b->takes[k].name) && a->takes[k].take == b->takes[k].take;
-    for (int k = 0; same && k < a->context_count; ++k) same = !strcmp(a->contexts[k].name, b->contexts[k].name) && a->contexts[k].ctx == b->contexts[k].ctx;
+    for (int k = 0; same && k < a->context_count; ++k)
+        same = !strcmp(a->contexts[k].name, b->contexts[k].name) && a->contexts[k].ctx == b->contexts[k].ctx && a->contexts[k].page == b->contexts[k].page;
     for (int k = 0; same && k < a->id_count; ++k) same = !strcmp(a->ids[k].name, b->ids[k].name) && a->ids[k].index == b->ids[k].index;
     return same;
 }

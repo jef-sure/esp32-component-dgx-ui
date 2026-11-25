@@ -20,10 +20,11 @@
  *
  * A name becomes C by a names file, a line a name, '#' to the end of a line a comment:
  *
- *     <table> <name> <C expression> [<count> | number]
+ *     <table> <name> <C expression> [<count> | number | page]
  *
  * the table one of look, value, picture, style, on, take, ctx, id; a picture's count of pictures (1 when none is
- * said), "number" for a handler whose ctx is a number; an expression is written with no spaces. A look of the
+ * said), "number" for a handler whose ctx is a number, "page" for a context that is a page's tree, which alone the
+ * action page takes; an expression is written with no spaces. A look of the
  * library's and the actions back and page may go with no expression: "look button" is &dgx_ui_look_button, "on back"
  * dgx_ui_load_on_back. The expression of an id is an int of the program's the add function writes the widget's index
  * to; the others are constant expressions, as the widgets are constants. With a names file every table is the
@@ -45,7 +46,7 @@
  *     on       back and page the library's actions, dgx_ui_load_on_back and _page; any other <name>, its ctx a number
  *              when the description gives one
  *     take     <name>
- *     ctx      &<name>; an integer (void *)(intptr_t)<n>
+ *     ctx      &<name>, a page's tree or not; an integer (void *)(intptr_t)<n>
  *     id       int <prefix>_<id>, declared by the header, written by the add function
  *
  * A name the rule cannot make C, one with '-', is refused with the name. So are the names the tool makes itself: an id
@@ -227,6 +228,8 @@ static int32_t             *value_stand;
 static dgx_ui_picture_t    *picture_stand;
 static dgx_ui_text_style_t *style_stand;
 static uint8_t             *on_stand, *take_stand, *ctx_stand;
+static const dgx_ui_t      *again; /* the tree loaded a second time, the contexts on other stand-ins: a ctx that moved is one */
+static const char *const    takes_words[] = {"DGX_UI_TAKES_OWN", "DGX_UI_TAKES_NUMBER", "DGX_UI_TAKES_PAGE"};
 static int                 *id_stand;
 
 static void *zeroed(int count, size_t size)
@@ -251,8 +254,6 @@ static dgx_ui_load_names_t stand_in_names(void)
     take_stand    = zeroed(tables[T_TAKE].count, 1);
     ctx_stand     = zeroed(tables[T_CTX].count, 1);
     id_stand      = zeroed(tables[T_ID].count, sizeof *id_stand);
-    /* an integer ctx is told from a context by its place: the contexts lie past every integer */
-    if ((uintptr_t)ctx_stand <= (uintptr_t)INT32_MAX) fail_out("the stand-ins of the contexts lie among the integers of a ctx on this computer");
     dgx_ui_look_name_t    *looks    = zeroed(tables[T_LOOK].count, sizeof *looks);
     dgx_ui_value_name_t   *values   = zeroed(tables[T_VALUE].count, sizeof *values);
     dgx_ui_picture_name_t *pictures = zeroed(tables[T_PICTURE].count, sizeof *pictures);
@@ -267,9 +268,9 @@ static dgx_ui_load_names_t stand_in_names(void)
         pictures[k] = (dgx_ui_picture_name_t){tables[T_PICTURE].entries[k].name, &picture_stand[k], (uint16_t)tables[T_PICTURE].entries[k].count};
     for (int k = 0; k < tables[T_STYLE].count; ++k) styles[k] = (dgx_ui_style_name_t){tables[T_STYLE].entries[k].name, &style_stand[k]};
     for (int k = 0; k < tables[T_ON].count; ++k)
-        handlers[k] = (dgx_ui_on_name_t){tables[T_ON].entries[k].name, (on_fn)(uintptr_t)&on_stand[k], tables[T_ON].entries[k].number};
+        handlers[k] = (dgx_ui_on_name_t){tables[T_ON].entries[k].name, (on_fn)(uintptr_t)&on_stand[k], (uint8_t)takes_of(&tables[T_ON].entries[k])};
     for (int k = 0; k < tables[T_TAKE].count; ++k) takes[k] = (dgx_ui_take_name_t){tables[T_TAKE].entries[k].name, (take_fn)(uintptr_t)&take_stand[k]};
-    for (int k = 0; k < tables[T_CTX].count; ++k) contexts[k] = (dgx_ui_context_name_t){tables[T_CTX].entries[k].name, &ctx_stand[k]};
+    for (int k = 0; k < tables[T_CTX].count; ++k) contexts[k] = (dgx_ui_context_name_t){tables[T_CTX].entries[k].name, &ctx_stand[k], tables[T_CTX].entries[k].page};
     for (int k = 0; k < tables[T_ID].count; ++k) ids[k] = (dgx_ui_id_t){tables[T_ID].entries[k].name, &id_stand[k]}, id_stand[k] = -1;
     return (dgx_ui_load_names_t){.looks = looks, .values = values, .pictures = pictures, .styles = styles, .handlers = handlers, .takes = takes,
                                  .contexts = contexts, .ids = ids, .look_count = (uint16_t)tables[T_LOOK].count, .value_count = (uint16_t)tables[T_VALUE].count,
@@ -598,9 +599,8 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
         if (w->take) out(&c_file, ", .take = %s", c_of(T_TAKE, (uintptr_t)w->take, (uintptr_t)take_stand, 1));
         if (w->on) out(&c_file, ", .on = %s", c_of(T_ON, (uintptr_t)w->on, (uintptr_t)on_stand, 1));
         if (w->ctx) {
-            const uintptr_t place = (uintptr_t)w->ctx;
-            if (place >= (uintptr_t)ctx_stand && place < (uintptr_t)ctx_stand + (uintptr_t)tables[T_CTX].count)
-                out(&c_file, ", .ctx = %s", c_of(T_CTX, place, (uintptr_t)ctx_stand, 1));
+            /* a context, or a number: a context is another stand-in in the second load, a number the same */
+            if (dgx_ui_node(again, order[at])->widget->ctx != w->ctx) out(&c_file, ", .ctx = %s", c_of(T_CTX, (uintptr_t)w->ctx, (uintptr_t)ctx_stand, 1));
             else out(&c_file, ", .ctx = (void *)(intptr_t)%d", (int)(intptr_t)w->ctx);
         }
         out(&c_file, "},\n");
@@ -672,7 +672,8 @@ static void write_tables(const char *directory, const char *const *headers, int 
             const entry_t *entry = &tables[table].entries[k];
             switch (table) {
             case T_PICTURE: out(&c_file, "    {\"%s\", %s, %u},\n", entry->name, entry->c, entry->count); break;
-            case T_ON: out(&c_file, "    {\"%s\", %s, %s},\n", entry->name, entry->c, entry->number ? "true" : "false"); break;
+            case T_ON: out(&c_file, "    {\"%s\", %s, %s},\n", entry->name, entry->c, takes_words[takes_of(entry)]); break;
+            case T_CTX: out(&c_file, "    {\"%s\", %s, %s},\n", entry->name, entry->c, entry->page ? "true" : "false"); break;
             case T_ID: out(&c_file, "    {\"%s\", &(%s)},\n", entry->name, entry->c); break;
             default: out(&c_file, "    {\"%s\", %s},\n", entry->name, entry->c); break;
             }
@@ -1193,6 +1194,20 @@ int main(int argc, char **argv)
     dgx_ui_init(&ui, nodes, need.nodes, 1);
     const int root = dgx_ui_load(&ui, -1, text, length, &names, memory, need.bytes, &err);
     if (root < 0) fail_out("%s: byte %d: %s, after its need was told", description_path, err.offset, error_words[err.code]);
+    /* the same again, each context on a stand-in of its own: a widget's ctx that is not where the first load put it is a
+       context, one that is the same is a number, whatever the addresses of this computer */
+    dgx_ui_context_name_t *moved = zeroed(tables[T_CTX].count, sizeof *moved);
+    uint8_t               *moved_stand = zeroed(tables[T_CTX].count, 1);
+    for (int k = 0; k < tables[T_CTX].count; ++k) moved[k] = names.contexts[k], moved[k].ctx = &moved_stand[k];
+    dgx_ui_load_names_t again_names = names;
+    again_names.contexts            = moved;
+    dgx_ui_node_t *again_nodes  = zeroed(need.nodes, sizeof *again_nodes);
+    void          *again_memory = zeroed(1, need.bytes ? need.bytes : 1);
+    static dgx_ui_t again_ui;
+    dgx_ui_init(&again_ui, again_nodes, need.nodes, 1);
+    if (dgx_ui_load(&again_ui, -1, text, length, &again_names, again_memory, need.bytes, &err) != root)
+        fail_out("%s: byte %d: %s, loaded a second time", description_path, err.offset, error_words[err.code]);
+    again = &again_ui;
     /* no file of the program's written over: both looked at before either is written */
     refuse_others_file(directory, ".c");
     refuse_others_file(directory, ".h");

@@ -50,13 +50,13 @@ VOCABULARY = [("look", word, "&dgx_ui_look_" + word, "") for word in LIBRARY_LOO
     ("on", "back", "dgx_ui_load_on_back", ""), ("on", "page", "dgx_ui_load_on_page", ""), ("on", "saved", "saved", ""),
     ("on", "step", "step", "number"), ("on", "tap", "saved", ""),
     ("take", "take", "take", ""),
-    ("ctx", "settings", "&settings", ""), ("ctx", "other", "&other", ""),
+    ("ctx", "settings", "&settings", "page"), ("ctx", "other", "&other", ""),
     ("id", "title", "title_index", ""), ("id", "slider", "slider_index", ""), ("id", "less", "less_index", ""), ("id", "go", "go_index", ""),
 ]
 IDS = ["title", "slider", "less", "go"]
 names_path = os.path.join(work, "names.txt")
 with open(names_path, "w") as out:
-    out.write("# the program of test_generate.c: a table, a name, its C, a count of pictures or \"number\"\n")
+    out.write("# the program of test_generate.c: a table, a name, its C, a count of pictures, \"number\" or \"page\"\n")
     for table, name, c, word in VOCABULARY:
         # a look of the library's every other one, and back, by the word alone
         if (table == "look" and name in LIBRARY_LOOKS and LIBRARY_LOOKS.index(name) % 2 == 0) or (table, name) == ("on", "back"):
@@ -115,7 +115,7 @@ EVERY_RULE = EVERY.replace('"style": "SMALL", ', "").replace("VOLUME", "volume")
 TEXTED = {"label", "button", "list", "input", "dropdown", "radio", "switch"}
 VALUED = {"list", "switch", "slider", "dropdown", "own", "radio", "icon"}
 LEAVES = ["label", "picture", "icon", "list", "switch", "slider", "button", "input", "dropdown", "radio"]
-WRONGS = ["unknown", "field", "number", "one_picture", "id_twice", "kind", "icon_past"]
+WRONGS = ["unknown", "field", "number", "page_ctx", "one_picture", "id_twice", "kind", "icon_past"]
 
 
 def text_of(rand, kind):
@@ -219,7 +219,7 @@ class Chance:
             on = rand.choice(names_of("on", rule))
             keys.append(f'"on": "{on}"')
             if on == "step":
-                keys.append(f'"ctx": {rand.randint(-5, 5)}')
+                keys.append(f'"ctx": {rand.choice([rand.randint(-5, 5), -2147483648, 2147483647])}')
             elif on == "page":
                 keys.append('"ctx": "settings"')
             elif rand.randint(0, 1):
@@ -248,6 +248,8 @@ class Chance:
             keys.append('"pad": 1' if kind not in ("box", "frame", "own") else '"text": "x"')
         elif how == "number":
             keys = [k for k in keys if not k.startswith('"on"') and not k.startswith('"ctx"')] + ['"on": "saved"', '"ctx": 3']
+        elif how == "page_ctx":  # the page action given a context that is no page's tree
+            keys = [k for k in keys if not k.startswith('"on"') and not k.startswith('"ctx"')] + ['"on": "page"', '"ctx": "other"']
         elif how == "one_picture":
             keys = [f'"kind": "switch"', '"picture": "pip"']
         elif how == "id_twice":

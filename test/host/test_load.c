@@ -7,7 +7,8 @@
  * Each error with its code, its offset and its name, the tree as it was: a name unknown or malformed or too long, a
  * kind, a key twice, a key of no meaning for the kind, a fraction, a number out of range, a bad escape, a lone
  * surrogate, a version above 1, the depth past its bound, the memory a byte short and not aligned, the nodes one short
- * (an add refused midway, what was added removed); a number for "ctx" with no handler or one that takes a pointer, a
+ * (an add refused midway, what was added removed), more than a tree holds refused before any is added; a number for
+ * "ctx" with no handler or one that takes a pointer, the page action's "ctx" not a page's tree, a
  * switch or a radio of one picture, an icon's range past its pictures, an id of the table twice, a table of too many
  * ids. The need's bytes exactly what the load uses. A valid description cut
  * at every byte and with every byte changed: never a fault, an error inside the text or a tree, nothing added on an
@@ -76,7 +77,7 @@ static const dgx_ui_picture_name_t pictures[] = {{"dot", &dots[0], 1}, {"dots", 
 static const dgx_ui_style_name_t   styles[]   = {{"text", &style}, {"small", &style2}};
 static const dgx_ui_on_name_t      handlers[] = {DGX_UI_ACTION_NAME(back), DGX_UI_ACTION_NAME(page), {"saved", on_saved, false}, {"step", on_step, true}};
 static const dgx_ui_take_name_t    takes[]    = {{"take", on_take}};
-static const dgx_ui_context_name_t contexts[] = {{"settings", &page}, {"other", (void *)&volume}};
+static const dgx_ui_context_name_t contexts[] = {{"settings", &page, true}, {"other", (void *)&volume, false}};
 static const dgx_ui_id_t           ids[]      = {{"title", &title}, {"unused", &unused_id}, {"slider", &slider_id}, {"less", &less_id}, {"back", &back_id}, {"go", &go_id}};
 static const dgx_ui_load_names_t   names      = {.looks = looks, .look_count = 12, .values = values, .value_count = 4, .pictures = pictures, .picture_count = 3,
                                                  .styles = styles, .style_count = 2, .handlers = handlers, .handler_count = 4, .takes = takes, .take_count = 1,
@@ -642,6 +643,45 @@ int main(void)
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"page\", \"ctx\": 5}}", DGX_UI_LOAD_FIELD, 55, "ctx"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": 5}}", DGX_UI_LOAD_FIELD, 41, "ctx"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": 5, \"on\": \"saved\"}}", DGX_UI_LOAD_FIELD, 41, "ctx"));
+    /* the library's page action a page's tree alone, or none; a handler of the program's own any context, a page's
+       too; one that takes a number a named context too, as before */
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"page\", \"ctx\": \"other\"}}", DGX_UI_LOAD_FIELD, 55, "ctx"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": \"other\", \"on\": \"page\"}}", DGX_UI_LOAD_FIELD, 41, "ctx"));
+    {
+        static const char *const taken[] = {
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"page\", \"ctx\": \"settings\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"page\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"saved\", \"ctx\": \"settings\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"saved\", \"ctx\": \"other\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"step\", \"ctx\": \"settings\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"back\", \"ctx\": \"other\"}}",
+        };
+        for (size_t k = 0; k < sizeof taken / sizeof *taken; ++k) {
+            dgx_ui_load_need_t  need;
+            dgx_ui_load_error_t err;
+            const bool          ok = dgx_ui_load_need(taken[k], strlen(taken[k]), &names, &need, &err);
+            if (!ok) fprintf(stderr, "  %s: refused, code %d offset %d\n", taken[k], err.code, err.offset);
+            CHECK(ok);
+        }
+    }
+    /* no more widgets than a tree holds, refused in the counting: 32767 taken, the 32768th refused, at its object */
+    {
+        const char head[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"children\": [", label[] = "{\"kind\": \"label\"}, ", tail[] = "]}}";
+        for (int labels = 32766; labels <= 32767; ++labels) {
+            const size_t length = sizeof head - 1 + (size_t)labels * (sizeof label - 1) + sizeof tail;
+            char        *text   = malloc(length), *at = text;
+            memcpy(at, head, sizeof head - 1), at += sizeof head - 1;
+            for (int k = 0; k < labels; ++k) memcpy(at, label, sizeof label - 1), at += sizeof label - 1;
+            at -= 2; /* no comma after the last */
+            memcpy(at, tail, sizeof tail);
+            dgx_ui_load_need_t  need;
+            dgx_ui_load_error_t err;
+            const bool          ok = dgx_ui_load_need(text, strlen(text), &names, &need, &err);
+            if (labels == 32766) CHECK(ok && need.nodes == 32767);
+            else CHECK(!ok && err.code == DGX_UI_LOAD_NODES && err.offset == (int)(sizeof head - 1 + 32766 * (sizeof label - 1)));
+            free(text);
+        }
+    }
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"switch\", \"picture\": \"dot\", \"value\": \"ticked\", \"look\": \"picture_button\"}}", DGX_UI_LOAD_RANGE, 41, "dot"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"radio\", \"value\": \"choice\", \"picture\": \"dot\"}}", DGX_UI_LOAD_RANGE, 59, "dot"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"icon\", \"picture\": \"dots\", \"value\": \"picked\", \"max\": 2}}", DGX_UI_LOAD_RANGE, 39, "dots"));

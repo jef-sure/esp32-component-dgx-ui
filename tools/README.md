@@ -113,7 +113,7 @@ style     text       &text_style
 on        step       on_step                number
 on        back
 take      co2        take_co2
-ctx       settings   &settings_page
+ctx       settings   &settings_page  page
 id        title      title_index
 ```
 
@@ -121,13 +121,15 @@ id        title      title_index
 - A name is a name of the format: letters, digits, `_`, `.` and `-`, at most 23. A name twice in a table is refused.
 - The expression is C written with no spaces. A look of the library's goes without one, `look slider` is
   `&dgx_ui_look_slider`, and so do the actions `on back` and `on page`, `dgx_ui_load_on_back` and `_page`.
-- A picture's count is 1 when none is said; `number` marks a handler whose ctx is a number.
+- A picture's count is 1 when none is said; `number` marks a handler whose ctx is a number, and `page` a context
+  that is a page's tree, the only context the action `page` takes.
 - The expression of an id is an int of the program's, which the add function writes the widget's index to; the
   others are constant expressions, as the widgets are constants.
 - A table has at most 65535 names, the ids' `DGX_UI_LOAD_IDS`, 256.
 
 With a names file every table is the file's, as the program's tables are for the loader. A name the file has not
-is refused; so is an icon's range past its pictures and a number for a ctx its handler does not take. A table the
+is refused; so is an icon's range past its pictures, a number for a ctx its handler does not take, and a context not a page's
+for the action `page`. A table the
 file does not name is empty: a text finds no style, a widget no look, and an id the file has not is passed over, as
 the loader passes it over, with no int made for it. The first style of the file is the one a text takes that names
 none.
@@ -154,7 +156,8 @@ arrays, `<prefix>_texts` or `<prefix>_texts.first`. A names file gives such a na
 another prefix.
 
 Without the program's tables some of the loader's checks cannot be made, and the first comment of each file made
-says which: the pictures' counts, which handlers take a number in their ctx, which looks the program has, and the
+says which: the pictures' counts, which handlers take a number in their ctx and which contexts are pages, which looks
+the program has, and the
 style a text that names none takes.
 
 ## The loader's tables from the names file

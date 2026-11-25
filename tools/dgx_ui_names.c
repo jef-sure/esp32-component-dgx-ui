@@ -119,6 +119,12 @@ char *library_c(int table, const char *word)
     return NULL;
 }
 
+int takes_of(const entry_t *handler)
+{
+    if (handler->c && strcmp(handler->c, "dgx_ui_load_on_page") == 0) return DGX_UI_TAKES_PAGE;
+    return handler->number ? DGX_UI_TAKES_NUMBER : DGX_UI_TAKES_OWN;
+}
+
 int library_draw_of(const char *word)
 {
     for (int k = 0; k < library_draw_count; ++k)
@@ -213,6 +219,8 @@ char *names_read(const char *path, const char *text, size_t length, bool appeara
             entry->count = (unsigned)pictures;
         } else if (table == T_ON && strcmp(words[3], "number") == 0) {
             entry->number = true;
+        } else if (table == T_CTX && strcmp(words[3], "page") == 0) {
+            entry->page = true;
         } else {
             return printed("%s:%d: \"%s\" means nothing for a %s: an expression is written with no spaces", path, number, words[3], words[0]);
         }
@@ -302,6 +310,7 @@ void names_rule(bool default_style)
                 else entry->c = copy_of(use->name), entry->number = true;
                 break;
             case T_TAKE: entry->c = copy_of(use->name); break;
+            case T_CTX: entry->c = printed("&%s", use->name), entry->page = true; break; /* any may be a page's, as any handler a number */
             case T_ID: break; /* of the prefix: prefix_tables() */
             default: entry->c = printed("&%s", use->name); break;
             }

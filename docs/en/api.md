@@ -1463,6 +1463,7 @@ it. A recipe: [A page from a description](cookbook.md#a-page-from-a-description)
 #include "dgx_ui_load.h"
 
 enum { DGX_UI_LOAD_DEPTH = 24, DGX_UI_LOAD_IDS = 256 };
+enum { DGX_UI_TAKES_OWN = 0, DGX_UI_TAKES_NUMBER = 1, DGX_UI_TAKES_PAGE = 2 };
 
 typedef struct dgx_ui_look_name_t    { const char *name; const dgx_ui_look_t *look; } dgx_ui_look_name_t;
 typedef struct dgx_ui_value_name_t   { const char *name; int32_t *value; } dgx_ui_value_name_t;
@@ -1471,10 +1472,10 @@ typedef struct dgx_ui_style_name_t   { const char *name; const dgx_ui_text_style
 typedef struct dgx_ui_on_name_t {
     const char *name;
     void (*on)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
-    bool takes_number; /* its ctx is a number, never read as a pointer */
+    uint8_t takes; /* the context it takes: DGX_UI_TAKES_OWN, _NUMBER or _PAGE */
 } dgx_ui_on_name_t;
 typedef struct dgx_ui_take_name_t    { const char *name; bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg); } dgx_ui_take_name_t;
-typedef struct dgx_ui_context_name_t { const char *name; void *ctx; } dgx_ui_context_name_t;
+typedef struct dgx_ui_context_name_t { const char *name; void *ctx; bool page; } dgx_ui_context_name_t;
 typedef struct dgx_ui_id_t           { const char *name; int *index; } dgx_ui_id_t;
 
 typedef struct dgx_ui_load_names_t {
@@ -1526,7 +1527,7 @@ came before it gives any memory. A widget is an object of these keys, in any ord
 | `"picture"` | a name of the pictures' table: for a picture, an icon, a button, a switch and a radio |
 | `"text"`, `"style"`, `"lines"`, `"text_size"` | the text, the name of its style (the first of the styles' table when none is said), its lines (1), and, when the program is to write it by `dgx_ui_text_set()`, the bytes of its buffer; without `"text_size"` the text is constant. For a label, a button, a list, an input, a dropdown, a radio and a switch. |
 | `"on"`, `"take"` | names of the handlers' and the takes' tables |
-| `"ctx"` | a name of the contexts' table, or an integer for a handler whose entry says it takes a number: a stepper's 5 and -5 |
+| `"ctx"` | a name of the contexts' table, or an integer for a handler whose entry says it takes a number: a stepper's 5 and -5; to the action `page` only a context marked a page |
 | `"id"` | a name the program finds the widget by; an id of the table on two widgets is an error |
 | `"children"` | a list of widgets, for a box, a frame and a widget of the program's own |
 | `"editor"` | an object of the tool that edits the description, as at the top: for a widget of any kind |
@@ -1563,9 +1564,15 @@ the editor's object, the tree. A key of the top may be any string, one that is n
 unknown by its first 23 bytes, and a value passed over on the way may be any JSON: a key added later is told by its
 name even when it holds a fraction.
 
+**The kinds of a context.** A handler's `takes` says what its ctx is: `DGX_UI_TAKES_OWN`, a context of the
+program's own; `DGX_UI_TAKES_NUMBER`, an integer, never read as a pointer; `DGX_UI_TAKES_PAGE`, a page's tree, as
+the action `page` takes. A context's `page` says it is a page's tree. A page handler with no ctx is taken and does
+nothing. A handler of the program's own is given whatever context of the program's own the description names: the
+loader checks only a number and a page.
+
 **What a description cannot do.** It may only name what the program listed: no number of it becomes a pointer, or
 an index into the program's memory, that the program did not give. An integer `"ctx"` goes only to a handler that
-takes a number; an icon's range, and the two pictures of a switch or a radio, stay within the count the pictures'
+takes a number, and the action `page` only a context marked a page; an icon's range, and the two pictures of a switch or a radio, stay within the count the pictures'
 table gives. A look's parameters and its colours, fonts and text styles are not in a description: they are C the
 program names. The text may come from a file or over the air: nothing is read past `len`, which need not end in 0,
 its UTF-8 is checked, the depth is at most `DGX_UI_LOAD_DEPTH`, and the whole is checked before the first widget is
@@ -1593,7 +1600,7 @@ about when there is one, its first 23 bytes ending on a whole character:
 | `DGX_UI_LOAD_VERSION` | no `"dgx-ui"`, or a version that is not the integer 1; told before everything but a text that is not JSON |
 | `DGX_UI_LOAD_KEY` | a key unknown, or twice in one object |
 | `DGX_UI_LOAD_KIND` | no kind, or one unknown |
-| `DGX_UI_LOAD_FIELD` | a key of no meaning for the kind; an integer `"ctx"` with no handler that takes a number |
+| `DGX_UI_LOAD_FIELD` | a key of no meaning for the kind; an integer `"ctx"` with no handler that takes a number; a `"ctx"` not a page's for the action `page` |
 | `DGX_UI_LOAD_RANGE` | where a number is read, one out of its field, or with a fraction or an exponent; a percent with more than two decimals or past its range; fewer pictures in the table than the widget shows |
 | `DGX_UI_LOAD_NAME_BAD` | a name that is empty, of a character not allowed, or longer than 23 |
 | `DGX_UI_LOAD_UNKNOWN` | a name its table has not |
@@ -1601,7 +1608,7 @@ about when there is one, its first 23 bytes ending on a whole character:
 | `DGX_UI_LOAD_NO_STYLE` | a text, and the styles' table empty |
 | `DGX_UI_LOAD_DEPTH_MAX` | widgets nested deeper than `DGX_UI_LOAD_DEPTH`, or a value inside more than 50 lists and objects |
 | `DGX_UI_LOAD_MEMORY` | the memory smaller than the need, or not aligned |
-| `DGX_UI_LOAD_NODES` | `dgx_ui_add()` refused, no memory for a block of nodes; what was begun is removed |
+| `DGX_UI_LOAD_NODES` | more than 32,767 widgets, refused before any is added; or `dgx_ui_add()` refused, no memory for a block of nodes, and what was begun is removed |
 | `DGX_UI_LOAD_ID` | an id of the table on a second widget, or a table of more than `DGX_UI_LOAD_IDS` ids |
 | `DGX_UI_LOAD_MISSING` | in an appearance, something that must be said was not: a colour, `"draw"`, `"fonts"` |
 
@@ -1795,13 +1802,14 @@ style     text       &text_style          # the first style: the one of a text t
 on        step       on_step         number   # its ctx may be a number
 on        back                            # so do the actions back and page
 take      co2        take_co2
-ctx       settings   &settings_page
+ctx       settings   &settings_page  page # a page's tree, which the action page takes
 id        title      title_index          # an int of the program's
 ```
 
 The tables are `look`, `value`, `picture`, `style`, `on`, `take`, `ctx` and `id`, as the tables of
 `dgx_ui_load_names_t`. A picture's line may end with the count of pictures there, 1 when none is said; a handler's
-with the word `number`, when it takes its ctx for a number. The expression of an id is an int of the program's, which
+with the word `number`, when it takes its ctx for a number; a context's with the word `page`, when it is a page's
+tree, the only context the action `page` takes. The expression of an id is an int of the program's, which
 the made function writes the widget's index to; the others are constant expressions. A table has at most 65535
 names, the ids' `DGX_UI_LOAD_IDS`.
 
@@ -1809,7 +1817,8 @@ With a names file a description names only what the file lists, as with the tabl
 file has not is refused, a table it does not name is empty, and an id it has not is passed over. So what the tool
 takes of a description with `NAMES` is what the loader takes of it on the tables `dgx_ui_names()` makes of the same
 file, the same tree, or the same error at the same byte. With no `NAMES` the names are taken for C by a rule,
-`"settings.volume"` for `&settings.volume`, and the made header declares an int for each id, `<prefix>_<id>`, and
+`"settings.volume"` for `&settings.volume`, a context as a page's and a handler as taking a number, and the made header
+declares an int for each id, `<prefix>_<id>`, and
 the style of the texts that name none, `<prefix>_style`, which the program defines; the rule is on the tool's page.
 
 **The tool** comes in the component as source and is built once for a project by the computer's C compiler: `$CC`

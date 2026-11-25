@@ -39,6 +39,7 @@ typedef struct load_t {
 } load_t;
 
 enum { SKIP_LEVELS = DGX_UI_READ_LEVELS };
+enum { MOST_NODES = 32767 }; /* as many widgets as a tree holds: dgx_ui_add() */
 /* the flags the numbers set, "50%": none is a word of "flags" */
 enum { PERCENTS = DGX_UI_PERCENT_X | DGX_UI_PERCENT_Y | DGX_UI_PERCENT_W | DGX_UI_PERCENT_H | DGX_UI_PERCENT_PAD | DGX_UI_PERCENT_GAP };
 
@@ -87,9 +88,14 @@ static bool pair(load_t *L, int16_t *a, int16_t *b, uint16_t flag_a, uint16_t fl
            points_or_percent(L, INT16_MIN, b, flag_b, flags) && dgx_ui_json_expect(&L->read.json, ']');
 }
 
-/* bytes of the memory taken, aligned; laid when building */
+/* bytes of the memory taken, aligned; laid when building. A sum past what a size_t holds stays at its most, which no
+   memory given is: the load refuses it */
 static void *take_bytes(load_t *L, size_t n, size_t align)
 {
+    if (L->bytes > SIZE_MAX - n - align) {
+        L->bytes = SIZE_MAX;
+        return NULL;
+    }
     L->bytes = (L->bytes + align - 1) / align * align;
     void *at = L->build ? L->memory + L->bytes : NULL;
     L->bytes += n;
@@ -109,7 +115,7 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
     size_t          key_at[KEY_COUNT] = {0}, text_at = 0, children_at = 0, text_len = 0;
     int32_t         v, text_size = 0, lines = 1;
     uint32_t        bits;
-    int             kind = -1, look = -2, style = -1, id = -1, on = -1, picture = -1; /* look -2: not said, -1: null */
+    int             kind = -1, look = -2, style = -1, id = -1, on = -1, picture = -1, context = -1; /* look -2: not said, -1: null */
     bool            ctx_number = false;
     char            id_name[24] = "";
     if (dgx_ui_json_peek(&L->read.json) == '}') ++L->read.json.pos;
@@ -171,8 +177,8 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
                 break;
             case K_CTX:
                 if (dgx_ui_json_peek(&L->read.json) == '"') {
-                    ok = (e = find(L, L->names->contexts, L->names->context_count, sizeof *L->names->contexts)) >= 0;
-                    if (ok) w.ctx = L->names->contexts[e].ctx;
+                    ok = (context = find(L, L->names->contexts, L->names->context_count, sizeof *L->names->contexts)) >= 0;
+                    if (ok) w.ctx = L->names->contexts[context].ctx;
                 } else {
                     ok = dgx_ui_json_integer(&L->read.json, INT32_MIN, INT32_MAX, &v), w.ctx = (void *)(intptr_t)v, ctx_number = true;
                 }
@@ -192,8 +198,12 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
     w.kind = (uint8_t)kind;
     for (int k = 0; k < KEY_COUNT; ++k)
         if ((seen & 1u << k) && !(key_kinds[k] & 1u << kind)) return fail(L, DGX_UI_LOAD_FIELD, key_at[k], keys[k]);
-    /* a number for ctx only to a handler that takes one; pictures no fewer than the kind reads */
-    if (ctx_number && (on < 0 || !L->names->handlers[on].takes_number)) return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
+    /* a number for ctx only to a handler that takes one, the library's page action only a page's tree or none;
+       pictures no fewer than the kind reads */
+    const int takes = on >= 0 ? L->names->handlers[on].takes : DGX_UI_TAKES_OWN;
+    if (ctx_number && takes != DGX_UI_TAKES_NUMBER) return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
+    if (takes == DGX_UI_TAKES_PAGE && (seen & 1u << K_CTX) && (ctx_number || !L->names->contexts[context].page))
+        return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
     if (picture >= 0) {
         const int count = L->names->pictures[picture].count ? L->names->pictures[picture].count : 1;
         const int reads = kind == DGX_UI_ICON ? (w.max >= w.min ? w.max - w.min + 1 : 0) : kind == DGX_UI_SWITCH || kind == DGX_UI_RADIO ? 2 : 1;
@@ -218,7 +228,8 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
         if (L->ids_met[id_entry / 8] & 1u << id_entry % 8) return fail(L, DGX_UI_LOAD_ID, key_at[K_ID], id_name);
         L->ids_met[id_entry / 8] |= (uint8_t)(1u << id_entry % 8);
     }
-    /* laid and added, or counted */
+    /* laid and added, or counted: no more than a tree holds, refused before any is added */
+    if (L->nodes >= MOST_NODES) return fail(L, DGX_UI_LOAD_NODES, at, NULL);
     dgx_ui_widget_t  *laid = take_bytes(L, sizeof w, _Alignof(dgx_ui_widget_t));
     dgx_ui_textbox_t *box  = texted ? take_bytes(L, sizeof *box, _Alignof(dgx_ui_textbox_t)) : NULL;
     char             *buf  = texted ? take_bytes(L, text_size ? (size_t)text_size : text_len + 1, 1) : NULL;

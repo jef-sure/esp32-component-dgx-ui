@@ -613,13 +613,13 @@ static void tree_names(tree_t *tree, const char *text, size_t length)
         const entry_t *entry = &tables[T_ON].entries[k];
         const char    *c     = entry->c ? entry->c : "";
         const on_fn    on    = strcmp(c, "dgx_ui_load_on_back") == 0 ? on_back : strcmp(c, "dgx_ui_load_on_page") == 0 ? on_page : on_told;
-        handlers[k]          = (dgx_ui_on_name_t){NAME_OF(T_ON, k), on, entry->number};
+        handlers[k]          = (dgx_ui_on_name_t){NAME_OF(T_ON, k), on, (uint8_t)takes_of(entry)};
     }
     dgx_ui_take_name_t *takes = zeroed((size_t)tables[T_TAKE].count, sizeof *takes);
     for (int k = 0; k < tables[T_TAKE].count; ++k) takes[k] = (dgx_ui_take_name_t){NAME_OF(T_TAKE, k), take_nothing};
     tree->contexts                  = zeroed((size_t)tables[T_CTX].count, 1);
     dgx_ui_context_name_t *contexts = zeroed((size_t)tables[T_CTX].count, sizeof *contexts);
-    for (int k = 0; k < tables[T_CTX].count; ++k) contexts[k] = (dgx_ui_context_name_t){NAME_OF(T_CTX, k), &tree->contexts[k]};
+    for (int k = 0; k < tables[T_CTX].count; ++k) contexts[k] = (dgx_ui_context_name_t){NAME_OF(T_CTX, k), &tree->contexts[k], tables[T_CTX].entries[k].page};
     tree->ids        = zeroed((size_t)tables[T_ID].count, sizeof *tree->ids);
     dgx_ui_id_t *ids = zeroed((size_t)tables[T_ID].count, sizeof *ids);
     for (int k = 0; k < tables[T_ID].count; ++k) ids[k] = (dgx_ui_id_t){NAME_OF(T_ID, k), &tree->ids[k]}, tree->ids[k] = -1;

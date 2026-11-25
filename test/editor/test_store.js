@@ -165,7 +165,7 @@ const boxOf = (store, widgetPath) => {
 
     /* ---- a project in memory ---- */
     const fonts = fs.readFileSync(path.join(fontDirectory, 'dgx_fonts-files.txt'), 'utf8');
-    const NAMES = 'look slider\nlook button\nvalue volume &volume\non page\nctx settings &settings_page\nfont small TerminusTTFMedium12\n';
+    const NAMES = 'look slider\nlook button\nvalue volume &volume\non page\nctx settings &settings_page page\nfont small TerminusTTFMedium12\n';
     const home = '{"dgx-ui": 1, "name": "home",\n "tree": {"kind": "box", "flags": ["column"], "pad": 4, "gap": 4, "children": [\n' +
                  '  {"kind": "label", "text": "Caf\\u00e9", "style": "body", "want": [0, 30]},\n' +
                  '  {"kind": "slider", "value": "volume", "min": 0, "max": 100, "want": [0, 20]},\n' +

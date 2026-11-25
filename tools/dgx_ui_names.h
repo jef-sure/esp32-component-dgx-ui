@@ -40,6 +40,7 @@ typedef struct entry_t {
     long     offset;          /* the byte of the description that first names it; -1: of the names file or the library */
     unsigned count;           /* a picture's pictures */
     bool     number;          /* a handler that takes a number in its ctx */
+    bool     page;            /* a context that is a page's tree */
     bool     ruled;           /* made C by the rule: its name must be of C */
     int      library;         /* a draw: its place among the library's; -1 the program's own */
     char    *described;       /* a draw: the C of its parameters' description; NULL none */
@@ -75,6 +76,8 @@ bool loader_name(const char *name);
 bool c_name(const char *name, bool members);
 /* the C of a word of the library's: a look of its own, or the action back or page; NULL when it is none */
 char *library_c(int table, const char *word);
+/* what a handler of the table of handlers takes in its ctx: DGX_UI_TAKES_* */
+int takes_of(const entry_t *handler);
 int   library_draw_of(const char *word);
 bool  library_hand(const char *word);
 
