@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.63 - 2026-11-25
+
+- Pictures in an appearance: a look's field names a picture of the program's, the "pieces" of "nine" nine of them at
+  least; the names file's picture lines serve pages and appearance alike; the builder chooses them from a list.
+- Docs: pictures in an appearance in the API page, the tool's page and the frame's recipe.
+
 ## 0.0.62 - 2026-11-25
 
 - A look of a frame of nine pictures, dgx_ui_look_nine: corners as they are, edges and middle repeated and cut, each
