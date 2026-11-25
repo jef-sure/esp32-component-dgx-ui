@@ -3,4 +3,4 @@ dependencies:
   # (CMakeLists.txt of the project). DGX, the display library, comes with it
   jef-sure/dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.67"
+    version: "0.0.68"

@@ -1,5 +1,14 @@
 # Changes
 
+## 0.0.68 - 2026-11-25
+
+- One word for one thing in the looks' parameters and their appearance keys:
+  - `ink`/`ink_disabled` for a text (button, dropdown, a list's disabled rows);
+  - `fill`/`track` for a value's filled part and the rest (switch, level, ring);
+  - `knob` for a list's scroll mark;
+  - `width` for the scroll bar's width.
+- Docs: the listings, the appearance tables and the recipes in the new words.
+
 ## 0.0.67 - 2026-11-25
 
 - Names that could be mixed up silently: the events are DGX_UI_EVENT_*, the loader's limits DGX_UI_LOAD_MAX_*, the text

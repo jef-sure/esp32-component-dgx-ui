@@ -1,9 +1,9 @@
 /*
  * dgx_ui_preview.js: the preview of a description, dgx-ui built to WebAssembly, in one file a page loads with no
  * server (editor/preview/dgx_ui_preview.h, preview_class.js). Made by editor/preview/Makefile, not to be edited:
- * dgx-ui 0.0.67, DGX 0.12.3 of the registry, 3993723d2470e417,
+ * dgx-ui 0.0.68, DGX 0.12.3 of the registry, 3993723d2470e417,
  * clang 21.1.8, wasi-libc 0.0~git20250726.3f7eb4c-4, libclang-rt-21-dev-wasm32 1:21.1.8-6ubuntu1, lld-21 1:21.1.8-6ubuntu1,
- * sources sha256 2b3af40d355cd7cc2a79e09be38ed8a055f361faf8c7b3127d4664ceb24257d6.
+ * sources sha256 995c8f524b11d9494bf2dc134351b614cc7aa3c97b4166cc337bc354947afa70.
  * The module, 348746 bytes, is MIT as dgx-ui and DGX, with code of wasi-libc and compiler-rt and five fonts of
  * DGX under their own licences: licenses/ beside this file.
  */
@@ -3593,11 +3593,11 @@ const DGX_UI_PREVIEW_MODULE = [
     '5QEHBJQEXgQrAFgBOQGSAMIFmwFDAkYB9gVdLCAiaGFuZCI6IFsiJXMiLCAiJXMiXX19ACwgIndvcmRfa2luZHMiOiB7InNjcm9s',
     'bCI6IHsia2luZHMiOiBbImJveCJdLCAiZmxhZ3MiOiBbImNvbHVtbiJdfX0AJXN7Im5hbWUiOiAiJXMiLCAiY291bnQiOiAldX0A',
     'LCAia2luZF9mbGFncyI6IHsiYm94IjogWyJjb2x1bW4iLCAic2Nyb2xsIl19ACwgInBlcmNlbnQiOiB7Im1pbiI6ICVsZCwgIm1h',
-    'eCI6IDEyNy45OX0AdGhlIHJhbmdlcyBkbyBub3QgZW5kIGluIHswLCAwLCAwfQB7ImRneF91aSI6ICIwLjAuNjciLCAiZGd4Ijog',
+    'eCI6IDEyNy45OX0AdGhlIHJhbmdlcyBkbyBub3QgZW5kIGluIHswLCAwLCAwfQB7ImRneF91aSI6ICIwLjAuNjgiLCAiZGd4Ijog',
     'IjAuMTIuMyBvZiB0aGUgcmVnaXN0cnksIDM5OTM3MjNkMjQ3MGU0MTciLCAidG9vbGNoYWluIjogImNsYW5nIDIxLjEuOCwgd2Fz',
     'aS1saWJjIDAuMH5naXQyMDI1MDcyNi4zZjdlYjRjLTQsIGxpYmNsYW5nLXJ0LTIxLWRldi13YXNtMzIgMToyMS4xLjgtNnVidW50',
-    'dTEsIGxsZC0yMSAxOjIxLjEuOC02dWJ1bnR1MSIsICJzb3VyY2VzIjogInNoYTI1NiAyYjNhZjQwZDM1NWNkN2NjMmE3OWUwOWJl',
-    'MzhlZDhhMDU1ZjM2MWZhZjhjN2IzMTI3ZDQ2NjRjZWIyNDI1N2Q2In0ALCAiZGVmYXVsdHMiOiB7AGJvZHkAYmFuZHNfYnkAY3R4',
+    'dTEsIGxsZC0yMSAxOjIxLjEuOC02dWJ1bnR1MSIsICJzb3VyY2VzIjogInNoYTI1NiA5OTVjOGY1MjRiMTFkOTQ5NGJmMmRjMTM0',
+    'MzUxYjYxNGNjN2FhM2M5N2I0MTY2Y2MzMzdiYzM1NDk0N2FmYTcwIn0ALCAiZGVmYXVsdHMiOiB7AGJvZHkAYmFuZHNfYnkAY3R4',
     'AGEgY2hlY2tib3gAbWF4AFx1JTA0eAAtKyAgIDBYMHgALTBYKzBYIDBYLTB4KzB4IDB4AG5hcnJvdwBzaGFkb3cAZHJhdwAsICJj',
     'b3VudCI6ICV1AHRleHQAaW5wdXQARVNQX0VSUl9JTlZBTElEX0FSRywgbm90IGEgZm9udCwgb3Igc3BvaWxlZCBvciBjdXQAYSBs',
     'aXN0AHN0YXJ0AGEgYml0bWFwIGZvbnQAdGhlIHBhcnQgb2YgYSBoYW5kd3JpdHRlbiBmb250AGEgbWVhc3VyZSBvZiBhIGhhbmR3',
