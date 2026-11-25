@@ -265,7 +265,7 @@ static int picture_wants(const dgx_ui_t *ui, const dgx_ui_widget_t *w, bool acro
     if (!(kind & (OWN | ROOMED))) return -1;
     int pw, ph;
     dgx_ui_picture_size(w->picture, &pw, &ph);
-    return (across ? pw : ph) + (kind & ROOMED ? 5 * ui->unit : 0);
+    return (across ? pw : ph) * dgx_ui_picture_scale(ui, w->picture) + (kind & ROOMED ? 5 * ui->unit : 0);
 }
 
 /* a percent of a length in pixels, the percent 8.8 fixed point, rounded half away from zero; a running total of

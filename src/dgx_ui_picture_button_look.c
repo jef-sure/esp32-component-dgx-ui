@@ -36,7 +36,6 @@ static const dgx_ui_picture_t *shown_picture(const dgx_ui_node_t *n)
 /* the face's inside: the picture in the middle of the face, cut to it, the face laid round it */
 static void picture_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int fy, int fw, int fh, uint32_t face, uint32_t ink, int unit)
 {
-    (void)unit;
     const dgx_ui_picture_t *pic = shown_picture(n);
     if (!pic || !pic->image || pic->image->format != DGX_IMAGE_1BPP) {
         static bool told; /* once for the program, every tree and task */
@@ -48,8 +47,9 @@ static void picture_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, 
         return;
     }
     const dgx_image_t  *im   = pic->image;
+    const int           by   = pic->scale * unit, k = !pic->scale ? 1 : by > 255 ? 255 : by; /* as dgx_ui_picture_scale() */
     const dgx_ui_rect_t area = dgx_ui_rect(fx, fy, fw, fh);
-    const dgx_ui_rect_t hole = dgx_ui_rect(fx + (fw - im->width) / 2, fy + (fh - im->height) / 2, im->width, im->height);
+    const dgx_ui_rect_t hole = dgx_ui_rect(fx + (fw - im->width * k) / 2, fy + (fh - im->height * k) / 2, im->width * k, im->height * k);
     dgx_ui_rect_t       parts[4], cut;
     const int           count = dgx_ui_rect_subtract(&area, &hole, parts);
     for (int k = 0; k < count; ++k) fill(paint, parts[k].x, parts[k].y, parts[k].w, parts[k].h, face);
@@ -62,8 +62,8 @@ static void picture_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, 
     const int y1 = cut.y + cut.h - paint->oy < py + ph ? cut.y + cut.h - paint->oy : py + ph;
     if (x1 > x0 && y1 > y0) {
         dgx_screen_clip(paint->scr, x0, y0, x1 - x0, y1 - y0);
-        const dgx_image_blit_t how = {.flags = DGX_IMAGE_OPAQUE, .color = ink, .bg = face};
-        dgx_image_blit(paint->scr, hole.x - paint->ox + im->origin_x, hole.y - paint->oy + im->origin_y, im, &how);
+        const dgx_image_blit_t how = {.flags = DGX_IMAGE_OPAQUE, .color = ink, .bg = face, .scale = (uint8_t)k};
+        dgx_image_blit(paint->scr, hole.x - paint->ox + im->origin_x * k, hole.y - paint->oy + im->origin_y * k, im, &how);
         dgx_screen_clip(paint->scr, px, py, pw, ph);
     }
 }

@@ -122,7 +122,7 @@ of every member.
 | `flags` | how it is built: see the flags below |
 | `pad`, `gap` | of a box: from its edges to its children, and between them, in points, or in percent with `DGX_UI_PERCENT_PAD`, `DGX_UI_PERCENT_GAP` (the percents below) |
 | `at_x`, `at_y` | where it asks to be from the inner edge of its parent, in points, or in percent with `DGX_UI_PERCENT_X`, `DGX_UI_PERCENT_Y`; negative: from the far edge. In a column only `at_x` is used, in a row only `at_y` |
-| `want_w`, `want_h` | its size in points, or in percent with `DGX_UI_PERCENT_W`, `DGX_UI_PERCENT_H`; 0 in points: the size of its content, or across the stacking all of the box. The content of a widget with a text is the lines of its text; a button, a dropdown, a radio button and a checkbox are a point higher above and below them, the room of the frame of the focus. A button, a switch or a radio button with a picture, whatever look draws it, asks for its first picture's size and 5 points more across and down: a point of face and the frame's point on each side, and one for a shadow |
+| `want_w`, `want_h` | its size in points, or in percent with `DGX_UI_PERCENT_W`, `DGX_UI_PERCENT_H`; 0 in points: the size of its content, or across the stacking all of the box. The content of a widget with a text is the lines of its text; a button, a dropdown, a radio button and a checkbox are a point higher above and below them, the room of the frame of the focus. A button, a switch or a radio button with a picture, whatever look draws it, asks for its first picture's size, as large as its `scale` draws it, and 5 points more across and down: a point of face and the frame's point on each side, and one for a shadow |
 | `min`, `max`, `step` | the range of a control and its step; the first and the last row of a list, and in `step` the least height of its rows in points, 0 a line of its text; the values of an icon's pictures; in `step` of a radio button the number it stands for |
 | `tag` | the program's number of it, found by `dgx_ui_find()`; 0 for none |
 | `value` | where its value lives, an `int32_t` of the program's: `.value = &volume`; `NULL`: it has none. See the value above |
@@ -228,6 +228,7 @@ typedef struct dgx_ui_picture_t {
     const uint16_t    *rgb565;
     const uint8_t     *map;
     int16_t            width, height;
+    uint8_t            scale;
 } dgx_ui_picture_t;
 ```
 
@@ -237,6 +238,15 @@ by `dgx_ui_look_indexed`: its values go through `map` to indices of the painter'
 `map[0]`; without a map the value is the index; a pixel 0 is the paper.
 
 `void dgx_ui_picture_size(const dgx_ui_picture_t *p, int *w, int *h)` gives the size of either.
+
+`scale` is how large it is drawn: 0, a pixel of it is a pixel of the screen; 1, a point of the tree, `unit` by `unit`
+pixels; more, so many points; a pixel of it takes 255 pixels of the screen at most. Every look of a picture draws it
+so, and the size of a widget of its content counts it; a picture larger than its widget is cut at the widget's edge.
+A picture is 20 bytes<!-- sizeof dgx_ui_picture_t --> on a 32-bit chip.
+
+`int dgx_ui_picture_scale(const dgx_ui_t *ui, const dgx_ui_picture_t *picture)` gives the pixels of the screen a pixel
+of the picture takes in the tree, across and down: 1 for `scale` 0, else `scale` times `unit`, at most 255; with `ui`
+`NULL` the unit is 1.
 
 ### A node
 

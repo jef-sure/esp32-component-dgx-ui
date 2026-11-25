@@ -76,21 +76,23 @@ bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     /* in the middle of the box, the rest of it paper; then the picture strip by strip. On the drawn background the
        whole box laid, and the picture's index 0 not sent: the background stays there */
     const bool          drawn = dgx_ui_paper_drawn(paint, p->paper);
-    const dgx_ui_rect_t hole  = dgx_ui_rect(n->x + (n->w - im->width) / 2, n->y + (n->h - im->height) / 2, im->width, im->height);
+    const int           k     = dgx_ui_picture_scale(ui, pic); /* its pixel so many of the screen's, across and down */
+    const dgx_ui_rect_t hole  = dgx_ui_rect(n->x + (n->w - im->width * k) / 2, n->y + (n->h - im->height * k) / 2, im->width * k, im->height * k);
     paper_around(paint, n, drawn ? &none : &hole, p->paper);
-    /* only the rows of the picture in the clip: a part beside a cover, a band of a composing, costs its own rows */
+    /* only the picture's rows in the clip, which the painter keeps within the box: a scaled row cut at the clip's edge
+       drawn whole and cut by it; a part beside a cover, a band of a composing, costs its own rows */
     int cx, cy, cw, ch;
     dgx_screen_clip_get(paint->scr, &cx, &cy, &cw, &ch);
-    const int top = cy + paint->oy > hole.y ? cy + paint->oy - hole.y : 0;
-    const int end = cy + paint->oy + ch < hole.y + im->height ? cy + paint->oy + ch - hole.y : im->height;
+    const int top = cy + paint->oy > hole.y ? (cy + paint->oy - hole.y) / k : 0;
+    const int end = cy + paint->oy + ch < hole.y + hole.h ? (cy + paint->oy + ch - hole.y + k - 1) / k : im->height;
     /* the table exact: one that runs straight from its first colour to its last is not mixed by a panel's hardware */
     const dgx_image_blit_t how = {.flags = DGX_IMAGE_OPAQUE, .map = pic->map, .bg = drawn ? 0u : (uint32_t)paper_index};
-    for (int y0 = top; y0 < end; y0 += rows) {
+    for (int y0 = top; y0 < end; y0 += rows) { /* y0 a row of the picture, from its own top */
         const int h = end - y0 < rows ? end - y0 : rows;
         dgx_vscreen_array_set(paint->indexed, buffer, im->width, h);
         dgx_image_blit(paint->indexed, im->origin_x, im->origin_y - y0, im, &how);
-        dgx_vscreen8_to_screen16(paint->scr, hole.x - paint->ox, hole.y + y0 - paint->oy, paint->indexed, paint->lut,
-                                 DGX_VSCREEN_EXACT | (drawn ? DGX_VSCREEN_TRANSPARENT : 0u));
+        dgx_vscreen8_to_screen16(paint->scr, hole.x - paint->ox, hole.y + y0 * k - paint->oy, paint->indexed, paint->lut,
+                                 DGX_VSCREEN_EXACT | DGX_VSCREEN_SCALE(k) | (drawn ? DGX_VSCREEN_TRANSPARENT : 0u));
     }
     return false;
 }

@@ -12,7 +12,7 @@
  */
 
 #include "dgx_draw.h"
-#include "dgx_ui_paint.h"
+#include "dgx_ui_paint_priv.h"
 #include "dgx_vscreen.h"
 #include "esp_log.h"
 
@@ -49,11 +49,12 @@ bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     dgx_ui_rect_t                hole  = dgx_ui_rect(0, 0, 0, 0);
     const bool    fits = pic && !pic->image && pic->rgb565 && pic->width > 0 && pic->height > 0 && paint->scr->color_bits == 16;
     dgx_screen_t *src  = fits ? source(paint, pic) : NULL;
-    if (src) hole = dgx_ui_rect(n->x + (n->w - pic->width) / 2, n->y + (n->h - pic->height) / 2, pic->width, pic->height);
+    const int     by   = pic ? dgx_ui_picture_scale(ui, pic) : 1; /* its pixel so many of the screen's, across and down */
+    if (src) hole = dgx_ui_rect(n->x + (n->w - pic->width * by) / 2, n->y + (n->h - pic->height * by) / 2, pic->width * by, pic->height * by);
     dgx_ui_rect_t parts[4];
-    const int     k = dgx_ui_rect_subtract(&box, &hole, parts);
-    for (int j = 0; j < k; ++j) dgx_ui_lay_paper(paint, p->paper, parts[j].x, parts[j].y, parts[j].w, parts[j].h);
-    if (src) dgx_vscreen_to_screen(paint->scr, hole.x - paint->ox, hole.y - paint->oy, src, 0);
+    const int     count = dgx_ui_rect_subtract(&box, &hole, parts);
+    for (int j = 0; j < count; ++j) dgx_ui_lay_paper(paint, p->paper, parts[j].x, parts[j].y, parts[j].w, parts[j].h);
+    if (src) dgx_vscreen_to_screen(paint->scr, hole.x - paint->ox, hole.y - paint->oy, src, DGX_VSCREEN_SCALE(by)); /* cut to its box by the painter's clip */
     return false;
 }
 

@@ -278,6 +278,7 @@ typedef struct dgx_ui_picture_t {
     const uint16_t    *rgb565; ///< or rows of RGB565, high byte first, as dgx_vscreen_from_array() takes them
     const uint8_t     *map;    ///< 4 or 8 bits: the colors of its values, indices of the painter's table
     int16_t            width, height; ///< the size of an RGB565 picture; of a dgx_image_t its own is taken
+    uint8_t            scale;  ///< 0: a pixel of it a pixel of the screen; 1: a point, unit x unit pixels; more: so many points; 255 pixels at most
 } dgx_ui_picture_t;
 
 /** @brief The size of a picture: its own for a dgx_image_t, the given one for RGB565. */
@@ -346,9 +347,11 @@ struct dgx_ui_node_t {
 #if UINTPTR_MAX == 0xFFFFFFFFu
 #ifdef __cplusplus
 static_assert(sizeof(dgx_ui_widget_t) == 56, "the constant part of a widget is 56 bytes on a 32-bit chip");
+static_assert(sizeof(dgx_ui_picture_t) == 20, "a picture is 20 bytes on a 32-bit chip");
 static_assert(sizeof(dgx_ui_node_t) == 28, "the node of a widget is 28 bytes of RAM on a 32-bit chip");
 #else
 _Static_assert(sizeof(dgx_ui_widget_t) == 56, "the constant part of a widget is 56 bytes on a 32-bit chip");
+_Static_assert(sizeof(dgx_ui_picture_t) == 20, "a picture is 20 bytes on a 32-bit chip");
 _Static_assert(sizeof(dgx_ui_node_t) == 28, "the node of a widget is 28 bytes of RAM on a 32-bit chip");
 #endif
 #endif
@@ -473,6 +476,15 @@ struct dgx_ui_t {
                                    ///< not show; read by dgx_ui_bits_shown()
     int16_t           page_place;  ///< the library's: home's widget its pages lie over, + 1 (dgx_ui_page_place()); 0 the screen
 };
+/**
+ * @brief The pixels of the screen a pixel of a picture takes, across and down, in a tree: 1 for scale 0, else scale
+ * times the tree's unit, at most 255. A picture of a widget is so many times its size (dgx_ui_picture_size()).
+ */
+static inline int dgx_ui_picture_scale(const dgx_ui_t *ui, const dgx_ui_picture_t *picture)
+{
+    const int by = picture->scale * (ui ? ui->unit : 1);
+    return !picture->scale ? 1 : by > 255 ? 255 : by;
+}
 
 /** How a popup takes the pointer and the keys. */
 enum {

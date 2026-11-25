@@ -871,6 +871,9 @@ static const dgx_ui_widget_t  logo_w   = {.kind = DGX_UI_PICTURE, .picture = &lo
   paper.
 - The painter makes one small screen object for such pictures at the first need.
   `dgx_ui_paint_free(&paint)` gives it back when the program stops painting.
+- `.scale = 1` draws a pixel of the picture as a point of the tree, `unit` by `unit` pixels: the same logo keeps its
+  place beside the text on a screen of a larger unit. 2 draws it twice as large; 0, the default, pixel for pixel.
+  Every look of a picture takes it, and the widget's size of its content too.
 
 A picture of several colours of the table is a `dgx_image_t` of 4 or 8 bits with the look `dgx_ui_look_indexed`.
 Its values are not colours but numbers, and its map says which colour of the painter's table each number is:
