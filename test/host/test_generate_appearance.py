@@ -130,7 +130,9 @@ def chance_appearance(rand, name, every=False):
         if rand.random() < 0.5:
             parts.append(f'"scroll_ms": {rand.randrange(65536)}')
         rand.shuffle(parts)
-        style_name = "plain" if rand.random() < 0.15 else f"s{k}"
+        # "plain" now and then, as the program's own style is named; never in the appearance of every draw, whose page
+        # tells the program's plain from the appearance's styles
+        style_name = "plain" if rand.random() < 0.15 and not every else f"s{k}"
         if style_name in [n for n, _ in styles]:
             style_name = f"s{k}"
         styles.append((style_name, "{" + ", ".join(parts) + "}"))

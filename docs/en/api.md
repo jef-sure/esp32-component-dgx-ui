@@ -1001,6 +1001,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_ring` | a ring scale, on a widget of `DGX_UI_OWN`: the value of its place as an arc of a ring, coloured by bands of value, widgets inside it | `dgx_ui_ring_look_t` |
 | `dgx_ui_look_picture` | a picture or an icon of 1 bit, in the middle of the box | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen | `dgx_ui_picture_look_t` |
+| `dgx_ui_look_nine` | a box or a frame drawn as a frame of nine pictures, its pieces given by a look of the program's; colour 2 alone without them | `dgx_ui_nine_look_t` |
 | `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table; one of 1 bit too. It needs `CONFIG_DGX_ENABLE_VSCREEN`, the paint's buffer of a row of the picture at least, and a 16-bit screen; without them the widget is paper | `dgx_ui_picture_look_t` |
 
 A look that no widget names is not linked into the program.
@@ -1032,6 +1033,7 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_indexed` | `dgx_ui_look_indexed` | `dgx_ui_picture_look_t` |
+| `dgx_ui_draw_nine` | `dgx_ui_look_nine` | `dgx_ui_nine_look_t`; its fill is the look's `fill` |
 
 A look of the program's with `dgx_ui_draw_box` or `dgx_ui_draw_frame` fills around its children as the library's box
 and frame do.
@@ -1126,6 +1128,12 @@ typedef struct dgx_ui_ring_look_t {
     uint8_t              bands_by;   /* DGX_UI_BANDS_BY_VALUE (0) or DGX_UI_BANDS_BY_PLACE */
     const dgx_ui_band_t *bands;      /* the colours of the arc, the lowest band first */
 } dgx_ui_ring_look_t;
+
+typedef struct dgx_ui_nine_look_t {
+    const dgx_ui_picture_t *pieces; /* nine, row after row, the corners, the edges and the middle; NULL: the fill alone */
+    uint8_t                 fill;   /* under them, an index, never DGX_UI_PAPER */
+    uint8_t                 ink;    /* the ones of a piece of 1 bit */
+} dgx_ui_nine_look_t;
 ```
 
 The rows of a list and the options of a dropdown are the lines of the widget's text, parted by `\n`:
@@ -1225,6 +1233,22 @@ pixels, and a value reached by steps is the same picture as that value drawn who
 draws the ring whole with its children. A look of the program's by `dgx_ui_draw_ring` whose `paper` is an index
 names the same index as its `fill`, so that its children's paper is the ring's. The recipe:
 [A ring scale with widgets inside](cookbook.md#a-ring-scale-with-widgets-inside).
+
+A frame of nine pictures is a box or a frame whose look draws by `dgx_ui_draw_nine` with its pieces,
+`dgx_ui_nine_look_t`, 8 bytes<!-- sizeof dgx_ui_nine_look_t --> on a 32-bit chip. The nine, row after row, are the
+top-left corner, the top edge, the top-right corner, the left edge, the middle, the right edge, the bottom-left
+corner, the bottom edge and the bottom-right corner, each of 1, 4 or 8 bits at its own `scale`: its zeros the fill,
+the ones of a piece of 1 bit `ink`. The corners are drawn as they are; the edges and the middle are laid again and
+again from the top-left corner of their cell and cut by it, never stretched. The left column is as wide as the
+top-left corner and the top row as high, the right column as wide as the top-right corner, the bottom row as high as
+the bottom-left one. A box smaller than its corners cuts them, the right and bottom ones kept at its far edges, none
+over another. `fill` is an index, never `DGX_UI_PAPER`: the frame is filled whole, and a look of the program's names
+the same index as its `fill`, so that its children's paper is the frame's. The children are drawn over it, every
+pixel of the box once; what keeps them off its edges is the widget's `pad`. It is drawn in strips over the paint's
+buffer, as `dgx_ui_look_indexed` is, and needs what that look needs; without it, with no pieces, or for a piece of
+RGB565, the fill stands in, told once in the log. `dgx_ui_look_nine` has no pieces, colour 2 alone, until a look of
+the program's gives them; a program that names neither carries none of it. The recipe:
+[A frame of nine pictures](cookbook.md#a-frame-of-nine-pictures).
 
 By default the bar of a list is colour 3 and the text on it colour 0; while the list has the focus the bar is colour
 1, so the pick shows in a frame too, whose fill is colour 2. The rows of a disabled list are colour 2, and the mark
@@ -1680,12 +1704,14 @@ may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list o
 | `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"level"` | `bar`; `rest`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
 | `"ring"` | `on`; `off`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
+| `"nine"` | `fill`; `ink` |
 
 **What is not said.** `"fill"` of a look is `null`, what lies under it. A number, a word and a list of flags are
 0, as a member of C left out, and `"joined"`, `"soft"`, `"points"` and `"secret"` false. A colour of a look's parameters must be
 said, `null` where it may be: a look that leaves one out is refused with `DGX_UI_LOAD_MISSING` and the field's name,
 so that no colour is forgotten into paper on paper. So must a style's `"fonts"`, a variant's `"font"`, and the
-`"hand"` of a handwritten font, which the fit would pass over with none.
+`"hand"` of a handwritten font, which the fit would pass over with none. The pieces of `"nine"` are not said in an
+appearance: its frame is its fill until a look of the program's gives them.
 
 **The program's tables**, `dgx_ui_appearance_names_t`: what an appearance may name, and what comes after its own.
 

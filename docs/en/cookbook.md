@@ -24,6 +24,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [An icon that shows a state](#an-icon-that-shows-a-state)
 - [A button of a picture](#a-button-of-a-picture)
 - [A picture from flash](#a-picture-from-flash)
+- [A frame of nine pictures](#a-frame-of-nine-pictures)
 - [A picture under the widgets](#a-picture-under-the-widgets)
 - [A text of several lines](#a-text-of-several-lines)
 - [A log of the last lines](#a-log-of-the-last-lines)
@@ -919,6 +920,63 @@ static void paint_buffer_give(dgx_ui_paint_t *paint)
   `dgx_ui_paint_free(&paint)` gives them back.
 - A picture of 1 bit is drawn by this look as well, so an icon whose pictures are of different depths names it. A
   program that has pictures of 1 bit only names `dgx_ui_look_picture` and carries none of this.
+
+## A frame of nine pictures
+
+A frame drawn of pictures, the way a game draws its windows: four corners, four edges and a middle, nine pictures of
+the program's, here of 4 bits, a look of its own by `dgx_ui_draw_nine`. The children go into `card_w` as into any
+frame.
+
+```c
+/* the nine pieces of a frame with rounded corners, 4 bits a pixel, a hex digit a pixel: 1 the border, 2 its light
+   inner line, 0 the fill. The corners are 4 by 4, the top and bottom edges 1 wide, the side edges 1 high */
+static const uint8_t nine_tl_px[4 * 2] = {0x01, 0x11, 0x12, 0x22, 0x12, 0x00, 0x12, 0x00};
+static const uint8_t nine_tr_px[4 * 2] = {0x11, 0x10, 0x22, 0x21, 0x00, 0x21, 0x00, 0x21};
+static const uint8_t nine_bl_px[4 * 2] = {0x12, 0x00, 0x12, 0x00, 0x12, 0x22, 0x01, 0x11};
+static const uint8_t nine_br_px[4 * 2] = {0x00, 0x21, 0x00, 0x21, 0x22, 0x21, 0x11, 0x10};
+static const uint8_t nine_t_px[4]      = {0x10, 0x20, 0x00, 0x00};
+static const uint8_t nine_b_px[4]      = {0x00, 0x00, 0x20, 0x10};
+static const uint8_t nine_l_px[2]      = {0x12, 0x00};
+static const uint8_t nine_r_px[2]      = {0x00, 0x21};
+static const uint8_t nine_m_px[1]      = {0x00};
+#define NINE_IMAGE(px, w, h) {.width = (w), .height = (h), .format = DGX_IMAGE_4BPP, .data = (px)}
+static const dgx_image_t nine_images[9] = {
+    NINE_IMAGE(nine_tl_px, 4, 4), NINE_IMAGE(nine_t_px, 1, 4), NINE_IMAGE(nine_tr_px, 4, 4),
+    NINE_IMAGE(nine_l_px, 4, 1),  NINE_IMAGE(nine_m_px, 1, 1), NINE_IMAGE(nine_r_px, 4, 1),
+    NINE_IMAGE(nine_bl_px, 4, 4), NINE_IMAGE(nine_b_px, 1, 4), NINE_IMAGE(nine_br_px, 4, 4),
+};
+static const uint8_t nine_map[15] = {BORDER, ACCENT}; /* the values 1 and 2 */
+/* row after row: the top-left corner, the top edge, the top-right corner, the left edge, the middle, ... */
+static const dgx_ui_picture_t nine_pieces[9] = {
+    {.image = &nine_images[0], .map = nine_map, .scale = 1}, {.image = &nine_images[1], .map = nine_map, .scale = 1},
+    {.image = &nine_images[2], .map = nine_map, .scale = 1}, {.image = &nine_images[3], .map = nine_map, .scale = 1},
+    {.image = &nine_images[4], .map = nine_map, .scale = 1}, {.image = &nine_images[5], .map = nine_map, .scale = 1},
+    {.image = &nine_images[6], .map = nine_map, .scale = 1}, {.image = &nine_images[7], .map = nine_map, .scale = 1},
+    {.image = &nine_images[8], .map = nine_map, .scale = 1},
+};
+static const dgx_ui_nine_look_t nine_params = {.pieces = nine_pieces, .fill = FILL, .ink = INK};
+static const dgx_ui_look_t      nine_look   = {.draw = dgx_ui_draw_nine, .params = &nine_params, .fill = FILL};
+static const dgx_ui_widget_t    card_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 6, .gap = 2,
+                                               .want_w = 68, .want_h = 44, .look = &nine_look};
+```
+
+![Two frames of nine pictures with rounded corners, a temperature in one and a fan's state in the other](../images/nine.png)
+
+- **A box is not sized by its children**: a frame takes its size from `want_w` and `want_h`, or from its parent.
+- **The corners** are drawn as they are. **The edges and the middle** are laid again and again along their cell
+  from its top-left corner and cut by it, never stretched: a piece one pixel wide makes an edge of any length.
+- **The cells** are the corners' sizes: the left column as wide as the top-left corner, the top row as high, the
+  right column as wide as the top-right corner, the bottom row as high as the bottom-left one. The `pad` of the
+  widget keeps the children off them: here 6 points over corners of 4.
+- **`.scale = 1`** draws a pixel of a piece as a point of the tree, so the frame keeps its thickness beside the text
+  on a screen of a larger unit; each piece has its own.
+- **The fill** is under all of it, where a piece has a 0: `fill` of the parameters, never `DGX_UI_PAPER`, and the
+  same index in the look's `fill`, so that the children's paper is the frame's.
+- **The buffer**, the screen and `CONFIG_DGX_ENABLE_VSCREEN=y` are those of
+  [a picture of several colours](#a-picture-from-flash): the frame is drawn in strips of the paint's buffer, every
+  pixel once. Without them it is the fill alone, and the log says so once.
+- `dgx_ui_look_nine`, the library's look, has no pieces of its own: a program that wants a frame of pictures gives
+  them, as here. One that names neither carries nothing of it.
 
 ## A picture under the widgets
 

@@ -437,7 +437,7 @@ int main(void)
 #define DRAW(word) {#word, &dgx_ui_params_##word, &dgx_ui_look_##word}
             DRAW(box),      DRAW(frame), DRAW(text),     DRAW(lines),   DRAW(hand_lines), DRAW(button), DRAW(picture_button),
             DRAW(input),    DRAW(switch), DRAW(slider),  DRAW(list),    DRAW(dropdown),   DRAW(picture), DRAW(rgb565),
-            DRAW(indexed),  DRAW(radio), DRAW(checkbox), DRAW(level),   DRAW(ring),
+            DRAW(indexed),  DRAW(radio), DRAW(checkbox), DRAW(level),   DRAW(ring),   DRAW(nine),
 #undef DRAW
         };
         static const char *const types[] = {"color", "color_or_under", "number", "bool", "word", "flags", "bit", "bands", "font", "hand", "variants"};

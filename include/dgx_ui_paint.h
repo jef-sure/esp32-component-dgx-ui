@@ -307,6 +307,27 @@ typedef struct dgx_ui_picture_look_t {
 } dgx_ui_picture_look_t;
 
 /**
+ * Parameters of a frame of nine pictures (dgx_ui_look_nine): nine pictures, row after row, the top-left corner, the
+ * top edge, the top-right corner, the left edge, the middle, the right edge, the bottom-left corner, the bottom edge,
+ * the bottom-right corner; each a dgx_ui_picture_t of 1, 4 or 8 bits at its own scale, its zeros the fill. The fill is
+ * an index, never DGX_UI_PAPER: the frame is filled whole, under its pieces and its children. A program's own look of
+ * this draw names the same index as its look's `fill`, so that its children's paper is the frame's.
+ */
+typedef struct dgx_ui_nine_look_t {
+    const dgx_ui_picture_t *pieces; ///< the nine; NULL: the fill alone
+    uint8_t                 fill;   ///< under them, an index of the table
+    uint8_t                 ink;    ///< the ones of a piece of 1 bit, an index of the table
+} dgx_ui_nine_look_t;
+
+#if UINTPTR_MAX == 0xFFFFFFFFu
+#ifdef __cplusplus
+static_assert(sizeof(dgx_ui_nine_look_t) == 8, "the parameters of a frame of nine pictures are 8 bytes on a 32-bit chip");
+#else
+_Static_assert(sizeof(dgx_ui_nine_look_t) == 8, "the parameters of a frame of nine pictures are 8 bytes on a 32-bit chip");
+#endif
+#endif
+
+/**
  * Parameters of a field typed into: its text and, focused, a caret where the next letter goes. A secret field (a
  * password, a PIN) shows a star for each letter; the text box keeps the letters themselves.
  */
@@ -424,6 +445,21 @@ typedef struct dgx_ui_ring_look_t {
 extern const dgx_ui_look_t dgx_ui_look_ring;
 
 /**
+ * The look of a frame of nine pictures, `dgx_ui_look_nine`, for a BOX or a FRAME holding children: the fill under all,
+ * the four corners as they are, the edges and the middle laid again and again from the top-left corner of their cell
+ * and cut by it, never stretched. The cells are of the corners' sizes, each piece at its own scale (dgx_ui_picture_t's
+ * `scale`): the left column as wide as the top-left corner, the top row as high as it, the right column as wide as the
+ * top-right corner, the bottom row as high as the bottom-left one. A box smaller than its corners cuts them, the far
+ * ones kept at its far edges, none over another. Its children are drawn over it as over a frame's fill; the pad that
+ * keeps them off the edges is the widget's own. Every pixel of the box once, drawn in strips of an 8-bit virtual screen
+ * over the paint's buffer and sent through the table of the painter's colours, as dgx_ui_look_indexed draws: it needs
+ * CONFIG_DGX_ENABLE_VSCREEN, a buffer of a row of the box and a 16-bit screen; without them it is the fill alone, told
+ * once in the log. Its own parameters give no pieces: the fill 2 alone, until a program's look gives them. A program
+ * that names it not carries none of it.
+ */
+extern const dgx_ui_look_t dgx_ui_look_nine;
+
+/**
  * The looks of the controls and pictures, of the colours 0 the paper, 1 the ink, 2 a fill, 3 a border:
  * - dgx_ui_look_button: BUTTON and DROPDOWN; its text from the widget's text box;
  * - dgx_ui_look_input: INPUT, its text in one line and, focused, a caret after it;
@@ -513,6 +549,7 @@ bool dgx_ui_draw_radio(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 bool dgx_ui_draw_checkbox(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_level(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_ring(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_nine(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 
 /**
  * @brief The tree drawn on the screen, and every popup open over it one over another: laid out first if they have to

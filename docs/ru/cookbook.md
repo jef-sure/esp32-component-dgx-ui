@@ -25,6 +25,7 @@
 - [Значок, который показывает состояние](#значок-который-показывает-состояние)
 - [Кнопка с картинкой](#кнопка-с-картинкой)
 - [Картинка из флеша](#картинка-из-флеша)
+- [Рамка из девяти картинок](#рамка-из-девяти-картинок)
 - [Картинка под виджетами](#картинка-под-виджетами)
 - [Текст в несколько строк](#текст-в-несколько-строк)
 - [Журнал последних строк](#журнал-последних-строк)
@@ -930,6 +931,62 @@ static void paint_buffer_give(dgx_ui_paint_t *paint)
   `dgx_ui_paint_free(&paint)` их возвращает.
 - Картинку в 1 бит этот облик тоже рисует, поэтому значок, у которого картинки разной глубины, называет его.
   Программа, у которой картинки только в 1 бит, называет `dgx_ui_look_picture` и ничего из этого не несёт.
+
+## Рамка из девяти картинок
+
+Рамка из картинок, как окна в играх: четыре угла, четыре края и середина — девять картинок программы, здесь в 4 бита,
+и свой облик с `dgx_ui_draw_nine`. Дети кладутся в `card_w`, как в любую рамку.
+
+```c
+/* the nine pieces of a frame with rounded corners, 4 bits a pixel, a hex digit a pixel: 1 the border, 2 its light
+   inner line, 0 the fill. The corners are 4 by 4, the top and bottom edges 1 wide, the side edges 1 high */
+static const uint8_t nine_tl_px[4 * 2] = {0x01, 0x11, 0x12, 0x22, 0x12, 0x00, 0x12, 0x00};
+static const uint8_t nine_tr_px[4 * 2] = {0x11, 0x10, 0x22, 0x21, 0x00, 0x21, 0x00, 0x21};
+static const uint8_t nine_bl_px[4 * 2] = {0x12, 0x00, 0x12, 0x00, 0x12, 0x22, 0x01, 0x11};
+static const uint8_t nine_br_px[4 * 2] = {0x00, 0x21, 0x00, 0x21, 0x22, 0x21, 0x11, 0x10};
+static const uint8_t nine_t_px[4]      = {0x10, 0x20, 0x00, 0x00};
+static const uint8_t nine_b_px[4]      = {0x00, 0x00, 0x20, 0x10};
+static const uint8_t nine_l_px[2]      = {0x12, 0x00};
+static const uint8_t nine_r_px[2]      = {0x00, 0x21};
+static const uint8_t nine_m_px[1]      = {0x00};
+#define NINE_IMAGE(px, w, h) {.width = (w), .height = (h), .format = DGX_IMAGE_4BPP, .data = (px)}
+static const dgx_image_t nine_images[9] = {
+    NINE_IMAGE(nine_tl_px, 4, 4), NINE_IMAGE(nine_t_px, 1, 4), NINE_IMAGE(nine_tr_px, 4, 4),
+    NINE_IMAGE(nine_l_px, 4, 1),  NINE_IMAGE(nine_m_px, 1, 1), NINE_IMAGE(nine_r_px, 4, 1),
+    NINE_IMAGE(nine_bl_px, 4, 4), NINE_IMAGE(nine_b_px, 1, 4), NINE_IMAGE(nine_br_px, 4, 4),
+};
+static const uint8_t nine_map[15] = {BORDER, ACCENT}; /* the values 1 and 2 */
+/* row after row: the top-left corner, the top edge, the top-right corner, the left edge, the middle, ... */
+static const dgx_ui_picture_t nine_pieces[9] = {
+    {.image = &nine_images[0], .map = nine_map, .scale = 1}, {.image = &nine_images[1], .map = nine_map, .scale = 1},
+    {.image = &nine_images[2], .map = nine_map, .scale = 1}, {.image = &nine_images[3], .map = nine_map, .scale = 1},
+    {.image = &nine_images[4], .map = nine_map, .scale = 1}, {.image = &nine_images[5], .map = nine_map, .scale = 1},
+    {.image = &nine_images[6], .map = nine_map, .scale = 1}, {.image = &nine_images[7], .map = nine_map, .scale = 1},
+    {.image = &nine_images[8], .map = nine_map, .scale = 1},
+};
+static const dgx_ui_nine_look_t nine_params = {.pieces = nine_pieces, .fill = FILL, .ink = INK};
+static const dgx_ui_look_t      nine_look   = {.draw = dgx_ui_draw_nine, .params = &nine_params, .fill = FILL};
+static const dgx_ui_widget_t    card_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 6, .gap = 2,
+                                               .want_w = 68, .want_h = 44, .look = &nine_look};
+```
+
+![Две рамки из девяти картинок со скруглёнными углами: в одной температура, в другой режим вентилятора](../images/nine.png)
+
+- **Контейнер не подстраивается под детей**: размер рамки — её `want_w` и `want_h` или то, что даёт ей родитель.
+- **Углы** рисуются как есть. **Края и середина** кладутся снова и снова вдоль своей клетки от её левого верхнего угла
+  и обрезаются ею, но не растягиваются: из картинки шириной в один пиксель получается край любой длины.
+- **Клетки** — по размерам углов: левый столбец шириной с левый верхний угол, верхняя строка — с его высоту, правый
+  столбец шириной с правый верхний угол, нижняя строка — с высоту левого нижнего. `pad` виджета отодвигает от них
+  детей: здесь 6 точек при углах в 4.
+- **`.scale = 1`** рисует пиксель картинки точкой дерева, поэтому на экране с точкой крупнее рамка сохраняет толщину
+  рядом с текстом; у каждой картинки масштаб свой.
+- **Заливка** лежит под всем там, где у картинки 0: `fill` параметров, никогда не `DGX_UI_PAPER`, и тот же номер в
+  `fill` облика, чтобы бумага детей была бумагой рамки.
+- **Буфер**, экран и `CONFIG_DGX_ENABLE_VSCREEN=y` — те же, что у
+  [картинки в несколько цветов](#картинка-из-флеша): рамка рисуется полосами в буфере отрисовки, каждый пиксель один
+  раз. Без них — только заливка, и в лог об этом пишется один раз.
+- У `dgx_ui_look_nine`, облика библиотеки, своих картинок нет: программа, которой нужна рамка из картинок, даёт их
+  сама, как здесь. Программа, которая не называет ни того, ни другого, ничего из этого не несёт.
 
 ## Картинка под виджетами
 

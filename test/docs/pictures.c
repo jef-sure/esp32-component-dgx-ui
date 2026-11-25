@@ -444,6 +444,68 @@ static void scene_states(dgx_screen_t *scr, const char *out)
     shot(scr, out);
 }
 
+/* ---------------------------------------------------------------- the cookbook's frame of nine pictures */
+/* the nine pieces of a frame with rounded corners, 4 bits a pixel, a hex digit a pixel: 1 the border, 2 its light
+   inner line, 0 the fill. The corners are 4 by 4, the top and bottom edges 1 wide, the side edges 1 high */
+static const uint8_t nine_tl_px[4 * 2] = {0x01, 0x11, 0x12, 0x22, 0x12, 0x00, 0x12, 0x00};
+static const uint8_t nine_tr_px[4 * 2] = {0x11, 0x10, 0x22, 0x21, 0x00, 0x21, 0x00, 0x21};
+static const uint8_t nine_bl_px[4 * 2] = {0x12, 0x00, 0x12, 0x00, 0x12, 0x22, 0x01, 0x11};
+static const uint8_t nine_br_px[4 * 2] = {0x00, 0x21, 0x00, 0x21, 0x22, 0x21, 0x11, 0x10};
+static const uint8_t nine_t_px[4]      = {0x10, 0x20, 0x00, 0x00};
+static const uint8_t nine_b_px[4]      = {0x00, 0x00, 0x20, 0x10};
+static const uint8_t nine_l_px[2]      = {0x12, 0x00};
+static const uint8_t nine_r_px[2]      = {0x00, 0x21};
+static const uint8_t nine_m_px[1]      = {0x00};
+#define NINE_IMAGE(px, w, h) {.width = (w), .height = (h), .format = DGX_IMAGE_4BPP, .data = (px)}
+static const dgx_image_t nine_images[9] = {
+    NINE_IMAGE(nine_tl_px, 4, 4), NINE_IMAGE(nine_t_px, 1, 4), NINE_IMAGE(nine_tr_px, 4, 4),
+    NINE_IMAGE(nine_l_px, 4, 1),  NINE_IMAGE(nine_m_px, 1, 1), NINE_IMAGE(nine_r_px, 4, 1),
+    NINE_IMAGE(nine_bl_px, 4, 4), NINE_IMAGE(nine_b_px, 1, 4), NINE_IMAGE(nine_br_px, 4, 4),
+};
+static const uint8_t nine_map[15] = {BORDER, ACCENT}; /* the values 1 and 2 */
+/* row after row: the top-left corner, the top edge, the top-right corner, the left edge, the middle, ... */
+static const dgx_ui_picture_t nine_pieces[9] = {
+    {.image = &nine_images[0], .map = nine_map, .scale = 1}, {.image = &nine_images[1], .map = nine_map, .scale = 1},
+    {.image = &nine_images[2], .map = nine_map, .scale = 1}, {.image = &nine_images[3], .map = nine_map, .scale = 1},
+    {.image = &nine_images[4], .map = nine_map, .scale = 1}, {.image = &nine_images[5], .map = nine_map, .scale = 1},
+    {.image = &nine_images[6], .map = nine_map, .scale = 1}, {.image = &nine_images[7], .map = nine_map, .scale = 1},
+    {.image = &nine_images[8], .map = nine_map, .scale = 1},
+};
+static const dgx_ui_nine_look_t nine_params = {.pieces = nine_pieces, .fill = FILL, .ink = INK};
+static const dgx_ui_look_t      nine_look   = {.draw = dgx_ui_draw_nine, .params = &nine_params, .fill = FILL};
+static const dgx_ui_widget_t    card_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 6, .gap = 2,
+                                               .want_w = 68, .want_h = 44, .look = &nine_look};
+
+static char             card_title_buf[12], card_value_buf[12], card_name_buf[8], card_state_buf[8];
+static dgx_ui_textbox_t card_title_box, card_value_box, card_name_box, card_state_box;
+static const dgx_ui_widget_t cards_w      = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 8, .gap = 8};
+static const dgx_ui_widget_t card_title_w = {.kind = DGX_UI_LABEL, .text = &card_title_box};
+static const dgx_ui_widget_t card_value_w = {.kind = DGX_UI_LABEL, .text = &card_value_box};
+static const dgx_ui_widget_t card_name_w  = {.kind = DGX_UI_LABEL, .text = &card_name_box};
+static const dgx_ui_widget_t card_state_w = {.kind = DGX_UI_LABEL, .text = &card_state_box};
+
+static void scene_nine(dgx_screen_t *scr, const char *out)
+{
+    static dgx_ui_node_t nodes[8];
+    static dgx_ui_t      ui;
+    static uint8_t       buffer[320 * 8];
+    dgx_ui_textbox_init(&card_title_box, card_title_buf, sizeof card_title_buf, 1, &st_left);
+    dgx_ui_textbox_init(&card_value_box, card_value_buf, sizeof card_value_buf, 1, &st_big);
+    dgx_ui_textbox_init(&card_name_box, card_name_buf, sizeof card_name_buf, 1, &st_left);
+    dgx_ui_textbox_init(&card_state_box, card_state_buf, sizeof card_state_buf, 1, &st_left);
+    dgx_ui_init(&ui, nodes, 8, 2);
+    const int root = dgx_ui_add(&ui, -1, &cards_w);
+    const int one = dgx_ui_add(&ui, root, &card_w), two = dgx_ui_add(&ui, root, &card_w);
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, one, &card_title_w), "Kitchen");
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, one, &card_value_w), "21.5 C");
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, two, &card_name_w), "Fan");
+    dgx_ui_text_set(&ui, dgx_ui_add(&ui, two, &card_state_w), "Auto");
+    dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = COLORS, .buffer = buffer, .buffer_size = sizeof buffer};
+    dgx_ui_paint(&ui, &paint, 0);
+    shot(scr, out);
+    dgx_ui_paint_free(&paint);
+}
+
 int main(int argc, char **argv)
 {
     const char   *dir = argc > 1 ? argv[1] : ".";
@@ -461,6 +523,8 @@ int main(int argc, char **argv)
     snprintf(a, sizeof a, "%s/background.ppm", dir), scene_background(scr, a);
     dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
     snprintf(a, sizeof a, "%s/states.ppm", dir), scene_states(scr, a);
+    dgx_fill_rectangle(scr, 0, 0, 320, 240, colors[PAPER]);
+    snprintf(a, sizeof a, "%s/nine.ppm", dir), scene_nine(scr, a);
     printf("sizes on this machine: widget %zu, node %zu, msg %zu, saved %d\n", sizeof(dgx_ui_widget_t), sizeof(dgx_ui_node_t), sizeof(dgx_ui_msg_t), saved);
     return 0;
 }

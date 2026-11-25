@@ -39,7 +39,7 @@ const docOf = (text) => description.read(text).doc;
     const withLook = (look) => ({ ...base(), looks: { one: look } });
 
     /* what the module says, held to its loader */
-    check(format.draws.length === 19 && format.by_rule, 'the library\'s nineteen draws by the rule: ' + format.draws.length);
+    check(format.draws.length === 20 && format.by_rule, 'the library\'s twenty draws by the rule: ' + format.draws.length);
     for (const draw of format.draws) {
         const look = draw.fields.length ? { draw: draw.draw, params: { ...draw.defaults } } : { draw: draw.draw };
         const said = judged(JSON.stringify(withLook(look)));
