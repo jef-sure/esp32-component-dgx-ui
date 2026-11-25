@@ -189,7 +189,8 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
     dgx_screen_t *scr       = paint->scr;
     const bool    same_turn = paint->painted && now_ms == paint->now_ms; /* another tree of the turn: the least moment of both */
     paint->now_ms           = now_ms; /* the time of the composings below too: a look that counts by it is drawn as it stands */
-    const int     turn = (int)scr->dir_x | (int)scr->dir_y << 2 | (int)scr->swap_xy << 4;
+    /* the orientation, each direction of DGX's -1, 0 or +1 counted from 0: the eight turns told apart */
+    const int     turn = (int)((unsigned)(scr->dir_x + 1) | (unsigned)(scr->dir_y + 1) << 2 | (unsigned)scr->swap_xy << 4);
     for (dgx_ui_t *t = ui; t; t = t->popup) {
         /* every tree, the popups' too, laid for the screen as it stands */
         dgx_ui_screen(t, scr->width, scr->height, turn);

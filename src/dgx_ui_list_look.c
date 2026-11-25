@@ -97,11 +97,11 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     const uint32_t bar_ink = dgx_ui_color(paint, off ? p->disabled : p->pick_ink);
     /* the window brought to the pick, its value set or its height changed (DGX_UI_MARK_WINDOW); stored, as what a look
        remembers, by the last part of the painter's own pass, the parts before it finding the same */
-    const int pick = dgx_ui_value_of(n) - w->min;
-    if ((n->marks & DGX_UI_MARK_WINDOW) && rows < all) top = pick < top ? pick : pick >= top + rows ? pick - rows + 1 : top;
+    const int pick = dgx_ui_row_of(w, dgx_ui_value_of(n)), drawn = dgx_ui_row_of(w, n->state_drawn.value); /* -1: no row */
+    if ((n->marks & DGX_UI_MARK_WINDOW) && rows < all && pick >= 0) top = pick < top ? pick : pick >= top + rows ? pick - rows + 1 : top;
     const bool moved = top != box->top;
     if (moved && !paint->composing && paint->part + 1 >= paint->parts) box->top = (uint16_t)top;
-    const int picked = pick - top, was = n->state_drawn.value - w->min - top;
+    const int picked = pick >= 0 ? pick - top : -1, was = drawn >= 0 ? drawn - top : -1;
     /* a list that scrolls: the bar on its right edge, the rows narrower by it */
     const int bw = rows < all && 4 * ui->unit < n->w ? 2 * ui->unit : 0, rw = n->w - bw;
     /* only the pick or the focus changed: the row picked before and the row picked now; disabled, or the window

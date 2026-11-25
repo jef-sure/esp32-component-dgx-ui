@@ -326,13 +326,14 @@ int dgx_ui_list_rows(const dgx_ui_t *ui, const dgx_ui_node_t *n, int *rh, int *t
 
 /* a list's window brought to its pick: its text box's top moved so that the pick is shown and the window within the
    rows; moved, every row drawn again */
+static int clamp_value(const dgx_ui_widget_t *w, int value);
 static void list_follow(dgx_ui_t *ui, int i)
 {
     dgx_ui_node_t    *n   = NODE(ui, i);
     dgx_ui_textbox_t *box = n->widget->text;
     if (n->widget->kind != DGX_UI_LIST || !box || n->h <= 0) return; /* not laid yet: the layout brings it */
     int       rh, top;
-    const int shown = dgx_ui_list_rows(ui, n, &rh, &top), all = n->widget->max - n->widget->min + 1, pick = dgx_ui_value_of(n) - n->widget->min;
+    const int shown = dgx_ui_list_rows(ui, n, &rh, &top), all = n->widget->max - n->widget->min + 1, pick = clamp_value(n->widget, dgx_ui_value_of(n)) - n->widget->min; /* within its rows */
     if (shown >= all) top = 0;
     else if (pick < top) top = pick;
     else if (pick >= top + shown) top = pick - shown + 1;
@@ -475,10 +476,17 @@ static bool repeating(const dgx_ui_widget_t *w)
     return w->kind == DGX_UI_BUTTON && (w->flags & (DGX_UI_REPEAT | DGX_UI_DRAG)) == DGX_UI_REPEAT;
 }
 
-/* within min..max when there is a range; an ICON's value outside it is no picture, so it is not clamped */
+/* a list's or a dropdown's rows: min..max, one when they are equal, none when max is below min */
+static bool has_rows(const dgx_ui_widget_t *w)
+{
+    return w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN;
+}
+
+/* within min..max when there is a range, a list's or a dropdown's of one row too; an ICON's value outside it is no
+   picture, so it is not clamped */
 static int clamp_value(const dgx_ui_widget_t *w, int value)
 {
-    if (w->max <= w->min || w->kind == DGX_UI_ICON || w->kind == DGX_UI_RADIO) return value;
+    if (has_rows(w) ? w->max < w->min : w->max <= w->min || w->kind == DGX_UI_ICON || w->kind == DGX_UI_RADIO) return value;
     return value < w->min ? w->min : value > w->max ? w->max : value;
 }
 
@@ -665,11 +673,21 @@ static void user_value(dgx_ui_t *ui, int i, int value)
 {
     dgx_ui_node_t *n = NODE(ui, i);
     value            = clamp_value(n->widget, value);
-    if (no_place(n->widget) || value == dgx_ui_value_of(n)) return;
+    if (no_place(n->widget) || (has_rows(n->widget) && n->widget->max < n->widget->min) || value == dgx_ui_value_of(n)) return; /* no row to pick */
     *n->widget->value = value;
     dgx_ui_touched(ui, i);
     list_follow(ui, i); /* a list's pick in its window */
     tell(ui, i, DGX_UI_CHANGED);
+}
+
+int32_t dgx_ui_value_of(const dgx_ui_node_t *node)
+{
+    const dgx_ui_widget_t *w = node->widget;
+    if (!w || !w->value) return 0;
+    const int32_t value = *w->value;
+    const bool    rows  = w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN; /* of one row too; of none, max below min */
+    if (rows ? w->max < w->min : w->max <= w->min || w->kind == DGX_UI_ICON || w->kind == DGX_UI_RADIO) return value;
+    return value < w->min ? w->min : value > w->max ? w->max : value;
 }
 
 void dgx_ui_user_value(dgx_ui_t *ui, int i, int value)
@@ -718,7 +736,8 @@ static void swipe_to_value(dgx_ui_t *ui, int i, int dx)
     const int32_t num  = (int32_t)dx * (w->max - w->min);
     const int     by   = (int)(num >= 0 ? (num + n->w / 2) / n->w : -((-num + n->w / 2) / n->w));
     const int     step = w->step > 0 ? w->step : 1;
-    const int     v    = ui->press_value + by;
+    if (w->max <= w->min) return;                                   /* no range: nothing a swipe changes */
+    const int     v    = ui->press_value + by; /* the value read within the range: no overflow */
     user_value(ui, i, w->min + (v - w->min + (v >= w->min ? step / 2 : -(step / 2))) / step * step);
 }
 
@@ -1024,8 +1043,10 @@ static bool key_in(dgx_ui_t *ui, int key)
     case DGX_UI_KEY_PREV: {
         const int step = key == DGX_UI_KEY_NEXT ? 1 : -1;
         /* in a list the rows first, then the focus goes on */
-        if (w && w->kind == DGX_UI_LIST && dgx_ui_value_of(n) + step >= w->min && dgx_ui_value_of(n) + step <= w->max) {
-            user_value(ui, f, dgx_ui_value_of(n) + step);
+        /* compared, not added: the value is the program's, any int32_t */
+        const int32_t value = w ? dgx_ui_value_of(n) : 0;
+        if (w && w->kind == DGX_UI_LIST && (step > 0 ? value >= w->min - 1 && value < w->max : value > w->min && value <= w->max + 1)) {
+            user_value(ui, f, value + step);
             return true;
         }
         const int i = next_focus(ui, f, step);
@@ -1037,7 +1058,9 @@ static bool key_in(dgx_ui_t *ui, int key)
     case DGX_UI_KEY_LESS:
         if (!w) return false;
         if (w->kind == DGX_UI_SLIDER) {
-            user_value(ui, f, dgx_ui_value_of(n) + (key == DGX_UI_KEY_MORE ? 1 : -1) * (w->step > 0 ? w->step : 1));
+            /* a step from the value, at most to the end of int32_t: the value is the program's; the range clamps it */
+            const int32_t value = dgx_ui_value_of(n), by = w->step > 0 ? w->step : 1;
+            user_value(ui, f, key == DGX_UI_KEY_MORE ? (value > INT32_MAX - by ? INT32_MAX : value + by) : (value < INT32_MIN + by ? INT32_MIN : value - by));
             return true;
         }
         if (w->kind == DGX_UI_SWITCH) {
@@ -1083,6 +1106,12 @@ static bool focus_repeats(dgx_ui_t *home)
 /* the next step of a held key. By difference: now_ms runs over in 49.7 days */
 static bool repeat(dgx_ui_t *ui, uint32_t now_ms)
 {
+    /* ACTIVATE held repeats only while the focus is on a button of DGX_UI_REPEAT: the focus gone to another widget (a
+       popup's OK its repeat opened, a button moved to), it ends, as the finger's ends when a popup opens */
+    if (ui->repeat_key == DGX_UI_KEY_ACTIVATE && !focus_repeats(ui)) {
+        repeat_ended(ui);
+        return false;
+    }
     if ((int32_t)(now_ms - ui->repeat_at) >= 0) {
         dgx_ui_key(ui, ui->repeat_key);
         ui->repeat_at += DGX_UI_REPEAT_MS;

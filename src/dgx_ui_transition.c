@@ -66,6 +66,7 @@ static void outside_noted(void *ctx, dgx_ui_rect_t rect)
    the area noted, then the screen as they show it into `to` */
 static void begin(dgx_ui_t *home, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind, dgx_ui_rect_t area)
 {
+    if (dgx_ui_rect_empty(&area)) return; /* a place of no width or height, hidden: nothing to move, the page at once */
     tr->area = area, tr->outside = dgx_ui_rect(0, 0, 0, 0);
     dgx_ui_changed(home, paint, paint->now_ms, outside_noted, tr);
     compose_whole(home, paint, tr->to);
@@ -126,6 +127,7 @@ static void crossfade_in_strips(dgx_screen_t *screen, const dgx_ui_transition_t 
 {
     const dgx_ui_rect_t a         = tr->area;
     const int           row_bytes = a.w * ((screen->color_bits + 7) / 8);
+    if (row_bytes <= 0) return;
     const int           rows      = (int)(paint->buffer_size / (size_t)row_bytes);
     dgx_screen_t       *strip     = dgx_vscreen_from_array(paint->buffer, a.w, rows, screen->color_bits, screen->rgb_order);
     if (!strip) return;

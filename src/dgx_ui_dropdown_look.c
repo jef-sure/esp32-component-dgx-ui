@@ -70,7 +70,7 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
         fill(paint, n->x, bottom, tw, n->y + n->h - bottom, face);
         const int pad = cell / 4 > 2 * ui->unit ? cell / 4 : 2 * ui->unit; /* the text away from the left edge, past the focus's frame */
         char      line[DGX_UI_LINE + 1];
-        line_of(box->buf ? box->buf : "", dgx_ui_value_of(n) - w->min, line);
+        line_of(box->buf ? box->buf : "", dgx_ui_row_of(w, dgx_ui_value_of(n)), line); /* none for a value of no option */
         const int y0 = (top > n->y ? top : n->y) - paint->oy, y1 = (bottom < n->y + n->h ? bottom : n->y + n->h) - paint->oy;
         const int cy0 = y0 > py ? y0 : py, cy1 = y1 < py + ph ? y1 : py + ph;
         if (cy1 > cy0) {

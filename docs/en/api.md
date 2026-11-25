@@ -81,8 +81,9 @@ typedef struct dgx_ui_state_t {
   saving them.
 - A place written after a pass asks for no pass of its own: the task that writes it is awake, by the message that
   made it write, and its next pass draws it.
-- Read by `dgx_ui_value()` or `dgx_ui_value_of()`, a value is kept within `min..max` when `min < max`; an icon's and a
-  radio button's are not. The memory itself is left as it is, since it may have come from flash; the user's next change writes it
+- Read by `dgx_ui_value()` or `dgx_ui_value_of()`, a value is kept within `min..max` when `min < max`, and a list's or a
+  dropdown's when `min <= max`, one row too; an icon's and a radio button's are not. A list or a dropdown with
+  `max < min` has no rows: nothing picks, and the user changes nothing. The memory itself is left as it is, since it may have come from flash; the user's next change writes it
   within the bounds.
 - Several widgets may name one place, and all of them follow it. A constant added twice, or to two trees, shares its
   value.
@@ -309,7 +310,7 @@ None of these tells `on()`.
 | Call | What it does |
 | ---- | ------------ |
 | `int32_t dgx_ui_value(const dgx_ui_t *ui, int i)` | The value of widget `i`, read from its place and kept within `min..max` when `min < max`; an icon's is not bound. 0 for a widget of no place and for a number that holds no widget. |
-| `int32_t dgx_ui_value_of(const dgx_ui_node_t *node)` | The same of a node, for an `on()` and a look, which are given the node. An inline of the header. |
+| `int32_t dgx_ui_value_of(const dgx_ui_node_t *node)` | The same of a node, for an `on()` and a look, which are given the node. |
 | `bool dgx_ui_radio_chosen(const dgx_ui_node_t *node)` | Whether a radio button is the chosen one of its group: its place holds its `step`. An inline of the header. |
 | `void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)` | The value written into the widget's place, within `min..max` when `min < max`. An icon's is not bound: outside its range it shows no picture. A widget of no place: nothing. The program may as well write its variable itself. |
 | `void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)` | `DGX_UI_DISABLED` or `DGX_UI_PRESSED` set or cleared. Disabled, a widget loses the focus, and a press of the finger on it ends. |

@@ -95,7 +95,8 @@ bool dgx_ui_draw_slider(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     int                    kw    = DGX_UI_KNOB * ui->unit, th = p->track_h * ui->unit;
     if (kw > n->w) kw = n->w;
     if (th > n->h) th = n->h;
-    const int span = w->max > w->min ? w->max - w->min : 1, at = (n->w - kw) * (dgx_ui_value_of(n) - w->min) / span;
+    /* the knob by the value, read within the range: a product of at most 32767 x 65535; at the left with no range */
+    const int at = w->max > w->min ? (n->w - kw) * (dgx_ui_value_of(n) - w->min) / (w->max - w->min) : 0;
     int       kx = n->x + (at < 0 ? 0 : at > n->w - kw ? n->w - kw : at);
     const int ty = n->y + (n->h - th) / 2;
     if (bits & DGX_UI_PRESSED) {

@@ -355,7 +355,8 @@ _Static_assert(sizeof(dgx_ui_node_t) == 28, "the node of a widget is 28 bytes of
 
 /**
  * @brief The value of a widget's node: read from the place its widget names, and kept within min and max when
- * min < max (an ICON's and a RADIO's are not bound). 0 for a widget of no place. The memory itself is the program's and is not
+ * min < max, a list's or a dropdown's when min <= max, one row too (an ICON's and a RADIO's are not bound). 0 for a
+ * widget of no place. The memory itself is the program's and is not
  * corrected: it may have come from flash.
  *
  * The place is written by the program, by the user through the core, or by dgx_ui_set_value(), all in the task that
@@ -365,14 +366,7 @@ _Static_assert(sizeof(dgx_ui_node_t) == 28, "the node of a widget is 28 bytes of
  * loop (the message that made it write does), and the next pass draws it. A control of no place shows 0 and nothing
  * changes it; its look tells it in the log, once a look.
  */
-static inline int32_t dgx_ui_value_of(const dgx_ui_node_t *node)
-{
-    const dgx_ui_widget_t *w = node->widget;
-    if (!w || !w->value) return 0;
-    const int32_t value = *w->value;
-    if (w->max <= w->min || w->kind == DGX_UI_ICON || w->kind == DGX_UI_RADIO) return value;
-    return value < w->min ? w->min : value > w->max ? w->max : value;
-}
+int32_t dgx_ui_value_of(const dgx_ui_node_t *node);
 
 /** @brief Whether a RADIO's node is chosen: its place holds its number, step. One of no place is not. */
 static inline bool dgx_ui_radio_chosen(const dgx_ui_node_t *node)

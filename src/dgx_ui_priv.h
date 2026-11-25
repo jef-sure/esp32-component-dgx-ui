@@ -30,7 +30,15 @@ void dgx_ui_touched(dgx_ui_t *ui, int i);
    did not touch is neither marked nor drawn; any other its value. Inline in the look at the places, which asks it of
    every node at every pass, and always: a build for size calls a plain inline as a function. dgx_ui_shown() is the
    same as one function, for the painter's walk */
-__attribute__((always_inline)) static inline int32_t dgx_ui_shown_inline(const dgx_ui_node_t *n)
+__attribute__((always_inline)) /* the row of a list or the option of a dropdown a value picks, from the first; -1 none, a value outside min..max,
+   counted wide: the value is the program's, any int32_t */
+static inline int dgx_ui_row_of(const dgx_ui_widget_t *w, int32_t value)
+{
+    const int64_t row = (int64_t)value - w->min;
+    return row >= 0 && row <= (int64_t)w->max - w->min ? (int)row : -1;
+}
+
+static inline int32_t dgx_ui_shown_inline(const dgx_ui_node_t *n)
 {
     return n->widget->kind == DGX_UI_RADIO ? dgx_ui_radio_chosen(n) : dgx_ui_value_of(n);
 }
