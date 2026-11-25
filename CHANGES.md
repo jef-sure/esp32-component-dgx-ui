@@ -1,5 +1,14 @@
 # Changes
 
+## 0.0.70 - 2026-11-26
+
+- A widget's flags are 32 bits, room for more: a widget is 60 B. The tree's members regrouped, the program's first:
+  100 B. Programs are smaller all the same: hello -48 B, controls -160 B.
+- A look's fill is an index or DGX_UI_PAPER, as the looks' params; DGX_UI_PAPER is declared in dgx_ui.h.
+- dgx_ui_node() gives a node to read; the members of the tree and the paint are marked: the program's, a look's, the
+  library's.
+- Docs: the listings of the widget, the tree and the paint, and the look's fill.
+
 ## 0.0.69 - 2026-11-25
 
 - A handwritten variant's height and pen are in points of the tree, as every other size: one description draws alike on
