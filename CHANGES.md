@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.59 - 2026-11-25
+
+- The builder edits the appearance by forms: colours by hex, a picker or a DGX name, styles and looks by their draw's
+  fields, drawn at once; a look or style renamed in the pages that name it, undone together.
+- The builder's server writes an appearance already there; hello packs its colours for the screen it finds.
+- Docs: the builder's appearance forms, the preview's appearanceFormat() and colorNames(), a named colour packed for a
+  screen of any depth.
+
 ## 0.0.58 - 2026-11-25
 
 - A picture's `scale` in dgx_ui_picture_t: 0 draws it pixel for pixel, 1 a pixel of it as a point of the tree, more as
