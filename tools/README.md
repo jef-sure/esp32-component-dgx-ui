@@ -14,7 +14,8 @@ A description can be looked at before it is made C: [the preview](../editor/prev
 browser as the board draws it, on the same names file, and says where the loader refuses it.
 
 Beside it here, `dgx_ui_serve.py` serves the builder of pages from a terminal, for a browser that gives a page no
-folder to open: [From a terminal](../editor/README.md#from-a-terminal).
+folder to open: [From a terminal](../editor/README.md#from-a-terminal). `dgx_ui_mcp.py` serves it with an agent
+beside it, over MCP: [With an agent](../editor/README.md#with-an-agent).
 
 ## From CMake
 

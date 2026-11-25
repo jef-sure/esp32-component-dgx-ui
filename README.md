@@ -88,7 +88,7 @@ on a board or in a window on the computer.
 | [How it works](docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
 | [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a handwritten text, a popup, keys, touch, a field and a keyboard, a look of your own, a control of your own, the tree as a layer in another compositor's strips |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
-| [The builder of pages](editor/README.md) | a project's pages edited in a browser, drawn as the board draws them: opening a project, the panel, the properties, saving, in another page |
+| [The builder of pages](editor/README.md) | a project's pages edited in a browser, drawn as the board draws them: opening a project, the panel, the properties, the appearance and the names file by forms, saving, an agent beside it, in another page |
 | [The preview](editor/preview/README.md) | a description drawn in a browser as the board draws it: the page to try it by hand, the calls for a page that edits descriptions |
 
 Examples, each for a CYD board and for a window on the computer: [hello](examples/hello/main/main.c), a text and a
@@ -125,7 +125,8 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
   size as the board draws them, and gives the loader's verdict on each: the drawing part of a builder.
 - **A builder of pages**: [editor/index.html](editor/README.md), opened from the disk, opens a project's directory,
   draws its pages by the preview at the board's size and edits their widgets: selected on the panel, set by their
-  properties, added, moved, wrapped, with undo. Only the files edited are saved.
+  properties, added, moved, wrapped, with undo; their appearance and names file by forms. Only the files edited are
+  saved. Served from a terminal, `tools/dgx_ui_mcp.py`, it has an agent beside it over MCP.
 - **Rows and columns**: a box stacks its children as a column or a row, with a padding and a gap, in points that are
   so many pixels; a child may take all that is left. The layout is made again only when the screen, the widgets or
   their sizes change, and then only what moved is drawn.
@@ -163,8 +164,8 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
 
 ## Not there yet
 
-- a builder of every part of an interface: [the builder of pages](editor/README.md) edits the widgets of a page; its
-  appearance, colours, styles and looks, is edited by hand for now.
+- a frame of nine pictures, a box that scrolls what it holds, and a blinking cursor in a field;
+- pictures of colours on a display of 18 or 24 bits: the looks of RGB565 and of 4 or 8 bits draw on 16 bits only.
 
 An interface of tables, graphs and long texts is a task for
 [DGX-LVGL](https://github.com/jef-sure/esp32-component-dgx-lvgl).

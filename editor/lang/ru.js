@@ -183,5 +183,9 @@ DGX_UI_LANGUAGES.ru = {
         '"{0}" is the word of a kind: the widgets of the kind that name no look are refused after it, for want of one': '«{0}» — слово вида виджета: виджеты этого вида без указанного облика после этого не загрузятся, им не будет облика',
         'the C expression stays as it is, the program\'s: only the name the pages and appearances use changes': 'выражение C программы остаётся прежним: меняется только имя, которым его называют страницы и внешние виды',
         'its table': 'его таблица',
+        'The agent': 'Агент',
+        'Write to the agent here; it edits in the builder, and you save.': 'Пишите агенту здесь: он правит в построителе, а сохраняете вы.',
+        'a message to the agent': 'сообщение агенту',
+        'Send': 'Отправить',
     },
 };

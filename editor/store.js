@@ -338,10 +338,12 @@ const useDgxUiBuilder = (() => {
             pick: [], // the entry of the appearance in its form: [section, name]
             namesPick: [], // the line of the names file in its form: [table, name]
             namesMissing: [], // the names the page uses that its names file has not, as the module gives them
+            agent: false, // an agent beside the builder: its dialog shown
+            agentMessages: [], // the dialog: {from: 'person' | 'agent', text}
             appearanceError: null, // the appearance's text not read: {at, byte, why}
             appearanceAt: null, // the entry the appearance's verdict stops in: [section, name]
             raw: Vue.markRaw({ preview: null, host: null, doc: null, spans: [], histories: new Map(), links: new Map(), linkCount: 0, format: null,
-                               preferences: null, look: null, lookSpans: [], lookFormat: null, namesFormat: null }),
+                               preferences: null, look: null, lookSpans: [], lookFormat: null, namesFormat: null, agentLink: null }),
         }),
 
         getters: {
@@ -1434,6 +1436,89 @@ const useDgxUiBuilder = (() => {
                 }
                 this.giveAll();
                 return broken;
+            },
+
+            // ---- an agent beside the builder (tools/dgx_ui_mcp.py) ----
+
+            startAgent(link) {
+                this.raw.agentLink = Vue.markRaw(link);
+                this.agent = true;
+            },
+
+            agentSay(text) {
+                if (!text.trim() || !this.raw.agentLink) return false;
+                this.raw.agentLink.say(text);
+                return true;
+            },
+
+            // a verdict as the agent reads it: the loader's code by its name, the byte, the name; null none
+            verdictOf(verdict) {
+                if (!verdict) return null;
+                if (verdict.code === 0) return { taken: true };
+                return { code: verdict.code > 0 ? `DGX_UI_LOAD_${LOAD_CODES[verdict.code] ?? verdict.code}` : verdict.code, byte: verdict.offset,
+                         name: verdict.name || undefined, said: verdict.said || undefined };
+            },
+
+            agentVerdicts() {
+                return { page: this.readError ? { code: 'not read', byte: this.readError.byte, said: this.readError.why } : this.verdictOf(this.verdicts.page),
+                         names: this.verdictOf(this.verdicts.names), appearance: this.verdictOf(this.verdicts.appearance),
+                         fonts: this.verdicts.fonts.filter((one) => one.verdict.code !== 0).map((one) => ({ name: one.name, said: one.verdict.said })),
+                         widget: this.refusedPath, appearance_entry: this.appearanceAt, names_line: this.namesAt };
+            },
+
+            // what the agent asks, answered: the builder now, the panel, a file's text, an edit, a page and widget shown, the
+            // formats
+            async agentAnswer(kind, args) {
+                if (kind === 'state') {
+                    return { pages: this.project?.pages.map((page) => ({ path: page.path, names: page.names, appearance: page.appearance, made_by: page.from })) ?? [],
+                             names_files: this.project?.namesFiles.map((one) => one.path) ?? [], appearances: this.project?.appearances.map((one) => one.path) ?? [],
+                             open: this.current, selected: this.selection, verdicts: this.agentVerdicts(), notes: this.notes, missing_names: this.namesMissing,
+                             edited: this.dirty, screen: this.screen, tab: this.tab };
+                }
+                if (kind === 'image') {
+                    const image = typeof document === 'undefined' ? null : this.image(); // a page's, not Node's
+                    if (!image) return { error: 'no panel drawn' };
+                    const canvas = document.createElement('canvas');
+                    canvas.width = image.width, canvas.height = image.height;
+                    canvas.getContext('2d').putImageData(image, 0, 0);
+                    return { png: canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), width: image.width, height: image.height };
+                }
+                if (kind === 'read') {
+                    const file = this.files[args.path];
+                    return file ? { path: args.path, text: file.missing ? null : file.text, edited: this.dirty.includes(args.path) }
+                                : { error: `${args.path}: not a file the builder holds: ${Object.keys(this.files).join(', ')}` };
+                }
+                if (kind === 'edit') return this.agentEdit(args.path, args.text);
+                if (kind === 'select') {
+                    if (!this.choose(args.path)) return { error: `${args.path}: no page of the project` };
+                    if (args.widget && !this.select(args.widget)) return { error: `no widget at ${JSON.stringify(args.widget)}`, open: this.current };
+                    return { open: this.current, selected: this.selection };
+                }
+                if (kind === 'formats') return { page: this.raw.format, appearance: this.raw.lookFormat ?? this.raw.preview.appearanceFormat(), names: this.raw.namesFormat };
+                return { error: `no such request: ${kind}` };
+            },
+
+            // the whole text of a file of the project put in as one step of its history, the page it is of or that uses it
+            // opened and the tab of its kind shown, as the person would undo it; the verdicts after
+            agentEdit(path, text) {
+                const file = this.files[path];
+                if (!file || typeof text !== 'string')
+                    return { error: `${path}: not a description, names file or appearance of the project: ${Object.keys(this.files).join(', ')}` };
+                const page = this.project.pages.find((one) => one.path === path) ??
+                             (this.page && (this.page.names === path || this.page.appearance === path) ? this.page : null) ??
+                             this.project.pages.find((one) => one.names === path || one.appearance === path);
+                if (!page) return { error: `${path}: no page of the project uses it` };
+                if (page.path !== this.current) this.choose(page.path);
+                const kind = path === page.path ? 'page' : path === page.names ? 'names' : 'appearance';
+                this.setTab(kind === 'page' ? 'properties' : kind);
+                this.historyOf(path).record(this.snapshot(path));
+                file.text = text, file.missing = false, file.illFormed = null, file.byBuilder = false;
+                if (kind === 'page') {
+                    this.loadText();
+                    if (!this.raw.doc || !widgetAt(this.raw.doc, this.selection)) this.selection = [];
+                }
+                this.giveAll();
+                return { path, verdicts: this.agentVerdicts() };
             },
 
             // ---- the screen and the view ----

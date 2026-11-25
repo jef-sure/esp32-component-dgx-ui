@@ -128,3 +128,9 @@
 .dgx-ui-builder .names .missing code { font-size: 12px; }
 .dgx-ui-builder .names .add { display: flex; gap: 4px; margin: 2px 0 6px; }
 .dgx-ui-builder .names .add input { flex: 1; min-width: 0; }
+.dgx-ui-builder .agent { border-top: 1px solid var(--line); margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.dgx-ui-builder .agent .messages { max-height: 16em; overflow: auto; font-size: 13px; }
+.dgx-ui-builder .agent .messages p { margin: 2px 0; padding: 3px 6px; border-radius: 6px; white-space: pre-wrap; }
+.dgx-ui-builder .agent .messages p.agent { background: var(--soft); }
+.dgx-ui-builder .agent .messages p.person { background: var(--mark); margin-left: 2em; }
+.dgx-ui-builder .agent textarea { width: 100%; font: inherit; }

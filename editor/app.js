@@ -750,8 +750,37 @@ const dgxUiBuilderMount = (() => {
         `,
     };
 
+    // ---- the dialog with an agent beside the builder ----
+
+    const AgentPane = {
+        setup() {
+            const words = useWords(), store = words.store;
+            const typed = ref(''), list = ref(null);
+            const send = () => {
+                if (store.agentSay(typed.value)) typed.value = '';
+            };
+            watch(() => store.agentMessages.length, async () => {
+                await nextTick();
+                if (list.value) list.value.scrollTop = list.value.scrollHeight;
+            });
+            return { ...words, typed, list, send };
+        },
+        template: `
+            <div class="agent">
+                <div class="heading">{{ t('The agent') }}</div>
+                <div class="messages" ref="list">
+                    <p v-if="!store.agentMessages.length" class="note">{{ t('Write to the agent here; it edits in the builder, and you save.') }}</p>
+                    <p v-for="(one, i) in store.agentMessages" :key="i" :class="one.from">{{ one.text }}</p>
+                </div>
+                <textarea v-model="typed" rows="3" :placeholder="t('a message to the agent')"
+                          @keydown.enter.exact.prevent="send()"></textarea>
+                <button @click="send()" :disabled="!typed.trim()">{{ t('Send') }}</button>
+            </div>
+        `,
+    };
+
     const PropertiesPane = {
-        components: { Field, AppearancePane, NamesPane },
+        components: { Field, AppearancePane, NamesPane, AgentPane },
         setup() {
             const words = useWords();
             return { ...words };
@@ -796,6 +825,7 @@ const dgxUiBuilderMount = (() => {
                     <field v-for="field in store.fields" :key="store.selection.join('.') + '/' + field.key" :field="field"></field>
                 </div>
                 </template>
+                <agent-pane v-if="store.agent"></agent-pane>
             </aside>
         `,
     };

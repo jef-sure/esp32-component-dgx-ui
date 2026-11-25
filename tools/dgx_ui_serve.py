@@ -8,16 +8,21 @@ Usage, in a project's folder:
 (managed_components/dgx-ui/ for dgx-ui taken from git).
 
 It prints the link of the builder, which opens the project at once. The project is the current folder, or --project. A
-project with its own copy of dgx-ui from the registry, managed_components/jef-sure__dgx-ui/, is served by that copy:
-this one hands over to it at the start, so the builder is of the version the project builds with. Standard library
-only, so the Python of ESP-IDF runs it.
+project with its own copy of dgx-ui, managed_components/jef-sure__dgx-ui/ of the registry or managed_components/dgx-ui/
+of git, is served the builder's page of that copy, so the builder is of the version the project builds with; nothing
+of the copy is run here (page_copy()). Standard library only, so the Python of ESP-IDF runs it. tools/dgx_ui_mcp.py
+--serve is the same server; without --serve, it puts an agent beside the page.
 
-Only this computer reaches it: bound to 127.0.0.1, every request of this Host. The project's calls carry a token the
-link gives, a write comes from the builder's own page, and the paths lie in the project. What is written: the files the
-project's dgx_ui_tree(), dgx_ui_appearance() and dgx_ui_names() calls name, read at each write, and pages and
-appearances already there, of .json or .txt; never a file or folder of a dot, nor one the build reads by its name.
+Only this computer reaches it: bound to 127.0.0.1, every request of this Host, every page and file under a
+Content-Security-Policy that lets a page call nothing but this server. The project's calls carry a token the link gives,
+a write comes from the builder's own page, and the paths lie in the project. What is read: the project's CMakeLists and
+CMakePresets.json, the files its calls name, the pages and appearances there, the fonts DGX writes, the board's entry,
+and of a build's sdkconfig the lines of the panel alone. What is written: the files the project's dgx_ui_tree(),
+dgx_ui_appearance() and dgx_ui_names() calls name, read at each write, and pages and appearances already there, of
+.json or .txt; never a file or folder of a dot, nor one the build reads by its name.
 """
 import argparse
+import hashlib
 import http.server
 import json
 import os
@@ -35,7 +40,13 @@ SERVED = ROOT / "editor"  # the builder's files: nothing else of the component i
 DEFAULT_PORT = 8741  # fixed, so that the page's origin, and the settings it keeps in the browser, stay from run to run
 LONGEST_BODY = 4 * 1024 * 1024
 TIMEOUT_S = 20  # a connection that sends nothing for so long is closed: a body cut short ends so too
-HANDED = "DGX_UI_SERVE_HANDED"
+SERVER_API = 1  # the calls of the server the builder's page makes: a page of another number is not served by this one
+# what a page served may do: its own scripts and module, its own address to call, nothing of another host. Vue compiles
+# the builder's templates in the browser by Function(), so 'unsafe-eval'; the preview's module needs 'wasm-unsafe-eval'.
+# No frame-ancestors: the browser of VS Code shows the page in a frame of its own; a page of another site that frames it
+# has not the token of the link, which no address carries to it
+CSP = ("default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; "
+       "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; base-uri 'none'; form-action 'self'")
 
 # what the builder writes: of these endings only. What it never writes, whatever a call names, compared in any case of
 # letters (a disk of macOS or Windows takes cmakelists.txt for CMakeLists.txt): a file or folder of a dot, a tool's; a
@@ -51,6 +62,13 @@ CALLS = re.compile(r"(?<![A-Za-z0-9_])(dgx_ui_tree|dgx_ui_appearance|dgx_ui_name
 CALL_LISTS = ("CMakeLists.txt", "main/CMakeLists.txt")
 CALL_KEYWORDS = ("PREFIX", "NAMES", "APPEARANCE", "HEADERS")
 NOT_SEARCHED = ("node_modules", "managed_components", "dist", "vendor")
+
+# what the builder reads besides what a call names and the pages and appearances there: the preset, the board's entry
+# of jef-sure/boards, the fonts DGX writes; of a build's sdkconfig only the lines of the computer's board's panel
+FONTS_INDEX = "dgx_fonts-files.txt"
+BOARD_FILES = (re.compile(r"components/local-boards/boards/[a-z0-9_]+/board\.json"),
+               re.compile(r"managed_components/jef-sure__boards/catalog/boards/[a-z0-9_]+/board\.json"))
+SDKCONFIG_SHOWN = re.compile(rb"^CONFIG_BOARD_HOST_(?:WIDTH|HEIGHT|COLOR_BITS)=[0-9]+[ \t\r]*$", re.M)
 
 
 def inside(root, path):
@@ -155,10 +173,64 @@ def page_there(path):
         return re.search(rb'"dgx-ui"[\s\S]*"(tree|colors)"', data) is not None
 
 
+def in_build(root, real):
+    """Whether a file lies in a folder of a build: one holding CMakeCache.txt, or under it."""
+    for above in [os.path.dirname(real), *(str(parent) for parent in pathlib.Path(os.path.dirname(real)).parents)]:
+        if not inside(root, above):
+            return False
+        if os.path.exists(os.path.join(above, "CMakeCache.txt")):
+            return True
+    return False
+
+
+def font_listed(root, rel):
+    """Whether a path is a file of the fonts DGX writes: build/dgx_fonts/ or build/<board>/dgx_fonts/, its index or a
+    file its index names."""
+    parts = rel.split("/")
+    if not (len(parts) in (3, 4) and parts[0] == "build" and parts[-2] == "dgx_fonts"):
+        return False
+    if parts[-1] == FONTS_INDEX:
+        return True
+    try:
+        with open(os.path.join(root, *parts[:-1], FONTS_INDEX), encoding="utf-8", errors="replace") as index:
+            return any(len(words) >= 2 and words[1] == parts[-1] for words in (line.split() for line in index.read(LONGEST_BODY).splitlines()))
+    except OSError:
+        return False
+
+
+def reading(root, rel, real):
+    """What is wrong with a read of a file, or None, and whether only its lines of the panel are given: the builder reads
+    the project's CMakeLists and CMakePresets.json, the files its calls name, the pages and appearances there, the fonts
+    DGX writes and the board's entry; never a file or folder of a dot, nor dependencies.lock, and of an sdkconfig only
+    that of a build, and of it only the panel's lines."""
+    written = os.path.relpath(real, root).replace(os.sep, "/")
+    for path in (rel, written):
+        if any(part.startswith(".") for part in path.split("/")):
+            return "nothing of a dot is read: a folder or file of a tool's", False
+    name = written.split("/")[-1].casefold()
+    if name == "sdkconfig" and in_build(root, real):
+        return None, True
+    if name.startswith(NEVER_WRITTEN_PREFIXES):
+        return f"{written.split('/')[-1]} is not read by the builder", False
+    # by the file a link leads to, as a write goes: a link of a list's name to another file is not the list
+    if written in {*CALL_LISTS, "CMakePresets.json"} or re.fullmatch(r"components/[^/]+/CMakeLists\.txt", written):
+        return None, False
+    named = called_files(root)
+    if written in named and name.endswith(WRITTEN_SUFFIXES):
+        return None, False
+    if any(pattern.fullmatch(written) for pattern in BOARD_FILES) or font_listed(root, written):
+        return None, False
+    searched = not any(part.casefold() in NOT_SEARCHED or part.casefold().startswith("build") for part in written.split("/")[:-1])
+    if searched and name.endswith(".json") and page_there(real):
+        return None, False
+    return ("the builder reads the project's CMakeLists, the files its calls name, the pages and appearances there, the "
+            "fonts DGX writes and the board of its preset"), False
+
+
 def problem_of(root, rel, writing=False, listing=False):
     """What is wrong with a path of the project a call names, or None: relative, of no empty part, no "." or "..", no
-    backslash and no NUL, leading nowhere out of the project, links followed; a write by the rule of what is written,
-    into a folder that is there."""
+    backslash and no NUL, leading nowhere out of the project, links followed; a read by the rule of what is read, a
+    write by the rule of what is written, into a folder that is there."""
     if not isinstance(rel, str) or "\\" in rel or "\0" in rel:
         return "a path of the project, by / and of no backslash"
     if rel == "" and listing:
@@ -171,6 +243,10 @@ def problem_of(root, rel, writing=False, listing=False):
     real = os.path.realpath(os.path.join(root, rel))
     if not inside(root, real):
         return "a path that leads out of the project"
+    if listing and any(part.startswith(".") for path in (rel, os.path.relpath(real, root).replace(os.sep, "/")) for part in path.split("/") if part != "."):
+        return "nothing of a dot is listed: a folder of a tool's"
+    if not writing and not listing and os.path.isfile(real):
+        return reading(root, rel, real)[0]
     if writing:
         # what is never written, by the path as it is named and by the file its links lead to
         written = os.path.relpath(real, root).replace(os.sep, "/")
@@ -219,15 +295,17 @@ def write_file(root, rel, data):
         raise
 
 
-def handler_of(project, token, port):
-    root, served = os.path.realpath(project), os.path.realpath(SERVED)
+def handler_of(project, token, port, page=None):
+    """The handler of the builder's calls and files: the page served from the editor/ of page, a copy of dgx-ui that
+    page_copy() took, else this one's."""
+    root, served = os.path.realpath(project), os.path.realpath(os.path.join(page or ROOT, "editor"))
     own_origin = f"http://{ADDRESS}:{port}"
 
     class Page(http.server.SimpleHTTPRequestHandler):
         timeout = TIMEOUT_S
 
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=str(ROOT), **kwargs)
+            super().__init__(*args, directory=os.path.dirname(served), **kwargs)
 
         def log_message(self, *_):
             pass
@@ -237,6 +315,7 @@ def handler_of(project, token, port):
             # X-Frame-Options and no frame-ancestors: the browser of VS Code shows the page in a frame of its own
             if not any(line.lower().startswith(b"cache-control") for line in getattr(self, "_headers_buffer", [])):
                 self.send_header("Cache-Control", "no-cache")
+            self.send_header("Content-Security-Policy", CSP)
             super().end_headers()
 
         def answer(self, code, value=None, body=None, kind="application/json"):
@@ -287,6 +366,8 @@ def handler_of(project, token, port):
                         for entry in found:
                             if entry.is_symlink() and not inside(root, os.path.realpath(entry.path)):
                                 continue  # a link out of the project is not shown
+                            if entry.name.startswith("."):
+                                continue  # nor a file or folder of a dot, a tool's, which the builder never reads
                             entries.append({"name": entry.name, "directory": entry.is_dir()})
                     return self.answer(200, sorted(entries, key=lambda entry: entry["name"]))
                 if address.path == "/project/file":
@@ -297,7 +378,10 @@ def handler_of(project, token, port):
                     if not os.path.isfile(path):
                         return self.answer(204, body=b"")
                     with open(path, "rb") as data:
-                        return self.answer(200, body=data.read(), kind="application/octet-stream")
+                        body = data.read()
+                    if reading(root, rel, os.path.realpath(path))[1]:
+                        body = b"".join(line.group(0).rstrip() + b"\n" for line in SDKCONFIG_SHOWN.finditer(body))
+                    return self.answer(200, body=body, kind="application/octet-stream")
                 return self.answer(404)
             # the file that will be read, by the base class's own reading of the path, its links followed: of the
             # builder's folder, whatever the path's encoding
@@ -342,12 +426,57 @@ def handler_of(project, token, port):
     return Page
 
 
-def own_copy(project):
-    """The server of the project's own copy of dgx-ui from the registry, when it has one and this is not it."""
-    if os.environ.get(HANDED):
-        return None
-    theirs = project / "managed_components" / "jef-sure__dgx-ui" / "tools" / "dgx_ui_serve.py"
-    return theirs if theirs.is_file() and theirs.resolve() != pathlib.Path(__file__).resolve() else None
+def page_copy(project):
+    """The copy of dgx-ui whose builder's page the project is served with, and what to say of it: the project's own, of
+    the registry (managed_components/jef-sure__dgx-ui) or of git (managed_components/dgx-ui), so the page and its preview
+    are of the version the project builds with; else this one's. Nothing of a copy is run here: its page runs in the
+    browser, under CSP, and calls this server, whose rules of reading and writing are its own. The copy is taken when it
+    lies in the project's managed_components/, its page speaks SERVER_API, read as text, and, where the registry's
+    CHECKSUMS.json is there, every file of its page is as that file says. The checksums are of integrity, a copy spoiled
+    or cut, not a boundary: a project can write them as it writes the copy; the boundary is the browser's sandbox, CSP
+    and this server's rules."""
+    managed = os.path.realpath(os.path.join(project, "managed_components"))
+    for name in ("jef-sure__dgx-ui", "dgx-ui"):
+        copy = os.path.join(project, "managed_components", name)
+        real = os.path.realpath(copy)
+        if not os.path.isdir(copy):
+            continue
+        if real == os.path.realpath(ROOT):
+            return None, None
+        if not inside(managed, real) or real == managed:
+            return None, f"managed_components/{name} leads out of the project's managed_components: this server's own page"
+        version = None
+        try:
+            with open(os.path.join(real, "idf_component.yml"), encoding="utf-8", errors="replace") as manifest:
+                found = re.search(r'^version:\s*"?([^"\s]+)"?\s*$', manifest.read(LONGEST_BODY), re.M)
+                version = found.group(1) if found else None
+            with open(os.path.join(real, "editor", "host_server.js"), encoding="utf-8", errors="replace") as host:
+                api = re.search(r"\bDGX_UI_SERVER_API\s*=\s*(\d+)", host.read(LONGEST_BODY))
+        except OSError:
+            return None, f"managed_components/{name} has no builder's page: this server's own page"
+        if not api or int(api.group(1)) != SERVER_API:
+            return None, (f"the project builds with dgx-ui {version or '?'}, whose builder this server does not speak to: its own, "
+                          f"python3 managed_components/{name}/tools/dgx_ui_mcp.py --serve")
+        editor = os.path.join(real, "editor")
+        for folder, _, names in os.walk(editor, followlinks=False):
+            for each in names:
+                if not inside(editor, os.path.realpath(os.path.join(folder, each))):
+                    return None, f"managed_components/{name}/editor has a link out of it: this server's own page"
+        sums = os.path.join(real, "CHECKSUMS.json")
+        if os.path.isfile(sums):
+            try:
+                with open(sums, encoding="utf-8") as listed:
+                    files = {one["path"]: one["hash"] for one in json.load(listed)["files"]}
+            except (OSError, ValueError, KeyError, TypeError):
+                return None, f"managed_components/{name}/CHECKSUMS.json does not read: this server's own page"
+            for folder, _, names in os.walk(editor):
+                for each in names:
+                    rel = os.path.relpath(os.path.join(folder, each), real).replace(os.sep, "/")
+                    with open(os.path.join(folder, each), "rb") as data:
+                        if files.get(rel) != hashlib.sha256(data.read()).hexdigest():
+                            return None, f"managed_components/{name}/{rel} is not as its CHECKSUMS.json says: this server's own page"
+        return real, f"the builder's page of the project's dgx-ui {version or '?'}: managed_components/{name}"
+    return None, None
 
 
 def main():
@@ -357,12 +486,6 @@ def main():
     args = parser.parse_args()
     if not args.project.is_dir():
         parser.error(f"--project {args.project}: no such folder")
-    theirs = own_copy(args.project.resolve())
-    if theirs:
-        print(f"dgx_ui_serve.py: the project's own copy serves it: {theirs}", file=sys.stderr, flush=True)
-        os.environ[HANDED] = "1"
-        os.execv(sys.executable, [sys.executable, str(theirs), *sys.argv[1:]])
-
     try:
         server = http.server.ThreadingHTTPServer((ADDRESS, DEFAULT_PORT if args.port is None else args.port), None)
     except OSError as error:
@@ -372,7 +495,10 @@ def main():
         print(f"Port {DEFAULT_PORT} is taken: served on another, where the builder's settings in the browser start anew.", flush=True)
     port = server.server_address[1]
     token = secrets.token_urlsafe(24)
-    server.RequestHandlerClass = handler_of(args.project, token, port)
+    page, said = page_copy(os.path.realpath(args.project))
+    if said:
+        print(said, flush=True)
+    server.RequestHandlerClass = handler_of(args.project, token, port, page)
     server.daemon_threads = True
     print(f"http://{ADDRESS}:{port}/editor/#project={token}", flush=True)
     print(f"The builder reads and writes {args.project.resolve()}", flush=True)

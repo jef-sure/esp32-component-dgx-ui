@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """
 test_serve.py: tools/dgx_ui_serve.py on a project in a temporary directory. The builder's files served, nothing else
-of the component; the project listed, read and written by the token of the link; each refusal: another Host, for a
-file of the page too, no token or another, a write from another page, a path with "..", from the root, of a
-backslash, a link leading out, into a folder not there, a body too large or cut short; no answer to a question of
-another origin and no header that keeps the page out of a frame. What is written: the files the project's calls of
-dgx-ui name, read anew at each write, and pages and appearances already there; never a file or folder of a dot, a file the build reads
-by its name (CMakeLists.txt, CMakeCache.txt, CMake*.json, sdkconfig*) in any case of letters, nor anything under
-build/, managed_components/ or a folder of a build, even when a call names it. The builder's own reading of the calls
-(store.js, under node) gives no file the server's leaves out. A write through a link within the project writes the
-file it leads to and keeps a file's mode. A link of the page's folder leading out of it, to a folder beside it too,
-not followed. The project's own copy from the registry served by it, no other looked for; a fixed port, and another
-when it is taken.
+of the component, each under the Content-Security-Policy that lets a page call nothing but the server; the project
+listed, read and written by the token of the link; each refusal: another Host, for a file of the page too, no token or
+another, a write from another page, a path with "..", from the root, of a backslash, a link leading out, into a folder
+not there, a body too large or cut short; no answer to a question of another origin and no header that keeps the page
+out of a frame. What is read: the CMakeLists, CMakePresets.json, the files the calls name, the pages and appearances
+there, the fonts DGX writes, the board's entry, of a build's sdkconfig the panel's lines alone; never sdkconfig, a file
+of a dot (.env, .git/config), dependencies.lock, a source, a .json of the program's. What is written: the files the
+project's calls of dgx-ui name, read anew at each write, and pages and appearances already there; never a file or
+folder of a dot, a file the build reads by its name (CMakeLists.txt, CMakeCache.txt, CMake*.json, sdkconfig*) in any
+case of letters, nor anything under build/, managed_components/ or a folder of a build, even when a call names it. The
+builder's own reading of the calls (store.js, under node) gives no file the server's leaves out. A write through a link
+within the project writes the file it leads to and keeps a file's mode. A link of the page's folder leading out of it,
+to a folder beside it too, not followed. The project's own copy of dgx-ui, of the registry or of git, gives its page,
+nothing of it run; a copy out of managed_components/, of another API, of a link out or not as its checksums say, the
+server's own page; a fixed port, and another when it is taken.
 """
+import hashlib
 import http.client
 import importlib.util
 import json
@@ -80,7 +85,7 @@ const sandbox = { console, TextEncoder, TextDecoder, WebAssembly, atob, setTimeo
 sandbox.window = sandbox;
 vm.createContext(sandbox);
 for (const [, script] of fs.readFileSync(path.join(editor, 'index.html'), 'utf8').matchAll(/<script src="([^"]+)">/g)) {
-    if (script === 'app.js') continue;
+    if (script === 'app.js' || script === 'start.js') continue;
     const exported = { 'vendor/vue.global.prod.js': 'Vue', 'vendor/pinia.iife.prod.js': 'Pinia' }[script];
     vm.runInContext(fs.readFileSync(path.join(editor, script), 'utf8') + (exported ? `\n;window.${exported} = ${exported};` : ''), sandbox);
 }
@@ -146,6 +151,27 @@ try:
     for name in ("CMakePresets.json", "package.json", "version.txt", ".mcp.json"):
         (project / name).write_text("{}\n")
     (project / "main" / "names.txt").write_text("value volume &volume\n")
+    # what the builder does not read: a secret of the program's, the configuration, a tool's
+    (project / "sdkconfig").write_text("CONFIG_X=y\nCONFIG_WIFI_PASSWORD=secret\n") if not (project / "sdkconfig").exists() else None
+    (project / "main" / "secrets.h").write_text("#define PASSWORD \"secret\"\n")
+    (project / ".env").write_text("TOKEN=secret\n")
+    (project / ".git").mkdir(exist_ok=True)
+    (project / ".git" / "config").write_text("[remote] url = secret\n")
+    (project / "dependencies.lock").write_text("secret: 1\n")
+    (project / "main" / "wifi.json").write_text('{"ssid": "secret", "password": "secret"}\n')  # a .json of the program's
+    # what it does read: the preset, a build's sdkconfig of the panel's lines alone, the fonts DGX writes, the board's entry
+    (project / "CMakePresets.json").write_text('{"configurePresets": []}\n')
+    (project / "build-host").mkdir()
+    (project / "build-host" / "CMakeCache.txt").write_text("# a build's\n")
+    (project / "build-host" / "sdkconfig").write_text("CONFIG_WIFI_PASSWORD=secret\nCONFIG_BOARD_HOST_WIDTH=320\nCONFIG_BOARD_HOST_HEIGHT=240\n"
+                                                      "CONFIG_BOARD_HOST_COLOR_BITS=16\n")
+    (project / "build" / "cyd" / "dgx_fonts").mkdir(parents=True)
+    (project / "build" / "cyd" / "dgx_fonts" / "dgx_fonts-files.txt").write_text("small small.dgxf\n")
+    (project / "build" / "cyd" / "dgx_fonts" / "small.dgxf").write_bytes(b"DGXF")
+    (project / "build" / "cyd" / "dgx_fonts" / "other.bin").write_bytes(b"secret")
+    (project / "components" / "local-boards" / "boards" / "cyd").mkdir(parents=True)
+    (project / "components" / "local-boards" / "boards" / "cyd" / "board.json").write_text('{"devices": {}}\n')
+    (project / "components" / "local-boards" / "boards" / "cyd" / "notes.json").write_text('{"secret": 1}\n')
     (project / "main" / "names.txt").chmod(0o640)
     (project / "main" / "out.txt").symlink_to(outside / "secret.txt")
     (project / "main" / "out_dir").symlink_to(outside / "deep")
@@ -189,6 +215,9 @@ try:
     # the builder's files, and nothing else of the component
     status, body, headers = ask("GET", "/editor/index.html", token_given=False)
     check(status == 200 and b"dgxUiBuilderMount" in body, f"the page served: {status}")
+    csp = headers.get("Content-Security-Policy", "")
+    check("connect-src 'self'" in csp and "default-src 'self'" in csp and "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'" in csp and
+          "base-uri 'none'" in csp, f"the page under its Content-Security-Policy: {csp}")
     check("X-Frame-Options" not in headers and "frame-ancestors" not in headers.get("Content-Security-Policy", ""),
           f"no header keeps the page out of a frame: {headers}")
     check(ask("GET", "/editor/host_server.js", token_given=False)[0] == 200, "its host served")
@@ -208,7 +237,11 @@ try:
     check(ask("GET", "/project", token_given="x" + token)[0] == 401, "another token: refused")
     check(ask("GET", at("list", ""), host_given="evil.example")[0] == 403, "a call by another Host: refused")
     status, body, _ = ask("GET", at("list", ""))
-    check(status == 200 and [entry["name"] for entry in json.loads(body)] == sorted(os.listdir(project)), f"the project listed: {body}")
+    check(status == 200 and [entry["name"] for entry in json.loads(body)] == sorted(name for name in os.listdir(project) if not name.startswith(".")),
+          f"the project listed, nothing of a dot: {body}")
+    for rel in (".git", ".vscode", "main/../.git"):
+        status, body, _ = ask("GET", at("list", rel))
+        check(status == 400 and b"config" not in body and b"settings" not in body, f"{rel}: not listed ({status})")
     status, body, _ = ask("GET", at("list", "main"))
     check(status == 200 and b"home.json" in body and b"same.json" in body and b"out" not in body, f"links out not listed: {body}")
     check(ask("GET", at("list", "nothing"))[:2] == (204, b""), "a folder not there: 204, no content")
@@ -216,6 +249,38 @@ try:
     status, body, _ = ask("GET", at("file", "main/home.json"))
     check(status == 200 and body == b'{"dgx-ui": 1}\n', f"a file read: {status} {body}")
     check(ask("GET", at("file", "main/none.json"))[:2] == (204, b""), "a file not there: 204, no content")
+    check(ask("GET", at("file", "main/home.json"))[2].get("Content-Security-Policy") == csp, "a file of the project under the same policy")
+    # reads by a rule, as writes are
+    (project / "SdkConfig.json").write_text('{"dgx-ui": 1, "tree": {"secret": 1}}\n')  # a call names it, a description in it
+    (project / ".vscode" / "tasks.json").write_text('{"dgx-ui": 1, "tree": {"secret": 1}}\n')  # a call names it, in a folder of a dot
+    for rel in ("sdkconfig", ".env", "main/secrets.h", ".git/config", "dependencies.lock", "main/wifi.json", "build/cyd/dgx_fonts/other.bin",
+                "components/local-boards/boards/cyd/notes.json", "main/data.json", ".vscode/settings.json", ".vscode/page.json", ".vscode/tasks.json",
+                "SdkConfig.json"):
+        status, body, _ = ask("GET", at("file", rel))
+        check(status == 400 and b"secret" not in body, f"{rel}: not read ({status} {body[:80]})")
+    for rel, wanted in (("CMakeLists.txt", None), ("main/CMakeLists.txt", None), ("components/x/CMakeLists.txt", None), ("CMakePresets.json", None),
+                        ("main/names.txt", None), ("main/look.json", None), ("pages/loaded.json", None), ("pages/look_like.json", None),
+                        ("build/cyd/dgx_fonts/dgx_fonts-files.txt", None), ("build/cyd/dgx_fonts/small.dgxf", b"DGXF"),
+                        ("components/local-boards/boards/cyd/board.json", None),
+                        ("build-host/sdkconfig", b"CONFIG_BOARD_HOST_WIDTH=320\nCONFIG_BOARD_HOST_HEIGHT=240\nCONFIG_BOARD_HOST_COLOR_BITS=16\n")):
+        status, body, _ = ask("GET", at("file", rel))
+        check(status == 200 and (wanted is None or body == wanted), f"{rel}: read ({status} {body[:80]})")
+    # a read goes by the file a link leads to: a link of a list's name, or of a name a call gives, to another file is refused
+    presets = (project / "CMakePresets.json").read_text()
+    (project / "CMakePresets.json").unlink()
+    (project / "CMakePresets.json").symlink_to(project / "main" / "secrets.h")
+    (project / "components" / "linked").mkdir()
+    (project / "components" / "linked" / "CMakeLists.txt").symlink_to(project / "main" / "secrets.h")
+    (project / "components" / "named").mkdir()
+    (project / "components" / "named" / "CMakeLists.txt").write_text("dgx_ui_tree(page.json)\n")
+    (project / "components" / "named" / "page.json").symlink_to(project / "main" / "wifi.json")
+    for rel in ("CMakePresets.json", "components/linked/CMakeLists.txt", "components/named/page.json"):
+        status, body, _ = ask("GET", at("file", rel))
+        check(status == 400 and b"secret" not in body, f"{rel}, a link to another file: not read ({status} {body[:60]})")
+    (project / "CMakePresets.json").unlink()
+    (project / "CMakePresets.json").write_text(presets)
+    shutil.rmtree(project / "components" / "linked")
+    shutil.rmtree(project / "components" / "named")
     for rel in ("../outside/secret.txt", "main/../../outside/secret.txt", str(outside / "secret.txt"), "/etc/passwd", "main\\home.json",
                 "main//home.json", "./main/home.json", "main/out.txt", "main/out_dir/secret.json", "main/beside.json", "../demo-beside/secret.json"):
         status, body, _ = ask("GET", at("file", rel))
@@ -382,21 +447,67 @@ try:
         check(status == 404 and b"beside the page" not in body and b"of the component" not in body, f"{path}: not served ({status})")
     stop(process)
 
-    # the project's own copy from the registry serves it; a copy elsewhere in managed_components/ is not looked for
-    copy = project / "managed_components" / "jef-sure__dgx-ui" / "tools"
-    copy.mkdir(parents=True)
-    (copy / "dgx_ui_serve.py").write_text('import sys\nprint("http://127.0.0.1:1/editor/#project=copy", flush=True)\nprint(sys.argv[1:], flush=True)\n')
-    process, port, token, said = start(project, "--port", "0")
-    check(token == "copy" and any("own copy" in line for line in said), f"the project's copy serves it: {said}")
-    stop(process)
-    shutil.rmtree(project / "managed_components" / "jef-sure__dgx-ui")
-    other = project / "managed_components" / "dgx-ui" / "tools"
-    other.mkdir(parents=True)
-    (other / "dgx_ui_serve.py").write_text('print("http://127.0.0.1:1/editor/#project=other", flush=True)\n')
-    process, port, token, said = start(project, "--port", "0")
-    check(token not in (None, "other") and not any("own copy" in line for line in said), f"a copy of another folder not handed to: {said}")
-    stop(process)
-    shutil.rmtree(project / "managed_components" / "dgx-ui")
+    # the project's own copy, of the registry or of git: its builder's page served, nothing of it ever run; a copy out
+    # of managed_components/, one whose page speaks another API, has a link out, or is not as its CHECKSUMS.json says: the
+    # server's own page
+    marker = work / "run-marker"
+    planted = f'import pathlib\npathlib.Path({str(marker)!r}).write_text("run")\nprint("http://127.0.0.1:1/editor/#project=copy", flush=True)\n'
+
+    def copy_of(name, api=1, sums=True):
+        folder = project / "managed_components" / name
+        shutil.rmtree(folder, ignore_errors=True)
+        (folder / "tools").mkdir(parents=True)
+        for tool in ("dgx_ui_serve.py", "dgx_ui_mcp.py"):
+            (folder / "tools" / tool).write_text(planted)
+        shutil.copytree(SERVER.parent.parent / "editor", folder / "editor", ignore=shutil.ignore_patterns("vendor", "preview"))
+        (folder / "editor" / "marker.txt").write_text(f"the page of {name}\n")
+        host_js = folder / "editor" / "host_server.js"
+        host_js.write_text(re.sub(r"DGX_UI_SERVER_API = \d+", f"DGX_UI_SERVER_API = {api}", host_js.read_text()))
+        (folder / "idf_component.yml").write_text('version: "9.9.9"\n')
+        if sums:
+            files = [{"path": str(path.relative_to(folder)), "size": path.stat().st_size, "hash": hashlib.sha256(path.read_bytes()).hexdigest()}
+                     for path in sorted(folder.rglob("*")) if path.is_file()]
+            (folder / "CHECKSUMS.json").write_text(json.dumps({"version": "1.0", "algorithm": "sha256", "files": files}))
+        return folder
+
+    def page_of(name):
+        process, port, token, said = start(project, "--port", "0")
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        connection.request("GET", "/editor/marker.txt", headers={"Host": f"127.0.0.1:{port}"})
+        response = connection.getresponse()
+        served = response.read() if response.status == 200 else None
+        connection.close()
+        stop(process)
+        return served, said
+
+    for name in ("jef-sure__dgx-ui", "dgx-ui"):
+        copy_of(name)
+        served, said = page_of(name)
+        check(served == f"the page of {name}\n".encode() and any("9.9.9" in line and name in line for line in said), f"{name}: its page served: {said}")
+        shutil.rmtree(project / "managed_components" / name)
+    folder = copy_of("jef-sure__dgx-ui", api=2)
+    served, said = page_of("jef-sure__dgx-ui")
+    check(served is None and any("does not speak to" in line for line in said), f"a page of another API: the server's own: {said}")
+    folder = copy_of("jef-sure__dgx-ui")
+    (folder / "editor" / "app.js").write_text("// spoiled\n")
+    served, said = page_of("jef-sure__dgx-ui")
+    check(served is None and any("CHECKSUMS.json" in line for line in said), f"a file not as its checksums say: the server's own: {said}")
+    folder = copy_of("jef-sure__dgx-ui")
+    (folder / "editor" / "out.txt").symlink_to(outside / "secret.txt")
+    served, said = page_of("jef-sure__dgx-ui")
+    check(served is None and any("link out" in line for line in said), f"a link out of its page: the server's own: {said}")
+    shutil.rmtree(folder)
+    elsewhere = copy_of("jef-sure__dgx-ui")
+    shutil.move(str(elsewhere), str(work / "elsewhere"))
+    (project / "managed_components" / "jef-sure__dgx-ui").symlink_to(work / "elsewhere")
+    served, said = page_of("jef-sure__dgx-ui")
+    check(served is None and any("leads out" in line for line in said), f"a copy out of managed_components: the server's own: {said}")
+    (project / "managed_components" / "jef-sure__dgx-ui").unlink()
+    folder = copy_of("dgx-ui", sums=False)
+    served, said = page_of("dgx-ui")
+    check(served == b"the page of dgx-ui\n", f"a copy of git, no checksums: its page: {said}")
+    shutil.rmtree(folder)
+    check(not marker.exists(), "nothing of a copy ever run")
 
     # the fixed port, and another when it is taken; a port asked for and taken: an error
     holder = socket.socket()

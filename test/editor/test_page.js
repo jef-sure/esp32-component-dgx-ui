@@ -7,7 +7,10 @@
  * appearance by its forms: a colour typed, by a name of DGX's and by the picker, on the panel at once and the time of a
  * pass measured, Ctrl+Z, a look added of a draw, a look renamed in the page that names it; the names file by its forms:
  * an expression typed, a name the page misses added, a rename carried into the page and Ctrl+Z, a file not on the disk
- * made of the names its page misses and written by the server; the language changed; a screenshot is kept. Then the same project on the disk through tools/dgx_ui_serve.py, by the link it prints:
+ * made of the names its page misses and written by the server; the language changed; a screenshot is kept. The page
+ * under the server's Content-Security-Policy, a fetch and an image of another host blocked. Then the same project beside
+ * an agent, tools/dgx_ui_mcp.py driven over stdio: the link, the state, an edit and a refusal by the loader's code, the
+ * person's Ctrl+Z, the panel as a PNG, the dialog both ways, nothing saved by the agent. Then the same project on the disk through tools/dgx_ui_serve.py, by the link it prints:
  * opened at once, a description saved into its file, a CMakeLists.txt refused. No error may reach the console.
  *
  * Chrome is CHROME, else google-chrome, chromium or chromium-browser on the PATH. With none, the test fails, saying so,
@@ -457,6 +460,20 @@ function devtools(url) {
         for (const end = Date.now() + 10000; Date.now() < end && !fs.existsSync(fresh); await sleep(100));
         check(fs.existsSync(fresh) && fs.readFileSync(fresh, 'utf8') === await evaluate(`${store}.files['main/fresh.txt'].text`) &&
               fs.readFileSync(fresh, 'utf8').includes('value') && fs.readFileSync(fresh, 'utf8').includes('level'), 'the names file written on the disk');
+        /* under the server's Content-Security-Policy a page sends nothing to another host, by fetch nor by an image */
+        const blockedBefore = errors.length;
+        const out = await evaluate(`(async () => {
+            const seen = [];
+            document.addEventListener('securitypolicyviolation', (event) => seen.push(event.violatedDirective));
+            const fetched = await fetch('http://example.com/leak?x=1').then(() => 'sent', () => 'blocked');
+            const image = new Image();
+            const loaded = await new Promise((done) => { image.onload = () => done('sent'); image.onerror = () => done('blocked'); image.src = 'http://example.com/leak.png'; });
+            await new Promise((done) => setTimeout(done, 200));
+            return { fetched, loaded, seen };
+        })()`);
+        check(out.fetched === 'blocked' && out.loaded === 'blocked' && out.seen.some((one) => one.startsWith('connect-src')) &&
+              out.seen.some((one) => one.startsWith('img-src')), 'a fetch and an image of another host blocked by the policy: ' + JSON.stringify(out));
+        errors.splice(blockedBefore); // the browser's own lines of the two refusals, the errors expected
         const errorsBefore = errors.length;
         const refusal = await evaluate(`${store}.raw.host.write('main/CMakeLists.txt', 'spoiled').then(() => 'written', (error) => error.message)`);
         await sleep(200);
@@ -465,6 +482,65 @@ function devtools(url) {
         errors.push(...refused);
         check(/build's own/.test(refusal) && fs.readFileSync(path.join(project, 'main', 'CMakeLists.txt'), 'utf8') === files['main/CMakeLists.txt'],
               'a CMakeLists.txt refused, saying why: ' + refusal);
+        server.kill('SIGKILL');
+        server = null;
+
+        /* the same project beside an agent: tools/dgx_ui_mcp.py over stdio, as a client of MCP speaks it */
+        server = spawn('python3', [path.join(ROOT, 'tools', 'dgx_ui_mcp.py'), '--project', project, '--port', '0'], { stdio: ['pipe', 'pipe', 'inherit'] });
+        let rows = '', ident = 0;
+        const waiting = new Map();
+        server.stdout.on('data', (data) => {
+            rows += data;
+            for (let end; (end = rows.indexOf('\n')) >= 0; rows = rows.slice(end + 1)) {
+                const answer = JSON.parse(rows.slice(0, end));
+                waiting.get(answer.id)?.(answer), waiting.delete(answer.id);
+            }
+        });
+        const mcp = (method, params = {}) => new Promise((done) => {
+            waiting.set(++ident, done);
+            server.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: ident, method, params }) + '\n');
+        });
+        const tool = async (name, args = {}) => {
+            const answer = await mcp('tools/call', { name, arguments: args });
+            return answer.result.content;
+        };
+        const valueOf = (content) => JSON.parse(content[0].text);
+        await mcp('initialize', { protocolVersion: '2025-06-18', capabilities: {} });
+        const agentLink = valueOf(await tool('page_link')).link;
+        check(/^http:\/\/127\.0\.0\.1:\d+\/editor\/#project=[\w-]+&agent=1$/.test(agentLink), 'the agent gives the link: ' + agentLink);
+        await send('Page.navigate', { url: agentLink });
+        await until(`typeof useDgxUiBuilder === 'function' && ${store}.agent && ${store}.current === 'main/home.json' && ${store}.drawn > 0`,
+                    'the builder beside the agent, its dialog shown', 20000);
+        await until(`!!document.querySelector('.dgx-ui-builder .agent textarea')`, 'the dialog on the page');
+        let state = valueOf(await tool('page_state'));
+        for (let k = 0; k < 20 && state.error; ++k) await sleep(300), (state = valueOf(await tool('page_state')));
+        check(state.open === 'main/home.json' && state.verdicts.page.taken && state.pages.some((one) => one.path === 'main/home.json'),
+              'page_state: the page open, taken: ' + JSON.stringify(state).slice(0, 200));
+        const agentBefore = await evaluate(`${store}.files['main/home.json'].text`);
+        const changed = agentBefore.replace('"text": "Hello"', '"text": "Hello from the agent"');
+        const edited = valueOf(await tool('edit_file', { path: 'main/home.json', text: changed, why: 'the greeting longer' }));
+        check(edited.verdicts.page.taken && (await evaluate(`${store}.files['main/home.json'].text`)) === changed, 'edit_file: in the builder, taken');
+        const spoiled = valueOf(await tool('edit_file', { path: 'main/home.json', text: changed.replace('"kind": "slider"', '"kind": "slidr"'), why: 'a try' }));
+        check(spoiled.verdicts.page.code === 'DGX_UI_LOAD_KIND' && Array.isArray(spoiled.verdicts.widget), 'a refusal said by the loader\'s code and its widget: ' +
+              JSON.stringify(spoiled.verdicts.page));
+        await evaluate('document.activeElement && document.activeElement.blur()');
+        await Promise.all(key('z', 'KeyZ', 90, 2));
+        await until(`${store}.files['main/home.json'].text === ${JSON.stringify(changed)} && ${store}.verdicts.page.code === 0`, 'Ctrl+Z undoes the agent\'s edit');
+        check(valueOf(await tool('read_file', { path: 'main/home.json' })).text === changed, 'read_file: the text as the builder holds it');
+        check(valueOf(await tool('read_file', { path: 'main/secrets.h' })).error, 'read_file of no file of the builder: said');
+        const picture = await tool('page_image');
+        const bytes = Buffer.from(picture[0].data, 'base64');
+        check(picture[0].type === 'image' && bytes.readUInt32BE(16) === 320 && bytes.readUInt32BE(20) === 240, 'page_image: a PNG of the screen\'s size');
+        await tool('say', { text: 'The greeting is longer now.' });
+        await until(`[...document.querySelectorAll('.dgx-ui-builder .agent .messages p.agent')].some((one) => one.textContent.includes('The greeting is longer now.'))`,
+                    'say shown in the dialog');
+        await evaluate(`(() => { const area = document.querySelector('.dgx-ui-builder .agent textarea'); area.focus(); })()`);
+        await send('Input.insertText', { text: 'Thank you' });
+        await Promise.all(key('Enter', 'Enter', 13));
+        const heard = valueOf(await tool('wait_for_person', { seconds: 10 }));
+        check(heard.messages.includes('Thank you'), 'the person\'s message to wait_for_person: ' + JSON.stringify(heard));
+        check(!fs.readFileSync(path.join(project, 'main', 'home.json'), 'utf8').includes('from the agent'), 'nothing saved by the agent');
+        server.stdin.end();
         server.kill('SIGKILL');
         server = null;
         fs.rmSync(folder, { recursive: true, force: true });

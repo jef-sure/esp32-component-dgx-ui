@@ -40,6 +40,8 @@ known = set(re.findall(r'\b(?:dgx_ui_[a-z0-9_]+|DGX_UI_[A-Z0-9_]+)\b', headers))
 cmake = open(os.path.join(repo, 'project_include.cmake')).read()
 known |= set(re.findall(r'\bdgx_ui_[a-z0-9_]+\b', cmake))
 cmake_calls = set(re.findall(r'^function\((dgx_ui_[a-z0-9_]+)', cmake, re.M))
+# the programs and scripts of tools/, by their names without the extension
+known |= {os.path.splitext(name)[0] for name in os.listdir(os.path.join(repo, 'tools')) if name.startswith('dgx_ui_')}
 CC = ['cc', '-std=gnu11', '-fsyntax-only', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-unused-function', '-Wno-unused-variable',
       '-Wno-unused-but-set-variable', '-Wno-missing-field-initializers', '-Werror=implicit-function-declaration', '-Werror=incompatible-pointer-types',
       '-DDGX_HOST_WINDOW', f'-I{here}/stubs', f'-I{repo}/include', f'-I{dgx}/include', f'-I{dgx}/host/stubs', f'-I{dgx}/host/window', f'-I{dgx_di}/include', f'-I{fonts}',

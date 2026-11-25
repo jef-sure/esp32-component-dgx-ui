@@ -1,0 +1,281 @@
+#!/usr/bin/env python3
+"""
+python3 test_mcp.py: tools/dgx_ui_mcp.py, the builder's server with an agent beside the page, on projects in a temporary
+directory, its MCP over stdio as a client speaks it and its page played by a fake one over HTTP.
+ - MCP: initialize with the component's version, the tools listed, each call's arguments held to its schema, a method
+   unknown, a row not JSON, a notification answered by nothing;
+ - the relay: a tool's request goes to the page in order and comes back with what the page answers; the agent's why and
+   say shown to the page, what the person writes back to wait_for_person; the page's image given as MCP's image; with no
+   page open a tool answers at once, and a page that does not answer is said in time;
+ - the page's calls by the token, the Host and, for a POST, the builder's own origin;
+ - a folder of no dgx-ui: no tools;
+ - --install: to Claude Code by its command, its words checked; with none, into .mcp.json beside the servers there;
+ - --serve: the builder's link printed, as dgx_ui_serve.py prints it;
+ - nothing of a project's own copy of dgx-ui ever run.
+"""
+import base64
+import http.client
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.parse
+
+HERE = pathlib.Path(__file__).resolve().parent
+SERVER = HERE.parent.parent / "tools" / "dgx_ui_mcp.py"
+failures = checks = 0
+
+
+def check(held, what):
+    global failures, checks
+    checks += 1
+    if not held:
+        print(f"  failed: {what}", file=sys.stderr)
+        failures += 1
+    return held
+
+
+class Client:
+    """An MCP client over the server's stdio."""
+
+    def __init__(self, project, *extra, env=None):
+        self.process = subprocess.Popen([sys.executable, str(SERVER), "--project", str(project), "--port", "0", *extra],
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+        self.ident = 0
+
+    def send(self, row):
+        self.process.stdin.write(row + "\n")
+        self.process.stdin.flush()
+
+    def ask(self, method, params=None, notification=False):
+        self.ident += 1
+        request = {"jsonrpc": "2.0", "method": method, **({} if notification else {"id": self.ident}), **({"params": params} if params is not None else {})}
+        self.send(json.dumps(request))
+        return None if notification else json.loads(self.process.stdout.readline())
+
+    def tool(self, name, arguments=None):
+        return self.ask("tools/call", {"name": name, "arguments": arguments or {}})
+
+    def close(self):
+        self.process.stdin.close()
+        self.process.wait(timeout=10)
+
+
+def value_of(answer):
+    return json.loads(answer["result"]["content"][0]["text"])
+
+
+class FakePage:
+    """The builder's page as the server sees it: it asks for what the agent wants and answers it."""
+
+    def __init__(self, link, answers):
+        address = urllib.parse.urlsplit(link)
+        self.port, self.token = address.port, urllib.parse.parse_qs(address.fragment)["project"][0]
+        self.answers, self.messages, self.requests, self.got, self.stopped = answers, 0, 0, [], False
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
+
+    def call(self, method, path, body=None, token=True, origin=True, host=None):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=40)
+        headers = {"Host": host or f"127.0.0.1:{self.port}"}
+        if token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        if origin and method == "POST":
+            headers["Origin"] = f"http://127.0.0.1:{self.port}"
+        data = json.dumps(body).encode() if body is not None else None
+        if data is not None:
+            headers["Content-Type"], headers["Content-Length"] = "application/json", str(len(data))
+        connection.request(method, path, body=data, headers=headers)
+        response = connection.getresponse()
+        answer = response.status, response.read()
+        connection.close()
+        return answer
+
+    def run(self):
+        while not self.stopped:
+            try:
+                status, body = self.call("GET", f"/agent/updates?messages={self.messages}&requests={self.requests}")
+            except OSError:  # the server stopped
+                return
+            if status != 200:
+                time.sleep(0.2)
+                continue
+            said = json.loads(body)
+            self.got += said["messages"]
+            self.messages += len(said["messages"])
+            for request in said["requests"]:
+                self.got.append(request)
+                answer = self.answers(request)
+                if answer is not None:
+                    self.call("POST", "/agent/answer", {"id": request["id"], "value": answer})
+            self.requests += len(said["requests"])
+
+
+def project_in(folder, planted=None):
+    (folder / "main").mkdir(parents=True)
+    (folder / "CMakeLists.txt").write_text("project(demo)\n")
+    (folder / "main" / "CMakeLists.txt").write_text("dgx_ui_tree(home.json)\n")
+    (folder / "main" / "home.json").write_text('{"dgx-ui": 1, "tree": {"kind": "box"}}\n')
+    if planted:
+        for name in ("jef-sure__dgx-ui", "dgx-ui"):
+            tools = folder / "managed_components" / name / "tools"
+            tools.mkdir(parents=True)
+            for tool in ("dgx_ui_mcp.py", "dgx_ui_serve.py"):
+                (tools / tool).write_text(f"import pathlib\npathlib.Path({str(planted)!r}).write_text('run')\n")
+    return folder
+
+
+def main():
+    work = pathlib.Path(tempfile.mkdtemp(prefix="dgx-ui-mcp-"))
+    marker = work / "run-marker"
+    try:
+        project = project_in(work / "demo", planted=marker)
+        client = Client(project)
+
+        # MCP
+        said = client.ask("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}})
+        version = next(line.split('"')[1] for line in (HERE.parent.parent / "idf_component.yml").read_text().splitlines() if line.startswith("version:"))
+        check(said["result"]["serverInfo"] == {"name": "dgx-ui", "version": version} and "page_link" in said["result"]["instructions"],
+              f"initialize: {said['result']['serverInfo']}")
+        check(client.ask("notifications/initialized", notification=True) is None, "a notification answered by nothing")
+        tools = [tool["name"] for tool in client.ask("tools/list")["result"]["tools"]]
+        check(tools == ["page_link", "page_state", "page_image", "read_file", "edit_file", "select", "formats", "wait_for_person", "say"],
+              f"the tools: {tools}")
+        for name, arguments, why in (("say", {}, "arguments has no text"), ("say", {"text": 1}, "arguments.text is not a string"),
+                                     ("wait_for_person", {"seconds": 0}, "out of"), ("select", {"path": "a", "widget": [-1]}, "out of"),
+                                     ("edit_file", {"path": "a", "text": "b"}, "has no why"), ("no_such_tool", {}, "name of a tool")):
+            answer = client.tool(name, arguments)
+            check(answer.get("error", {}).get("code") == -32602 and why in answer["error"]["message"], f"{name} {arguments}: {answer}")
+        check(client.ask("no/such")["error"]["code"] == -32601, "a method unknown")
+        client.send("{not json")
+        check(json.loads(client.process.stdout.readline())["error"]["code"] == -32700, "a row not JSON")
+        check("tools" in client.ask("tools/list")["result"], "answered after it")
+        link = value_of(client.tool("page_link"))["link"]
+        check(link.startswith("http://127.0.0.1:") and "/editor/#project=" in link and link.endswith("&agent=1"), f"the link: {link}")
+        began = time.monotonic()
+        answer = client.tool("edit_file", {"path": "main/home.json", "text": "{}", "why": "a try"})
+        check(answer["result"].get("isError") and "not open" in value_of(answer)["error"] and time.monotonic() - began < 2,
+              f"no page open: said at once: {answer}")
+
+        # the relay, by a page that answers
+        png = base64.b64encode(b"\x89PNG\r\n\x1a\n").decode()
+
+        def answers(request):
+            if request["kind"] == "edit":
+                return {"path": request["args"]["path"], "verdicts": {"page": {"taken": True}}}
+            if request["kind"] == "state":
+                return {"open": "main/home.json", "verdicts": {"page": {"taken": True}}}
+            if request["kind"] == "image":
+                return {"png": png, "width": 320, "height": 240}
+            if request["kind"] == "read":
+                return None  # a page that does not answer
+            return {"kind": request["kind"]}
+
+        page = FakePage(link, answers)
+        for _ in range(50):
+            if client.tool("page_state")["result"].get("isError") is None:
+                break
+            time.sleep(0.1)
+        state = value_of(client.tool("page_state"))
+        check(state == {"open": "main/home.json", "verdicts": {"page": {"taken": True}}}, f"page_state from the page: {state}")
+        edited = value_of(client.tool("edit_file", {"path": "main/home.json", "text": '{"dgx-ui": 1, "tree": {"kind": "frame"}}', "why": "a frame"}))
+        check(edited == {"path": "main/home.json", "verdicts": {"page": {"taken": True}}}, f"edit_file answered by the page: {edited}")
+        request = next((one for one in page.got if isinstance(one, dict) and one.get("kind") == "edit"), None)
+        check(request and request["args"]["text"] == '{"dgx-ui": 1, "tree": {"kind": "frame"}}', f"the page asked the whole text: {request}")
+        check({"from": "agent", "text": "a frame"} in page.got, "the edit's why shown to the person")
+        image = client.tool("page_image")["result"]["content"]
+        check(image[0] == {"type": "image", "data": png, "mimeType": "image/png"} and json.loads(image[1]["text"]) == {"width": 320, "height": 240},
+              f"the panel as MCP's image: {image[1]}")
+        check(value_of(client.tool("select", {"path": "main/home.json", "widget": [0]})) == {"kind": "select"}, "select")
+        check(value_of(client.tool("formats")) == {"kind": "formats"}, "formats")
+        kinds = [one["kind"] for one in page.got if isinstance(one, dict) and "kind" in one]
+        check(kinds == ["state", "state", "edit", "image", "select", "formats"] or kinds[-4:] == ["edit", "image", "select", "formats"],
+              f"the requests in their order: {kinds}")
+        client.tool("say", {"text": "Hello, person"})
+        time.sleep(0.5)
+        check({"from": "agent", "text": "Hello, person"} in page.got, "say shown on the page")
+        check(page.call("POST", "/agent/say", {"text": "a frame, please"}) == (200, b"{}"), "the person writes")
+        check(value_of(client.tool("wait_for_person", {"seconds": 5})) == {"messages": ["a frame, please"]}, "wait_for_person gives it")
+        began = time.monotonic()
+        check(value_of(client.tool("wait_for_person", {"seconds": 1})) == {"messages": []} and time.monotonic() - began >= 0.9, "nothing more in a second")
+        began = time.monotonic()
+        answer = client.tool("read_file", {"path": "main/home.json"})
+        check(answer["result"].get("isError") and "did not answer" in value_of(answer)["error"] and 9 <= time.monotonic() - began < 15,
+              f"a page that does not answer: said in time: {answer}")
+
+        # the page's calls by the token, the Host and its own origin
+        check(page.call("GET", "/agent/updates?messages=0&requests=0", token=False)[0] == 401, "updates with no token refused")
+        check(page.call("GET", "/agent/updates?messages=0&requests=0", host="evil.example")[0] == 403, "updates by another Host refused")
+        check(page.call("GET", "/agent/updates?messages=x&requests=0")[0] == 400, "updates of no count refused")
+        check(page.call("POST", "/agent/say", {"text": "x"}, origin=False)[0] == 403, "a message from another page refused")
+        check(page.call("POST", "/agent/say", {"text": "x"}, token=False)[0] == 401, "a message with no token refused")
+        check(page.call("POST", "/agent/say", {"words": "x"})[0] == 400 and page.call("POST", "/agent/answer", {"id": "1"})[0] == 400,
+              "a body of the wrong form refused")
+        status, body = page.call("GET", "/editor/index.html", token=False)
+        check(status == 200 and b"start.js" in body, "the builder's page served beside the agent")
+        status, body = page.call("GET", "/project/file?path=main/home.json")
+        check(status == 200 and b"dgx-ui" in body, "the project read by the rules of dgx_ui_serve.py")
+        check(page.call("POST", "/project/file?path=CMakeLists.txt", "spoiled")[0] == 400, "and written by them")
+        page.stopped = True
+        client.close()
+
+        # a folder of no dgx-ui: no tools
+        empty = work / "empty"
+        empty.mkdir()
+        (empty / "notes.json").write_text('{"a": 1}\n')
+        idle = Client(empty)
+        said = idle.ask("initialize", {})
+        check("offers nothing here" in said["result"]["instructions"] and idle.ask("tools/list")["result"]["tools"] == [], "a folder of no dgx-ui: no tools")
+        idle.close()
+        loose = work / "loose"
+        (loose / "pages").mkdir(parents=True)
+        (loose / "pages" / "a.json").write_text('{"dgx-ui": 1, "tree": {"kind": "box"}}\n')
+        found = Client(loose)
+        check(len(found.ask("tools/list")["result"]["tools"]) == 9, "a folder of a description and no call: the tools")
+        found.close()
+
+        # --install: by Claude Code's command, or into .mcp.json
+        home, bin_dir = work / "home", work / "bin"
+        home.mkdir(), bin_dir.mkdir()
+        argv_file = work / "claude-argv"
+        (bin_dir / "claude").write_text(f"#!{sys.executable}\nimport json, sys\nopen({str(argv_file)!r}, 'w').write(json.dumps(sys.argv[1:]))\nprint('added')\n")
+        (bin_dir / "claude").chmod(0o755)
+        environment = {**os.environ, "HOME": str(home), "PATH": f"{bin_dir}{os.pathsep}/usr/bin:/bin"}
+        done = subprocess.run([sys.executable, str(SERVER), "--install"], cwd=work, env=environment, capture_output=True, text=True, timeout=30)
+        check(done.returncode == 0 and json.loads(argv_file.read_text()) == ["mcp", "add", "-s", "user", "dgx-ui", "--", sys.executable, str(SERVER.resolve())],
+              f"--install by Claude Code's command: {argv_file.read_text() if argv_file.exists() else done.stderr}")
+        (bin_dir / "claude").unlink()
+        folder = work / "agent-folder"
+        folder.mkdir()
+        (folder / ".mcp.json").write_text(json.dumps({"mcpServers": {"boards": {"command": "x", "args": []}}}))
+        done = subprocess.run([sys.executable, str(SERVER), "--install"], cwd=folder, env={**environment, "PATH": "/usr/bin:/bin"},
+                              capture_output=True, text=True, timeout=30)
+        config = json.loads((folder / ".mcp.json").read_text())
+        check(done.returncode == 0 and set(config["mcpServers"]) == {"boards", "dgx-ui"} and
+              config["mcpServers"]["dgx-ui"] == {"command": sys.executable, "args": [str(SERVER.resolve())]}, f"--install into .mcp.json: {config}")
+
+        # --serve: the builder's link, as dgx_ui_serve.py prints it
+        served = subprocess.Popen([sys.executable, str(SERVER), "--serve", "--project", str(project), "--port", "0"], stdout=subprocess.PIPE, text=True)
+        lines = [served.stdout.readline() for _ in range(2)]
+        line = next((one for one in lines if one.startswith("http")), "")
+        check(line.startswith("http://127.0.0.1:") and "/editor/#project=" in line and "agent" not in line and
+              any("this server's own page" in one for one in lines), f"--serve prints the note of the copy and the link: {lines}")
+        served.terminate()
+        served.wait(timeout=10)
+        check(not marker.exists(), "nothing of the project's own copy ever run")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    if failures:
+        print(f"test_mcp.py: {failures} of {checks} checks failed", file=sys.stderr)
+        return 1
+    print(f"test_mcp.py: {checks} of {checks} checks held")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

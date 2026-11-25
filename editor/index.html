@@ -24,16 +24,14 @@
     <script src="lang/ru.js"></script>
     <script src="host_browser.js"></script>
     <script src="host_server.js"></script>
+    <script src="agent.js"></script>
     <script src="store.js"></script>
     <script src="app.js"></script>
 </head>
 
 <body>
     <div id="app"></div>
-    <script>
-        const start = { language: navigator.language.startsWith('ru') ? 'ru' : 'en' }, served = dgxUiServedToken(location.hash);
-        dgxUiBuilderMount('#app', served ? { open: () => dgxUiServerHost(served), start } : { host: dgxUiBrowserHost, start });
-    </script>
+    <script src="start.js"></script>
 </body>
 
 </html>

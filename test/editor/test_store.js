@@ -47,7 +47,7 @@ function page() {
     vm.createContext(sandbox);
     const scripts = [...fs.readFileSync(path.join(EDITOR, 'index.html'), 'utf8').matchAll(/<script src="([^"]+)">/g)].map((match) => match[1]);
     check(scripts.includes('store.js') && scripts.includes('preview/dgx_ui_preview.js'), 'index.html loads the store and the module');
-    for (const script of scripts.filter((name) => name !== 'app.js')) {
+    for (const script of scripts.filter((name) => name !== 'app.js' && name !== 'start.js')) {
         const exported = { 'vendor/vue.global.prod.js': 'Vue', 'vendor/pinia.iife.prod.js': 'Pinia' }[script];
         const source = fs.readFileSync(path.join(EDITOR, script), 'utf8') + (exported ? `\n;window.${exported} = ${exported};` : '');
         vm.runInContext(source, sandbox, { filename: script });
@@ -684,6 +684,25 @@ const boxOf = (store, widgetPath) => {
         const saved = await store.save(true);
         check(saved && saved.includes('main/new.txt') && written['main/new.txt'] === text('main/new.txt') && !store.files['main/new.txt'].missing,
               'written at a save: ' + JSON.stringify(saved));
+
+        /* what an agent asks, answered by the store: the state, a file, an edit as a step of its file, a page shown */
+        const state = await store.agentAnswer('state', {});
+        check(state.open === 'main/c.json' && state.verdicts.page.taken && state.pages.length === 3 && same(state.names_files, []) &&
+              Array.isArray(state.missing_names), 'the state: ' + JSON.stringify(state).slice(0, 160));
+        check((await store.agentAnswer('read', { path: 'main/vocab.txt' })).text === vocab && (await store.agentAnswer('read', { path: 'sdkconfig' })).error,
+              'a file the builder holds read; another not');
+        const broken = vocab.replace('value     volume    &room_volume\n', '');
+        store.setTab('properties');
+        const edit = await store.agentAnswer('edit', { path: 'main/vocab.txt', text: broken });
+        check(store.current === 'main/a.json' && store.tab === 'names' && text('main/vocab.txt') === broken && edit.verdicts.page.code === 'DGX_UI_LOAD_UNKNOWN' &&
+              edit.verdicts.page.name === 'volume', 'a names file edited: a page on it opened, its tab, the loader\'s verdict: ' + JSON.stringify(edit.verdicts.page));
+        check(store.undo() && text('main/vocab.txt') === vocab && store.verdicts.page.code === 0, 'the person undoes it');
+        check(same(await store.agentAnswer('select', { path: 'main/b.json', widget: [0] }), { open: 'main/b.json', selected: [0] }) &&
+              (await store.agentAnswer('select', { path: 'main/b.json', widget: [9] })).error, 'a page and a widget shown; none at a wrong path');
+        const formats = await store.agentAnswer('formats', {});
+        check(formats.page.kinds.includes('slider') && formats.names.tables.includes('value') && formats.appearance.draws.length, 'the formats');
+        check((await store.agentAnswer('image', {})).error === 'no panel drawn' || typeof document === 'undefined', 'no image with no document');
+        check((await store.agentAnswer('edit', { path: 'main/none.json', text: '{}' })).error, 'an edit of no file of the builder refused');
     }
 
     if (failures) {

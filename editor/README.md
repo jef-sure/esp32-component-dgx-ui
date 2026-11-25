@@ -47,15 +47,60 @@ takes a free one and says so, and there the zoom and the language the browser ke
 
 - Only this computer reaches it: it listens on 127.0.0.1 alone, and the project's calls carry the token of the link,
   which a browser never sends in an address.
+- It reads only what the builder reads: the project's CMakeLists and `CMakePresets.json`, the files its calls name,
+  the pages and appearances there, the fonts DGX writes under `build/`, and the board's entry; of a build's
+  `sdkconfig` only the panel's lines. Nothing of a dot, no other `sdkconfig*` and no `dependencies.lock`: a file such
+  as `main/secrets.h` is not read.
 - It writes only what the project gives the builder: the files its `dgx_ui_tree()`, `dgx_ui_appearance()` and
   `dgx_ui_names()` calls name, read anew at each save, and pages and appearances already there; of `.json` and
   `.txt`, into folders that are there. Never a file or folder whose name begins with a dot, nor `CMakeLists.txt`,
   `CMakeCache.txt`, `CMake*.json`, `requirements.txt`, `sdkconfig*` or `dependencies.lock`, in any case of letters;
   nothing under `build/`, `managed_components/` or another folder of a build; nothing outside the project, links
   followed. A file it refuses is not saved, and the builder says why.
-- A project with dgx-ui from the registry is served by its own copy, `managed_components/jef-sure__dgx-ui/`, whatever
-  copy of the script was run: the builder is of the version the project builds with.
+- Every page and file it serves is under a Content-Security-Policy: a page calls this server alone, and cannot send
+  what it reads to another host by a request, an image or a font. It is not kept out of a frame, as VS Code's browser
+  shows it in one; a page that frames it has not the token of the link.
+- A project with its own copy of dgx-ui, `managed_components/jef-sure__dgx-ui/` from the registry or
+  `managed_components/dgx-ui/` from git, is given the builder's page of that copy, so the builder is of the version
+  the project builds with. The copy is served to the browser, never run, and only when its folder lies inside
+  `managed_components/`, no file of its `editor/` leads out by a link, its page speaks this server's protocol, and,
+  with a `CHECKSUMS.json`, every file matches it. These checks keep out a damaged copy, not a forged one: what holds
+  is the browser's sandbox, the policy, and this server's own rules of reading and writing. A copy not taken gets
+  the server's own page, and the server says why.
 - It takes only the standard library of Python, so ESP-IDF's Python runs it.
+
+## With an agent
+
+`tools/dgx_ui_mcp.py` is the same server with an agent beside the builder, over MCP: the agent sees the page the
+person edits and its verdicts, edits it in the builder, and talks with the person in the builder's dialog.
+
+```sh
+python3 managed_components/dgx-ui/tools/dgx_ui_mcp.py --install   # once: the server given to the agent
+```
+
+`--install` gives it to Claude Code for every folder, by `claude mcp add -s user dgx-ui`, when Claude Code's command
+is found, on the PATH or in its extension of VS Code or Cursor; otherwise it puts it into `.mcp.json` of the folder,
+beside the servers named there, and prints what another client's settings take. The agent then starts it in the
+folder it works in; a folder with no call of dgx-ui and no description gets no tools. The path given is the path of
+the script run: when that copy goes with its project, run `--install` again, or from a clone of dgx-ui.
+`--serve` is the builder with no agent, as `dgx_ui_serve.py`.
+
+| Tool | What it does |
+| --- | --- |
+| `page_link` | the builder's link, for the person to open |
+| `page_state` | the project's pages, names files and appearances, the page open and the selection, the loader's verdicts and where they stop, the stand-ins, the names a page misses, the files edited and not saved |
+| `page_image` | the panel as the board draws it, a PNG |
+| `read_file` | a description, names file or appearance as the builder holds it, its edits too |
+| `edit_file` | the whole text of one of them put in, with why: the verdicts come back |
+| `select` | a page opened and a widget selected, for the person to see |
+| `formats` | what the loader takes: the keys of a description, an appearance and a names file |
+| `wait_for_person`, `say` | the builder's dialog: what the person writes, and what the agent tells |
+
+- The agent edits in the builder, never on the disk. An edit is a step of the file's history, which the person
+  undoes with Ctrl+Z; its why stands in the dialog. Saving is the person's.
+- The page must be open: the agent gives the person `page_link`, and with no page its tools say so at once.
+- The project's texts reach the agent as data: its strings, names and comments as values of JSON, and its tools
+  tell it they are no instructions.
 
 ## The page
 
@@ -67,6 +112,7 @@ takes a free one and says so, and there the zoom and the language the browser ke
 | Appearance | the appearance of the page open, by forms: [its colours, styles and looks](#the-appearance), drawn on the panel as they are set. |
 | Names | the names file of the page open, by forms: [its lines](#the-names-file), and the names the page uses that the file has not. |
 | Texts | the page, its names file and its appearance as text, edited by hand; the loader's verdict in words, and the cursor put at the byte it stops at. |
+| Dialog | when the builder is served [with an agent](#with-an-agent): what the agent says and does, and what the person writes to it. |
 
 The keys: Ctrl+Z, and Ctrl+Y or Ctrl+Shift+Z, undo and redo, in the file of the part in use: the appearance in
 Appearance, the names file in Names, the text shown in Texts, the page elsewhere; every file keeps a history of its own. Ctrl+S saves; Delete
@@ -175,8 +221,10 @@ and files held in memory; `host_server.js` has the third, the server of a termin
 | `names.js` | a names file as its lines: one changed, added or removed, the others kept as they are |
 | `host_browser.js` | the files of a project in a browser |
 | `host_server.js` | the files of a project through the server of a terminal, `tools/dgx_ui_serve.py` |
+| `agent.js` | the agent's requests taken from that server and answered by the page, and the dialog |
+| `start.js` | the builder mounted on `index.html`, and the agent's loop when the link asks for it |
 | `lang.js`, `lang/ru.js` | the words of the page, English and Russian |
 | `vendor/` | Vue and Pinia, the same files as the editor of [boards](https://github.com/jef-sure/esp32-component-boards) ships, with their licences |
 | `preview/` | the preview the panel draws with |
 
-What it takes: 885 KB on the disk, 315 KB when a server sends it with gzip, of which the preview is 480 KB and 193 KB.
+What it takes: 896 KB on the disk, 318 KB when a server sends it with gzip, of which the preview is 480 KB and 193 KB.

@@ -4,6 +4,10 @@
 // too. A write it refuses says why.
 'use strict';
 
+// the calls of the server this page makes, by their number: the server serves a page of its own number alone
+// (tools/dgx_ui_serve.py SERVER_API), as it reads it here
+const DGX_UI_SERVER_API = 1;
+
 async function dgxUiServerHost(token, base = '') {
     const call = (path, init = {}) => fetch(base + path, { ...init, cache: 'no-store', headers: { ...init.headers, Authorization: `Bearer ${token}` } });
     const at = (kind, path) => `/project/${kind}?path=${encodeURIComponent(path.split('/').filter((part) => part !== '').join('/'))}`;
@@ -42,4 +46,4 @@ function dgxUiServedToken(hash) {
     return new URLSearchParams(hash.replace(/^#/, '')).get('project');
 }
 
-if (typeof module !== 'undefined') module.exports = { dgxUiServerHost, dgxUiServedToken };
+if (typeof module !== 'undefined') module.exports = { dgxUiServerHost, dgxUiServedToken, DGX_UI_SERVER_API };

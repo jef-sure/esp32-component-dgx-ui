@@ -170,7 +170,7 @@ its `dgx_colors.h`. The same sources and toolchain give the same bytes, with no 
 | `dgx_ui_preview.h`, `dgx_ui_preview.c` | the module's own calls, C over dgx-ui; they build for a computer as well |
 | `preview_class.js` | the class `DgxUiPreview` over those calls |
 | `Makefile`, `preview_build.py` | the build |
-| `index.html` | the page to try it by hand |
+| `index.html`, `index.js` | the page to try it by hand, and its script |
 | `licenses/` | the licences of what is in the module |
 
 ## Licences
