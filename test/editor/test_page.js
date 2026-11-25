@@ -3,8 +3,10 @@
  * in a headless Chrome, driven by the DevTools protocol over Node's own WebSocket, with no other package. The page is
  * given a project in memory, as its host gives one with no File System Access; then it is worked as a person works it:
  * a click on the panel selects the widget under it and its outline lies on its box, a property typed, Ctrl+Z, Delete,
- * the arrows of the tree, Ctrl+S and the word the page asks before writing a description in its own form, the language
- * changed; a screenshot is kept. Then the same project on the disk through tools/dgx_ui_serve.py, by the link it prints:
+ * the arrows of the tree, Ctrl+S and the word the page asks before writing a description in its own form; the
+ * appearance by its forms: a colour typed, by a name of DGX's and by the picker, on the panel at once and the time of a
+ * pass measured, Ctrl+Z, a look added of a draw, a look renamed in the page that names it; the language changed; a
+ * screenshot is kept. Then the same project on the disk through tools/dgx_ui_serve.py, by the link it prints:
  * opened at once, a description saved into its file, a CMakeLists.txt refused. No error may reach the console.
  *
  * Chrome is CHROME, else google-chrome, chromium or chromium-browser on the PATH. With none, the test fails, saying so,
@@ -17,7 +19,7 @@ const path = require('path');
 const { spawn, execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '../..');
 const [fontDirectory, screenshot] = process.argv.slice(2);
-let failures = 0, checks = 0;
+let failures = 0, checks = 0, passMs = null;
 const check = (held, what) => {
     ++checks;
     if (!held) console.error('  failed: ' + what), ++failures;
@@ -135,11 +137,13 @@ function devtools(url) {
         const files = {
             'CMakeLists.txt': 'project(demo)\n',
             'main/CMakeLists.txt': 'dgx_ui_appearance(look.json NAMES names.txt)\ndgx_ui_tree(home.json NAMES names.txt APPEARANCE look.json)\n',
-            'main/names.txt': 'look slider\nlook button\nvalue volume &volume\nfont small TerminusTTFMedium12\n',
-            'main/look.json': '{"dgx-ui": 1, "colors": {"paper": "#102030", "ink": "#ffffff", "fill": "#304060", "border": "#8090a0"}, ' +
-                              '"styles": {"body": {"fonts": ["small"]}}}\n',
+            'main/names.txt': 'look slider\nlook button\nvalue volume &volume\nfont small TerminusTTFMedium12\ndraw text\ndraw slider\ndraw switch\n',
+            'main/look.json': '{"dgx-ui": 1, "name": "day", "colors": {"paper": "#102030", "ink": "#ffffff", "fill": "#304060", "border": "#8090a0", ' +
+                              '"accent": "#f0a03c"}, "styles": {"body": {"fonts": ["small"]}}, "looks": {"caption": {"draw": "text", ' +
+                              '"params": {"ink": "ink", "paper": null}}, "slider": {"draw": "slider", "params": {"track": "accent", "fill": "accent", ' +
+                              '"knob": "ink", "focused": "ink", "disabled": "border", "track_h": 4}}}}\n',
             'main/home.json': '{"dgx-ui": 1, "name": "home", "tree": {"kind": "box", "flags": ["column"], "pad": 6, "gap": 6, "children": [\n' +
-                              ' {"kind": "label", "text": "Hello", "style": "body", "want": [0, 40]},\n' +
+                              ' {"kind": "label", "text": "Hello", "look": "caption", "style": "body", "want": [0, 40]},\n' +
                               ' {"kind": "slider", "value": "volume", "min": 0, "max": 100, "want": [0, 24]},\n' +
                               ' {"kind": "button", "text": "Go", "style": "body", "want": [0, 30]}]}}\n',
         };
@@ -271,6 +275,94 @@ function devtools(url) {
         check((await evaluate(steps)) === before, 'Ctrl+Z in a field leaves the builder\'s history: ' + before);
         await evaluate('document.activeElement.blur()');
 
+        /* the appearance by its forms: a colour typed reaches the panel at once, as the board's depth shows it; Ctrl+Z */
+        const sliderAt = await evaluate(`(() => { const store = ${store}; store.select([1]); const box = store.box; store.select([]);
+                                                 return [Math.round(box.x + box.w * 3 / 4), Math.round(box.y + box.h / 2)]; })()`);
+        const pixelAt = (x, y) => evaluate(`(() => {
+            const canvas = document.querySelector('.dgx-ui-builder canvas');
+            return [...canvas.getContext('2d').getImageData(${x}, ${y}, 1, 1).data.slice(0, 3)];
+        })()`);
+        const canvasNow = () => evaluate(`(() => {
+            const canvas = document.querySelector('.dgx-ui-builder canvas');
+            return Array.from(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data).join();
+        })()`);
+        const shownAt16 = async (hex) => evaluate(`(() => { const at = DgxUiAppearance.colorAtDepth('${hex}', 16);
+                                                          return [1, 3, 5].map((k) => parseInt(at.slice(k, k + 2), 16)); })()`);
+        const pixelIs = async (expected, what) => {
+            for (const end = Date.now() + 5000; Date.now() < end; await sleep(50))
+                if (JSON.stringify(await pixelAt(...sliderAt)) === JSON.stringify(expected)) return check(true, what);
+            return check(false, `${what}: ${await pixelAt(...sliderAt)}, not ${expected}`);
+        };
+        await pixelIs(await shownAt16('#f0a03c'), 'the slider\'s track in the accent');
+        await evaluate(`[...document.querySelectorAll('.dgx-ui-builder .tabs button')].find((one) => one.textContent.trim() === 'Appearance').click()`);
+        await until(`!!document.querySelector('.dgx-ui-builder .appearance .color')`, 'the Appearance tab open, its colours listed');
+        const rowOf = (name) => `[...document.querySelectorAll('.dgx-ui-builder .appearance .color')].find((row) => row.querySelector('.entry-name').value === '${name}')`;
+        await evaluate(`(() => { const input = ${rowOf('accent')}.querySelector('.hex'); input.focus(); input.select(); })()`);
+        await send('Input.insertText', { text: '#00ff00' });
+        await until(`${store}.files['main/look.json'].text.includes('"accent": "#00ff00"')`, 'a hex typed reaches the appearance');
+        await pixelIs([0, 255, 0], 'and the panel at once');
+        const passes = await evaluate(`(() => {
+            const store = ${store}, times = [];
+            for (let k = 0; k < 20; ++k) {
+                const at = performance.now();
+                store.setColor('accent', k % 2 ? '#00ff00' : '#00fe00', store.lookFold(['colors', 'accent']));
+                store.paint(performance.now() + 100000 + k);
+                times.push(performance.now() - at);
+            }
+            times.sort((a, b) => a - b);
+            return [times[10], times[19]];
+        })()`);
+        passMs = passes;
+        check(passes[0] < 16, `a colour's pass, the appearance and the page loaded again and drawn: ${passes[0].toFixed(2)} ms, at most ${passes[1].toFixed(2)}`);
+        await evaluate('document.activeElement.blur()');
+        await Promise.all(key('z', 'KeyZ', 90, 2));
+        await until(`${store}.files['main/look.json'].text === ${JSON.stringify(files['main/look.json'])}`, 'Ctrl+Z gives the appearance back');
+        await pixelIs(await shownAt16('#f0a03c'), 'and the panel');
+        check(await evaluate(`${store}.files['main/home.json'].text === ${JSON.stringify(files['main/home.json'])} || !${store}.dirty.includes('main/home.json')`),
+              'the page untouched by it');
+        await evaluate(`(() => { const input = ${rowOf('border')}.querySelector('.hex'); input.focus(); input.select(); })()`);
+        await send('Input.insertText', { text: 'gainsboro' });
+        await until(`${store}.files['main/look.json'].text.includes('"border": "#dcdcdc"') &&
+                     ${rowOf('border')}.querySelector('.named').textContent.trim() === 'gainsboro'`, 'a name of DGX\'s typed: hex written, the name shown');
+        await evaluate(`(() => { const picker = ${rowOf('accent')}.querySelector('input[type=color]'); picker.value = '#0000ff';
+                                 picker.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+        await until(`${store}.files['main/look.json'].text.includes('"accent": "#0000ff"')`, 'the picker\'s colour taken at the next frame');
+        await pixelIs(await shownAt16('#0000ff'), 'and drawn');
+        check(await evaluate(`(() => { const swatches = ${rowOf('accent')}.querySelectorAll('.swatch');
+                                       return swatches.length === 2 && swatches[1].title.includes('16'); })()`), 'its swatch twice, the second at 16 bits');
+
+        /* a look added from its draw: its fields the module's description of the draw */
+        await evaluate(`(() => {
+            const add = [...document.querySelectorAll('.dgx-ui-builder .appearance .add')].find((one) => one.querySelector('select'));
+            const name = add.querySelector('input'); name.value = 'toggle'; name.dispatchEvent(new Event('input', { bubbles: true }));
+            const draw = add.querySelector('select'); draw.value = 'switch'; draw.dispatchEvent(new Event('change', { bubbles: true }));
+        })()`);
+        await sleep(50);
+        await evaluate(`[...document.querySelectorAll('.dgx-ui-builder .appearance .add')].find((one) => one.querySelector('select')).querySelector('button').click()`);
+        await until(`JSON.stringify([...document.querySelectorAll('.dgx-ui-builder .appearance .form .field .key')].map((one) => one.textContent.trim())) ===
+                     JSON.stringify(['name', 'draw', 'fill', 'params', 'off', 'on', 'knob', 'focused', 'disabled'])`, 'a look of a switch: its fields as the docs list them');
+        check(await evaluate(`${store}.verdicts.appearance.code === 0 && JSON.parse(${store}.files['main/look.json'].text).looks.toggle.draw === 'switch'`),
+              'taken, written');
+
+        /* a look renamed from its form: the page that names it carried, the panel the same; Ctrl+Z in both */
+        await evaluate(`[...document.querySelectorAll('.dgx-ui-builder .appearance .entries .node')].find((one) => one.textContent.trim() === 'caption').click()`);
+        await until(`(document.querySelector('.dgx-ui-builder .appearance .form .entry-name') || {}).value === 'caption'`, 'the look picked');
+        const canvasBefore = await canvasNow(), homeBefore = await evaluate(`${store}.files['main/home.json'].text`);
+        await evaluate(`(() => { const name = document.querySelector('.dgx-ui-builder .appearance .form .entry-name'); name.value = 'title';
+                                 name.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+        await until(`!!document.querySelector('.dgx-ui-builder .appearance .asking')`, 'the rename says first what it changes');
+        check(await evaluate(`document.querySelector('.dgx-ui-builder .appearance .asking').textContent.includes('main/home.json')`), 'the page named');
+        await evaluate(`document.querySelector('.dgx-ui-builder .appearance .asking button').click()`);
+        await until(`${store}.files['main/home.json'].text.includes('"look": "title"') && ${store}.files['main/look.json'].text.includes('"title": {')`,
+                    'renamed in the appearance and in the page');
+        await sleep(200);
+        check((await canvasNow()) === canvasBefore, 'the panel the same');
+        await evaluate('document.activeElement.blur()');
+        await Promise.all(key('z', 'KeyZ', 90, 2));
+        await until(`${store}.files['main/home.json'].text === ${JSON.stringify(homeBefore)} && ${store}.files['main/look.json'].text.includes('"caption": {')`,
+                    'Ctrl+Z gives both back');
+        await evaluate(`${store}.setTab('properties')`);
+
         /* the language */
         await evaluate(`${store}.setLanguage('ru')`);
         await until(`document.querySelector('.dgx-ui-builder h1').textContent === 'Построитель dgx-ui'`, 'the page in Russian');
@@ -311,6 +403,7 @@ function devtools(url) {
                                                     (await host.list('main')).some((entry) => entry.name === 'home.json'); })()`),
               'a file and a folder not there: null, as the host of the disk gives them');
         await evaluate(`(${store}.select([0]), ${store}.setPair('want', '0', '48'))`);
+        await evaluate(`${store}.setColor('accent', '#123456')`);
         await evaluate(`${store}.save(true)`);
         await until(`!!document.querySelector('.dgx-ui-builder .asking')`, 'the word asked before writing in the builder\'s form');
         await evaluate(`document.querySelector('.dgx-ui-builder .asking button').click()`);
@@ -318,6 +411,8 @@ function devtools(url) {
         let written = '';
         for (const end = Date.now() + 10000; Date.now() < end && !written.includes('"want": [0, 48]'); await sleep(100)) written = fs.readFileSync(home, 'utf8');
         check(written.includes('"want": [0, 48]'), 'saved to the file on the disk: ' + written.slice(0, 200));
+        check(fs.readFileSync(path.join(project, 'main', 'look.json'), 'utf8') === await evaluate(`${store}.files['main/look.json'].text`) &&
+              fs.readFileSync(path.join(project, 'main', 'look.json'), 'utf8').includes('"accent": "#123456"'), 'the appearance saved with it, in its form');
         check(await evaluate(`!${store}.dirty.length && ${store}.raw.host.inPlace`), 'nothing edited after, written in place');
         const errorsBefore = errors.length;
         const refusal = await evaluate(`${store}.raw.host.write('main/CMakeLists.txt', 'spoiled').then(() => 'written', (error) => error.message)`);
@@ -344,5 +439,6 @@ function devtools(url) {
         console.error(`test_page.js: ${failures} of ${checks} checks failed`);
         process.exit(1);
     }
-    console.log(`test_page.js: ${checks} checks of the page in ${path.basename(binary)}; the screenshot in ${screenshot}`);
+    console.log(`test_page.js: ${checks} checks of the page in ${path.basename(binary)}; a colour's pass ${passMs ? passMs[0].toFixed(2) : '?'} ms, ` +
+                `at most ${passMs ? passMs[1].toFixed(2) : '?'}; the screenshot in ${screenshot}`);
 })();

@@ -12,7 +12,11 @@
  *  - the properties: a number field empty removes its key, one not a number sets nothing, no NaN ever; a pair; words;
  *  - the operations, undo and redo, typing folded into one step; a widget the loader finds no look for given one;
  *  - a refusal mapped to its widget, in the builder's form and in a text by hand; a text that does not read, and one
- *    not UTF-8, with the byte and the cursor where they stop.
+ *    not UTF-8, with the byte and the cursor where they stop;
+ *  - the appearance by its forms: a colour typed and drawn at once, typing folded, an undo of its own; a colour renamed
+ *    with its looks; a look renamed in two pages at once and undone in all three files or in none; renames and deletes
+ *    refused where pages name them or do not read; the words of a kind's word and of the first style; a look of its
+ *    draw's defaults and its draw changed; the order kept; a save that lists the pages the appearance refuses.
  */
 'use strict';
 const fs = require('fs');
@@ -161,6 +165,21 @@ const boxOf = (store, widgetPath) => {
             if (one.appearance) check(!store.notes.some((note) => note.includes('dgx_font_small')), `${one.path}: ${store.notes.join(' | ')}`);
         }
         check(!store.dirty.length && !(await store.save(true)).length && !Object.keys(written).length, 'nothing edited, nothing written');
+
+        // its appearance by the forms: made by dgx_ui_appearance() with no PREFIX, its "name" the prefix; a look framed.json
+        // names not deleted; a draw its names file has not, and the page on it on its names file refused at a save
+        store.choose('main/framed.json');
+        store.setTab('appearance');
+        check(store.lookPrefix === 'theme' && same(store.pagesOn, ['main/framed.json', 'components/second/c.json']) &&
+              !store.lookFormat.by_rule && same(store.lookFormat.fonts, ['small']), 'the appearance of two pages, on its own names file');
+        check(!store.removeEntry('looks', 'pane') && store.said[store.said.length - 1].values[1].startsWith('main/framed.json'), 'pane, named, kept');
+        check(store.setLook(['looks', 'pane', 'draw'], 'nothing') && store.verdicts.appearance.code > 0 && store.verdicts.page.code > 0,
+              'a draw its names file has not: the appearance refused, and the page on its names with it');
+        const asked = await store.save(true);
+        check(asked === null && same(store.asking.broken.map((one) => one.path), ['components/second/look.json', 'main/framed.json']) &&
+              store.asking.broken[1].verdict.name === 'pane', 'the appearance and the page listed before a write: ' + JSON.stringify(store.asking.broken));
+        store.cancelSave();
+        check(store.undo() && store.verdicts.page.code === 0 && !store.dirty.length && !Object.keys(written).length, 'undone; nothing written');
     }
 
     /* ---- a project in memory ---- */
@@ -369,6 +388,159 @@ const boxOf = (store, widgetPath) => {
           'a names file refused, in words: ' + JSON.stringify(store.verdicts.names));
     store.setText('names', NAMES);
     check(store.verdicts.names.code === 0 && store.verdicts.page.code === 0 && !store.dirty.length, 'given back: taken, nothing edited');
+
+    /* ---- the appearance by its forms: a project of two pages on one appearance ---- */
+    {
+        const look = '{"dgx-ui": 1, "name": "day", "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#202020", "border": "#808080", ' +
+                     '"accent": "#f0a03c"}, "styles": {"body": {"fonts": ["small"]}, "big": {"fonts": ["small"]}}, "looks": {' +
+                     '"pane": {"draw": "frame", "fill": "fill", "params": {"border": "accent", "width": 1}}, ' +
+                     '"slider": {"draw": "slider", "params": {"track": "border", "fill": "accent", "knob": "ink", "focused": "ink", "disabled": "border", ' +
+                     '"track_h": 3}}, "spare": {"draw": "frame", "params": {"border": "ink", "width": 2}}}}\n';
+        const a = '{"dgx-ui": 1, "tree": {"kind": "frame", "look": "pane", "pad": 4, "flags": ["column"], "children": [{"kind": "slider", "value": "level", ' +
+                  '"max": 9}, {"kind": "label", "text": "A", "style": "big"}]}}\n';
+        const b = '{"dgx-ui": 1, "tree": {"kind": "frame", "look": "pane", "children": [{"kind": "label", "text": "B"}]}}\n';
+        const files = {
+            'main/CMakeLists.txt': bytes('idf_component_register(SRCS "main.c")\ndgx_ui_appearance(look.json PREFIX sunny)\n' +
+                                         'dgx_ui_tree(a.json APPEARANCE look.json)\ndgx_ui_tree(b.json APPEARANCE look.json)\n'),
+            'main/look.json': bytes(look), 'main/a.json': bytes(a), 'main/b.json': bytes(b),
+            'main/night.json': bytes(look.replace('"name": "day"', '"name": "night"')), // an appearance loaded at run time
+            'main/notes.json': bytes('{"dgx-ui": 1, "name": "notes"}\n'), // "dgx-ui" alone: neither
+        };
+        const { store, written, run } = await storeOf(files, 'looks');
+        const text = (where) => store.files[where].text;
+        const saidLast = () => store.said[store.said.length - 1] ?? { text: '', values: [] };
+        const pixel = (x, y) => {
+            paint(store);
+            const frame = store.raw.preview.frame();
+            return [...frame.slice(4 * (y * store.screen.width + x), 4 * (y * store.screen.width + x) + 3)];
+        };
+        check(store.current === 'main/a.json' && store.verdicts.appearance.code === 0 && store.verdicts.page.code === 0 && store.look,
+              'the appearance read: ' + JSON.stringify(store.verdicts));
+        check(store.lookPrefix === 'sunny' && same(store.pagesOn, ['main/a.json', 'main/b.json']), 'its prefix, the call\'s PREFIX over its name, and its two pages');
+        check(store.lookFormat.draws.length === 19 && store.lookFormat.by_rule, 'what it may say, by the rule');
+        check(same(store.project.appearances.map((one) => [one.path, one.from]), [['main/look.json', 'main/CMakeLists.txt:2'], ['main/night.json', null]]),
+              'an appearance loaded at run time found beside the call\'s: ' + JSON.stringify(store.project.appearances));
+        store.setTab('appearance');
+        check(store.undoPath === 'main/look.json', 'an undo goes to the appearance while its forms are open');
+
+        /* a colour: typed as a name of DGX's, written as hex; the page drawn on it again */
+        const shown = (hex) => { const at = run('DgxUiAppearance').colorAtDepth(hex, 16); return [1, 3, 5].map((k) => parseInt(at.slice(k, k + 2), 16)); };
+        const corner = pixel(0, 0);
+        check(same(corner, shown('#f0a03c')), 'the pane\'s border in the accent: ' + corner);
+        check(!store.setColor('accent', 'no such colour') && text('main/look.json') === look, 'a colour of no form waits, nothing changed');
+        check(store.setColor('accent', 'lime', store.lookFold(['colors', 'accent'])), 'a colour by its name');
+        check(text('main/look.json').includes('"accent": "#00ff00"') && same(pixel(0, 0), shown('#00ff00')), 'written as hex, drawn at once');
+        store.setColor('accent', '#0000FF', store.lookFold(['colors', 'accent']));
+        store.setColor('accent', 'ff0000', store.lookFold(['colors', 'accent']));
+        check(text('main/look.json').includes('"accent": "#ff0000"') && same(pixel(0, 0), shown('#ff0000')), 'typed again: red');
+        check(store.dirty.includes('main/look.json') && !store.dirty.includes('main/a.json'), 'the appearance edited, not the page');
+        check(store.undo() && text('main/look.json') === look && same(pixel(0, 0), shown('#f0a03c')), 'the typing undone in one step');
+        check(!store.undo() && store.redo() && text('main/look.json').includes('"#ff0000"'), 'nothing more to undo; done again');
+        store.undo();
+        store.setTab('properties');
+        check(store.undoPath === 'main/a.json' && !store.canUndo, 'the page\'s history apart from the appearance\'s');
+        store.setTab('appearance');
+
+        /* a colour renamed: the looks that name it carried, the program's name of it said */
+        check(store.renameEntry('colors', 'accent', 'highlight'), 'a colour renamed');
+        check(!text('main/look.json').includes('accent') && store.verdicts.appearance.code === 0 && store.verdicts.page.code === 0,
+              'its looks carried, all taken');
+        check(store.said.some((one) => one.values.includes('sunny') && one.text.includes('{0}_color_{1}') && one.values.includes('accent')),
+              'sunny_color_accent said, by the call\'s PREFIX: ' + JSON.stringify(store.said.slice(-2)));
+        check(!store.renameEntry('colors', 'highlight', 'ink') && saidLast().wrong, 'a rename to a colour there refused');
+        store.undo();
+        check(text('main/look.json') === look, 'the rename undone');
+
+        /* a look renamed: in the appearance and in every widget of both pages that names it, one step */
+        const plan = store.renamePlan('looks', 'pane', 'panel');
+        check(same(plan.pages.map((page) => [page.path, page.widgets.length]), [['main/a.json', 1], ['main/b.json', 1]]) && !plan.refused.length,
+              'the plan: a widget in each page: ' + JSON.stringify(plan));
+        check(store.renameEntry('looks', 'pane', 'panel'), 'a look renamed');
+        check(text('main/a.json').includes('"look": "panel"') && text('main/b.json').includes('"look": "panel"') &&
+              text('main/look.json').includes('"panel": {') && !text('main/look.json').includes('"pane"'), 'in the appearance and both pages');
+        check(store.verdicts.page.code === 0 && same(store.dirty.sort(), ['main/a.json', 'main/b.json', 'main/look.json']), 'taken; three files edited');
+        const order = () => ['colors', 'styles', 'looks'].map((section) => window.namesOf(store.look, section).join());
+        const window = { namesOf: (doc, section) => store.raw.preview && doc ? Object.keys(JSON.parse(store.files['main/look.json'].text)[section] ?? {}) : [] };
+        check(same(order(), ['paper,ink,fill,border,accent', 'body,big', 'panel,slider,spare']), 'renamed in its place: ' + order());
+        store.setTab('properties');
+        check(store.undoPath === 'main/a.json' && store.undo(), 'undone from a page');
+        check(text('main/a.json') === a && text('main/b.json') === b && text('main/look.json') === look, 'undone in all three files');
+        check(store.redo() && text('main/b.json').includes('"panel"') && text('main/look.json').includes('"panel"'), 'done again in all three');
+        store.choose('main/b.json');
+        store.select([]);
+        store.setNumber('pad', '2');
+        store.choose('main/a.json');
+        const before = [text('main/a.json'), text('main/b.json'), text('main/look.json')];
+        check(!store.undo() && saidLast().wrong && saidLast().values.includes('main/b.json'), 'b edited after it: the undo refused, b named');
+        check(same([text('main/a.json'), text('main/b.json'), text('main/look.json')], before), 'nothing half undone');
+        store.choose('main/b.json');
+        check(store.undo() && !text('main/b.json').includes('"pad"'), 'b\'s own edit undone');
+        check(store.undo() && text('main/a.json') === a && text('main/b.json') === b && text('main/look.json') === look,
+              'then the rename, from b, in all three');
+        store.choose('main/a.json');
+        store.setTab('appearance');
+
+        /* refused: a name there; a page that does not read; a delete of a look a widget names */
+        check(!store.renameEntry('looks', 'pane', 'spare') && saidLast().wrong, 'a rename to a look there refused');
+        store.choose('main/b.json');
+        store.setText('page', '{"dgx-ui": 1, "tree": ');
+        store.choose('main/a.json');
+        check(same(store.renamePlan('looks', 'pane', 'panel').refused, ['main/b.json']) && !store.renameEntry('looks', 'pane', 'panel') &&
+              saidLast().values.includes('main/b.json') && text('main/look.json') === look, 'a page on it that does not read: refused, named');
+        store.choose('main/b.json');
+        store.view = 'text';
+        store.undo();
+        store.view = 'page';
+        check(text('main/b.json') === b, 'the text by hand undone in its own history');
+        store.choose('main/a.json');
+        store.setTab('appearance');
+        check(!store.removeEntry('looks', 'pane') && saidLast().wrong && saidLast().values[1].includes('main/a.json') &&
+              saidLast().values[1].includes('main/b.json'), 'a look the pages name not deleted: ' + JSON.stringify(saidLast()));
+        check(!store.removeEntry('styles', 'big') && saidLast().values[1].includes('main/a.json: 1'), 'a style a widget names not deleted');
+
+        /* the words said first: the word of a kind, the first style */
+        const said = (plan) => plan.warnings.map((one) => one.text);
+        check(said(store.renamePlan('looks', 'slider', 'track')).some((one) => one.includes('take the library')), 'a look of a kind\'s word renamed');
+        check(said(store.renamePlan('looks', 'spare', 'button')).some((one) => one.includes('takes it')), 'renamed to a kind\'s word');
+        check(said(store.renamePlan('styles', 'body', 'plain')).some((one) => one.includes('first style')), 'the first style renamed');
+        check(!said(store.renamePlan('styles', 'big', 'large')).length, 'no word for another style');
+        check(store.addLook('switch', 'switch') && saidLast().text.includes('takes it'), 'a look added under a kind\'s word, said');
+
+        /* a look added from its draw's defaults; its draw changed, its fields of the same name kept */
+        check(store.addLook('toggle', 'switch') && store.verdicts.appearance.code === 0, 'a look of the defaults of its draw');
+        const toggle = () => JSON.parse(text('main/look.json')).looks.toggle;
+        check(same(toggle(), { draw: 'switch', params: { off: 'fill', on: 'border', knob: 'ink', focused: 'ink', disabled: 'fill' } }), 'its defaults');
+        store.setLook(['looks', 'toggle', 'params', 'knob'], 'accent');
+        check(store.setDraw('toggle', 'slider') && store.verdicts.appearance.code === 0, 'its draw changed');
+        check(same(toggle().params, { track: 'fill', fill: 'border', knob: 'accent', focused: 'ink', disabled: 'fill', track_h: 2 }),
+              'knob, focused and disabled kept, the rest the slider\'s: ' + JSON.stringify(toggle()));
+        check(same(order(), ['paper,ink,fill,border,accent', 'body,big', 'pane,slider,spare,switch,toggle']), 'added at the end: ' + order());
+        check(store.removeEntry('looks', 'spare') && same(order()[2], 'pane,slider,switch,toggle'), 'a look no widget names deleted');
+        check(store.removeEntry('colors', 'accent') && store.verdicts.appearance.code > 0 && same(store.appearanceAt, ['looks', 'pane']) &&
+              saidLast().values.includes('accent'), 'a colour still named deleted: the loader refuses at the look: ' + JSON.stringify(store.appearanceAt));
+
+        /* saved: the pages the appearance refuses listed first, the word asked */
+        const pageBefore = { ...store.verdicts.page };
+        const asked = await store.save(true);
+        check(asked === null && same(store.asking.broken.map((one) => one.path), ['main/look.json']) && store.asking.paths.includes('main/look.json'),
+              'the appearance refused listed, and its form asked: ' + JSON.stringify(store.asking));
+        check(same(store.verdicts.page, pageBefore) && store.current === 'main/a.json', 'the page open given again after');
+        store.cancelSave();
+        check(!Object.keys(written).length, 'nothing written');
+        store.undo();
+        check(store.verdicts.appearance.code === 0 && store.verdicts.page.code === 0, 'the delete undone');
+        const saved = await store.save(true);
+        check(saved === null && !store.asking.broken.length && same(store.asking.paths, ['main/look.json']), 'its form alone asked now');
+        check(same((await store.save(true, true)).sort(), ['main/look.json']) && written['main/look.json'] === text('main/look.json'), 'saved');
+
+        /* by hand in the view of texts: its own history */
+        store.showText('appearance');
+        check(store.undoPath === 'main/look.json', 'the text shown is the one undone');
+        const beforeHand = text('main/look.json'), handWritten = beforeHand.replace('"#808080"', '"#808081"');
+        store.setText('appearance', handWritten);
+        check(store.verdicts.appearance.code === 0 && store.undo() && text('main/look.json') === beforeHand, 'a hand edit undone, the text as it was');
+        store.view = 'page';
+    }
 
     if (failures) {
         console.error(`test_store.js: ${failures} of ${checks} checks failed`);

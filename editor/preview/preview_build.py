@@ -8,8 +8,9 @@ preview_build.py: the steps of the preview's build (Makefile) that are not the c
         what the module is made of: dgx-ui's version, DGX's with the hash the registry gave its copy, the toolchain's,
         and a hash of every source and header given; refused, a DGX that is not the registry's copy at the version
         dgx-ui asks for at least: one of another version, or a checkout
-    preview_build.py js <module.wasm> <preview_class.js> <preview_version.h> <dgx_ui_preview.js>
-        the module's bytes in base64 and the class that calls them, one file a page loads with no server
+    preview_build.py js <module.wasm> <preview_class.js> <preview_version.h> <dgx_colors.h> <dgx_ui_preview.js>
+        the module's bytes in base64 and the class that calls them, one file a page loads with no server, with the names
+        of DGX's colours read from its dgx_colors.h
     preview_build.py taken <dgx_ui_preview.map> <taken.txt>
         what the module took of the C library and of the compiler's builtins, by the link map, for licenses/
 
@@ -106,7 +107,16 @@ def version(dgx, out, dgx_ui, sources, clang):
     write_if_other(out, text)
 
 
-def js(module, class_file, version_header, out):
+def color_names(colors_header):
+    """DGX's colours by their names, in the order of its dgx_colors.h: [["aliceblue", "#f0f8ff"], ...]"""
+    found = re.findall(r"^#define DGX_([A-Z0-9]+)\(rgb_func\) rgb_func\((\d+), (\d+), (\d+)\)\s*$",
+                       open(colors_header, encoding="utf-8").read(), re.M)
+    if not found:
+        fail(f"{colors_header}: no colour by its name")
+    return [[name.lower(), "#%02x%02x%02x" % (int(r), int(g), int(b))] for name, r, g, b in found]
+
+
+def js(module, class_file, version_header, colors_header, out):
     data = open(module, "rb").read()
     encoded = base64.b64encode(data).decode("ascii")
     pieces = [encoded[k:k + 100] for k in range(0, len(encoded), 100)]
@@ -117,7 +127,9 @@ def js(module, class_file, version_header, out):
             f" * {said['PREVIEW_TOOLCHAIN']},\n * sources {said['PREVIEW_SOURCES']}.\n"
             f" * The module, {len(data)} bytes, is MIT as dgx-ui and DGX, with code of wasi-libc and compiler-rt and five fonts of\n"
             " * DGX under their own licences: licenses/ beside this file.\n */\n")
-    body = "const DGX_UI_PREVIEW_MODULE = [\n" + ",\n".join(f"    '{piece}'" for piece in pieces) + "\n].join('');\n"
+    names = color_names(colors_header)
+    body = ("const DGX_UI_PREVIEW_MODULE = [\n" + ",\n".join(f"    '{piece}'" for piece in pieces) + "\n].join('');\n"
+            + "const DGX_UI_COLOR_NAMES = [\n" + ",\n".join(f"    ['{name}', '{rgb}']" for name, rgb in names) + "\n];\n")
     text = head + "(function (root) {\n'use strict';\n" + body + open(class_file, encoding="utf-8").read() + "})(this);\n"
     with open(out, "w", encoding="utf-8", newline="\n") as written:
         written.write(text)
@@ -149,13 +161,13 @@ def main():
         headers(sys.argv[2])
     elif len(sys.argv) >= 6 and sys.argv[1] == "version":
         version(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5:], os.environ.get("CLANG", "clang-21"))
-    elif len(sys.argv) == 6 and sys.argv[1] == "js":
-        js(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
+    elif len(sys.argv) == 7 and sys.argv[1] == "js":
+        js(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6])
     elif len(sys.argv) == 4 and sys.argv[1] == "taken":
         taken(sys.argv[2], sys.argv[3])
     else:
         fail("headers <directory> | version <DGX> <preview_version.h> <dgx-ui directory> <source>... | "
-             "js <module.wasm> <preview_class.js> <preview_version.h> <dgx_ui_preview.js> | taken <dgx_ui_preview.map> <taken.txt>")
+             "js <module.wasm> <preview_class.js> <preview_version.h> <dgx_colors.h> <dgx_ui_preview.js> | taken <dgx_ui_preview.map> <taken.txt>")
 
 
 if __name__ == "__main__":

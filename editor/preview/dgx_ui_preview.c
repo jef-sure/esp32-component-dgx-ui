@@ -303,6 +303,7 @@ typedef struct appearance_load_t {
     dgx_ui_font_name_t       *fonts;
     dgx_ui_hand_name_t       *hands;
     char                    (*names)[24]; /* the names of its draws, fonts and hands, kept */
+    int                       draw_count, font_count, hand_count;
 } appearance_load_t;
 
 static appearance_load_t appearance_load;
@@ -348,6 +349,7 @@ static void appearance_free(void)
     appearance_load_t *a = &appearance_load;
     free(a->memory), free(a->draws), free(a->fonts), free(a->hands), free(a->names);
     a->memory = NULL, a->draws = NULL, a->fonts = NULL, a->hands = NULL, a->names = NULL, a->loaded = false;
+    a->draw_count = a->font_count = a->hand_count = 0;
 }
 
 /* the appearance loaded on its names, as dgx_ui_c -a reads it: no look or style of the program's after its own */
@@ -376,6 +378,7 @@ static void appearance_read(void)
     a->draws                = zeroed((size_t)draws_of->count, sizeof *a->draws);
     a->fonts                = zeroed((size_t)fonts_of->count, sizeof *a->fonts);
     a->hands                = zeroed((size_t)hands_of->count, sizeof *a->hands);
+    a->draw_count = draws_of->count, a->font_count = fonts_of->count, a->hand_count = hands_of->count;
     int named               = 0;
     for (int k = 0; k < draws_of->count; ++k) {
         const entry_t            *draw    = &draws_of->entries[k];
@@ -828,6 +831,121 @@ const char *preview_tables(void)
     }
     grow(&tables_said, "}");
     return tables_said.text;
+}
+
+/* ---- what an appearance may say, for its forms ---- */
+
+static const char *const field_types[] = {"color", "color_or_under", "number", "bool", "word", "flags", "bit", "bands", "font", "hand", "variants"};
+_Static_assert(sizeof field_types / sizeof *field_types == DGX_UI_FIELD_VARIANTS + 1, "a type for every field");
+
+/* a member of 1, 2 or 4 bytes as an integer, signed where its bounds go below 0 */
+static int32_t member_read(const void *params, const dgx_ui_field_t *field)
+{
+    const uint8_t *at     = (const uint8_t *)params + field->offset;
+    const bool     signed_ = field->low < 0;
+    switch (field->size) {
+    case 1: return signed_ ? *(const int8_t *)at : *at;
+    case 2: return signed_ ? *(const int16_t *)(const void *)at : *(const uint16_t *)(const void *)at;
+    default: return *(const int32_t *)(const void *)at;
+    }
+}
+
+/* a colour of the library's defaults by its name: the painter's four by their place, DGX_UI_PAPER null */
+static void grow_color(grown_t *to, unsigned index)
+{
+    static const char *const four[] = {"paper", "ink", "fill", "border"};
+    if (index == DGX_UI_PAPER) grow(to, "null");
+    else if (index < 4) grow(to, "\"%s\"", four[index]);
+    else grow(to, "%u", index);
+}
+
+/* the fields of a description, and their values in params when it is given */
+static void grow_fields(grown_t *to, const dgx_ui_params_t *described, const void *params)
+{
+    grow(to, "[");
+    for (int k = 0; described && k < described->field_count; ++k) {
+        const dgx_ui_field_t *field = &described->fields[k];
+        grow(to, "%s{\"name\": \"%s\", \"type\": \"%s\"", k ? ", " : "", field->name, field_types[field->kind]);
+        if (field->kind == DGX_UI_FIELD_NUMBER || field->kind == DGX_UI_FIELD_VARIANTS)
+            grow(to, ", \"min\": %ld, \"max\": %ld", (long)field->low, (long)field->high);
+        if (field->words) grow(to, ", \"words\": "), grow_words(to, field->words);
+        grow(to, "}");
+    }
+    grow(to, "]");
+    if (!params) return;
+    grow(to, ", \"defaults\": {");
+    for (int k = 0; k < described->field_count; ++k) {
+        const dgx_ui_field_t *field = &described->fields[k];
+        const int32_t         value = field->kind == DGX_UI_FIELD_BANDS ? 0 : member_read(params, field);
+        grow(to, "%s\"%s\": ", k ? ", " : "", field->name);
+        switch (field->kind) {
+        case DGX_UI_FIELD_COLOR:
+        case DGX_UI_FIELD_COLOR_OR_UNDER: grow_color(to, (unsigned)value); break;
+        case DGX_UI_FIELD_BOOL: grow(to, "%s", value ? "true" : "false"); break;
+        case DGX_UI_FIELD_WORD: {
+            const char *word = field->words;
+            for (int at = 0; at < value && *word; ++at) word += strlen(word) + 1;
+            grow(to, "\"%s\"", word);
+            break;
+        }
+        case DGX_UI_FIELD_BANDS: {
+            const dgx_ui_band_t *bands = *(const dgx_ui_band_t *const *)(const void *)((const uint8_t *)params + field->offset);
+            const int            count = *((const uint8_t *)params + field->count_offset);
+            grow(to, "[");
+            for (int band = 0; band < count; ++band) {
+                grow(to, "%s[%ld, ", band ? ", " : "", (long)bands[band].below);
+                grow_color(to, bands[band].color);
+                grow(to, "]");
+            }
+            grow(to, "]");
+            break;
+        }
+        default: grow(to, "%ld", (long)value);
+        }
+    }
+    grow(to, "}");
+}
+
+/* the library's draw a function is, by its word; NULL else */
+static const dgx_ui_draw_name_t *library_draw_by_function(bool (*draw)(const dgx_ui_look_t *, dgx_ui_paint_t *, dgx_ui_t *, int, uint32_t))
+{
+    for (size_t k = 0; k < sizeof library_draw_functions / sizeof *library_draw_functions; ++k)
+        if (library_draw_functions[k].draw == draw) return &library_draw_functions[k];
+    return NULL;
+}
+
+const char *preview_appearance_format(void)
+{
+    static grown_t said;
+    said.used = 0;
+    const appearance_load_t *a        = &appearance_load;
+    const bool               laid     = a->draws != NULL;
+    const int                draws    = laid ? a->draw_count : (int)(sizeof library_draw_functions / sizeof *library_draw_functions);
+    grow(&said, "{\"draws\": [");
+    for (int k = 0; k < draws; ++k) {
+        const dgx_ui_draw_name_t *draw    = laid ? &a->draws[k] : &library_draw_functions[k];
+        const dgx_ui_draw_name_t *library = draw->params ? library_draw_by_function(draw->draw) : NULL;
+        const dgx_ui_look_t      *look    = NULL;
+        if (library)
+            for (size_t l = 0; l < sizeof library_look_objects / sizeof *library_look_objects; ++l)
+                if (strcmp(library_look_objects[l].name, library->name) == 0) look = library_look_objects[l].look;
+        grow(&said, "%s\n  {\"draw\": \"%s\", \"own\": %s, \"kinds\": [", k ? "," : "", draw->name, library ? "false" : "true");
+        for (int kind = 0, first = 1; library && kind < KIND_COUNT; ++kind)
+            if (draw->params->kinds & 1u << kind) grow(&said, "%s\"%s\"", first ? "" : ", ", kinds[kind]), first = 0;
+        grow(&said, "], \"fields\": ");
+        grow_fields(&said, library ? draw->params : NULL, look ? look->params : NULL);
+        grow(&said, "}");
+    }
+    grow(&said, "],\n \"fonts\": [");
+    for (int k = 0; laid && k < a->font_count; ++k) grow(&said, "%s\"%s\"", k ? ", " : "", a->fonts[k].name);
+    grow(&said, "], \"hands\": [");
+    for (int k = 0; k < (laid ? a->hand_count : 2); ++k) grow(&said, "%s\"%s\"", k ? ", " : "", laid ? a->hands[k].name : library_hands[k]);
+    grow(&said, "], \"by_rule\": %s,\n \"style\": ", appearance_named() ? "false" : "true");
+    grow_fields(&said, &dgx_ui_params_text_style, NULL);
+    grow(&said, ",\n \"variant\": ");
+    grow_fields(&said, &dgx_ui_params_font_variant, NULL);
+    grow(&said, "}");
+    return said.text;
 }
 
 /* ---- the calls ---- */

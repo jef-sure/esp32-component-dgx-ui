@@ -67,6 +67,8 @@ A preview is a copy of the module with memory of its own: two of them on a page 
 | `notes()` | The stand-ins the pages in use take, a line each. |
 | `format()` | The format of a page as the loader reads it: `{version, kinds, keys}`, each key with its type, the kinds it means something for, its words or its range, the table of its names. A page that edits descriptions draws its controls by it. |
 | `tables()` | The names of the tables the page given is read on, `{look, value, picture, style, on, take, ctx, id}`, the appearance's looks and styles first. |
+| `appearanceFormat()` | What the appearance given may say, for a page that edits it by forms: `{draws, fonts, hands, by_rule, style, variant}`. A draw is `{draw, own, kinds, fields, defaults}`: each field `{name, type}`, with `min` and `max` or `words` where they are said, the types those of `DGX_UI_FIELD_*` (`color`, `color_or_under`, `number`, `bool`, `word`, `flags`, `bit`, `bands`, `font`, `hand`, `variants`); `defaults` the values of the library's look of the draw's word, a colour by its name of the four, `null` for what lies under. A draw of the program's own is `own: true` with no fields: its C is not here. `by_rule`: the appearance is read with no names file. `style` and `variant`: the fields of a style and of a variant. With no appearance given, the library's draws and hands. |
+| `DgxUiPreview.colorNames()` | DGX's colours by their names, in the order of its `dgx_colors.h`: `[['aliceblue', '#f0f8ff'], ...]`. |
 | `json(text)` | Whether a text, or bytes, is JSON as the loader's reader reads it: 1, 0, or 2 for one deeper than it goes. |
 
 A verdict is `{code, offset, name, said}`. For a text taken `code` is 0. For a page or an appearance refused it is the
@@ -142,7 +144,7 @@ const results = await preview.fonts(indexText, file => directory.getFileHandle(f
 
 ### What it takes
 
-The file is 464 KB, 187 KB when a server sends it with gzip. A preview takes 0.4 MB and its frame, four bytes a
+The file is 473 KB, 191 KB when a server sends it with gzip. A preview takes 0.4 MB and its frame, four bytes a
 pixel: 0.7 MB at 320x240, 4.3 MB at 1280x800, 64 MB at 4096x4096. A font file takes its own size and some 70 bytes:
 the 16 fonts of a project, 162 KB, took 0.2 MB. Its memory does not shrink: after a large panel a small one holds
 what the large one took, until the preview is let go. Pages and fonts given again and again do not grow it.
@@ -156,9 +158,9 @@ make DGX=<the registry's copy of DGX> check     # made in a directory of its own
 ```
 
 The toolchain is Ubuntu's. DGX is the registry's copy at the version dgx-ui's manifest asks for at least, a project's
-`managed_components/jef-sure__dgx`; a checkout or another version is refused. The same sources and toolchain give
-the same bytes, with no path and no time in them. The head of `dgx_ui_preview.js` names both and a hash of every
-source, and `version()` gives the same.
+`managed_components/jef-sure__dgx`; a checkout or another version is refused. The names of its colours are taken from
+its `dgx_colors.h`. The same sources and toolchain give the same bytes, with no path and no time in them. The head of
+`dgx_ui_preview.js` names both and a hash of every source, and `version()` gives the same.
 
 | File | What it is |
 | --- | --- |

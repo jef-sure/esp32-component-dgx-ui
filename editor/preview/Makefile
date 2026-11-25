@@ -35,7 +35,7 @@ OBJ     := $(abspath $(BUILD))/obj
 OBJECTS := $(sort $(addprefix $(OBJ)/,$(notdir $(SOURCES:.c=.o))))
 HEADERS := $(sort $(wildcard $(ROOT)/include/*.h $(ROOT)/src/*.h) $(ROOT)/tools/dgx_ui_names.h $(HERE)/dgx_ui_preview.h \
            $(shell find $(DGX_ROOT)/include $(DGX_HOST_DIR)/stubs -name '*.h'))
-EXPORTS := version format tables json screen text names font appearance appearance_on page pointer key buttons value paint wake frame changed shown \
+EXPORTS := version format tables json screen text names font appearance appearance_on appearance_format page pointer key buttons value paint wake frame changed shown \
            count widget widget_at events notes
 comma   := ,
 FLAGS   := --target=wasm32-wasi -Os -flto -std=gnu11 -ffile-prefix-map=$(ROOT)=dgx-ui -ffile-prefix-map=$(DGX_ROOT)=dgx \
@@ -78,9 +78,9 @@ $(BUILD)/dgx_ui_preview.wasm: $(SOURCES) $(HEADERS) $(MADE)/library_looks.h $(MA
 	cd $(OBJ) && $(CLANG) $(FLAGS) -Wno-unused-function -Wno-literal-conversion -c $(THEIRS)
 	$(CLANG) --target=wasm32-wasi -Os -flto -mexec-model=reactor $(LINK) -o $@ $(OBJECTS)
 
-$(OUT)/dgx_ui_preview.js: $(BUILD)/dgx_ui_preview.wasm preview_class.js preview_build.py
+$(OUT)/dgx_ui_preview.js: $(BUILD)/dgx_ui_preview.wasm preview_class.js preview_build.py $(DGX_ROOT)/include/dgx_colors.h
 	mkdir -p $(OUT)
-	python3 preview_build.py js $< preview_class.js $(MADE)/preview_version.h $@
+	python3 preview_build.py js $< preview_class.js $(MADE)/preview_version.h $(DGX_ROOT)/include/dgx_colors.h $@
 
 # made again from nothing, in a directory of its own, and held to the files here
 check:

@@ -486,6 +486,7 @@ function pathAtByte(spans, at) {
 }
 
 const api = { read, readText, write, widgets, widgetAt, indexOf, pathOf, samePath, setKey, removeKey, addChild, remove, move, wrap, builderOf,
-              setBuilder, shown, valueOf, pathAtByte, byteOfUnit, unitOfByte, illFormedAt, TOP_ORDER, WIDGET_ORDER, ONE_LINE, BUILDER };
+              setBuilder, shown, valueOf, entryOf, plain, stringNode, line, keyText, ordered, bytesOf, pathAtByte, byteOfUnit, unitOfByte,
+              illFormedAt, TOP_ORDER, WIDGET_ORDER, ONE_LINE, BUILDER };
 if (typeof module !== 'undefined') module.exports = api;
 else window.DgxUiDescription = api;

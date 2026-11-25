@@ -14,8 +14,8 @@ only, so the Python of ESP-IDF runs it.
 
 Only this computer reaches it: bound to 127.0.0.1, every request of this Host. The project's calls carry a token the
 link gives, a write comes from the builder's own page, and the paths lie in the project. What is written: the files the
-project's dgx_ui_tree(), dgx_ui_appearance() and dgx_ui_names() calls name, read at each write, and pages already
-there, of .json or .txt; never a file or folder of a dot, nor one the build reads by its name.
+project's dgx_ui_tree(), dgx_ui_appearance() and dgx_ui_names() calls name, read at each write, and pages and
+appearances already there, of .json or .txt; never a file or folder of a dot, nor one the build reads by its name.
 """
 import argparse
 import http.server
@@ -141,8 +141,8 @@ def called_files(root):
 
 
 def page_there(path):
-    """Whether a file is a description of a page as the builder finds one: a .json holding "dgx-ui" and "tree", read as
-    JSON, or by its text when it does not read (a page there to be mended)."""
+    """Whether a file is a description as the builder finds one: a .json holding "dgx-ui" and "tree", a page, or "dgx-ui"
+    and "colors", an appearance, read as JSON, or by its text when it does not read (one there to be mended)."""
     try:
         with open(path, "rb") as source:
             data = source.read(LONGEST_BODY)
@@ -150,9 +150,9 @@ def page_there(path):
         return False
     try:
         doc = json.loads(data)
-        return isinstance(doc, dict) and "dgx-ui" in doc and "tree" in doc
+        return isinstance(doc, dict) and "dgx-ui" in doc and ("tree" in doc or "colors" in doc)
     except ValueError:
-        return re.search(rb'"dgx-ui"[\s\S]*"tree"', data) is not None
+        return re.search(rb'"dgx-ui"[\s\S]*"(tree|colors)"', data) is not None
 
 
 def problem_of(root, rel, writing=False, listing=False):
@@ -198,7 +198,7 @@ def problem_of(root, rel, writing=False, listing=False):
         if rel not in named and written not in named:
             searched = not any(part.casefold() in NOT_SEARCHED or part.casefold().startswith("build") for part in written.split("/")[:-1])
             if not (searched and written.endswith(".json") and page_there(real)):
-                return "the builder writes the files the project's dgx_ui_tree(), dgx_ui_appearance() and dgx_ui_names() calls name, and pages already there"
+                return "the builder writes the files the project's dgx_ui_tree(), dgx_ui_appearance() and dgx_ui_names() calls name, and pages and appearances already there"
     return None
 
 

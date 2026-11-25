@@ -88,12 +88,14 @@ void app_main(void)
     dgx_screen_t *scr = display_init();
     if (!scr) return;
     /* the colours of the looks are indices of this table, packed for the screen */
+#define SCREEN_RGB(r, g, b) dgx_screen_rgb(scr, (r), (g), (b))
     const uint32_t colors[] = {
-        DGX_BLACK(DGX_RGB_16),          /* 0 the paper */
-        DGX_GAINSBORO(DGX_RGB_16),      /* 1 the ink */
-        DGX_MIDNIGHTBLUE(DGX_RGB_16),   /* 2 the frame's fill */
-        DGX_CORNFLOWERBLUE(DGX_RGB_16), /* 3 its border */
+        DGX_BLACK(SCREEN_RGB),          /* 0 the paper */
+        DGX_GAINSBORO(SCREEN_RGB),      /* 1 the ink */
+        DGX_MIDNIGHTBLUE(SCREEN_RGB),   /* 2 the frame's fill */
+        DGX_CORNFLOWERBLUE(SCREEN_RGB), /* 3 its border */
     };
+#undef SCREEN_RGB
     dgx_ui_textbox_init(&count_box, count_buf, sizeof count_buf, 1, &st_count);
 
     /* the tree: a point is a pixel here; the first widget added is the root */

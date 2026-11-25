@@ -37,6 +37,7 @@ const dgxUiBuilderMount = (() => {
                 'two spaces of indent, a short widget on one line. What they hold stays as written, strings and numbers too.',
         opened: 'On the screen: the page "{0}", opened by an action; clicks select nothing in it.',
         unread: 'The text does not read: {0}, at byte {1}.',
+        broken: 'As it is now, the appearance is refused, or the pages drawn on it are: these. Save anyway, or cancel and mend it.',
     };
 
     function useWords() {
@@ -328,14 +329,307 @@ const dgxUiBuilderMount = (() => {
         `,
     };
 
+    // ---- the appearance by its forms ----
+
+    // a field of the appearance at a path, as the module describes its kind: a colour of the appearance's, null where it
+    // may be, a number in its bounds, a word, flags, a list of bands; one the format does not describe is shown as text
+    const LookField = {
+        props: ['path', 'field', 'node'],
+        setup(props) {
+            const words = useWords(), store = words.store;
+            const value = computed(() => (props.node === undefined ? undefined : window.DgxUiDescription.shown(props.node)));
+            const colors = computed(() => (store.look ? window.DgxUiAppearance.namesOf(store.look, 'colors') : []));
+            const fold = () => store.lookFold(props.path);
+            const choose = (choice) => store.setLook(props.path, choice === ABSENT ? undefined : choice === NULL_NAME ? null : choice);
+            const numberText = (node) => (node && node.t === 'number' ? node.raw : node && node.t === 'string' ? node.value : '');
+            const flag = (word, on) => {
+                const now = Array.isArray(value.value) ? value.value.filter((one) => typeof one === 'string' && one !== word) : [];
+                const next = on ? [...now, word] : now;
+                store.setLook(props.path, next.length ? next : undefined);
+            };
+            const bands = computed(() => (props.node && props.node.t === 'array' ? props.node.items : []));
+            const choice = computed(() => (props.node === undefined ? ABSENT : value.value === null ? NULL_NAME : String(value.value)));
+            return { ...words, value, colors, fold, choose, numberText, flag, bands, choice, ABSENT, NULL_NAME,
+                     one: (node) => JSON.stringify(window.DgxUiDescription.shown(node)) };
+        },
+        template: `
+            <div class="field" :class="{ absent: node === undefined }">
+                <span class="key" :title="field.type">{{ field.name }}</span>
+                <select v-if="field.type === 'color' || field.type === 'color_or_under'" :value="choice" @change="choose($event.target.value)">
+                    <option :value="ABSENT">—</option>
+                    <option v-if="field.type === 'color_or_under'" :value="NULL_NAME">{{ t('null, what lies under') }}</option>
+                    <option v-for="name in colors" :key="name" :value="name">{{ name }}</option>
+                    <option v-if="typeof value === 'string' && !colors.includes(value)" :value="value">{{ value }}</option>
+                </select>
+                <input v-else-if="field.type === 'number'" type="text" :value="numberText(node)" :placeholder="field.min + ' … ' + field.max"
+                       @input="store.setLookNumber(path, $event.target.value, fold())">
+                <input v-else-if="field.type === 'bool' || field.type === 'bit'" type="checkbox" :checked="value === true"
+                       @change="store.setLook(path, $event.target.checked ? true : undefined)">
+                <select v-else-if="field.type === 'word'" :value="choice" @change="choose($event.target.value)">
+                    <option :value="ABSENT">—</option>
+                    <option v-for="word in field.words" :key="word" :value="word">{{ word }}</option>
+                </select>
+                <span v-else-if="field.type === 'flags'" class="words">
+                    <label v-for="word in field.words" :key="word">
+                        <input type="checkbox" :checked="Array.isArray(value) && value.includes(word)" @change="flag(word, $event.target.checked)">
+                        {{ word }}</label>
+                </span>
+                <span v-else-if="field.type === 'font'" class="name">
+                    <input type="text" :value="typeof value === 'string' ? value : ''" list="dgx-ui-builder-fonts"
+                           @input="store.setLook(path, $event.target.value === '' ? undefined : $event.target.value, fold())">
+                </span>
+                <select v-else-if="field.type === 'hand'" :value="choice" @change="choose($event.target.value)">
+                    <option :value="ABSENT">—</option>
+                    <option v-for="hand in store.lookFormat?.hands ?? []" :key="hand" :value="hand">{{ hand }}</option>
+                    <option v-if="typeof value === 'string' && !(store.lookFormat?.hands ?? []).includes(value)" :value="value">{{ value }}</option>
+                </select>
+                <span v-else-if="field.type === 'bands'" class="bands">
+                    <span v-for="(band, k) in bands" :key="k" class="band">
+                        <input type="text" :value="band.t === 'array' ? numberText(band.items[0]) : ''" :title="t('the values below it')"
+                               @input="store.setLookNumber([...path, k, 0], $event.target.value, store.lookFold([...path, k, 0]))">
+                        <select :value="band.t === 'array' && band.items[1]?.t === 'string' ? band.items[1].value : ABSENT"
+                                @change="store.setLook([...path, k, 1], $event.target.value)">
+                            <option v-for="name in colors" :key="name" :value="name">{{ name }}</option></select>
+                        <button @click="store.moveLookItem(path, k, -1)" :disabled="k === 0">↑</button>
+                        <button @click="store.moveLookItem(path, k, 1)" :disabled="k + 1 === bands.length">↓</button>
+                        <button class="remove" @click="store.removeLookItem(path, k)">×</button>
+                    </span>
+                    <button @click="store.insertLookItem(path, bands.length, [0, colors[0] ?? 'ink'])">{{ t('Add a band') }}</button>
+                </span>
+                <code v-else class="value">{{ node === undefined ? '' : one(node) }}</code>
+                <button v-if="node !== undefined && field.type !== 'bands'" class="remove" :title="t('the key removed')"
+                        @click="store.setLook(path, undefined)">×</button>
+            </div>
+        `,
+    };
+
+    const AppearancePane = {
+        components: { LookField },
+        setup() {
+            const words = useWords(), store = words.store;
+            const appearance = window.DgxUiAppearance, describe = window.DgxUiDescription;
+            const colorNames = window.DgxUiPreview.colorNames();
+            const made = computed(() => store.project?.appearances.find((one) => one.path === store.page?.appearance)?.from ?? null);
+            const verdict = computed(() => words.verdictText(store.verdicts.appearance));
+            const entriesOf = (section) => {
+                const object = store.look ? describe.valueOf(store.look, section) : null;
+                return object && object.t === 'object' ? object.entries : [];
+            };
+            const twice = (node) => node && node.t === 'object' && new Set(node.entries.map(([key]) => key.value)).size !== node.entries.length;
+            const colors = computed(() => entriesOf('colors').map(([key, node]) => {
+                const text = node.t === 'string' ? node.value : '';
+                const hex = appearance.HEX.test(text.toLowerCase()) ? text.toLowerCase() : '#000000';
+                return { name: key.value, text, hex, painter: appearance.PAINTERS.includes(key.value),
+                         named: appearance.namesOfColor(hex, colorNames), bad: node.t !== 'string' };
+            }));
+            const styles = computed(() => entriesOf('styles').map(([key]) => key.value));
+            const looks = computed(() => entriesOf('looks').map(([key]) => key.value));
+            const picked = (section) => (store.pick[0] === section ? store.pick[1] : null);
+            const pickedNode = (section) => {
+                const name = picked(section);
+                return name === null ? null : appearance.nodeAt(store.look, [section, name]) ?? null;
+            };
+            const style = computed(() => (store.look ? pickedNode('styles') : null));
+            const look = computed(() => (store.look ? pickedNode('looks') : null));
+            const variants = computed(() => {
+                const fonts = style.value && style.value.t === 'object' ? describe.valueOf(style.value, 'fonts') : null;
+                return fonts && fonts.t === 'array' ? fonts.items : [];
+            });
+            const styleFields = computed(() => (store.lookFormat?.style ?? []).filter((field) => field.name !== 'fonts'));
+            const draw = computed(() => {
+                const node = look.value && look.value.t === 'object' ? describe.valueOf(look.value, 'draw') : null;
+                return node && node.t === 'string' ? node.value : null;
+            });
+            const described = computed(() => store.lookFormat?.draws.find((one) => one.draw === draw.value) ?? null);
+            const params = computed(() => (look.value && look.value.t === 'object' ? describe.valueOf(look.value, 'params') : undefined));
+            const paramOf = (name) => (params.value && params.value.t === 'object' ? describe.valueOf(params.value, name) : undefined);
+            const lookKeysAsText = computed(() => (look.value && look.value.t === 'object'
+                ? look.value.entries.map(([key]) => key.value).filter((key) => !['draw', 'fill', 'params'].includes(key)) : []));
+            const isAt = (section, name) => store.appearanceAt && store.appearanceAt[0] === section && store.appearanceAt[1] === name;
+            const atDepth = (hex) => appearance.colorAtDepth(hex, store.screen.depth);
+            // the browser's picker gives a colour at every move: taken once a frame, the last one
+            let pending = null;
+            const pickColor = (name, hex) => {
+                const first = pending === null;
+                pending = { name, hex };
+                if (!first) return;
+                (window.requestAnimationFrame ?? ((call) => setTimeout(call, 16)))(() => {
+                    const { name: at, hex: value } = pending;
+                    pending = null;
+                    store.setColor(at, value, store.lookFold(['colors', at]));
+                });
+            };
+            const fresh = ref(0); // the names typed shown anew after a rename not done
+            const plan = ref(null);
+            const rename = (section, from, to) => {
+                to = to.trim();
+                if (!to || to === from) return void ++fresh.value;
+                if (section === 'colors') return void (store.renameEntry(section, from, to) || ++fresh.value);
+                const said = store.renamePlan(section, from, to);
+                if (!said.taken && !said.refused.length && (said.pages.length || said.warnings.length)) plan.value = { section, from, to, ...said };
+                else if (!store.renameEntry(section, from, to)) ++fresh.value;
+            };
+            const confirmRename = () => {
+                const { section, from, to } = plan.value;
+                plan.value = null;
+                if (!store.renameEntry(section, from, to)) ++fresh.value;
+            };
+            const cancelRename = () => {
+                plan.value = null;
+                ++fresh.value;
+            };
+            const widgetCount = (pages) => pages.reduce((sum, page) => sum + page.widgets.length, 0);
+            const newColor = ref(''), newStyle = ref(''), newLook = ref(''), newDraw = ref('');
+            const addColor = () => {
+                if (store.addEntry('colors', newColor.value.trim(), '#808080')) newColor.value = '';
+            };
+            const addStyle = () => {
+                const font = store.lookFormat?.fonts[0] ?? 'body';
+                if (store.addEntry('styles', newStyle.value.trim(), { fonts: [font] })) newStyle.value = '';
+            };
+            const addLook = () => {
+                const name = newLook.value.trim() || newDraw.value;
+                if (newDraw.value && store.addLook(name, newDraw.value)) newLook.value = '';
+            };
+            const variantText = (node) => (node.t === 'string' ? node.value : '');
+            return { ...words, colorNames, made, verdict, twice, colors, styles, looks, picked, style, look, variants, styleFields, draw,
+                     described, params, paramOf, lookKeysAsText, isAt, atDepth, pickColor, fresh, plan, rename, confirmRename, cancelRename,
+                     widgetCount, newColor, newStyle, newLook, newDraw, addColor, addStyle, addLook, variantText,
+                     valueOf: describe.valueOf, one: (node) => JSON.stringify(describe.shown(node)) };
+        },
+        template: `
+            <div class="appearance">
+                <p class="path">{{ store.page.appearance }}<span v-if="made"> · {{ t('made by {0}', made) }}</span></p>
+                <p v-if="store.appearanceError" class="wrong">
+                    {{ t(LONG_TEXTS.unread, t(store.appearanceError.why), store.appearanceError.byte) }}
+                    <button @click="store.showText('appearance')">{{ t('Show the text') }}</button></p>
+                <p v-else-if="verdict" class="wrong verdict" @click="store.showText('appearance')" :title="t('the cursor to it')">{{ verdict }}</p>
+                <template v-if="store.look">
+                    <div class="heading">{{ t('Colours') }}</div>
+                    <div v-for="row in colors" :key="row.name + '/' + fresh" class="color" :class="{ refused: isAt('colors', row.name) }">
+                        <input type="text" class="entry-name" :value="row.name" :disabled="row.painter"
+                               :title="row.painter ? t('one of the painter\\'s four: its name is the format\\'s') : t('the name: renamed when you leave it')"
+                               @change="rename('colors', row.name, $event.target.value)">
+                        <span class="swatch" :style="{ background: row.hex }" :title="t('as written')"></span>
+                        <span class="swatch" :style="{ background: atDepth(row.hex) }"
+                              :title="t('as the panel shows it at {0} bits', store.screen.depth)"></span>
+                        <input type="text" class="hex" :value="row.text" list="dgx-ui-builder-colors" :aria-label="t('the colour of {0}', row.name)"
+                               @input="store.setColor(row.name, $event.target.value, store.lookFold(['colors', row.name]))">
+                        <input type="color" :value="row.hex" :aria-label="t('the colour of {0}', row.name)" @input="pickColor(row.name, $event.target.value)">
+                        <span class="named note">{{ row.named }}</span>
+                        <button v-if="!row.painter" class="remove" :title="t('Delete')" @click="store.removeEntry('colors', row.name)">×</button>
+                    </div>
+                    <datalist id="dgx-ui-builder-colors"><option v-for="one in colorNames" :key="one[0]" :value="one[0]">{{ one[1] }}</option></datalist>
+                    <datalist id="dgx-ui-builder-fonts"><option v-for="font in store.lookFormat?.fonts ?? []" :key="font" :value="font"></option></datalist>
+                    <p class="add"><input type="text" v-model="newColor" :placeholder="t('a new colour\\'s name')">
+                        <button @click="addColor" :disabled="!newColor.trim()">{{ t('Add') }}</button></p>
+
+                    <div class="heading">{{ t('Styles') }}</div>
+                    <p class="entries">
+                        <button v-for="name in styles" :key="name" class="node" :class="{ here: picked('styles') === name, refused: isAt('styles', name) }"
+                                @click="store.choosePick(['styles', name])">{{ name }}</button></p>
+                    <div v-if="style" class="form">
+                        <div class="field"><span class="key">{{ t('name') }}</span>
+                            <input type="text" class="entry-name" :key="'s' + fresh" :value="picked('styles')"
+                                   @change="rename('styles', picked('styles'), $event.target.value)">
+                            <button class="remove" :title="t('Delete')" @click="store.removeEntry('styles', picked('styles'))">×</button></div>
+                        <p v-if="style.t !== 'object' || twice(style)" class="note">{{ t('edited as text: not an object of keys said once') }}</p>
+                        <template v-else>
+                            <div class="field"><span class="key">fonts</span><span class="note">{{ t('the best first') }}</span></div>
+                            <div v-for="(variant, k) in variants" :key="k" class="variant">
+                                <div class="field">
+                                    <span class="key">{{ k + 1 }}</span>
+                                    <input v-if="variant.t === 'string'" type="text" :value="variantText(variant)" list="dgx-ui-builder-fonts"
+                                           @input="store.setLook(['styles', picked('styles'), 'fonts', k], $event.target.value,
+                                                                 store.lookFold(['styles', picked('styles'), 'fonts', k]))">
+                                    <span v-else-if="variant.t === 'object'" class="note">{{ t('a variant of its own') }}</span>
+                                    <code v-else>{{ one(variant) }}</code>
+                                    <button v-if="variant.t === 'string'" :title="t('a variant of its own: a handwritten font, or a font\\'s pixels as points')"
+                                            @click="store.setLook(['styles', picked('styles'), 'fonts', k], { font: variant.value })">…</button>
+                                    <button @click="store.moveLookItem(['styles', picked('styles'), 'fonts'], k, -1)" :disabled="k === 0">↑</button>
+                                    <button @click="store.moveLookItem(['styles', picked('styles'), 'fonts'], k, 1)"
+                                            :disabled="k + 1 === variants.length">↓</button>
+                                    <button class="remove" @click="store.removeLookItem(['styles', picked('styles'), 'fonts'], k)">×</button>
+                                </div>
+                                <div v-if="variant.t === 'object'" class="sub">
+                                    <look-field v-for="field in store.lookFormat?.variant ?? []" :key="field.name" :field="field"
+                                                :path="['styles', picked('styles'), 'fonts', k, field.name]"
+                                                :node="valueOf(variant, field.name)"></look-field>
+                                </div>
+                            </div>
+                            <p><button @click="store.insertLookItem(['styles', picked('styles'), 'fonts'], variants.length,
+                                                                     store.lookFormat?.fonts[0] ?? 'body')">{{ t('Add a font') }}</button></p>
+                            <look-field v-for="field in styleFields" :key="field.name" :field="field" :path="['styles', picked('styles'), field.name]"
+                                        :node="valueOf(style, field.name)"></look-field>
+                        </template>
+                    </div>
+                    <p class="add"><input type="text" v-model="newStyle" :placeholder="t('a new style\\'s name')">
+                        <button @click="addStyle" :disabled="!newStyle.trim()">{{ t('Add') }}</button></p>
+
+                    <div class="heading">{{ t('Looks') }}</div>
+                    <p class="entries">
+                        <button v-for="name in looks" :key="name" class="node" :class="{ here: picked('looks') === name, refused: isAt('looks', name) }"
+                                @click="store.choosePick(['looks', name])">{{ name }}</button></p>
+                    <div v-if="look" class="form">
+                        <div class="field"><span class="key">{{ t('name') }}</span>
+                            <input type="text" class="entry-name" :key="'l' + fresh" :value="picked('looks')"
+                                   @change="rename('looks', picked('looks'), $event.target.value)">
+                            <button class="remove" :title="t('Delete')" @click="store.removeEntry('looks', picked('looks'))">×</button></div>
+                        <p v-if="look.t !== 'object' || twice(look)" class="note">{{ t('edited as text: not an object of keys said once') }}</p>
+                        <template v-else>
+                            <div class="field"><span class="key">draw</span>
+                                <select :value="draw ?? ''" @change="store.setDraw(picked('looks'), $event.target.value)">
+                                    <option v-if="!described" :value="draw ?? ''">{{ draw ?? '—' }}</option>
+                                    <option v-for="one in store.lookFormat?.draws ?? []" :key="one.draw" :value="one.draw">
+                                        {{ one.draw }}{{ one.kinds.length ? ' (' + one.kinds.join(', ') + ')' : one.own ? ' · ' + t('the program\\'s own') : '' }}</option>
+                                </select></div>
+                            <look-field :field="{ name: 'fill', type: 'color_or_under' }" :path="['looks', picked('looks'), 'fill']"
+                                        :node="valueOf(look, 'fill')"></look-field>
+                            <template v-if="described && !described.own && (!params || (params.t === 'object' && !twice(params)))">
+                                <div v-if="described.fields.length" class="field"><span class="key">params</span>
+                                    <span class="note">{{ t('of the draw {0}', draw) }}</span></div>
+                                <div class="sub">
+                                    <look-field v-for="field in described.fields" :key="field.name" :field="field"
+                                                :path="['looks', picked('looks'), 'params', field.name]" :node="paramOf(field.name)"></look-field>
+                                </div>
+                            </template>
+                            <p v-else-if="params !== undefined" class="note">{{ t('params edited as text: a draw of the program\\'s own, or not an object of keys said once') }}
+                                <code>{{ one(params) }}</code></p>
+                            <p v-if="lookKeysAsText.length" class="note">{{ t('edited as text: {0}', lookKeysAsText.join(', ')) }}</p>
+                        </template>
+                    </div>
+                    <p class="add"><input type="text" v-model="newLook" :placeholder="t('a new look\\'s name')">
+                        <select v-model="newDraw" :aria-label="t('its draw')"><option value="" disabled>{{ t('its draw') }}</option>
+                            <option v-for="one in store.lookFormat?.draws ?? []" :key="one.draw" :value="one.draw">{{ one.draw }}</option></select>
+                        <button @click="addLook" :disabled="!newDraw">{{ t('Add') }}</button></p>
+                </template>
+                <div v-if="plan" class="asking">
+                    <div class="dialog">
+                        <p>{{ t('Renaming "{0}" to "{1}" changes {2} widget(s) of the pages on this appearance:', plan.from, plan.to, widgetCount(plan.pages)) }}</p>
+                        <ul><li v-for="page in plan.pages" :key="page.path"><code>{{ page.path }}</code>: {{ page.widgets.length }}</li></ul>
+                        <p v-for="(one, i) in plan.warnings" :key="i" class="note">{{ t(one.text, ...one.values) }}</p>
+                        <button @click="confirmRename">{{ t('Rename') }}</button>
+                        <button @click="cancelRename">{{ t('Cancel') }}</button>
+                    </div>
+                </div>
+            </div>
+        `,
+    };
+
     const PropertiesPane = {
-        components: { Field },
+        components: { Field, AppearancePane },
         setup() {
             const words = useWords();
             return { ...words };
         },
         template: `
             <aside class="pane properties">
+                <p v-if="store.page" class="tabs">
+                    <button :class="{ here: store.tab === 'properties' }" @click="store.setTab('properties')">{{ t('Properties') }}</button>
+                    <button :class="{ here: store.tab === 'appearance' }" :disabled="!store.page.appearance"
+                            @click="store.setTab('appearance')">{{ t('Appearance') }}</button></p>
+                <appearance-pane v-if="store.page && store.tab === 'appearance' && store.page.appearance"></appearance-pane>
+                <template v-else>
                 <div v-if="store.page" class="files">
                     <div class="heading">{{ t('The page') }}</div>
                     <p class="path">{{ store.page.path }}<span v-if="store.page.from"> · {{ t('made by {0}', store.page.from) }}</span></p>
@@ -364,6 +658,7 @@ const dgxUiBuilderMount = (() => {
                     <div class="heading">{{ t('Properties') }}</div>
                     <field v-for="field in store.fields" :key="store.selection.join('.') + '/' + field.key" :field="field"></field>
                 </div>
+                </template>
             </aside>
         `,
     };
@@ -474,8 +769,14 @@ const dgxUiBuilderMount = (() => {
                 </footer>
                 <div v-if="store.asking" class="asking">
                     <div class="dialog">
-                        <p>{{ t(LONG_TEXTS.asking) }}</p>
-                        <ul><li v-for="path in store.asking.paths" :key="path"><code>{{ path }}</code></li></ul>
+                        <template v-if="store.asking.paths.length">
+                            <p>{{ t(LONG_TEXTS.asking) }}</p>
+                            <ul><li v-for="path in store.asking.paths" :key="path"><code>{{ path }}</code></li></ul>
+                        </template>
+                        <template v-if="store.asking.broken?.length">
+                            <p>{{ t(LONG_TEXTS.broken) }}</p>
+                            <ul><li v-for="one in store.asking.broken" :key="one.path"><code>{{ one.path }}</code>: {{ verdictText(one.verdict) }}</li></ul>
+                        </template>
                         <button @click="store.save(store.asking.all, true)">{{ t('Save') }}</button>
                         <button @click="store.cancelSave()">{{ t('Cancel') }}</button>
                     </div>

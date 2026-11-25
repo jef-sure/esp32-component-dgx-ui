@@ -1,7 +1,8 @@
 // The state of the builder: the project open, the page chosen with its description as a document, the selection, and
 // what the preview's module said of the texts and drew. What the format allows is the loader's word: every text goes to
 // the module, and its verdicts are shown, none of the format's rules written here again. description.js reads, edits
-// and writes a description; history.js keeps undo; a host (host_browser.js) gives the files.
+// and writes a description, appearance.js an appearance; history.js keeps undo, a history a file; a host
+// (host_browser.js) gives the files.
 //
 // A project is what its CMakeLists say: main/CMakeLists.txt, components/*/CMakeLists.txt and the top one are read for
 // dgx_ui_tree(), dgx_ui_names() and dgx_ui_appearance(), each page with its names file and appearance as the call
@@ -15,6 +16,7 @@ const useDgxUiBuilder = (() => {
     const description = window.DgxUiDescription;
     const { read, write, widgets, widgetAt, indexOf, pathOf, samePath, valueOf, shown, builderOf, unitOfByte, illFormedAt } = description;
     const { History } = window.DgxUiHistory;
+    const appearance = window.DgxUiAppearance;
 
     const PREFERENCES = { zoom: 'dgx-ui-builder.zoom', screen: 'dgx-ui-builder.screen', language: 'dgx-ui-builder.language' }; // localStorage
     // the screens offered: the panels of the boards dgx-ui is tried on
@@ -160,6 +162,8 @@ const useDgxUiBuilder = (() => {
                         const path = joinPath(directory, value);
                         if (path === null) wrong = ['{0}: not a file of the project', [value]];
                         else found[words[k - 1] === 'NAMES' ? 'names' : 'appearance'] = path;
+                    } else {
+                        found.prefix = value;
                     }
                 } else {
                     wrong = ['"{0}": a word the call does not take', [words[k]]];
@@ -233,7 +237,7 @@ const useDgxUiBuilder = (() => {
         }
         for (const call of calls.filter((one) => one.call === 'dgx_ui_appearance')) {
             if (!project.appearances.some((one) => one.path === call.file))
-                project.appearances.push({ path: call.file, names: call.names ?? null, from: call.from });
+                project.appearances.push({ path: call.file, names: call.names ?? null, from: call.from, prefix: call.prefix ?? null });
         }
         for (const call of calls.filter((one) => one.call === 'dgx_ui_names'))
             project.namesFiles.push({ path: call.file, appearance: call.appearance ?? null, from: call.from });
@@ -248,9 +252,12 @@ const useDgxUiBuilder = (() => {
         const lone = project.namesFiles.length === 1 ? project.namesFiles[0] : null;
         for (const path of found.sort()) {
             if (known.has(path)) continue;
-            // one that does not read is a page still when its text holds both keys: it is there to be mended
-            const data = await host.read(path), said = read(data);
-            const page = said.ok ? valueOf(said.doc, 'dgx-ui') && valueOf(said.doc, 'tree') : /"dgx-ui"[^]*"tree"/.test(decoder.decode(data));
+            // one that does not read is a page still when its text holds both keys: it is there to be mended; an appearance
+            // loaded at run time holds "colors" where a page holds "tree"
+            const data = await host.read(path), said = read(data), text = said.ok ? null : decoder.decode(data);
+            const has = (key) => (said.ok ? !!valueOf(said.doc, 'dgx-ui') && !!valueOf(said.doc, key) : new RegExp(`"dgx-ui"[^]*"${key}"`).test(text));
+            const page = has('tree');
+            if (!page && has('colors')) project.appearances.push({ path, names: null, from: null, prefix: null });
             if (!page) continue;
             project.pages.push({ path, names: lone?.path ?? null, appearance: lone?.appearance ?? null, from: null });
         }
@@ -280,15 +287,15 @@ const useDgxUiBuilder = (() => {
 
     // a file as the store holds it: the text as saved and as edited; one not well-formed UTF-8 shown with its bytes
     // replaced, where they are not, until it is edited
-    function fileState(bytes, isPage) {
+    function fileState(bytes, kind) {
         if (bytes === null) return { saved: null, text: '', missing: true, illFormed: null, formed: true, byBuilder: false };
         const bad = illFormedAt(bytes);
         const text = decoder.decode(bytes);
         const state = { saved: text, text, missing: false, illFormed: null, formed: true, byBuilder: false };
         if (bad >= 0) state.illFormed = { byte: bad, at: decoder.decode(bytes.subarray(0, bad)).length };
-        else if (isPage) {
+        else if (kind) {
             const said = read(text);
-            state.formed = !said.ok || write(said.doc).text === text;
+            state.formed = !said.ok || (kind === 'appearance' ? appearance.write(said.doc) : write(said.doc)).text === text;
         }
         return state;
     }
@@ -326,7 +333,12 @@ const useDgxUiBuilder = (() => {
             wakeAt: 0,
             drawn: 0,
             tables: {}, // the names of the tables the page is read on, as the module gives them
-            raw: Vue.markRaw({ preview: null, host: null, doc: null, spans: [], histories: new Map(), format: null, preferences: null }),
+            tab: 'properties', // the pane beside the panel: the properties of the widget selected, or the appearance's forms
+            pick: [], // the entry of the appearance in its form: [section, name]
+            appearanceError: null, // the appearance's text not read: {at, byte, why}
+            appearanceAt: null, // the entry the appearance's verdict stops in: [section, name]
+            raw: Vue.markRaw({ preview: null, host: null, doc: null, spans: [], histories: new Map(), links: new Map(), linkCount: 0, format: null,
+                               preferences: null, look: null, lookSpans: [], lookFormat: null }),
         }),
 
         getters: {
@@ -364,13 +376,38 @@ const useDgxUiBuilder = (() => {
                 }
                 return fields;
             },
+            // the file an undo goes to: the text shown, the appearance while its forms are open, else the page
+            undoPath() {
+                if (this.view === 'text') return this.textPath;
+                return this.tab === 'appearance' && this.page?.appearance ? this.page.appearance : this.current;
+            },
             canUndo() {
                 this.version;
-                return !!this.raw.histories.get(this.current)?.canUndo;
+                return !!this.raw.histories.get(this.undoPath)?.canUndo;
             },
             canRedo() {
                 this.version;
-                return !!this.raw.histories.get(this.current)?.canRedo;
+                return !!this.raw.histories.get(this.undoPath)?.canRedo;
+            },
+            // the appearance of the page open as a document, null when it does not read; its format, what the module says
+            // it may say; its prefix, the call's PREFIX or its "name", which dgx_ui_c names its C by
+            look() {
+                this.version;
+                return this.raw.look;
+            },
+            lookFormat() {
+                this.version;
+                return this.raw.lookFormat;
+            },
+            lookPrefix() {
+                this.version;
+                const made = this.project?.appearances.find((one) => one.path === this.page?.appearance);
+                return made?.prefix ?? stringOf(this.raw.look ? valueOf(this.raw.look, 'name') : null);
+            },
+            // the pages drawn on the appearance of the page open
+            pagesOn() {
+                const path = this.page?.appearance;
+                return path ? this.project.pages.filter((page) => page.appearance === path).map((page) => page.path) : [];
             },
             // the text shown in the view of texts, and its file
             textPath() {
@@ -416,15 +453,16 @@ const useDgxUiBuilder = (() => {
                 const project = await readProject(host);
                 const files = {};
                 const pages = new Set(project.pages.map((page) => page.path));
+                const appearances = new Set([...project.appearances.map((one) => one.path), ...project.pages.map((page) => page.appearance)]);
                 const paths = new Set([...pages, ...project.namesFiles.map((one) => one.path),
                                        ...project.appearances.flatMap((one) => [one.path, one.names]).filter((path) => path),
                                        ...project.pages.flatMap((page) => [page.names, page.appearance]).filter((path) => path)]);
                 for (const path of paths) {
-                    files[path] = fileState(await host.read(path), pages.has(path));
+                    files[path] = fileState(await host.read(path), pages.has(path) ? 'page' : appearances.has(path) ? 'appearance' : null);
                     if (files[path].missing) project.notes.push({ text: '{0}: no such file', values: [path] });
                 }
                 this.files = files, this.project = project, this.current = null, this.reformatted = {}, this.said = [], this.asking = null;
-                this.raw.histories = new Map(), this.raw.doc = null, this.version++;
+                this.raw.histories = new Map(), this.raw.links = new Map(), this.raw.doc = null, this.pick = [], this.version++;
                 await this.giveFonts();
                 if (project.pages.length) this.choose(project.pages[0].path);
                 else this.say('no description of a page found: no dgx_ui_tree() in the CMakeLists, no file holding "dgx-ui" and "tree"');
@@ -461,6 +499,7 @@ const useDgxUiBuilder = (() => {
             choose(path) {
                 const page = this.project?.pages.find((one) => one.path === path);
                 if (!page) return false;
+                if (page.appearance !== this.page?.appearance) this.pick = [];
                 this.current = path, this.view = 'page', this.text = 'page', this.cursor = null, this.trying = false, this.events = [];
                 this.loadText();
                 this.selection = [];
@@ -479,9 +518,9 @@ const useDgxUiBuilder = (() => {
                 this.giveAll();
             },
 
-            historyOf() {
-                if (!this.raw.histories.has(this.current)) this.raw.histories.set(this.current, new History());
-                return this.raw.histories.get(this.current);
+            historyOf(path = this.current) {
+                if (!this.raw.histories.has(path)) this.raw.histories.set(path, new History());
+                return this.raw.histories.get(path);
             },
 
             // the page's text read into the document; its spans when it is the builder's writing
@@ -515,15 +554,47 @@ const useDgxUiBuilder = (() => {
             // the names, the appearance and the page given again, in that order; the fonts stay. An appearance made by
             // dgx_ui_appearance() is read on its own names file, or by the rule with none, as dgx_ui_c -a reads it
             giveAll() {
-                const preview = this.raw.preview, page = this.page;
+                const page = this.page;
                 if (!page) return;
+                const said = this.giveFiles(page);
+                this.verdicts.names = said.names, this.verdicts.appearance = said.appearance;
+                this.loadAppearance();
+                this.givePage();
+            },
+
+            // the names file and the appearance of a page given to the module; their verdicts
+            giveFiles(page) {
+                const preview = this.raw.preview;
                 const textAt = (path) => (path && this.files[path] && !this.files[path].missing ? this.files[path].text : null);
-                this.verdicts.names = page.names ? preview.names(textAt(page.names)) : null;
+                const names = page.names ? preview.names(textAt(page.names)) : null;
                 if (!page.names) preview.names(null);
                 const made = this.project.appearances.find((one) => one.path === page.appearance);
-                const itsNames = made ? (made.names ? textAt(made.names) : null) : undefined;
-                this.verdicts.appearance = page.appearance ? preview.appearance(textAt(page.appearance), itsNames) : (preview.appearance(null), null);
-                this.givePage();
+                const itsNames = made && made.from ? (made.names ? textAt(made.names) : null) : undefined;
+                const verdict = page.appearance ? preview.appearance(textAt(page.appearance), itsNames) : (preview.appearance(null), null);
+                return { names, appearance: verdict };
+            },
+
+            // the appearance of the page open read into its document, what the module says it may say, and the entry its
+            // verdict stops in when its text is the builder's writing
+            loadAppearance() {
+                const path = this.page?.appearance, file = path ? this.files[path] : null;
+                this.raw.look = null, this.raw.lookSpans = [], this.appearanceError = null, this.appearanceAt = null;
+                this.raw.lookFormat = Vue.markRaw(this.raw.preview.appearanceFormat());
+                if (file && file.illFormed) {
+                    this.appearanceError = { at: file.illFormed.at, byte: file.illFormed.byte, why: 'not UTF-8' };
+                } else if (file && !file.missing) {
+                    const said = read(file.text);
+                    if (said.ok) {
+                        this.raw.look = Vue.markRaw(said.doc);
+                        const written = appearance.write(said.doc);
+                        if (written.text === file.text) this.raw.lookSpans = written.spans;
+                        const verdict = this.verdicts.appearance;
+                        if (verdict && verdict.code > 0) this.appearanceAt = appearance.entryAtByte(this.raw.lookSpans, verdict.offset);
+                    } else {
+                        this.appearanceError = { at: said.at, byte: said.byte, why: said.why };
+                    }
+                }
+                this.version++;
             },
 
             givePage() {
@@ -759,13 +830,62 @@ const useDgxUiBuilder = (() => {
                 return ahead ? (this.restore(ahead), true) : false;
             },
 
-            restore(state) {
-                const file = this.files[this.current];
+            // the state of a file now, as its history keeps one
+            snapshot(path) {
+                const text = this.files[path].text;
+                if (path === this.current) return { text, selection: [...this.selection] };
+                if (path === this.page?.appearance) return { text, selection: [...this.pick] };
+                return { text, selection: [] };
+            },
+
+            // an undo or a redo of the file the undo goes to; a step of several files in all of them, or in none while
+            // one of them was changed after it
+            step(way) {
+                const path = this.undoPath, history = path ? this.raw.histories.get(path) : null;
+                if (!history) return false;
+                const link = way === 'undo' ? history.undoLink : history.redoLink;
+                if (link === null) {
+                    const state = history[way](this.snapshot(path));
+                    return state ? (this.restore(path, state), true) : false;
+                }
+                const paths = this.raw.links.get(link) ?? [path];
+                const stale = paths.find((one) => {
+                    const its = this.raw.histories.get(one);
+                    return (way === 'undo' ? its?.undoLink : its?.redoLink) !== link;
+                });
+                if (stale !== undefined) {
+                    if (way === 'undo') this.say('the step is undone in all its files together, and {0} was edited after it: undo there first', [stale], true);
+                    else this.say('the step is done again in all its files together, and {0} was edited after its undo: undo there first', [stale], true);
+                    return false;
+                }
+                for (const one of paths) this.restore(one, this.raw.histories.get(one)[way]({ ...this.snapshot(one), link }), false);
+                this.giveAll();
+                return true;
+            },
+
+            undo() {
+                return this.step('undo');
+            },
+
+            redo() {
+                return this.step('redo');
+            },
+
+            restore(path, state, give = true) {
+                const file = this.files[path];
                 file.text = state.text, file.illFormed = null;
-                this.loadText();
-                file.byBuilder = this.raw.spans.length > 0;
-                this.selection = this.raw.doc && widgetAt(this.raw.doc, state.selection) ? [...state.selection] : [];
-                this.givePage();
+                const said = read(state.text);
+                if (path === this.current) {
+                    this.loadText();
+                    file.byBuilder = this.raw.spans.length > 0;
+                    this.selection = this.raw.doc && widgetAt(this.raw.doc, state.selection) ? [...state.selection] : [];
+                } else if (this.project.appearances.some((one) => one.path === path) || this.project.pages.some((page) => page.appearance === path)) {
+                    file.byBuilder = said.ok && appearance.write(said.doc).text === state.text;
+                    if (path === this.page?.appearance) this.pick = [...state.selection];
+                } else if (this.project.pages.some((page) => page.path === path)) {
+                    file.byBuilder = said.ok && write(said.doc).text === state.text;
+                }
+                if (give) this.giveAll();
             },
 
             // ---- the texts, by hand ----
@@ -793,7 +913,7 @@ const useDgxUiBuilder = (() => {
                 const path = which === 'page' ? this.current : this.page?.[which];
                 if (!path) return;
                 const file = this.files[path];
-                if (which === 'page') this.historyOf().record({ text: file.text, selection: [...this.selection] }, `${this.current}|text`);
+                this.historyOf(path).record(this.snapshot(path), `${path}|text`);
                 file.text = text, file.illFormed = null, file.missing = false, file.byBuilder = false;
                 if (which === 'page') {
                     this.loadText();
@@ -802,6 +922,246 @@ const useDgxUiBuilder = (() => {
                 } else {
                     this.giveAll();
                 }
+            },
+
+            // ---- the appearance by its forms ----
+
+            setTab(tab) {
+                this.tab = tab === 'appearance' ? 'appearance' : 'properties';
+            },
+
+            choosePick(pick) {
+                this.pick = Array.isArray(pick) ? [...pick] : [];
+            },
+
+            // an edit of the appearance's document: the operation gives the entry to show after it, null when it changed
+            // nothing; written back in the builder's form and given to the module, the page drawn on it again
+            editAppearance(operation, fold = null) {
+                const path = this.page?.appearance, doc = this.raw.look;
+                if (!path || !doc) return false;
+                const file = this.files[path], before = this.snapshot(path);
+                let pick;
+                try {
+                    pick = operation(doc);
+                } catch (error) {
+                    this.say('{0}', [error.message], true);
+                    pick = null;
+                }
+                if (!pick) {
+                    this.loadAppearance();
+                    return false;
+                }
+                this.historyOf(path).record(before, fold);
+                this.pick = pick;
+                file.text = appearance.write(doc).text, file.byBuilder = true, file.illFormed = null, file.missing = false;
+                this.giveAll();
+                return true;
+            },
+
+            lookFold(path) {
+                return `${this.page?.appearance}|${path.join('.')}`;
+            },
+
+            // a value at a path of the appearance, such as ['looks', 'slider', 'params', 'track']; undefined removes it
+            setLook(path, value, fold = null) {
+                if (value === undefined) return this.editAppearance((doc) => (appearance.removeAt(doc, path) ? path.slice(0, 2) : null));
+                return this.editAppearance((doc) => (appearance.setAt(doc, path, value) ? path.slice(0, 2) : null), fold);
+            },
+
+            // a number of a field: empty removes it; anything not a number waits
+            setLookNumber(path, typed, fold = null) {
+                const text = String(typed).trim();
+                if (text === '') return this.setLook(path, undefined);
+                return JSON_NUMBER.test(text) ? this.setLook(path, { t: 'number', raw: text }, fold) : false;
+            },
+
+            insertLookItem(path, index, value) {
+                return this.editAppearance((doc) => (appearance.insertAt(doc, path, index, value) ? path.slice(0, 2) : null));
+            },
+
+            moveLookItem(path, index, by) {
+                return this.editAppearance((doc) => (appearance.moveAt(doc, path, index, by) ? path.slice(0, 2) : null));
+            },
+
+            removeLookItem(path, index) {
+                return this.editAppearance((doc) => (appearance.removeAt(doc, [...path, index]) ? path.slice(0, 2) : null));
+            },
+
+            // a colour: "#rrggbb", "rrggbb" or a name of DGX's colours, written as "#rrggbb"; anything else waits
+            setColor(name, typed, fold = null) {
+                const hex = appearance.colorOf(typed, window.DgxUiPreview.colorNames());
+                return hex ? this.setLook(['colors', name], hex, fold) : false;
+            },
+
+            // a name the program's C may hold of a colour renamed or deleted
+            sayColorOutside(name) {
+                const prefix = this.lookPrefix;
+                if (prefix && appearance.C_NAME.test(prefix) && appearance.C_NAME.test(name))
+                    this.say('the program may name the colour {1} as {0}_color_{1}, and dgx_ui_appearance_color() finds it by "{1}"', [prefix, name]);
+                else this.say('the program may find the colour {0} by dgx_ui_appearance_color(): it finds none of that name now', [name]);
+            },
+
+            addEntry(section, name, value) {
+                const doc = this.raw.look;
+                if (!doc || !name) return false;
+                if (appearance.namesOf(doc, section).includes(name)) {
+                    this.say('"{0}": the appearance has one of that name already', [name], true);
+                    return false;
+                }
+                if (!this.editAppearance((doc) => (appearance.setAt(doc, [section, name], value) ? [section, name] : null))) return false;
+                if (section === 'looks' && this.raw.format.kinds.includes(name))
+                    this.say('"{0}" is the word of a kind: every widget of the kind that names no look takes it', [name]);
+                return true;
+            },
+
+            // a new look of a draw: its parameters the library's look's of the draw's word, as the module gives them
+            addLook(name, draw) {
+                const described = this.raw.lookFormat?.draws.find((one) => one.draw === draw);
+                if (!described) return false;
+                const look = { draw };
+                if (described.fields.length) look.params = { ...(described.defaults ?? {}) };
+                return this.addEntry('looks', name, look);
+            },
+
+            // a look given another draw: each field of the same name and kind kept, the others the new draw's defaults; a
+            // draw the module does not describe keeps the parameters as they are
+            setDraw(name, draw) {
+                const format = this.raw.lookFormat;
+                const after = format?.draws.find((one) => one.draw === draw);
+                if (!after) return false;
+                return this.editAppearance((doc) => {
+                    const look = appearance.nodeAt(doc, ['looks', name]);
+                    if (!look || look.t !== 'object') return null;
+                    const beforeDraw = stringOf(valueOf(look, 'draw'));
+                    const before = format.draws.find((one) => one.draw === beforeDraw);
+                    appearance.setAt(doc, ['looks', name, 'draw'], draw);
+                    if (after.own) return ['looks', name];
+                    const params = valueOf(look, 'params'), kept = { t: 'object', entries: [] };
+                    for (const field of after.fields) {
+                        const old = before && !before.own && before.fields.find((one) => one.name === field.name && one.type === field.type);
+                        const value = old && params && params.t === 'object' ? valueOf(params, field.name) : undefined;
+                        if (value !== undefined) kept.entries.push([{ t: 'string', value: field.name }, value]);
+                        else if (after.defaults && field.name in after.defaults)
+                            kept.entries.push([{ t: 'string', value: field.name }, description.plain(after.defaults[field.name])]);
+                    }
+                    if (kept.entries.length) appearance.setAt(doc, ['looks', name, 'params'], kept);
+                    else appearance.removeAt(doc, ['looks', name, 'params']);
+                    return ['looks', name];
+                });
+            },
+
+            // what a rename of a look or a style would change: the widgets of the pages on the appearance that name it,
+            // the pages that do not read, the words to say first
+            renamePlan(section, from, to) {
+                const key = section === 'looks' ? 'look' : 'style', doc = this.raw.look;
+                const plan = { pages: [], refused: [], warnings: [], taken: !!doc && appearance.namesOf(doc, section).includes(to) };
+                if (section === 'colors') return plan;
+                for (const path of this.pagesOn) {
+                    const file = this.files[path], said = file && !file.missing && !file.illFormed ? read(file.text) : { ok: false };
+                    if (!said.ok) {
+                        plan.refused.push(path);
+                        continue;
+                    }
+                    const named = widgets(said.doc).filter(({ widget }) => stringOf(valueOf(widget, key)) === from).map((one) => one.path);
+                    if (named.length) plan.pages.push({ path, widgets: named });
+                }
+                const kinds = this.raw.format.kinds;
+                if (section === 'looks' && kinds.includes(from))
+                    plan.warnings.push({ text: '"{0}" is the word of a kind: the widgets of the kind that name no look take the library\'s look after it', values: [from] });
+                if (section === 'looks' && kinds.includes(to))
+                    plan.warnings.push({ text: '"{0}" is the word of a kind: every widget of the kind that names no look takes it', values: [to] });
+                if (section === 'styles' && doc && appearance.namesOf(doc, 'styles')[0] === from)
+                    plan.warnings.push({ text: '"{0}" is the first style: the texts that name none take it, under its new name too', values: [from] });
+                return plan;
+            },
+
+            // a colour renamed in the appearance, every look that names it with it; a look or a style renamed in the
+            // appearance and in every widget of the pages on it that names it, one step of all those files
+            renameEntry(section, from, to) {
+                const path = this.page?.appearance, doc = this.raw.look;
+                if (!path || !doc || !to || from === to) return false;
+                const plan = this.renamePlan(section, from, to);
+                if (plan.taken) {
+                    this.say('"{0}": the appearance has one of that name already', [to], true);
+                    return false;
+                }
+                if (section === 'colors') {
+                    let renamed = null;
+                    const done = this.editAppearance((doc) => {
+                        renamed = appearance.renameColor(doc, from, to, this.raw.lookFormat);
+                        return renamed ? ['colors', to] : null;
+                    });
+                    if (!done) return false;
+                    if (renamed.own.length) this.say('the parameters of {0} are of a draw of the program\'s own: a colour named in them is not renamed', [renamed.own.join(', ')]);
+                    this.sayColorOutside(from);
+                    return true;
+                }
+                if (plan.refused.length) {
+                    this.say('"{0}" not renamed: these pages on the appearance do not read: {1}', [from, plan.refused.join(', ')], true);
+                    return false;
+                }
+                const key = section === 'looks' ? 'look' : 'style', link = ++this.raw.linkCount, now = Date.now();
+                const file = this.files[path];
+                this.historyOf(path).record(this.snapshot(path), null, now, link);
+                if (!appearance.renameKey(doc, [section], from, to)) return false;
+                file.text = appearance.write(doc).text, file.byBuilder = true;
+                this.pick = [section, to];
+                for (const page of plan.pages) {
+                    const its = this.files[page.path], said = read(its.text);
+                    this.historyOf(page.path).record(this.snapshot(page.path), null, now, link);
+                    for (const widget of page.widgets) description.setKey(said.doc, widget, key, to);
+                    its.text = write(said.doc).text, its.byBuilder = true;
+                    if (page.path === this.current) this.loadText();
+                }
+                this.raw.links.set(link, [path, ...plan.pages.map((page) => page.path)]);
+                for (const { text, values } of plan.warnings) this.say(text, values);
+                if (plan.pages.length) this.say('renamed in {0} widget(s) of {1}', [plan.pages.reduce((sum, page) => sum + page.widgets.length, 0),
+                                                                                    plan.pages.map((page) => page.path).join(', ')]);
+                this.giveAll();
+                return true;
+            },
+
+            // an entry deleted: a look or a style a widget of a page on the appearance names is not, and the widgets are
+            // said; a colour is, the loader judging the looks that name it
+            removeEntry(section, name) {
+                if (section !== 'colors') {
+                    const plan = this.renamePlan(section, name, name);
+                    if (plan.pages.length) {
+                        const named = plan.pages.map((page) => `${page.path}: ${page.widgets.map((widget) => widget.join('.') || 'tree').join(', ')}`);
+                        this.say('"{0}" not deleted: widgets name it: {1}', [name, named.join('; ')], true);
+                        return false;
+                    }
+                }
+                if (!this.editAppearance((doc) => (appearance.removeAt(doc, [section, name]) ? [section] : null))) return false;
+                if (section === 'colors') this.sayColorOutside(name);
+                else if (section === 'looks' && this.raw.format.kinds.includes(name))
+                    this.say('"{0}" is the word of a kind: the widgets of the kind that name no look take the library\'s look after it', [name]);
+                else if (section === 'styles' && this.raw.look && appearance.namesOf(this.raw.look, 'styles').length &&
+                         this.verdicts.appearance?.code === 0)
+                    this.say('the texts that name no style take the first style now, "{0}"', [appearance.namesOf(this.raw.look, 'styles')[0]]);
+                return true;
+            },
+
+            // the pages on an appearance among the files a save writes, loaded on it by the module, one pass each: the
+            // appearance where it is refused itself, and the pages it refuses, {path, verdict}; the page open given again
+            // after
+            brokenPages(paths) {
+                const looks = new Set(paths.filter((path) => this.project.appearances.some((one) => one.path === path) ||
+                                                              this.project.pages.some((page) => page.appearance === path)));
+                if (!looks.size) return [];
+                const broken = [], judged = new Set();
+                for (const page of this.project.pages.filter((one) => looks.has(one.appearance))) {
+                    const said = this.giveFiles(page);
+                    if (!judged.has(page.appearance) && said.appearance && said.appearance.code !== 0)
+                        broken.push({ path: page.appearance, verdict: { ...said.appearance } });
+                    judged.add(page.appearance);
+                    const file = this.files[page.path];
+                    const verdict = file.illFormed || file.missing ? { code: SYNTAX, offset: file.illFormed?.byte ?? 0, name: '', said: '' }
+                                                                   : this.raw.preview.page(file.text);
+                    if (verdict.code !== 0) broken.push({ path: page.path, verdict: { ...verdict } });
+                }
+                this.giveAll();
+                return broken;
             },
 
             // ---- the screen and the view ----
@@ -884,8 +1244,9 @@ const useDgxUiBuilder = (() => {
                 const paths = this.dirty.filter((path) => all || own.includes(path));
                 if (!paths.length) return [];
                 const reformatting = paths.filter((path) => !this.files[path].formed && this.files[path].byBuilder && !this.reformatted[path]);
-                if (reformatting.length && !confirmed) {
-                    this.asking = { paths: reformatting, all };
+                const broken = confirmed ? [] : this.brokenPages(paths);
+                if ((reformatting.length || broken.length) && !confirmed) {
+                    this.asking = { paths: reformatting, broken, all };
                     return null;
                 }
                 for (const path of reformatting) this.reformatted[path] = true;

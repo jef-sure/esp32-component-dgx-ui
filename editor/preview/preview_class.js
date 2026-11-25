@@ -145,6 +145,20 @@ class DgxUiPreview {
     }
 
     /**
+     * What the appearance given may say, for its forms, as preview_appearance_format() says: {draws: [{draw, own, kinds,
+     * fields: [{name, type, and min, max, words where they are said}], defaults where the draw is the library's}], fonts,
+     * hands, by_rule, style: [fields], variant: [fields]}.
+     */
+    appearanceFormat() {
+        return JSON.parse(this.cString(this.call(() => this.exports.preview_appearance_format())));
+    }
+
+    /** DGX's colours by their names, as its dgx_colors.h has them: [['aliceblue', '#f0f8ff'], ...]. */
+    static colorNames() {
+        return DGX_UI_COLOR_NAMES;
+    }
+
+    /**
      * Whether a text, or bytes, is JSON as the loader's reader of JSON reads it: 1 JSON, 0 not, 2 deeper than the reader
      * goes. Bytes are given as they are, ill-formed UTF-8 too; a text is given as UTF-8.
      */

@@ -1361,8 +1361,10 @@ static void colors_set(dgx_ui_t *ui, dgx_ui_paint_t *paint, const uint32_t *tabl
 ```
 
 A table is filled for the screen by `dgx_screen_rgb(scr, r, g, b)`, which packs a colour as the depth of the screen
-takes it, or by DGX's named colours packed for a depth, `DGX_BLACK(DGX_RGB_16)`, as in
-[Getting started](getting-started.md).
+takes it, or by DGX's named colours. A name takes a packer of three arguments: on a screen whose depth the program
+learns as it runs, a macro over `dgx_screen_rgb()`, as `examples/hello` does,
+`#define SCREEN_RGB(r, g, b) dgx_screen_rgb(scr, (r), (g), (b))` and then `DGX_BLACK(SCREEN_RGB)`; on a screen known
+to be of 16 bits, `DGX_BLACK(DGX_RGB_16)`, as in [Getting started](getting-started.md).
 
 ## Showing, hiding, disabling
 
@@ -2611,7 +2613,8 @@ What to know of it:
 - **All of it is constants in flash**: the looks with their parameters, the styles with their fonts. Nothing is
   filled when the program starts but the painter's table of colours.
 - **The colours are packed by the program**, for each screen it draws on. A look of the program's own names a
-  colour of the appearance by the constant `day.h` gives, `day_color_accent`, not by a number.
+  colour of the appearance by the constant `day.h` gives, `day_color_accent`, not by a number. A colour renamed in
+  the appearance renames that constant too: the program's C follows it, and the builder says so at the rename.
 - **A draw of the program's own** may be named in `vocab.txt`, `draw dial draw_dial`, and an appearance may give it
   a look with a fill; its parameters are described in the program's C, which the tool does not read, so a look with
   `"params"` for it stays a look of C in the program's table.

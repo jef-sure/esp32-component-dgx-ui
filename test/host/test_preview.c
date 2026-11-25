@@ -3,7 +3,8 @@
  * as the same page loaded by a program on the same tables and drawn on a panel of panel.h, at a point of 2 pixels
  * and of 1 as the program's dgx_ui_init() takes it; the loader's verdicts the same; the widgets of the page on the
  * screen as its tree has them; a click told, a value set, a page opened by the action page and closed by back; the
- * events and the notes in whole lines, those past their room counted; an appearance's colours and looks; the panel of
+ * events and the notes in whole lines, those past their room counted; an appearance's colours and looks, and what it
+ * may say, each draw's fields as the library describes them and its look's values; the panel of
  * 16, 18 and 24 bits; a names file refused in dgx_ui_c's words; the stand-ins said; fonts given as their files, as
  * DGX's font2c writes them, each drawn pixel for pixel as the same font of its C, a file winning over the font built
  * in of its name, the names' kind against the file's said, a file given anew and let go, and files spoiled and cut;
@@ -413,7 +414,72 @@ int main(void)
         CHECK(preview_appearance(framed_look, look_length)->code == 0); /* refused, it is read by the rule */
         CHECK(preview_appearance_on(PREVIEW_ON_PAGE, NULL, 0)->code == 0);
         CHECK(preview_appearance(framed_look, look_length)->code == DGX_UI_LOAD_UNKNOWN);
+        CHECK(preview_appearance_on(PREVIEW_ON_OWN, its_names, sizeof its_names - 1)->code == 0 && preview_appearance(framed_look, look_length)->code == 0);
+        const char *format = preview_appearance_format();
+        CHECK(strstr(format, "\"draw\": \"frame\"") != NULL && strstr(format, "\"draw\": \"slider\"") == NULL); /* its own names: frame alone */
+        CHECK(strstr(format, "\"fonts\": [\"small\"]") != NULL && strstr(format, "\"by_rule\": false") != NULL);
+        static const char own_names[] = "draw dial draw_dial\ndraw frame\nfont small TerminusTTFMedium12\n";
+        CHECK(preview_appearance_on(PREVIEW_ON_OWN, own_names, sizeof own_names - 1)->code == 0 && preview_appearance(framed_look, look_length)->code == 0);
+        CHECK(strstr(preview_appearance_format(), "{\"draw\": \"dial\", \"own\": true, \"kinds\": [], \"fields\": []}") != NULL);
+        CHECK(preview_appearance_on(PREVIEW_ON_PAGE, NULL, 0)->code == 0);
         preview_appearance(NULL, 0), preview_page(NULL, 0), preview_names(NULL, 0);
+    }
+
+    /* what an appearance may say, by the rule: every draw of the library with its fields as the library describes them,
+       in their order, and the values of the library's look of the draw's word */
+    {
+        static const struct {
+            const char            *word;
+            const dgx_ui_params_t *params;
+            const dgx_ui_look_t   *look;
+        } library[] = {
+#define DRAW(word) {#word, &dgx_ui_params_##word, &dgx_ui_look_##word}
+            DRAW(box),      DRAW(frame), DRAW(text),     DRAW(lines),   DRAW(hand_lines), DRAW(button), DRAW(picture_button),
+            DRAW(input),    DRAW(switch), DRAW(slider),  DRAW(list),    DRAW(dropdown),   DRAW(picture), DRAW(rgb565),
+            DRAW(indexed),  DRAW(radio), DRAW(checkbox), DRAW(level),   DRAW(ring),
+#undef DRAW
+        };
+        static const char *const types[] = {"color", "color_or_under", "number", "bool", "word", "flags", "bit", "bands", "font", "hand", "variants"};
+        static const char *const four[]  = {"\"paper\"", "\"ink\"", "\"fill\"", "\"border\""};
+        CHECK(preview_names(NULL, 0)->code == 0 && preview_appearance(NULL, 0)->code == 0);
+        const char *format = preview_appearance_format();
+        CHECK(strstr(format, "\"by_rule\": true") != NULL && strstr(format, "\"hands\": [\"handwriting\", \"handwriting_canvas\"]") != NULL);
+        int fields_held = 0;
+        for (size_t d = 0; d < sizeof library / sizeof *library; ++d) {
+            char head[64];
+            snprintf(head, sizeof head, "{\"draw\": \"%s\", \"own\": false", library[d].word);
+            const char *at = strstr(format, head), *end = at ? strstr(at + 1, "\n  {\"draw\"") : NULL;
+            if (!end && at) end = strstr(at, "],\n \"fonts\"");
+            CHECK(at != NULL && end != NULL);
+            if (!at || !end) continue;
+            const char *defaults = strstr(at, "\"defaults\": {");
+            CHECK(library[d].params->field_count == 0 || (defaults != NULL && defaults < end));
+            const char *from = at;
+            for (int f = 0; f < library[d].params->field_count; ++f) {
+                const dgx_ui_field_t *field = &library[d].params->fields[f];
+                char said[96];
+                snprintf(said, sizeof said, "{\"name\": \"%s\", \"type\": \"%s\"", field->name, types[field->kind]);
+                const char *found = strstr(from, said);
+                CHECK(found != NULL && found < end); /* in the library's order */
+                if (found) from = found + 1;
+                if (found && field->kind == DGX_UI_FIELD_NUMBER) {
+                    snprintf(said, sizeof said, "\"min\": %ld, \"max\": %ld}", (long)field->low, (long)field->high);
+                    CHECK(strstr(found, said) == strchr(found, '}') - strlen(said) + 1); /* the field's own bounds, its object's end */
+                }
+                if (!defaults) continue;
+                /* a colour's default by its index: the four by their names, DGX_UI_PAPER null */
+                if (field->kind == DGX_UI_FIELD_COLOR || field->kind == DGX_UI_FIELD_COLOR_OR_UNDER) {
+                    const uint8_t index = *((const uint8_t *)library[d].look->params + field->offset);
+                    snprintf(said, sizeof said, "\"%s\": %s", field->name, index == DGX_UI_PAPER ? "null" : index < 4 ? four[index] : "?");
+                    CHECK(strstr(defaults, said) != NULL && strstr(defaults, said) < end);
+                }
+                ++fields_held;
+            }
+        }
+        CHECK(fields_held > 80);
+        /* numbers of the defaults as the members hold them: a signed one below 0 */
+        CHECK(strstr(format, "\"width\": 3, \"start\": -135, \"sweep\": 270, \"bands_by\": \"place\", \"bands\": []") != NULL);
+        CHECK(strstr(format, "\"disabled\": \"fill\", \"track_h\": 2}") != NULL);
     }
 
     /* a look of the program's own and a picture: their stand-ins drawn and said */
@@ -514,7 +580,7 @@ int main(void)
         char      spoiled[1024];
         memcpy(spoiled, texts[which], lengths[which]);
         spoiled[next_chance() % lengths[which]] = bytes[next_chance() % (sizeof bytes - 1)];
-        if (which == 1) preview_appearance(spoiled, lengths[which]), preview_page(themed, sizeof themed - 1);
+        if (which == 1) preview_appearance(spoiled, lengths[which]), preview_appearance_format(), preview_page(themed, sizeof themed - 1);
         else if (which == 2) preview_names(spoiled, lengths[which]), preview_page(page, sizeof page - 1);
         else preview_page(spoiled, lengths[which]);
         preview_paint(now);

@@ -1,6 +1,8 @@
-// Undo and redo of the builder: snapshots of a description's text, each with the path selected in it. Every action
-// records the state before it; typing into one property of one widget folds into one step until another key or
-// widget is touched, or a second passes, so that an undo takes back a word typed, not a letter.
+// Undo and redo of the builder: snapshots of a file's text, each with what was selected in it, one history a file.
+// Every action records the state before it; typing into one field folds into one step until another field is touched,
+// or a second passes, so that an undo takes back a word typed, not a letter. A step that changed several files at once,
+// a look renamed in its appearance and in the pages that name it, is recorded in each with one link, never folded;
+// the store undoes it in all of them together.
 'use strict';
 
 const HISTORY_LIMIT = 200;
@@ -14,8 +16,10 @@ class History {
         this.fold = null; // {key, at}: the step typing goes on folding into
     }
 
-    // the state before an action; fold, a key such as "path:key" for typing into one field; now, the clock's ms
-    record(before, fold = null, now = Date.now()) {
+    // the state before an action; fold, a key such as "path:key" for typing into one field; now, the clock's ms; link,
+    // the step of several files this one is of
+    record(before, fold = null, now = Date.now(), link = null) {
+        if (link !== null) before = { ...before, link }, fold = null;
         if (fold !== null && this.fold && this.fold.key === fold && now - this.fold.at < FOLD_MS) {
             this.fold.at = now;
             return;
@@ -39,6 +43,15 @@ class History {
         this.past.push(now);
         this.fold = null;
         return this.future.pop();
+    }
+
+    // the link of the step an undo or a redo would take back or do again; null, none or a step of this file alone
+    get undoLink() {
+        return this.past[this.past.length - 1]?.link ?? null;
+    }
+
+    get redoLink() {
+        return this.future[this.future.length - 1]?.link ?? null;
     }
 
     get canUndo() {

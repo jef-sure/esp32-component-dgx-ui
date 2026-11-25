@@ -108,6 +108,17 @@ const preview_verdict_t *preview_appearance(const char *text, size_t length);
  */
 enum { PREVIEW_ON_PAGE = 0, PREVIEW_ON_OWN = 1, PREVIEW_ON_RULE = 2 };
 const preview_verdict_t *preview_appearance_on(int how, const char *text, size_t length);
+/**
+ * What the appearance given may say, for a page that edits it by forms, from the tables it was read on: {"draws":
+ * [{"draw", "own", "kinds", "fields": [{"name", "type", and "min", "max", "words" where they are said}], and
+ * "defaults", the values of the library's look of the draw's word}], "fonts", "hands", "by_rule", "style": [fields],
+ * "variant": [fields]}. The types are those of DGX_UI_FIELD_*: color, color_or_under, number, bool, word, flags, bit,
+ * bands, font, hand, variants. A default colour is "paper", "ink", "fill" or "border" by its index, null for
+ * DGX_UI_PAPER. A draw of the program's own is "own": true, with no fields: its C is not here. "by_rule": the
+ * appearance is read with no names file, a font of any name taken. With no appearance given, the library's draws and
+ * hands by the rule.
+ */
+const char *preview_appearance_format(void);
 /** The page: on the appearance's tables first and the names' after; drawn whole at the next paint. Its verdict. NULL, no
     page: no widget, nothing drawn. */
 const preview_verdict_t *preview_page(const char *text, size_t length);

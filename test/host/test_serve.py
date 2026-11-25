@@ -5,7 +5,7 @@ of the component; the project listed, read and written by the token of the link;
 file of the page too, no token or another, a write from another page, a path with "..", from the root, of a
 backslash, a link leading out, into a folder not there, a body too large or cut short; no answer to a question of
 another origin and no header that keeps the page out of a frame. What is written: the files the project's calls of
-dgx-ui name, read anew at each write, and pages already there; never a file or folder of a dot, a file the build reads
+dgx-ui name, read anew at each write, and pages and appearances already there; never a file or folder of a dot, a file the build reads
 by its name (CMakeLists.txt, CMakeCache.txt, CMake*.json, sdkconfig*) in any case of letters, nor anything under
 build/, managed_components/ or a folder of a build, even when a call names it. The builder's own reading of the calls
 (store.js, under node) gives no file the server's leaves out. A write through a link within the project writes the
@@ -133,7 +133,12 @@ try:
     (project / "main" / "linked.json").symlink_to(project / "main" / "CMakeLists.txt")  # named by a call, a link to what is never written
     (project / "main" / "cmakelists.txt").write_text("")
     (project / "pages" / "loaded.json").write_text('{"dgx-ui": 1, "tree": {"kind": "box"}}\n')  # a page loaded at run time
-    (project / "pages" / "look_like.json").write_text('{"dgx-ui": 1, "colors": {}}\n')  # an appearance no call names
+    (project / "pages" / "look_like.json").write_text('{"dgx-ui": 1, "colors": {}}\n')  # an appearance loaded at run time
+    (project / "pages" / "look_spoiled.json").write_text('{"dgx-ui": 1, "colors": {"paper": \n')  # one that does not read, to be mended
+    (project / "pages" / "versioned.json").write_text('{"dgx-ui": 1, "name": "x"}\n')  # "dgx-ui" alone: neither a page nor an appearance
+    (project / "pages" / "colors_alone.json").write_text('{"colors": {}}\n')  # "colors" with no "dgx-ui"
+    (project / "build-x" / "look.json").write_text('{"dgx-ui": 1, "colors": {}}\n')  # an appearance where none is looked for
+    (project / ".vscode" / "look.json").write_text('{"dgx-ui": 1, "colors": {}}\n')
     (project / "build-x" / "page.json").write_text('{"dgx-ui": 1, "tree": {"kind": "box"}}\n')  # a page where pages are not looked for
     (project / ".vscode" / "page.json").write_text('{"dgx-ui": 1, "tree": {"kind": "box"}}\n')
     (project / ".vscode" / "settings.json").write_text("{}\n")
@@ -220,7 +225,9 @@ try:
     kept = {path: path.read_bytes() for path in project.rglob("*") if path.is_file() and not path.is_symlink()}
     for rel, text in (("main/home.json", '{"dgx-ui": 1, "tree": {"kind": "label"}}\n'), ("main/look.json", '{"dgx-ui": 1, "colors": {}}\n'),
                       ("main/new.json", '{"dgx-ui": 1, "tree": {"kind": "label"}}\n'), ("components/x/other.txt", "value level &level\n"),
-                      ("pages/loaded.json", '{"dgx-ui": 1, "tree": {"kind": "label"}}\n')):
+                      ("pages/loaded.json", '{"dgx-ui": 1, "tree": {"kind": "label"}}\n'),
+                      ("pages/look_like.json", '{"dgx-ui": 1, "colors": {"paper": "#000000"}}\n'),
+                      ("pages/look_spoiled.json", '{"dgx-ui": 1, "colors": {"paper": "#000000"}}\n')):
         status, body, _ = ask("POST", at("file", rel), text)
         check(status == 200 and (project / rel).read_text() == text, f"{rel} written: {status} {body}")
     status, _, _ = ask("POST", at("file", "main/names.txt"), "value level &level\n")
@@ -241,7 +248,10 @@ try:
         ("CMakeLists.txt", {}, "CMakeLists.txt", 400),
         ("a file no call names", {}, "main/page.json", 400),
         ("a .json of the program's", {}, "main/data.json", 400),
-        ("a description no call names, not of a page", {}, "pages/look_like.json", 400),
+        ("a .json of \"dgx-ui\" alone, neither a page nor an appearance", {}, "pages/versioned.json", 400),
+        ("a .json of \"colors\" with no \"dgx-ui\"", {}, "pages/colors_alone.json", 400),
+        ("an appearance where none is looked for", {}, "build-x/look.json", 400),
+        ("an appearance in a folder of a dot", {}, ".vscode/look.json", 400),
         ("a call's file in a comment", {}, "main/commented.json", 400),
         ("a .json no call names, a description in its body", {}, "pages/new.json", 400),
         ("a page where pages are not looked for", {}, "build-x/page.json", 400),
@@ -288,7 +298,8 @@ try:
     check((outside / "secret.txt").read_text() == "not the project's\n" and (outside / "deep" / "secret.json").read_text() == "{}\n" and
           not (outside / "made.json").exists() and not (work / "a.json").exists() and (beside / "secret.json").read_text() == "{}\n",
           "nothing written out of the project")
-    written = {project / rel for rel in ("main/home.json", "main/look.json", "main/names.txt", "components/x/other.txt", "pages/loaded.json")}
+    written = {project / rel for rel in ("main/home.json", "main/look.json", "main/names.txt", "components/x/other.txt", "pages/loaded.json",
+                                         "pages/look_like.json", "pages/look_spoiled.json")}
     changed = [str(path.relative_to(project)) for path, data in kept.items() if path not in written and path.read_bytes() != data]
     made = [str(path.relative_to(project)) for path in project.rglob("*") if path.is_file() and not path.is_symlink() and path not in kept and
             path.name != "new.json"]
