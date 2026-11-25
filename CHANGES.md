@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.65 - 2026-11-25
+
+- Pictures of colours on a display of 18 or 24 bits through dgx_ui_strips_pictures: indexed, RGB565 and the nine frame,
+  RGB565 spread to white 255.
+- A field's caret blinks every 500 ms; `blink` 0 keeps it steady.
+- Docs: pictures at 18/24 bits and the caret in the API page and the recipes; the README's list of what is missing is
+  empty.
+
 ## 0.0.64 - 2026-11-25
 
 - A scrolling box: a box of DGX_UI_COLUMN | DGX_UI_SCROLL is a window over a taller column, its offset in pixels in its
