@@ -38,11 +38,11 @@ static bool writable(const dgx_ui_font_variant_t *variant)
 
 /* the width of a text at the variant's height, narrowed in whole percents to the widest that goes into `field`, never
    past the variant's least; and the scales it is written at */
-static int measure(const dgx_ui_font_variant_t *variant, const char *text, int field, float *scale_x, float *scale_y)
+static int measure(const dgx_ui_font_variant_t *variant, int unit, const char *text, int field, float *scale_x, float *scale_y)
 {
     const dgx_hw_font_t *hw = variant->font->hw;
-    *scale_y = *scale_x  = hw->symbol_size_y ? (float)variant->height / hw->symbol_size_y : 1.0f;
-    dgx_hw_context_t ctx = {.font = variant->font, .scale_x = *scale_x, .scale_y = *scale_y, .width = dgx_ui_hand_pen(variant), .joined = variant->joined};
+    *scale_y = *scale_x  = hw->symbol_size_y ? (float)dgx_ui_hand_height(variant, unit) / hw->symbol_size_y : 1.0f;
+    dgx_hw_context_t ctx = {.font = variant->font, .scale_x = *scale_x, .scale_y = *scale_y, .width = dgx_ui_hand_pen(variant, unit), .joined = variant->joined};
     int              width = 0;
     if (!dgx_hw_bounds(&ctx, text, NULL, NULL, &width, NULL)) return 0;
     if (width <= field || !variant->narrow || variant->narrow >= 100) return width;
@@ -86,31 +86,31 @@ void dgx_ui_hand_write(const dgx_hw_context_t *ctx, int x, int y, const char *te
 }
 
 /* base_line cells at the variant's height, rounded */
-int dgx_ui_hand_base_rows(const dgx_ui_font_variant_t *variant)
+int dgx_ui_hand_base_rows(const dgx_ui_font_variant_t *variant, int unit)
 {
     if (!writable(variant) || variant->font->hw->symbol_size_y <= 0) return -1;
     const int size = variant->font->hw->symbol_size_y;
-    return (2 * variant->font->hw->base_line * variant->height + size) / (2 * size);
+    return (2 * variant->font->hw->base_line * dgx_ui_hand_height(variant, unit) + size) / (2 * size);
 }
 
-int dgx_ui_hand_span(const dgx_ui_font_variant_t *variant, const char *text, int n)
+int dgx_ui_hand_span(const dgx_ui_font_variant_t *variant, int unit, const char *text, int n)
 {
     char line[DGX_UI_LINE + 1];
     if (n > DGX_UI_LINE) n = DGX_UI_LINE;
     if (n <= 0 || !writable(variant)) return 0;
     memcpy(line, text, (size_t)n);
     line[n]               = 0;
-    const float      scale = (float)variant->height / variant->font->hw->symbol_size_y;
-    dgx_hw_context_t ctx   = {.font = variant->font, .scale_x = scale, .scale_y = scale, .width = dgx_ui_hand_pen(variant), .joined = variant->joined};
+    const float      scale = (float)dgx_ui_hand_height(variant, unit) / variant->font->hw->symbol_size_y;
+    dgx_hw_context_t ctx   = {.font = variant->font, .scale_x = scale, .scale_y = scale, .width = dgx_ui_hand_pen(variant, unit), .joined = variant->joined};
     int              width = 0;
     dgx_hw_bounds(&ctx, line, NULL, NULL, &width, NULL);
     return width;
 }
 
-int dgx_ui_hand_width(const dgx_ui_font_variant_t *variant, const char *text, int field)
+int dgx_ui_hand_width(const dgx_ui_font_variant_t *variant, int unit, const char *text, int field)
 {
     float scale_x, scale_y;
-    return writable(variant) ? measure(variant, text, field, &scale_x, &scale_y) : INT_MAX;
+    return writable(variant) ? measure(variant, unit, text, field, &scale_x, &scale_y) : INT_MAX;
 }
 
 bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, const dgx_ui_font_variant_t *variant)
@@ -124,9 +124,9 @@ bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         return false;
     }
     float scale_x, scale_y;
-    measure(variant, text, node->w, &scale_x, &scale_y);
+    measure(variant, ui->unit, text, node->w, &scale_x, &scale_y);
     struct dgx_ui_hand_line_t line = {
-        .ctx = {.font = variant->font, .scale_x = scale_x, .scale_y = scale_y, .width = dgx_ui_hand_pen(variant), .joined = variant->joined},
+        .ctx = {.font = variant->font, .scale_x = scale_x, .scale_y = scale_y, .width = dgx_ui_hand_pen(variant, ui->unit), .joined = variant->joined},
     };
     int left = 0, width = 0;
     dgx_hw_bounds(&line.ctx, text, &left, NULL, &width, NULL);
@@ -134,8 +134,8 @@ bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
        cannot be drawn); across as the style sets it, from the box's left when it does not go in, so that its beginning
        shows */
     const dgx_ui_text_style_t *style    = box->style;
-    const int                  own_rows = dgx_ui_hand_base_rows(variant), first_rows = dgx_ui_first_base(style, ui->unit);
-    if (style->flags & DGX_UI_STYLE_MIDDLE) line.base = node->y + (node->h - variant->height) / 2 + own_rows;
+    const int                  own_rows = dgx_ui_hand_base_rows(variant, ui->unit), first_rows = dgx_ui_first_base(style, ui->unit);
+    if (style->flags & DGX_UI_STYLE_MIDDLE) line.base = node->y + (node->h - dgx_ui_hand_height(variant, ui->unit)) / 2 + own_rows;
     else line.base = node->y + (first_rows >= 0 ? first_rows : own_rows);
     int room = 0;
     if (width <= node->w) room = style->align == DGX_FONT_ALIGN_CENTER ? (node->w - width) / 2 : style->align == DGX_FONT_ALIGN_RIGHT ? node->w - width : 0;

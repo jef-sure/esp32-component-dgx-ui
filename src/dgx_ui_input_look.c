@@ -3,7 +3,7 @@
  *
  *  The look of a field typed into: its text, the variant 0 of its style, at the top of the field or in its middle
  *  (DGX_UI_STYLE_MIDDLE), and when it is focused a caret where the next letter goes, shown and hidden every half
- *  period (blink); a secret field a star for each letter. The row of the text is cut into the field up to the caret,
+ *  period (blink_ms); a secret field a star for each letter. The row of the text is cut into the field up to the caret,
  *  the caret, and the empty field after it, so every pixel is written once; a text longer than the field shows its
  *  end, the caret at the right edge. The caret's phase counts from the text set or the focus come, kept in the text
  *  box; when only time changed it, the caret's rectangle alone is drawn, and the loop woken for the next.
@@ -46,7 +46,7 @@ static bool draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui,
     const int   cw    = caret ? (ui->unit > 1 ? ui->unit : 1) : 0;
     /* the caret's phase: from the text set or the focus come, shown the first half of each period; kept, but by a
        composing. Only time changed: the caret alone, when its phase did */
-    const uint32_t half    = caret ? p->blink * 10u : 0;
+    const uint32_t half    = caret ? p->blink_ms : 0;
     const uint32_t since   = (box->flags & DGX_UI_TEXTBOX_START) || (caret && !(n->state_drawn.bits & DGX_UI_FOCUSED)) ? now_ms : box->since_ms;
     const uint32_t gone    = now_ms - since, halves = half ? gone / half : 0;
     const bool     shown   = caret && !(halves & 1);
@@ -103,5 +103,5 @@ bool dgx_ui_draw_input(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     return ((const dgx_ui_input_look_t *)look->params)->secret ? draw_secret(look, paint, ui, i, text, now_ms) : draw(look, paint, ui, i, text, now_ms);
 }
 
-static const dgx_ui_input_look_t input_default = {.ink = 1, .paper = DGX_UI_PAPER, .caret = 1, .blink = 50};
+static const dgx_ui_input_look_t input_default = {.ink = 1, .paper = DGX_UI_PAPER, .caret = 1, .blink_ms = 500};
 const dgx_ui_look_t              dgx_ui_look_input = {.draw = dgx_ui_draw_input, .params = &input_default, .fill = -1};

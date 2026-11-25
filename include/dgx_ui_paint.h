@@ -354,10 +354,10 @@ _Static_assert(sizeof(dgx_ui_scroll_look_t) == 5, "the parameters of a scrolling
  * password, a PIN) shows a star for each letter; the text box keeps the letters themselves.
  */
 typedef struct dgx_ui_input_look_t {
-    uint8_t ink, caret; ///< indices of the table: the caret is the focus
-    uint8_t paper;      ///< index of the table; DGX_UI_PAPER: what lies under the widget
-    bool    secret;     ///< a star for each letter
-    uint8_t blink;      ///< half a period of the caret, in tens of milliseconds: it shows so long and hides so long; 0 steady
+    uint8_t  ink, caret; ///< indices of the table: the caret is the focus
+    uint8_t  paper;      ///< index of the table; DGX_UI_PAPER: what lies under the widget
+    bool     secret;     ///< a star for each letter
+    uint16_t blink_ms;   ///< half a period of the caret, in milliseconds: it shows so long and hides so long; 0 steady
 } dgx_ui_input_look_t;
 
 /**

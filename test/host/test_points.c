@@ -7,7 +7,9 @@
  * blown up; a list's rows and an open dropdown's a line of the text high. Every other look of a text, a button, a
  * field, a check, a radio, a list and a dropdown, draws the letter of a unit of 1 so many times larger; in the middle
  * of a box, the cell so many times high centred. Over a drawn background a text set anew leaves nothing of the old one.
- * A handwritten variant reads the field as nothing; a soft font of 4 bits gives squares of its coverage.
+ * A handwritten variant's height and pen are points: at a unit of 2 a line twice as tall, pixel for pixel the variant
+ * of twice the height and pen at a unit of 1, straight and into a canvas. A handwritten variant reads the field as
+ * nothing; a soft font of 4 bits gives squares of its coverage.
  */
 #define PANEL_W 320
 #define PANEL_H 240
@@ -60,6 +62,8 @@ static void make_soft_font(void)
 }
 
 /* a tree of a widget of a kind and a look over the text in a style, wanting w x h points, at a unit */
+static uint16_t make_flags; /* the flags of the widget the next make makes: DGX_UI_CANVAS for the handwriting into a canvas */
+
 static void make_of(int kind, const dgx_ui_look_t *look, const dgx_ui_text_style_t *style, const char *text, int w, int h, int unit, int max)
 {
     static bool made;
@@ -67,8 +71,8 @@ static void make_of(int kind, const dgx_ui_look_t *look, const dgx_ui_text_style
     made = true;
     static int32_t value;
     dgx_ui_textbox_init(&box, buf, sizeof buf, 1, style);
-    text_w = (dgx_ui_widget_t){.kind = (uint8_t)kind, .text = &box, .look = look, .want_w = (int16_t)w, .want_h = (int16_t)h, .value = &value,
-                               .max = (int16_t)max};
+    text_w = (dgx_ui_widget_t){.kind = (uint8_t)kind, .flags = make_flags, .text = &box, .look = look, .want_w = (int16_t)w, .want_h = (int16_t)h,
+                               .value = &value, .max = (int16_t)max};
     dgx_ui_init(&ui, nodes, 8, unit);
     dgx_ui_add(&ui, -1, &root_w);
     text_i = dgx_ui_add(&ui, 0, &text_w);
@@ -418,6 +422,40 @@ int main(void)
         dgx_ui_paint_free(&over);
     }
 
+    /* a handwritten variant in points: at a unit of 2, a height of 20 and a pen of 1 are a line of 40 pixels and a pen of
+       2, pixel for pixel the label of a height of 40 and a pen of 2 at a unit of 1 in a box as large in pixels; straight
+       and into a canvas, by a hard pen, a soft one and a hairline. A bitmap variant and one of points keep their lines */
+    {
+        static const struct {
+            const dgx_ui_hand_t *hand;
+            uint32_t             pen; /* in points at a unit of 2; at a unit of 1, twice its width */
+        } ways[] = {{&dgx_ui_handwriting, 1}, {&dgx_ui_handwriting_canvas, 1}, {&dgx_ui_handwriting_canvas, 1 | DGX_PEN_SOFT}, {&dgx_ui_handwriting, 0}};
+        for (size_t k = 0; k < sizeof ways / sizeof *ways; ++k) {
+            const uint32_t              width   = ways[k].pen & ~(uint32_t)DGX_PEN_SOFT, soft = ways[k].pen & DGX_PEN_SOFT;
+            const dgx_ui_font_variant_t small[1] = {{.font = &font0ss, .height = 20, .joined = true, .pen = ways[k].pen, .hand = ways[k].hand}};
+            const dgx_ui_font_variant_t large[1] = {
+                {.font = &font0ss, .height = 40, .joined = true, .pen = (width ? 2 * width : 0) | soft, .hand = ways[k].hand}};
+            const dgx_ui_text_style_t in_small = {.fonts = small, .count = 1}, in_large = {.fonts = large, .count = 1};
+            make_flags = ways[k].hand == &dgx_ui_handwriting_canvas ? DGX_UI_CANVAS : 0;
+            make(DGX_UI_LABEL, &dgx_ui_look_text, &in_large, "Hand 42", 120, 0, 1);
+            paint_on(ref);
+            const dgx_ui_node_t at_one = *dgx_ui_node(&ui, text_i);
+            make(DGX_UI_LABEL, &dgx_ui_look_text, &in_small, "Hand 42", 60, 0, 2);
+            paint_on(v);
+            const dgx_ui_node_t *n = dgx_ui_node(&ui, text_i);
+            CHECK(dgx_ui_variant_line(&ui, &small[0]) == 40 && n->h == 40 && dgx_ui_textbox_height(&ui, &box) == 40);
+            CHECK(n->x == at_one.x && n->y == at_one.y && n->w == at_one.w && n->h == at_one.h);
+            int apart = 0, inked = 0;
+            for (int y = 0; y < PANEL_H; ++y)
+                for (int x = 0; x < PANEL_W; ++x) apart += dgx_get_pixel(v, x, y) != dgx_get_pixel(ref, x, y), inked += dgx_get_pixel(v, x, y) != PAPER;
+            CHECK(apart == 0 && inked > 0);
+            if (apart || !inked) fprintf(stderr, "  the handwriting of way %zu at a unit of 2: %d pixels apart, %d inked\n", k, apart, inked);
+        }
+        make_flags = 0;
+        make(DGX_UI_LABEL, &dgx_ui_look_text, &in_own, "Hi", 0, 0, 2);
+        CHECK(dgx_ui_variant_line(&ui, &own[0]) == terminus->y_advance && dgx_ui_variant_line(&ui, &points[0]) == terminus->y_advance * 2);
+    }
+
     /* a handwritten variant reads the field as nothing */
     {
         const dgx_ui_font_variant_t hand_on[1]  = {{.font = &font0ss, .height = 20, .pen = 1, .hand = &dgx_ui_handwriting, .points = true}};
@@ -430,7 +468,7 @@ int main(void)
         int apart = 0;
         for (int y = 0; y < PANEL_H; ++y)
             for (int x = 0; x < PANEL_W; ++x) apart += dgx_get_pixel(v, x, y) != dgx_get_pixel(ref, x, y);
-        CHECK(apart == 0 && dgx_ui_variant_line(&ui, &hand_on[0]) == 20);
+        CHECK(apart == 0 && dgx_ui_variant_line(&ui, &hand_on[0]) == 20 * 3); /* its height in points, at a unit of 3 */
     }
 
     /* a soft font of 4 bits: squares of its coverage, its levels kept */

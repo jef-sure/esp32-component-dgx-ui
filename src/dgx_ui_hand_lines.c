@@ -29,11 +29,11 @@ static const char *TAG = "dgx_ui";
    a pixel of it unit pixels for a variant of points */
 static int measure_variant(const dgx_ui_font_variant_t *variant, const char *s, int n, int unit)
 {
-    return variant->hand ? dgx_ui_hand_span(variant, s, n) : dgx_ui_width_of(variant->font, s, n) * dgx_ui_variant_scale(variant, unit);
+    return variant->hand ? dgx_ui_hand_span(variant, unit, s, n) : dgx_ui_width_of(variant->font, s, n) * dgx_ui_variant_scale(variant, unit);
 }
 static int line_height_of(const dgx_ui_font_variant_t *variant, int unit)
 {
-    if (variant->hand) return dgx_ui_hand_base_rows(variant) >= 0 ? variant->height : 0;
+    if (variant->hand) return dgx_ui_hand_base_rows(variant, unit) >= 0 ? dgx_ui_hand_height(variant, unit) : 0;
     return dgx_ui_variant_usable(variant->font) ? variant->font->y_advance * dgx_ui_variant_scale(variant, unit) : 0;
 }
 #define LINES_MEASURE(v, s, n, unit) measure_variant(v, s, n, unit)
@@ -80,7 +80,7 @@ static laid_t *laid_lines(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_
 }
 
 /* a row's text: its line, or for the last row of a text cut that line with "..." as far as both go into width */
-static void row_text(char *row, const char *text, int start, int end, bool cut, const dgx_ui_font_variant_t *variant, int width)
+static void row_text(char *row, const char *text, int start, int end, bool cut, const dgx_ui_font_variant_t *variant, int unit, int width)
 {
     int n = end - start > DGX_UI_LINE ? DGX_UI_LINE : end - start;
     memcpy(row, text + start, (size_t)n);
@@ -89,7 +89,7 @@ static void row_text(char *row, const char *text, int start, int end, bool cut, 
     while (n > 0) {
         while (n > 0 && row[n - 1] == ' ') --n;
         memcpy(row + n, ELLIPSIS, sizeof ELLIPSIS);
-        if (dgx_ui_hand_span(variant, row, (int)strlen(row)) <= width) return;
+        if (dgx_ui_hand_span(variant, unit, row, (int)strlen(row)) <= width) return;
         while (n > 0 && ((unsigned char)row[--n] & 0xC0) == 0x80) {}
         row[n] = 0;
     }
@@ -118,7 +118,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const bool                   commit  = !paint->composing && paint->part + 1 >= paint->parts; /* the painter's own pass, its last part */
     const bool                   other   = v != box->variant;
     if (other) paint->whole = true; /* another height: drawn whole */
-    const int line_height = variant->height, rows = node->h / line_height > 0 ? node->h / line_height : 1;
+    const int line_height = dgx_ui_hand_height(variant, ui->unit), rows = node->h / line_height > 0 ? node->h / line_height : 1;
 
     /* the lines and letters: counted again only when the text, the width or the variant changed */
     int total, all_letters;
@@ -166,7 +166,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const int     shown  = total - top < rows ? total - top : rows;
     /* the rows the last pass showed: the block in the middle moves when their number changed, only then */
     const int     shown_before = (box->flags & DGX_UI_TEXTBOX_COUNTED) ? (box->total_lines - box->top < rows ? box->total_lines - box->top : rows) : -1;
-    const int     own    = dgx_ui_hand_base_rows(variant);
+    const int     own    = dgx_ui_hand_base_rows(variant, ui->unit);
     int           base0; /* the first row's base line: the first variant's, or the block of the rows in the middle */
     if (style->flags & DGX_UI_STYLE_MIDDLE) {
         const int block = (shown > 0 ? shown : 1) * line_height;
@@ -212,8 +212,8 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     }
 
     /* the pen: on the canvas as amounts of ink, by a soft pen too; straight in the ink, a hard one */
-    const float      scale = (float)variant->height / variant->font->hw->symbol_size_y;
-    dgx_hw_context_t pen   = {.font = variant->font, .scale_x = scale, .scale_y = scale, .width = dgx_ui_hand_pen(variant), .joined = variant->joined};
+    const float      scale = (float)dgx_ui_hand_height(variant, ui->unit) / variant->font->hw->symbol_size_y;
+    dgx_hw_context_t pen   = {.font = variant->font, .scale_x = scale, .scale_y = scale, .width = dgx_ui_hand_pen(variant, ui->unit), .joined = variant->joined};
     const int        off_x = canvas ? node->x : paint->ox, off_y = canvas ? node->y : paint->oy;
     if (canvas) {
         pen.scr = canvas, pen.color = 255, pen.width |= (int)(variant->pen & DGX_PEN_SOFT);
@@ -249,7 +249,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
         if (!row_letters || done_before || (box->letter_ms && written_ms <= t0)) continue;
         char       row[DGX_UI_LINE + sizeof ELLIPSIS];
         const bool cut_row = cut && k == rows - 1;
-        row_text(row, text, row_start, row_end, cut_row, variant, node->w);
+        row_text(row, text, row_start, row_end, cut_row, variant, ui->unit, node->w);
         /* across by the style's align, from the left when it does not go in; down on its row's base line */
         int left = 0, width = 0;
         dgx_hw_bounds(&pen, row, &left, NULL, &width, NULL);

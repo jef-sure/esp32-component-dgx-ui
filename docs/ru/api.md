@@ -645,10 +645,10 @@ typedef struct dgx_ui_text_style_t {
 
 | Поле | Что значит |
 | ---- | ---------- |
-| `height` | высота строки в пикселях |
+| `height` | высота строки в точках дерева |
 | `narrow` | до скольких процентов можно сузить буквы по ширине, чтобы текст поместился; сужение идёт целыми процентами, берётся самое широкое, что помещается; 0 — нельзя |
 | `joined` | буквы соединены |
-| `pen` | ширина пера в пикселях, 0 — волосная линия; для мягкого пера добавляется `DGX_PEN_SOFT` из DGX |
+| `pen` | ширина пера в точках, 0 — волосная линия в один пиксель при любой точке; для мягкого пера добавляется `DGX_PEN_SOFT` из DGX |
 | `hand` | `&dgx_ui_handwriting` — пишется прямо на экран, жёстким пером. `&dgx_ui_handwriting_canvas` — то же, а у виджета с `DGX_UI_CANVAS` — в его холст, где мягкое перо остаётся мягким; нужны виртуальные экраны DGX. `NULL` — вариант пропускается |
 
 `dgx_ui_hand_t` — свой тип библиотеки, который стоит за этими двумя константами. Рукописный текст пишут
@@ -674,9 +674,9 @@ typedef struct dgx_ui_text_style_t {
 деревом на все платы пишет `.points = !DGX_FONT_<ЗАЯВКА>_MADE`. Рукописный вариант это поле не читает. Рецепт:
 [Одно дерево на всех платах](cookbook.md#одно-дерево-на-всех-платах).
 
-`int dgx_ui_variant_line(const dgx_ui_t *ui, const dgx_ui_font_variant_t *v)`: высота строки варианта в дереве: своя у
-рукописного шрифта, шаг строки шрифта у матричного, умноженный на единицу у варианта с `points`; при `ui`, равном
-`NULL`, единица считается 1.
+`int dgx_ui_variant_line(const dgx_ui_t *ui, const dgx_ui_font_variant_t *v)`: высота строки варианта в дереве: её `height` у
+рукописного шрифта, шаг строки шрифта у матричного, умноженные на точку дерева, матричный — только у варианта с
+`points`; при `ui`, равном `NULL`, точка считается в 1 пиксель.
 
 ### Текстовое поле
 
@@ -688,11 +688,11 @@ struct dgx_ui_textbox_t {
     uint8_t                    variant;
     const dgx_ui_text_style_t *style;
     uint16_t                   top;
-    uint8_t                    letter_ms;
-    uint8_t                    flags;
+    uint16_t                   letter_ms;
     uint32_t                   since_ms;
     uint16_t                   letters_drawn;
     uint16_t                   total_lines, total_letters;
+    uint8_t                    flags;
 };
 ```
 
@@ -1113,10 +1113,10 @@ typedef struct dgx_ui_picture_look_t {
 } dgx_ui_picture_look_t;
 
 typedef struct dgx_ui_input_look_t {
-    uint8_t ink, caret; /* the text, and the mark where the next letter goes, shown while the field has the focus */
-    uint8_t paper;      /* under them; DGX_UI_PAPER: what lies under the widget */
-    bool    secret;     /* a star for each letter */
-    uint8_t blink;      /* half a period of the caret, in tens of milliseconds; 0: steady */
+    uint8_t  ink, caret; /* the text, and the mark where the next letter goes, shown while the field has the focus */
+    uint8_t  paper;      /* under them; DGX_UI_PAPER: what lies under the widget */
+    bool     secret;     /* a star for each letter */
+    uint16_t blink_ms;   /* half a period of the caret, in milliseconds; 0: steady */
 } dgx_ui_input_look_t;
 
 typedef struct dgx_ui_list_look_t {
@@ -1351,12 +1351,12 @@ static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switc
 остаются в текстовом поле. В шрифте поля должна быть звёздочка, `*`: без неё поле ничего не показывает. Шрифт,
 сделанный при сборке, получит её, если добавить `*` к знакам запроса.
 
-Курсор поля в фокусе мигает: виден `blink` десятков миллисекунд и столько же скрыт, по умолчанию 50, то есть раз в
-500 мс; 0 оставляет его ровным. Набранная буква, заданный текст и пришедший фокус показывают его сразу и начинают
+Курсор поля в фокусе мигает: виден `blink_ms` миллисекунд и столько же скрыт, по умолчанию 500; 0 оставляет его
+ровным. Набранная буква, заданный текст и пришедший фокус показывают его сразу и начинают
 период заново. При переключении пишется только прямоугольник курсора, а облик называет следующее переключение через
 `dgx_ui_wake_in()`, так что цикл, который ждёт `dgx_ui_wake()`, просыпается дважды в секунду, пока поле в фокусе;
-программа, которой нужен долгий сон, даёт своему полю облик с `blink` 0. Поле без фокуса, скрытое или под модальным
-окном времени не просит. Облик `"input"` во внешнем виде, который не говорит `"blink"`, получает 0, ровный курсор,
+программа, которой нужен долгий сон, даёт своему полю облик с `blink_ms` 0. Поле без фокуса, скрытое или под модальным
+окном времени не просит. Облик `"input"` во внешнем виде, который не говорит `"blink_ms"`, получает 0, ровный курсор,
 как любое пропущенное число.
 
 ## dgx_ui_dropdown.h
@@ -1798,7 +1798,7 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 | `"hand_lines"` | `ink`; `paper`° |
 | `"button"` | `face`; `pressed`; `focused`°; `disabled`; `ink`; `ink_disabled`; `shadow`; `depth` 0…255 |
 | `"picture_button"` | `face`; `pressed`; `focused`°; `disabled`; `ink`; `ink_disabled`; `shadow`; `depth` 0…255 |
-| `"input"` | `ink`; `caret`; `paper`°; `secret` да/нет; `blink` 0…255 |
+| `"input"` | `ink`; `caret`; `paper`°; `secret` да/нет; `blink_ms` 0…65535 |
 | `"switch"` | `track`; `fill`; `knob`; `focused`°; `disabled` |
 | `"slider"` | `track`; `fill`; `knob`; `focused`°; `disabled`; `track_h` 0…255 |
 | `"list"` | `ink`; `paper`°; `pick`; `pick_ink`; `focused`; `ink_disabled`; `knob` |

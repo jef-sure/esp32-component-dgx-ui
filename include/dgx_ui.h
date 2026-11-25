@@ -314,7 +314,7 @@ int dgx_ui_textbox_height(const dgx_ui_t *ui, const dgx_ui_textbox_t *box);
 typedef struct dgx_ui_widget_t {
     uint8_t        kind;           ///< DGX_UI_BOX ... DGX_UI_RADIO
     dgx_ui_bits_t  state;          ///< the state it starts with: HIDDEN, DISABLED
-    uint16_t       flags;          ///< DGX_UI_COLUMN, ROW, STRETCH, SWIPE, DRAG, CANVAS, REST, REPEAT, PERCENT_*
+    uint16_t       flags;          ///< DGX_UI_COLUMN, ROW, STRETCH, RELATIVE, DRAG, CANVAS, REST, REPEAT, PERCENT_*
     int16_t        pad, gap;       ///< inside a box: around its children and between them, in points, or in percent (above)
     int16_t        at_x, at_y;     ///< asked: from the parent's inside edge, in points or percent; negative from the far edge
     int16_t        want_w, want_h; ///< asked, in points or percent (0 % no size); 0 points: the content's (a picture's size, a text's lines: of any widget with a text box; a button's, a

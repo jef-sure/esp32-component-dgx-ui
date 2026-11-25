@@ -1,9 +1,9 @@
 /*
- * The caret of a field that blinks (dgx_ui_input_look_t's blink), on a panel of 16 bits and of 18 (PANEL_BITS), over
+ * The caret of a field that blinks (dgx_ui_input_look_t's blink_ms), on a panel of 16 bits and of 18 (PANEL_BITS), over
  * five periods: drawn with the field when the focus comes, then at each half period its rectangle alone, of the
  * caret's colour or the paper, nothing else written, and in between nothing; the loop woken by the paint for the next
  * toggle. A letter typed between two: the caret seen at once, its phase from there. Not focused, hidden, under a modal
- * popup, wholly under the keyboard's band: no caret and no time asked; the band gone, drawn by its phase. blink 0: a
+ * popup, wholly under the keyboard's band: no caret and no time asked; the band gone, drawn by its phase. blink_ms 0: a
  * steady caret, no time asked. A secret field the same. A mirror composed by a second paint at each pass: the same
  * picture, and the phase it leaves the first paint's. At 18 bits through the strips: the field sent whole and once.
  */
@@ -25,7 +25,7 @@ enum { PAPER = 0, INK = 1, CARET = 3 };
 
 static const dgx_ui_font_variant_t variant[1] = {{.font = &TerminusTTFMedium12}};
 static const dgx_ui_text_style_t   style      = {.fonts = variant, .count = 1};
-static dgx_ui_input_look_t         params     = {.ink = INK, .caret = CARET, .paper = DGX_UI_PAPER, .blink = 50};
+static dgx_ui_input_look_t         params     = {.ink = INK, .caret = CARET, .paper = DGX_UI_PAPER, .blink_ms = 500};
 static const dgx_ui_look_t         look       = {.draw = dgx_ui_draw_input, .params = &params, .fill = -1};
 static char                        text[16];
 static dgx_ui_textbox_t            box;
@@ -158,11 +158,11 @@ int main(void)
     dgx_ui_paint(&ui, &paint, edge + 20);
     CHECK(all_of(panel, moved, colors[CARET]) == !before);
     dgx_ui_paint_free(&second), dgx_screen_destroy(&mirror);
-    /* blink 0: steady, no time; a secret field blinks as a plain one */
-    params.blink = 0;
+    /* blink_ms 0: steady, no time; a secret field blinks as a plain one */
+    params.blink_ms = 0;
     dgx_ui_redraw(&ui, field);
     CHECK(!dgx_ui_paint(&ui, &paint, 10100) && paint.wake_ms == DGX_UI_WAKE_NONE && all_of(panel, moved, colors[CARET]));
-    params.blink = 50, params.secret = true;
+    params.blink_ms = 500, params.secret = true;
     dgx_ui_text_set(&ui, field, "xyz");
     dgx_ui_paint(&ui, &paint, 11000);
     panel_count_from_now(panel);

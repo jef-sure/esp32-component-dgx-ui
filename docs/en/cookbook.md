@@ -1299,7 +1299,7 @@ DGX has handwritten fonts: their letters are strokes, written by a pen at any he
 the library's handwriting, `&dgx_ui_handwriting`, and the one-line look of a text writes it. A program that names
 none carries none of it.
 
-Here a greeting in DGX's `font0ss`: 32 pixels high when it goes in, narrowed when it nearly does, 20 pixels high when
+Here, on a tree of a pixel a point, a greeting in DGX's `font0ss`: 32 pixels high when it goes in, narrowed when it nearly does, 20 pixels high when
 it is long, and in a bitmap font when it is longer still.
 
 ```c
@@ -1349,10 +1349,11 @@ What happens in a label 200 pixels wide:
 
 What the variant says:
 
-- **`height`** is the line in pixels, and the height of the label when the variant is the first of its style.
+- **`height`** is the line in points of the tree, and the height of the label when the variant is the first of its
+  style: on a board of 2 pixels a point the same greeting is 64 pixels high, its pen twice as wide.
 - **`narrow`** is how far across the letters may be narrowed, in percent; 0: never.
 - **`joined`**: the letters joined, as in handwriting.
-- **`pen`** is the width of the pen in pixels; 0 is a hairline.
+- **`pen`** is the width of the pen in points; 0 is a hairline of one pixel at any unit.
 - **Which looks write it.** The one-line look, that is a label, and `dgx_ui_look_hand_lines` for several lines,
   below. In a button, a field, a list and `dgx_ui_look_lines` a handwritten variant is passed over.
 - **What it costs.** Named by a variant: about 31 KB, of which the font `font0ss` is 17.8 KB, DGX's pen 10 KB and
@@ -2274,7 +2275,7 @@ static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
 - Code points from any other source go the same way: `dgx_ui_typed(ui, code_points, count)`.
 - The text stands at the top of the field; with `DGX_UI_STYLE_MIDDLE` in its style, in the middle of its height.
 - The caret blinks while the field has the focus, every 500 ms; a letter typed shows it at once. The loop wakes for
-  it twice a second: a look of the field's own with `.blink = 0` keeps the caret steady and the loop asleep.
+  it twice a second: a look of the field's own with `.blink_ms = 0` keeps the caret steady and the loop asleep.
 - The keys of DGX-DI's keyboard are as large as a finger, in millimetres of the glass. On a small display, the 2.8
   inches of a CYD, even its pad of digits takes the whole screen, and the field is not seen until the keyboard
   closes. The next recipe is for such a display.

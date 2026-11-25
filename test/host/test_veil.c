@@ -28,7 +28,7 @@
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
 
-/* a field whose caret does not blink (blink 0): its look asks no time, so a pass of nothing changed writes nothing */
+/* a field whose caret does not blink (blink_ms 0): its look asks no time, so a pass of nothing changed writes nothing */
 static const dgx_ui_input_look_t steady_params = {.ink = 1, .caret = 1, .paper = DGX_UI_PAPER};
 static const dgx_ui_look_t       steady_input  = {.draw = dgx_ui_draw_input, .params = &steady_params, .fill = -1};
 

@@ -42,7 +42,7 @@ static int fit(const dgx_ui_text_style_t *st, const char *text, int field, int u
         const dgx_ui_font_variant_t *candidate = &st->fonts[v];
         const dgx_font_t            *f         = candidate->font;
         if (candidate->hand) {
-            if (candidate->hand->width(candidate, text, field) <= field) return v;
+            if (candidate->hand->width(candidate, unit, text, field) <= field) return v;
             if (most < 0) best = v, most = 0;
             continue;
         }

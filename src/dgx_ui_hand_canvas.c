@@ -41,7 +41,7 @@ static bool into_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui
     if (anew) dgx_fill_rectangle(canvas, 0, 0, canvas->width, canvas->height, 0);
     if (anew || line->elapsed_ms > had_ms) {
         dgx_hw_context_t pen = line->ctx;
-        pen.scr = canvas, pen.color = 255, pen.width = dgx_ui_hand_pen(variant) | (int)(variant->pen & DGX_PEN_SOFT); /* soft as asked */
+        pen.scr = canvas, pen.color = 255, pen.width = dgx_ui_hand_pen(variant, ui->unit) | (int)(variant->pen & DGX_PEN_SOFT); /* soft as asked */
         dgx_ui_hand_write(&pen, line->x - node->x, line->base - node->y, text, dgx_ui_hand_effort_at(line, had_ms), line->to, !line->total_ms);
         if (held) *held = now;
     }

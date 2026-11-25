@@ -17,7 +17,9 @@
 int dgx_ui_variant_line(const dgx_ui_t *ui, const dgx_ui_font_variant_t *v)
 {
     if (!v || !v->font) return 0;
-    return v->font->f_type == DGX_FONT_HW ? v->height : v->font->y_advance * (v->points && !v->hand && ui ? ui->unit : 1);
+    const int unit = ui ? ui->unit : 1;
+    if (v->font->f_type == DGX_FONT_HW) return v->height * unit;
+    return v->font->y_advance * (v->points && !v->hand ? unit : 1);
 }
 
 int dgx_ui_textbox_height(const dgx_ui_t *ui, const dgx_ui_textbox_t *box)
@@ -123,7 +125,7 @@ void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms)
     dgx_ui_node_t    *n   = dgx_ui_node(ui, i);
     dgx_ui_textbox_t *box = n && n->widget ? n->widget->text : NULL;
     if (!box) return;
-    box->letter_ms = (uint8_t)(letter_ms < 0 ? 0 : letter_ms > 255 ? 255 : letter_ms);
+    box->letter_ms = (uint16_t)(letter_ms < 0 ? 0 : letter_ms > UINT16_MAX ? UINT16_MAX : letter_ms);
     box->flags     = (uint8_t)((box->flags | DGX_UI_TEXTBOX_START) & ~(DGX_UI_TEXTBOX_CAME | DGX_UI_TEXTBOX_ENDED | DGX_UI_TEXTBOX_SEEN |
                                                                        DGX_UI_TEXTBOX_WHOLE));
     n->marks |= DGX_UI_MARK_CHANGED;

@@ -517,7 +517,7 @@ const dgxUiBuilderMount = (() => {
                      focused: () => words.t('the knob while the box has the focus'),
                      arrows: () => words.t('the arrows at the ends of the scroll bar'),
                      bar: () => words.t('the width of the scroll bar, in points') })[name]?.() ?? ''
-                : draw === 'input' && name === 'blink' ? words.t('half a period of the caret, in tens of milliseconds; 0 steady') : '';
+                : draw === 'input' && name === 'blink_ms' ? words.t('half a period of the caret, in milliseconds; 0 steady') : '';
             return { ...words, colorNames, made, verdict, twice, colors, styles, looks, picked, style, look, variants, styleFields, draw, fieldHint,
                      described, params, paramOf, lookKeysAsText, isAt, atDepth, pickColor, fresh, plan, rename, confirmRename, cancelRename,
                      widgetCount, newColor, newStyle, newLook, newDraw, addColor, addStyle, addLook, variantText,

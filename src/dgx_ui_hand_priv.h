@@ -46,10 +46,16 @@ static inline uint32_t dgx_ui_hand_hash(const char *text, int len)
     return hash;
 }
 
-/* the width of the pen in pixels, 1 for 0 */
-static inline int dgx_ui_hand_pen(const dgx_ui_font_variant_t *variant)
+/* the height of a handwritten line in pixels: the variant's height is in points of the tree, unit pixels each */
+static inline int dgx_ui_hand_height(const dgx_ui_font_variant_t *variant, int unit)
 {
-    const int width = (int)(variant->pen & ~(uint32_t)DGX_PEN_SOFT);
+    return variant->height * unit;
+}
+
+/* the width of the pen in pixels: the variant's in points of the tree; 0, a hairline, a pixel at any unit */
+static inline int dgx_ui_hand_pen(const dgx_ui_font_variant_t *variant, int unit)
+{
+    const int width = (int)(variant->pen & ~(uint32_t)DGX_PEN_SOFT) * unit;
     return width > 0 ? width : 1;
 }
 
@@ -59,10 +65,10 @@ static inline float dgx_ui_hand_effort_at(const struct dgx_ui_hand_line_t *line,
     return line->total_ms ? line->effort * (float)had_ms / (float)line->total_ms : 0;
 }
 
-int  dgx_ui_hand_width(const dgx_ui_font_variant_t *variant, const char *text, int field);
-int  dgx_ui_hand_base_rows(const dgx_ui_font_variant_t *variant);
+int  dgx_ui_hand_width(const dgx_ui_font_variant_t *variant, int unit, const char *text, int field);
+int  dgx_ui_hand_base_rows(const dgx_ui_font_variant_t *variant, int unit);
 /* the width of n bytes of a text at the variant's height, not narrowed: a line of the handwritten lines */
-int  dgx_ui_hand_span(const dgx_ui_font_variant_t *variant, const char *text, int n);
+int  dgx_ui_hand_span(const dgx_ui_font_variant_t *variant, int unit, const char *text, int n);
 bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, const dgx_ui_font_variant_t *variant);
 /* the strokes from effort `from` to `to` written, those before `from` under an empty clip; all: the text at once */
 void dgx_ui_hand_write(const dgx_hw_context_t *ctx, int x, int y, const char *text, float from, float to, bool all);

@@ -48,10 +48,10 @@ static inline int dgx_ui_width_of(const dgx_font_t *font, const char *s, int n)
    one-line look's drawing of it */
 struct dgx_ui_hand_line_t; /* a line placed and timed for a pass: dgx_ui_hand_priv.h */
 struct dgx_ui_hand_t {
-    int (*width)(const dgx_ui_font_variant_t *v, const char *text, int field);
+    int (*width)(const dgx_ui_font_variant_t *v, int unit, const char *text, int field);
     bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, const dgx_ui_font_variant_t *v);
     /* the rows of a variant's base line under the top of its line; -1 for a variant it cannot write */
-    int (*base_rows)(const dgx_ui_font_variant_t *v);
+    int (*base_rows)(const dgx_ui_font_variant_t *v, int unit);
     /* the writing into the canvas of a widget of DGX_UI_CANVAS (dgx_ui_hand_canvas.c); NULL: always straight */
     const struct dgx_ui_hand_canvas_t *canvas;
 };
@@ -80,6 +80,6 @@ static inline bool dgx_ui_variant_usable(const dgx_font_t *font)
 static inline int dgx_ui_first_base(const dgx_ui_text_style_t *style, int unit)
 {
     const dgx_ui_font_variant_t *first = &style->fonts[0];
-    if (first->hand) return first->hand->base_rows(first);
+    if (first->hand) return first->hand->base_rows(first, unit);
     return dgx_ui_variant_usable(first->font) ? -first->font->y_offset_lowest * dgx_ui_variant_scale(first, unit) : -1;
 }

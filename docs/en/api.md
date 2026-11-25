@@ -635,10 +635,10 @@ a font of bitmaps or of dots the other members stay 0 but `points`. For a handwr
 
 | Member | Meaning |
 | ------ | ------- |
-| `height` | the height of a line in pixels |
+| `height` | the height of a line in points of the tree |
 | `narrow` | how narrow the letters may be made for the text to fit: down to this many percent of their width; 0: never. The narrowing goes by whole percents, and the widest text that fits is taken |
 | `joined` | the letters joined |
-| `pen` | the width of the pen in pixels, 0 a hairline; `DGX_PEN_SOFT` of DGX added for a soft pen |
+| `pen` | the width of the pen in points, 0 a hairline of one pixel at any unit; `DGX_PEN_SOFT` of DGX added for a soft pen |
 | `hand` | `&dgx_ui_handwriting`: written straight on the screen, by a hard pen. `&dgx_ui_handwriting_canvas`: the same, and on a widget of `DGX_UI_CANVAS` into its canvas, where a soft pen is soft; it needs the virtual screens of DGX. `NULL`: the variant is passed over |
 
 `dgx_ui_hand_t` is the library's own type behind the two constants. Handwriting is written by the one-line look of
@@ -665,8 +665,8 @@ under `DGX_FONTS_SCALE` has the board's size already, so a program of one tree f
 [One tree on every board](cookbook.md#one-tree-on-every-board).
 
 `int dgx_ui_variant_line(const dgx_ui_t *ui, const dgx_ui_font_variant_t *v)`: the height of a line of a variant in a
-tree: its own for a handwritten font, the font's advance for one of bitmaps, times the unit for a variant of `points`;
-`ui` `NULL` counts a unit of 1.
+tree: its `height` for a handwritten font, the font's advance for one of bitmaps, each times the tree's unit, the bitmap
+one only for a variant of `points`; `ui` `NULL` counts a unit of 1.
 
 ### The text box
 
@@ -678,11 +678,11 @@ struct dgx_ui_textbox_t {
     uint8_t                    variant;
     const dgx_ui_text_style_t *style;
     uint16_t                   top;
-    uint8_t                    letter_ms;
-    uint8_t                    flags;
+    uint16_t                   letter_ms;
     uint32_t                   since_ms;
     uint16_t                   letters_drawn;
     uint16_t                   total_lines, total_letters;
+    uint8_t                    flags;
 };
 ```
 
@@ -1103,10 +1103,10 @@ typedef struct dgx_ui_picture_look_t {
 } dgx_ui_picture_look_t;
 
 typedef struct dgx_ui_input_look_t {
-    uint8_t ink, caret; /* the text, and the mark where the next letter goes, shown while the field has the focus */
-    uint8_t paper;      /* under them; DGX_UI_PAPER: what lies under the widget */
-    bool    secret;     /* a star for each letter */
-    uint8_t blink;      /* half a period of the caret, in tens of milliseconds; 0: steady */
+    uint8_t  ink, caret; /* the text, and the mark where the next letter goes, shown while the field has the focus */
+    uint8_t  paper;      /* under them; DGX_UI_PAPER: what lies under the widget */
+    bool     secret;     /* a star for each letter */
+    uint16_t blink_ms;   /* half a period of the caret, in milliseconds; 0: steady */
 } dgx_ui_input_look_t;
 
 typedef struct dgx_ui_list_look_t {
@@ -1339,12 +1339,12 @@ A field whose parameters say `secret` shows a star for each letter, a password o
 letters. The font of the field must have the star, `*`: without it the field shows nothing. A font made at build time
 gets it when `*` is listed among the characters of the need.
 
-The caret of a field that has the focus blinks: shown for `blink` tens of milliseconds and hidden as long, 50 by
-default, so every 500 ms; 0 keeps it steady. A letter typed, a text set and the focus coming show it at once and
+The caret of a field that has the focus blinks: shown for `blink_ms` milliseconds and hidden as long, 500 by
+default; 0 keeps it steady. A letter typed, a text set and the focus coming show it at once and
 start its period again. A toggle writes the caret's rectangle alone, and the look names the next one by
 `dgx_ui_wake_in()`, so a loop that waits on `dgx_ui_wake()` wakes twice a second while a field has the focus; a
-program that would sleep longer gives its field a look of `blink` 0. A field without the focus, hidden, or under a
-modal popup asks for no time. A look of `"input"` in an appearance that does not say `"blink"` has 0, steady, as any
+program that would sleep longer gives its field a look of `blink_ms` 0. A field without the focus, hidden, or under a
+modal popup asks for no time. A look of `"input"` in an appearance that does not say `"blink_ms"` has 0, steady, as any
 number left out.
 
 ## dgx_ui_dropdown.h
@@ -1781,7 +1781,7 @@ may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list o
 | `"hand_lines"` | `ink`; `paper`° |
 | `"button"` | `face`; `pressed`; `focused`°; `disabled`; `ink`; `ink_disabled`; `shadow`; `depth` 0…255 |
 | `"picture_button"` | `face`; `pressed`; `focused`°; `disabled`; `ink`; `ink_disabled`; `shadow`; `depth` 0…255 |
-| `"input"` | `ink`; `caret`; `paper`°; `secret` true/false; `blink` 0…255 |
+| `"input"` | `ink`; `caret`; `paper`°; `secret` true/false; `blink_ms` 0…65535 |
 | `"switch"` | `track`; `fill`; `knob`; `focused`°; `disabled` |
 | `"slider"` | `track`; `fill`; `knob`; `focused`°; `disabled`; `track_h` 0…255 |
 | `"list"` | `ink`; `paper`°; `pick`; `pick_ink`; `focused`; `ink_disabled`; `knob` |

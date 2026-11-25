@@ -26,7 +26,7 @@ static const dgx_ui_field_t button_fields[] = {COLOR(dgx_ui_button_look_t, face)
                                                COLOR(dgx_ui_button_look_t, ink),     COLOR(dgx_ui_button_look_t, ink_disabled),
                                                COLOR(dgx_ui_button_look_t, shadow),   BYTE(dgx_ui_button_look_t, depth)};
 static const dgx_ui_field_t input_fields[]  = {COLOR(dgx_ui_input_look_t, ink), COLOR(dgx_ui_input_look_t, caret), UNDER(dgx_ui_input_look_t, paper),
-                                               DGX_UI_BOOL_FIELD(dgx_ui_input_look_t, secret), BYTE(dgx_ui_input_look_t, blink)};
+                                               DGX_UI_BOOL_FIELD(dgx_ui_input_look_t, secret), DGX_UI_NUMBER_FIELD(dgx_ui_input_look_t, blink_ms, 0, UINT16_MAX)};
 static const dgx_ui_field_t switch_fields[] = {COLOR(dgx_ui_switch_look_t, track), COLOR(dgx_ui_switch_look_t, fill), COLOR(dgx_ui_switch_look_t, knob),
                                                UNDER(dgx_ui_switch_look_t, focused), COLOR(dgx_ui_switch_look_t, disabled)};
 static const dgx_ui_field_t slider_fields[] = {COLOR(dgx_ui_slider_look_t, track),   COLOR(dgx_ui_slider_look_t, fill),     COLOR(dgx_ui_slider_look_t, knob),
