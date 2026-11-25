@@ -1,5 +1,12 @@
 # Changes
 
+## 0.0.60 - 2026-11-25
+
+- The builder edits the names file by forms: each line's columns and comment kept, the names a page misses added one by
+  one or all at once, a name renamed in the pages and appearances on the file and undone together; a names file a call
+  names but the disk has not yet is begun empty.
+- Docs: the builder's names forms, the preview's namesFormat() and namesMissing().
+
 ## 0.0.59 - 2026-11-25
 
 - The builder edits the appearance by forms: colours by hex, a picker or a DGX name, styles and looks by their draw's
