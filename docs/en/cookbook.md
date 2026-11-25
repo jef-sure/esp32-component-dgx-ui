@@ -2273,6 +2273,8 @@ static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
 - When the keyboard closes and the band is empty again, the painter draws the tree there by itself.
 - Code points from any other source go the same way: `dgx_ui_typed(ui, code_points, count)`.
 - The text stands at the top of the field; with `DGX_UI_TEXT_MIDDLE` in its style, in the middle of its height.
+- The caret blinks while the field has the focus, every 500 ms; a letter typed shows it at once. The loop wakes for
+  it twice a second: a look of the field's own with `.blink = 0` keeps the caret steady and the loop asleep.
 - The keys of DGX-DI's keyboard are as large as a finger, in millimetres of the glass. On a small display, the 2.8
   inches of a CYD, even its pad of digits takes the whole screen, and the field is not seen until the keyboard
   closes. The next recipe is for such a display.
@@ -3231,7 +3233,11 @@ static void deep_paint_init(dgx_ui_paint_t *paint)
   strips. A program that does not name them carries none of it, which is why they are named and not found out.
 - **A 16-bit display** draws straight whatever is named: its text is not filled first.
 - It needs `CONFIG_DGX_ENABLE_VSCREEN=y`; named without it the program does not link.
-- A picture of RGB565 and one of 4 or 8 bits are paper on such a display: their looks need a 16-bit screen.
+- **Pictures of colours**, of RGB565 or of 4 or 8 bits, and the frame of nine pictures, need
+  `.strips = &dgx_ui_strips_pictures` in place of `&dgx_ui_strips`: their pixels go through a strip of the display's
+  depth, and the buffer holds a row of the picture and a row of the display at the picture's scale. With
+  `dgx_ui_strips` they are paper, and the log says what to name. A display of 24 bits not behind a bus, a DSI one,
+  names it too for its pictures; it costs about 1.4 KB, which a program of text alone does not carry.
 
 ## A loop that sleeps till the next moment
 

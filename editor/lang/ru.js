@@ -196,5 +196,6 @@ DGX_UI_LANGUAGES.ru = {
         'the knob while the box has the focus': 'бегунок, пока окно в фокусе',
         'the arrows at the ends of the scroll bar': 'стрелки на концах полосы прокрутки',
         'the width of the scroll bar, in points': 'ширина полосы прокрутки, в точках',
+        'half a period of the caret, in tens of milliseconds; 0 steady': 'половина периода каретки, в десятках миллисекунд; 0 — не мигает',
     },
 };

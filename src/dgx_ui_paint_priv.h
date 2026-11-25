@@ -23,7 +23,24 @@ void *dgx_ui_buffer_free(const dgx_ui_paint_t *paint, size_t *size);
    buffer, *more set when the look asks for time; false, not drawn: the painter draws the part straight */
 struct dgx_ui_strips_t {
     bool (*draw)(dgx_ui_paint_t *paint, const dgx_ui_look_t *look, dgx_ui_t *ui, int i, uint32_t now_ms, dgx_ui_rect_t r, bool *more);
+    /* pictures on a screen of 18 or 24 bits (dgx_ui_strips_pictures, dgx_ui_deep.c): w x h pixels of a source, a row
+       every `stride` of them, put at x, y of the tree's screen, each pixel k x k, through a strip of the screen's depth
+       in the free part of the buffer past `used` bytes, the caller's own strip of indices; 8-bit indices of the
+       painter's table (transparent: 0 leaves the drawn background), or RGB565. false: no room, or no memory: nothing
+       drawn. NULL in dgx_ui_strips */
+    bool (*put_indexed)(dgx_ui_paint_t *paint, int x, int y, const uint8_t *src, int stride, int w, int h, int k, bool transparent, size_t used);
+    bool (*put_rgb565)(dgx_ui_paint_t *paint, int x, int y, const uint16_t *src, int stride, int w, int h, int k);
 };
+
+/* the strips' draw, kept_half: the strip takes half the free room at most, the rest a look's of pictures */
+bool dgx_ui_strips_draw(dgx_ui_paint_t *paint, const dgx_ui_look_t *look, dgx_ui_t *ui, int i, uint32_t now_ms, dgx_ui_rect_t r, bool *more,
+                        bool kept_half);
+
+/* the bytes a row of a source w pixels wide at k x k takes in the strip of the screen's depth: 3 a pixel */
+static inline size_t dgx_ui_deep_row(int w, int k)
+{
+    return (size_t)3 * (size_t)w * (size_t)k * (size_t)k;
+}
 
 /* the scrolling boxes' part of a paint (dgx_ui_scroll_look.c), reached by the painter through these two only: a program
    of no scrolling box carries none of it */

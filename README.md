@@ -62,8 +62,8 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 ## Status
 
 Version 0.0.64: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
-still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
-[Not there yet](#not-there-yet).
+still change. What it has is listed under [What is in it](#what-is-in-it), what it leaves to other libraries under
+[What it leaves to others](#what-it-leaves-to-others).
 
 ## Quick start
 
@@ -162,10 +162,7 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
   video, the tree tells the rectangles that changed and draws nothing, and is composed into the program's own strips.
 - **Tests on the computer**: the logic draws nothing and calls no function of DGX, so it is tested without a display.
 
-## Not there yet
-
-- a blinking cursor in a field;
-- pictures of colours on a display of 18 or 24 bits: the looks of RGB565 and of 4 or 8 bits draw on 16 bits only.
+## What it leaves to others
 
 An interface of tables, graphs and long texts is a task for
 [DGX-LVGL](https://github.com/jef-sure/esp32-component-dgx-lvgl).

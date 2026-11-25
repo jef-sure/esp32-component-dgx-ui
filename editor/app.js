@@ -512,11 +512,13 @@ const dgxUiBuilderMount = (() => {
             };
             const variantText = (node) => (node.t === 'string' ? node.value : '');
             // the fields of a scrolling box's look, in words
-            const scrollHint = (name) => ({ track: () => words.t('the track of the scroll bar'), knob: () => words.t('the knob of the scroll bar'),
-                                            focused: () => words.t('the knob while the box has the focus'),
-                                            arrows: () => words.t('the arrows at the ends of the scroll bar'),
-                                            bar: () => words.t('the width of the scroll bar, in points') })[name]?.() ?? '';
-            return { ...words, colorNames, made, verdict, twice, colors, styles, looks, picked, style, look, variants, styleFields, draw, scrollHint,
+            const fieldHint = (draw, name) => draw === 'scroll'
+                ? ({ track: () => words.t('the track of the scroll bar'), knob: () => words.t('the knob of the scroll bar'),
+                     focused: () => words.t('the knob while the box has the focus'),
+                     arrows: () => words.t('the arrows at the ends of the scroll bar'),
+                     bar: () => words.t('the width of the scroll bar, in points') })[name]?.() ?? ''
+                : draw === 'input' && name === 'blink' ? words.t('half a period of the caret, in tens of milliseconds; 0 steady') : '';
+            return { ...words, colorNames, made, verdict, twice, colors, styles, looks, picked, style, look, variants, styleFields, draw, fieldHint,
                      described, params, paramOf, lookKeysAsText, isAt, atDepth, pickColor, fresh, plan, rename, confirmRename, cancelRename,
                      widgetCount, newColor, newStyle, newLook, newDraw, addColor, addStyle, addLook, variantText,
                      valueOf: describe.valueOf, one: (node) => JSON.stringify(describe.shown(node)) };
@@ -613,7 +615,7 @@ const dgxUiBuilderMount = (() => {
                                 <div v-if="described.fields.length" class="field"><span class="key">params</span>
                                     <span class="note">{{ t('of the draw {0}', draw) }}</span></div>
                                 <div class="sub">
-                                    <look-field v-for="field in described.fields" :key="field.name" :field="field" :hint="draw === 'scroll' ? scrollHint(field.name) : ''"
+                                    <look-field v-for="field in described.fields" :key="field.name" :field="field" :hint="fieldHint(draw, field.name)"
                                                 :path="['looks', picked('looks'), 'params', field.name]" :node="paramOf(field.name)"></look-field>
                                 </div>
                             </template>

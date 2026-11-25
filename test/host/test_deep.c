@@ -19,6 +19,10 @@
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
 
+/* a field whose caret does not blink (blink 0): its look asks no time, so a pass of nothing changed writes nothing */
+static const dgx_ui_input_look_t steady_params = {.ink = 1, .caret = 1, .paper = DGX_UI_PAPER};
+static const dgx_ui_look_t       steady_input  = {.draw = dgx_ui_draw_input, .params = &steady_params, .fill = -1};
+
 /* a place for the value of a widget made at run time, a new one each time, 0 in it */
 static int32_t  place_pool[256];
 static int      place_next;
@@ -56,7 +60,7 @@ static void make(tree_t *t)
     for (int k = 0; k < 5; ++k) dgx_ui_textbox_init(&t->t[k], t->b[k], sizeof t->b[k], k == 4 ? 2 : 1, &style);
     t->label = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t->t[0], .want_h = 12};
     t->inner = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t->t[1], .want_h = 12};
-    t->field = (dgx_ui_widget_t){.kind = DGX_UI_INPUT, .text = &t->t[2], .want_h = 12, .look = &dgx_ui_look_input};
+    t->field = (dgx_ui_widget_t){.kind = DGX_UI_INPUT, .text = &t->t[2], .want_h = 12, .look = &steady_input};
     t->drop  = (dgx_ui_widget_t){.kind = DGX_UI_DROPDOWN, .value = new_place(), .text = &t->t[3], .max = 2, .want_w = 40, .want_h = 10, .look = &dgx_ui_look_dropdown};
     t->lines = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t->t[4], .want_h = 22, .look = &dgx_ui_look_lines};
     dgx_ui_init(&t->ui, t->nodes, 10, 1);

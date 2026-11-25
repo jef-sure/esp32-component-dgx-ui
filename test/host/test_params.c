@@ -75,7 +75,7 @@ int main(void)
           {.face = 1, .pressed = 2, .focused = 3, .disabled = 4, .text = 5, .text_disabled = 6, .shadow = 7, .depth = 8});
     HOLDS(dgx_ui_params_picture_button, dgx_ui_button_look_t, "face pressed focused disabled text text_disabled shadow depth",
           {.face = 1, .pressed = 2, .focused = 3, .disabled = 4, .text = 5, .text_disabled = 6, .shadow = 7, .depth = 8});
-    HOLDS(dgx_ui_params_input, dgx_ui_input_look_t, "ink caret paper secret", {.ink = 1, .caret = 2, .paper = 3, .secret = true});
+    HOLDS(dgx_ui_params_input, dgx_ui_input_look_t, "ink caret paper secret blink", {.ink = 1, .caret = 2, .paper = 3, .secret = true, .blink = 5});
     HOLDS(dgx_ui_params_switch, dgx_ui_switch_look_t, "off on knob focused disabled", {.off = 1, .on = 2, .knob = 3, .focused = 4, .disabled = 5});
     HOLDS(dgx_ui_params_slider, dgx_ui_slider_look_t, "track fill knob focused disabled track_h",
           {.track = 1, .fill = 2, .knob = 3, .focused = 4, .disabled = 5, .track_h = 6});

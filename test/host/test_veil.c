@@ -28,6 +28,10 @@
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
 
+/* a field whose caret does not blink (blink 0): its look asks no time, so a pass of nothing changed writes nothing */
+static const dgx_ui_input_look_t steady_params = {.ink = 1, .caret = 1, .paper = DGX_UI_PAPER};
+static const dgx_ui_look_t       steady_input  = {.draw = dgx_ui_draw_input, .params = &steady_params, .fill = -1};
+
 static uint32_t       colors[4];
 static panel_t       *panel;
 static dgx_screen_t  *memory;
@@ -81,8 +85,8 @@ static const look_case_t cases[] = {
      {{.kind = DGX_UI_SWITCH, .value = &ticked, .want_w = 60, .text = &tick_box, .look = &dgx_ui_look_checkbox, .on = on_widget},
       {.kind = DGX_UI_SWITCH, .value = &ticked, .want_w = 60, .text = &tick2_box, .look = &dgx_ui_look_checkbox, .on = on_widget}}},
     {"field",
-     {{.kind = DGX_UI_INPUT, .want_w = 50, .want_h = 14, .text = &field_box, .look = &dgx_ui_look_input, .on = on_widget},
-      {.kind = DGX_UI_INPUT, .want_w = 50, .want_h = 14, .text = &field2_box, .look = &dgx_ui_look_input, .on = on_widget}}},
+     {{.kind = DGX_UI_INPUT, .want_w = 50, .want_h = 14, .text = &field_box, .look = &steady_input, .on = on_widget},
+      {.kind = DGX_UI_INPUT, .want_w = 50, .want_h = 14, .text = &field2_box, .look = &steady_input, .on = on_widget}}},
     {"list",
      {{.kind = DGX_UI_LIST, .value = &month, .max = 2, .want_w = 50, .want_h = 30, .text = &months_box, .look = &dgx_ui_look_list, .on = on_widget},
       {.kind = DGX_UI_LIST, .value = &month2, .max = 2, .want_w = 50, .want_h = 30, .text = &months2_box, .look = &dgx_ui_look_list, .on = on_widget}}},

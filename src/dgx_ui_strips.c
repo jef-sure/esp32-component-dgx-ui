@@ -26,13 +26,14 @@ static const char *TAG = "dgx_ui";
  * which a strip would send as what it held), a display that does not blink (16 bits off a drawn background, a virtual
  * screen), no room for a row of the part, or no memory for the strip's screen; the painter draws the part straight.
  */
-static bool draw(dgx_ui_paint_t *p, const dgx_ui_look_t *look, dgx_ui_t *ui, int i, uint32_t now_ms, dgx_ui_rect_t r, bool *more)
+bool dgx_ui_strips_draw(dgx_ui_paint_t *p, const dgx_ui_look_t *look, dgx_ui_t *ui, int i, uint32_t now_ms, dgx_ui_rect_t r, bool *more, bool kept_half)
 {
     dgx_screen_t *scr  = p->scr;
     const uint8_t bits = scr->color_bits;
     if (dgx_ui_at(ui, i)->child >= 0 || scr->screen_subtype != DgxPhysicalScreenWithBus || (bits != 18 && bits != 24 && !p->on_background)) return false;
     size_t       room;
     void        *buffer = dgx_ui_buffer_free(p, &room);
+    if (kept_half) room /= 2; /* the rest a look's of pictures: its row and its strip of the screen's depth */
     const size_t row    = dgx_color_points_to_bytes(bits, (uint32_t)r.w);
     const int    fit    = buffer && row ? (int)(room / row) : 0;
     const int    rows   = fit < r.h ? fit : r.h; /* no more than the part: the rest of the room is a look's own */
@@ -61,6 +62,11 @@ static bool draw(dgx_ui_paint_t *p, const dgx_ui_look_t *look, dgx_ui_t *ui, int
     p->buffer_used = 0;
     p->whole       = whole; /* composing is as it was: the last strip has it so */
     return true;
+}
+
+static bool draw(dgx_ui_paint_t *p, const dgx_ui_look_t *look, dgx_ui_t *ui, int i, uint32_t now_ms, dgx_ui_rect_t r, bool *more)
+{
+    return dgx_ui_strips_draw(p, look, ui, i, now_ms, r, more, false);
 }
 
 const dgx_ui_strips_t dgx_ui_strips = {.draw = draw};

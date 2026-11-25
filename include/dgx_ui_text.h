@@ -91,6 +91,7 @@ enum {
     DGX_UI_TEXTBOX_COUNTED = 1u << 3, ///< lines and letters counted for the text, width and variant as they are
     DGX_UI_TEXTBOX_SEEN    = 1u << 4, ///< its look showed all it will show of the text (dgx_ui_text_state())
     DGX_UI_TEXTBOX_WHOLE   = 1u << 5, ///< its letters shown whole by the program (dgx_ui_text_whole()): no time for them
+    DGX_UI_TEXTBOX_CARET   = 1u << 6, ///< a field's caret as its look last drew it: shown
 };
 
 /**

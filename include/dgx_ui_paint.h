@@ -357,6 +357,7 @@ typedef struct dgx_ui_input_look_t {
     uint8_t ink, caret; ///< indices of the table: the caret is the focus
     uint8_t paper;      ///< index of the table; DGX_UI_PAPER: what lies under the widget
     bool    secret;     ///< a star for each letter
+    uint8_t blink;      ///< half a period of the caret, in tens of milliseconds: it shows so long and hides so long; 0 steady
 } dgx_ui_input_look_t;
 
 /**
@@ -612,6 +613,14 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint);
  * CONFIG_DGX_ENABLE_VSCREEN: named without it, the program does not link.
  */
 extern const dgx_ui_strips_t dgx_ui_strips;
+
+/**
+ * @brief The strips of dgx_ui_strips, and pictures on a screen of 18 or 24 bits: the looks of indexed pictures, of
+ * RGB565 and of the frame of nine pictures put their pixels through a strip of the screen's depth in the buffer, 3
+ * bytes a pixel, a block of rows a transfer. Without it they draw on 16 bits only. The strip of a widget takes half
+ * the free room at most, the rest the looks'. A program on 16 bits names dgx_ui_strips, or none.
+ */
+extern const dgx_ui_strips_t dgx_ui_strips_pictures;
 
 /**
  * @brief The canvas of widget i, a widget of DGX_UI_CANVAS: an 8-bit virtual screen as large as its box, kept by the

@@ -8,8 +8,8 @@
  *  kept at the box's far edges, none over another. Drawn in strips of an 8-bit virtual screen over the paint's buffer,
  *  each piece through its map, a picture of 1 bit in ink, and sent through the table of the painter's colours around the
  *  children: every pixel of the box once. As the look of indexed pictures, it needs the virtual screens of DGX
- *  (CONFIG_DGX_ENABLE_VSCREEN), a buffer of a row of the box and a 16-bit screen; without them, or with no pieces, it
- *  is the fill alone, told once in the log. A program that names it not carries none of it.
+ *  (CONFIG_DGX_ENABLE_VSCREEN), a buffer of a row of the box and a 16-bit screen, or on 18 or 24 bits the strips of
+ *  pictures (dgx_ui_strips_pictures); without them, or with no pieces, it is the fill alone, told once in the log. A program that names it not carries none of it.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -86,11 +86,20 @@ bool dgx_ui_draw_nine(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     dgx_screen_clip_get(paint->scr, &cx, &cy, &cw, &ch);
     dgx_ui_rect_t  part;
     const bool     shown = dgx_ui_rect_intersect(&box, &(dgx_ui_rect_t){cx + paint->ox, cy + paint->oy, cw, ch}, &part);
-    const int      rows  = shown && part.w ? (int)(room / (size_t)part.w) : 0;
-    if (!taken || !shown || !buffer || rows < 1 || paint->scr->color_bits != 16) {
+    /* on 18 or 24 bits through the strips of pictures (dgx_ui_strips_pictures): a row of the screen's depth beside a row
+       of indices */
+    const bool             deep   = paint->scr->color_bits != 16;
+    const dgx_ui_strips_t *strips = paint->strips;
+    const size_t           row    = (size_t)part.w + (deep ? dgx_ui_deep_row(part.w, 1) : 0);
+    const int              rows   = shown && part.w ? (int)(room / row) : 0;
+    if (!taken || !shown || !buffer || rows < 1 || (deep && !(strips && strips->put_indexed))) {
         if (taken && shown) {
             static bool told;
-            if (!told) ESP_LOGW(TAG, "widget %d: a frame of nine pictures needs a buffer of a row of its box (%d bytes) and a 16-bit screen: its fill alone", i, n->w);
+            if (!told) {
+                if (deep) ESP_LOGW(TAG, "widget %d: a frame of nine pictures on %d bits: name dgx_ui_strips_pictures for the paint's strips, its buffer %u bytes a row at least: its fill alone",
+                                   i, paint->scr->color_bits, (unsigned)row);
+                else ESP_LOGW(TAG, "widget %d: a frame of nine pictures needs a buffer of a row of its box (%d bytes) and a 16-bit screen: its fill alone", i, n->w);
+            }
             told = true;
         }
         dgx_ui_fill_around(paint, ui, i, box, fill);
@@ -98,12 +107,12 @@ bool dgx_ui_draw_nine(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     }
     /* the painter's own: an 8-bit screen over the buffer and the table of its indices, made at their first need */
     if (!paint->indexed) paint->indexed = dgx_vscreen_from_array(buffer, part.w, 1, 8, DgxScreenRGB);
-    if (!paint->lut) paint->lut = malloc(256 * sizeof *paint->lut);
-    if (!paint->indexed || !paint->lut) {
+    if (!deep && !paint->lut) paint->lut = malloc(256 * sizeof *paint->lut);
+    if (!paint->indexed || (!deep && !paint->lut)) {
         dgx_ui_fill_around(paint, ui, i, box, fill);
         return false;
     }
-    for (int k = 0; k < 256; ++k) paint->lut[k] = (uint16_t)(k < paint->color_count && paint->colors ? paint->colors[k] : 0);
+    for (int k = 0; !deep && k < 256; ++k) paint->lut[k] = (uint16_t)(k < paint->color_count && paint->colors ? paint->colors[k] : 0);
     const int right  = w[2] < box.w / 2 ? w[2] : box.w / 2, left = w[0] < box.w - right ? w[0] : box.w - right;
     const int bottom = h[6] < box.h / 2 ? h[6] : box.h / 2, top = h[0] < box.h - bottom ? h[0] : box.h - bottom;
     const int xs[3] = {box.x, box.x + left, box.x + box.w - right}, ws[3] = {left, box.w - left - right, right};
@@ -144,9 +153,14 @@ bool dgx_ui_draw_nine(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
             }
         }
         /* the strip sent around the children, under the painter's clip: every pixel of the box once */
-        for (int k = 0; k < count; ++k)
-            dgx_vscreen8_region_to_screen16(paint->scr, parts[k].x - paint->ox, parts[k].y - paint->oy, paint->indexed, parts[k].x - strip.x,
-                                            parts[k].y - strip.y, parts[k].w, parts[k].h, paint->lut, DGX_VSCREEN_EXACT);
+        for (int k = 0; k < count; ++k) {
+            if (deep)
+                strips->put_indexed(paint, parts[k].x, parts[k].y, buffer + (size_t)(parts[k].y - strip.y) * (size_t)strip.w + (size_t)(parts[k].x - strip.x), strip.w,
+                                    parts[k].w, parts[k].h, 1, false, (size_t)part.w * (size_t)rows);
+            else
+                dgx_vscreen8_region_to_screen16(paint->scr, parts[k].x - paint->ox, parts[k].y - paint->oy, paint->indexed, parts[k].x - strip.x,
+                                                parts[k].y - strip.y, parts[k].w, parts[k].h, paint->lut, DGX_VSCREEN_EXACT);
+        }
     }
     return false;
 }

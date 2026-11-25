@@ -689,7 +689,8 @@ struct dgx_ui_textbox_t {
 The string of a widget and how it is laid, 28 bytes<!-- sizeof dgx_ui_textbox_t -->. The program gives `buf`, `size`, `lines` and `style` through
 `dgx_ui_textbox_init()` and may read `buf`. The rest is the library's: the variant the text was fitted in, the first
 line shown, and what the look of lines and the handwriting count. Its flags `DGX_UI_TEXTBOX_START`, `DGX_UI_TEXTBOX_CAME`,
-`DGX_UI_TEXTBOX_ENDED`, `DGX_UI_TEXTBOX_COUNTED`, `DGX_UI_TEXTBOX_SEEN` and `DGX_UI_TEXTBOX_WHOLE` are the library's
+`DGX_UI_TEXTBOX_ENDED`, `DGX_UI_TEXTBOX_COUNTED`, `DGX_UI_TEXTBOX_SEEN`, `DGX_UI_TEXTBOX_WHOLE` and
+`DGX_UI_TEXTBOX_CARET`, a field's caret as its look last drew it, are the library's
 too; what they mean to the program, `dgx_ui_text_state()` says. A text box is one widget's: a second widget
 that shows the same text has a box of its own.
 
@@ -839,7 +840,7 @@ How a tree is drawn on a screen. The program fills the first members and keeps t
 | `background` | the index of the colour under the tree. With a drawn background, the colour a look is told where it cannot lay the picture: give the picture's main colour |
 | `background_draw`, `background_ctx`, `drawn` | the program's picture under the tree; set by `dgx_ui_background_set()`, not by hand |
 | `buffer`, `buffer_size` | memory of the program's that the painter draws in: for a look that needs it, a picture of 4 or 8 bits, a strip of its rows at a time; and for the strips. Start it on a word boundary, in memory the bus sends by DMA on a chip. `NULL`: none |
-| `strips` | `&dgx_ui_strips`: the painter draws through the buffer in strips. Name it for a display behind a bus of 18 or 24 bits, and for one of 16 bits with a drawn background. `NULL`: straight |
+| `strips` | `&dgx_ui_strips`: the painter draws through the buffer in strips. Name it for a display behind a bus of 18 or 24 bits, and for one of 16 bits with a drawn background; `&dgx_ui_strips_pictures` for pictures of 4, 8 or 16 bits on a screen of 18 or 24 bits. `NULL`: straight |
 | `cover` | a rectangle not drawn into: the band of DGX-DI's keyboard while it is open; empty otherwise |
 | `ox`, `oy` | the pixel of the tree's screen that lies at (0, 0) of `scr`; 0, or the place of a buffer when composing |
 
@@ -971,6 +972,19 @@ takes, and each strip is sent once: every pixel once.
   depth. A virtual screen draws straight whatever is named.
 - It needs `CONFIG_DGX_ENABLE_VSCREEN`: named without it, the program does not link. A program that does not name it
   carries none of it.
+- A field that has the focus asks for time to blink its caret, and through the strips it is sent whole at each of
+  those passes, every pixel once, as any look that asks for time.
+
+`extern const dgx_ui_strips_t dgx_ui_strips_pictures;` is the same strips, and pictures on a screen of 18 or 24 bits:
+`dgx_ui_look_indexed`, `dgx_ui_look_rgb565` and the frame of nine pictures, which draw on 16 bits alone, put their
+pixels through a strip of the screen's depth in the buffer, 3 bytes a pixel, a block of rows a transfer. Without it
+there they lay paper or their fill, and the log says what to name. A colour of the table goes as the table has it; one
+of RGB565 is spread with its high bits repeated in the low ones, so white stays 255, 255, 255. The strip of a widget
+takes half the free buffer at most, the rest is the pictures'; a row of the picture, a byte a pixel, and a row of the
+screen's depth at its scale must go in. A display of 24 bits that is not behind a bus, a DSI one, names it too for its
+pictures. Measured on the 10-inch P4, a picture of 200 by 200: 8 bits through it onto a 24-bit screen 4.0 ms, about
+100 ns a pixel; RGB565 4.7 ms. It is a constant of its own, about 1.4 KB: a program that names `dgx_ui_strips`
+carries none of it.
 
 ### A look
 
@@ -1092,6 +1106,7 @@ typedef struct dgx_ui_input_look_t {
     uint8_t ink, caret; /* the text, and the mark where the next letter goes, shown while the field has the focus */
     uint8_t paper;      /* under them; DGX_UI_PAPER: what lies under the widget */
     bool    secret;     /* a star for each letter */
+    uint8_t blink;      /* half a period of the caret, in tens of milliseconds; 0: steady */
 } dgx_ui_input_look_t;
 
 typedef struct dgx_ui_list_look_t {
@@ -1323,6 +1338,14 @@ of a window, `bar`, colour 3.
 A field whose parameters say `secret` shows a star for each letter, a password or a PIN; the text box keeps the
 letters. The font of the field must have the star, `*`: without it the field shows nothing. A font made at build time
 gets it when `*` is listed among the characters of the need.
+
+The caret of a field that has the focus blinks: shown for `blink` tens of milliseconds and hidden as long, 50 by
+default, so every 500 ms; 0 keeps it steady. A letter typed, a text set and the focus coming show it at once and
+start its period again. A toggle writes the caret's rectangle alone, and the look names the next one by
+`dgx_ui_wake_in()`, so a loop that waits on `dgx_ui_wake()` wakes twice a second while a field has the focus; a
+program that would sleep longer gives its field a look of `blink` 0. A field without the focus, hidden, or under a
+modal popup asks for no time. A look of `"input"` in an appearance that does not say `"blink"` has 0, steady, as any
+number left out.
 
 ## dgx_ui_dropdown.h
 
@@ -1758,7 +1781,7 @@ may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list o
 | `"hand_lines"` | `ink`; `paper`° |
 | `"button"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `shadow`; `depth` 0…255 |
 | `"picture_button"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `shadow`; `depth` 0…255 |
-| `"input"` | `ink`; `caret`; `paper`°; `secret` true/false |
+| `"input"` | `ink`; `caret`; `paper`°; `secret` true/false; `blink` 0…255 |
 | `"switch"` | `off`; `on`; `knob`; `focused`°; `disabled` |
 | `"slider"` | `track`; `fill`; `knob`; `focused`°; `disabled`; `track_h` 0…255 |
 | `"list"` | `ink`; `paper`°; `pick`; `pick_ink`; `focused`; `disabled`; `bar` |
