@@ -1,5 +1,16 @@
 # Changes
 
+## 0.0.67 - 2026-11-25
+
+- Names that could be mixed up silently: the events are DGX_UI_EVENT_*, the loader's limits DGX_UI_LOAD_MAX_*, the text
+  style flags DGX_UI_STYLE_*, the game pad's buttons DGX_UI_GAMEPAD_*.
+- Names that misled:
+  - a widget's handler is `on_event`, in C, descriptions and names files;
+  - dgx_ui_set_value_as_user, dgx_ui_paint_changes, ctx_kind with DGX_UI_CTX_*, DGX_UI_RELATIVE ("relative"),
+    DGX_UI_LIST_ROW_EDGE, dgx_ui_id_name_t, dgx_ui_on_event_name_t, dgx_ui_action_back/_page,
+    DGX_UI_PARAMS_WITH_BEHAVIOR, a behaviour's `lay`.
+- Docs: every page in the new names; the README's measures and lists brought up to date.
+
 ## 0.0.66 - 2026-11-25
 
 - Fixed: the example hello took the component twice inside the repository, and asked the registry for a dgx-ui it does

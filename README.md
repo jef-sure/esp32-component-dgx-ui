@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.66: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.67: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it leaves to other libraries under
 [What it leaves to others](#what-it-leaves-to-others).
 
@@ -73,7 +73,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.66"
+    version: "0.0.67"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.12.3 or a later 0.12; DGX comes by itself, from the registry. Start with
