@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.57 - 2026-11-25
+
+- A list or a dropdown picks only within its rows, one row too; with none, nothing.
+- A control of no range draws and steps without overflow at any value.
+- A held key ends when the focus moves to what does not repeat.
+- No crossfade of a hidden place; a square panel turned in any way is drawn again.
+- Docs: the rule of a list's and a dropdown's value.
+
 ## 0.0.56 - 2026-11-25
 
 - A handler and a context of the names tables say their kind: the library's page action takes only a page's tree;
