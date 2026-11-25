@@ -78,7 +78,7 @@ static bool text_changed(dgx_ui_t *ui, int i, dgx_ui_node_t *w, dgx_ui_textbox_t
 
 bool dgx_ui_text_vprintf(dgx_ui_t *ui, int i, const char *format, va_list args)
 {
-    dgx_ui_node_t    *w   = dgx_ui_node(ui, i);
+    dgx_ui_node_t    *w   = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t *box = w && w->widget ? w->widget->text : NULL;
     if (!box || !box->buf || box->size < 1) return false;
     if (box->size > COMPARED) {
@@ -113,7 +113,7 @@ bool dgx_ui_text_set(dgx_ui_t *ui, int i, const char *text)
 
 void dgx_ui_text_written(dgx_ui_t *ui, int i)
 {
-    dgx_ui_node_t    *w   = dgx_ui_node(ui, i);
+    dgx_ui_node_t    *w   = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t *box = w && w->widget ? w->widget->text : NULL;
     if (!box || !box->buf) return;
     if (box->size && !memchr(box->buf, 0, box->size)) box->buf[whole_chars(box->buf, box->size - 1)] = 0; /* no end: cut on a letter */
@@ -122,7 +122,7 @@ void dgx_ui_text_written(dgx_ui_t *ui, int i)
 
 void dgx_ui_text_appear(dgx_ui_t *ui, int i, int letter_ms)
 {
-    dgx_ui_node_t    *n   = dgx_ui_node(ui, i);
+    dgx_ui_node_t    *n   = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t *box = n && n->widget ? n->widget->text : NULL;
     if (!box) return;
     box->letter_ms = (uint16_t)(letter_ms < 0 ? 0 : letter_ms > UINT16_MAX ? UINT16_MAX : letter_ms);
@@ -143,7 +143,7 @@ int dgx_ui_text_state(const dgx_ui_t *ui, int i)
 
 void dgx_ui_text_whole(dgx_ui_t *ui, int i)
 {
-    dgx_ui_node_t    *n   = dgx_ui_node(ui, i);
+    dgx_ui_node_t    *n   = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t *box = n && n->widget ? n->widget->text : NULL;
     if (!box || (box->flags & DGX_UI_TEXTBOX_CAME)) return; /* all came: scrolling or at its end, left as it is */
     /* START with CAME: the time counts again from the next pass, for the scroll alone, as WHOLE gives the letters no time
@@ -156,7 +156,7 @@ void dgx_ui_text_whole(dgx_ui_t *ui, int i)
 
 void dgx_ui_text_scroll(dgx_ui_t *ui, int i, int lines)
 {
-    dgx_ui_node_t    *n   = dgx_ui_node(ui, i);
+    dgx_ui_node_t    *n   = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t *box = n && n->widget ? n->widget->text : NULL;
     if (!box || !lines) return;
     int top = box->top + lines; /* a text's bound by the painter, which knows how many lines there are */

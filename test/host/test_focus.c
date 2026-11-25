@@ -290,9 +290,9 @@ int main(void)
         static const dgx_ui_check_look_t    check_quiet    = {
                   .mark = 1, .focused = DGX_UI_PAPER, .disabled = 2, .sign = 1, .inside = DGX_UI_PAPER, .pressed = 2, .ink = 1, .ink_disabled = 2, .paper = DGX_UI_PAPER};
         static const dgx_ui_look_t quiet_looks[6] = {
-            {.draw = dgx_ui_draw_button, .params = &button_quiet, .fill = -1},  {.draw = dgx_ui_draw_dropdown, .params = &dropdown_quiet, .fill = -1},
-            {.draw = dgx_ui_draw_switch, .params = &switch_quiet, .fill = -1},  {.draw = dgx_ui_draw_slider, .params = &slider_quiet, .fill = -1},
-            {.draw = dgx_ui_draw_radio, .params = &check_quiet, .fill = -1},    {.draw = dgx_ui_draw_checkbox, .params = &check_quiet, .fill = -1},
+            {.draw = dgx_ui_draw_button, .params = &button_quiet, .fill = DGX_UI_PAPER},  {.draw = dgx_ui_draw_dropdown, .params = &dropdown_quiet, .fill = DGX_UI_PAPER},
+            {.draw = dgx_ui_draw_switch, .params = &switch_quiet, .fill = DGX_UI_PAPER},  {.draw = dgx_ui_draw_slider, .params = &slider_quiet, .fill = DGX_UI_PAPER},
+            {.draw = dgx_ui_draw_radio, .params = &check_quiet, .fill = DGX_UI_PAPER},    {.draw = dgx_ui_draw_checkbox, .params = &check_quiet, .fill = DGX_UI_PAPER},
         };
         for (size_t c = 0; c < sizeof cases / sizeof *cases; ++c) {
             dgx_ui_widget_t quiet_w = cases[c].widget[0];
@@ -319,7 +319,7 @@ int main(void)
     }
     {
         static const dgx_ui_button_look_t quiet = {.face = 2, .pressed = 3, .focused = 2, .disabled = 0, .ink = 1, .ink_disabled = 2, .shadow = 0, .depth = 0};
-        static const dgx_ui_look_t        quiet_look = {.draw = dgx_ui_draw_button, .params = &quiet, .fill = -1};
+        static const dgx_ui_look_t        quiet_look = {.draw = dgx_ui_draw_button, .params = &quiet, .fill = DGX_UI_PAPER};
         static const dgx_ui_widget_t      quiet_w    = {.kind = DGX_UI_BUTTON, .want_h = 14, .text = &go_box, .look = &quiet_look};
         static dgx_ui_node_t              nodes[2];
         dgx_ui_t                          ui;

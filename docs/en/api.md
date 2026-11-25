@@ -95,7 +95,7 @@ typedef struct dgx_ui_state_t {
 typedef struct dgx_ui_widget_t {
     uint8_t        kind;
     dgx_ui_bits_t  state;
-    uint16_t       flags;
+    uint32_t       flags;
     int16_t        pad, gap;
     int16_t        at_x, at_y;
     int16_t        want_w, want_h;
@@ -112,7 +112,7 @@ typedef struct dgx_ui_widget_t {
 } dgx_ui_widget_t;
 ```
 
-What the program says of a widget. The library never writes it; it is 56 bytes<!-- sizeof dgx_ui_widget_t --> on a 32-bit chip. Zero is the default
+What the program says of a widget. The library never writes it; it is 60 bytes<!-- sizeof dgx_ui_widget_t --> on a 32-bit chip. Zero is the default
 of every member.
 
 | Member | Meaning |
@@ -287,10 +287,12 @@ A widget in a tree, 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM on a 32-bit chi
 
 ### The tree
 
-`dgx_ui_t` is a tree and what the pointer and the keys are doing to it, 104 bytes<!-- sizeof dgx_ui_t -->. The program fills it by
-`dgx_ui_init()` and changes it by the calls only. Members a program may read: `focus`, the number of the focused
-widget, and `pressed`, the one the pointer is held on, both -1 for none; `popup`, the popup open over it; `level`,
-how many popups lie under it, 0 for a tree that is no popup.
+`dgx_ui_t` is a tree and what the pointer and the keys are doing to it, 100 bytes<!-- sizeof dgx_ui_t -->. The program fills it by
+`dgx_ui_init()` and changes it by the calls only. Its first members are the program's to read, and a look's: `first`,
+`first_size` and `count`, the nodes; `root_rect`, where the root is laid; `screen_w` and `screen_h`; `unit`;
+`focus`, the number of the focused widget, and `pressed`, the one the pointer is held on, both -1 for none; `popup`,
+the popup open over it, with `popup_flags`; `level`, how many popups lie under it, 0 for a tree that is no popup;
+`screen_turn`. The rest is the library's, neither read nor written by a program.
 
 `DGX_UI_BLOCK` is 64: the nodes past the program's array come in blocks of so many.
 
@@ -302,7 +304,7 @@ how many popups lie under it, 0 for a tree that is no popup.
 | `int dgx_ui_insert(dgx_ui_t *ui, int parent, int before, const dgx_ui_widget_t *w)` | The same, before the child `before`; -1: as the last. |
 | `void dgx_ui_remove(dgx_ui_t *ui, int i)` | A widget removed with everything under it. A focus or a press inside it is dropped, and nothing is told. Its number is given to a widget added later. When it is the widget the pages lie over (`dgx_ui_page_place()`), or one above it, the pages take the whole screen, and the roots covered or shown by that are told `DGX_UI_EVENT_COVERED` and `DGX_UI_EVENT_SHOWN` from within the call. |
 | `int dgx_ui_find(const dgx_ui_t *ui, int parent, int tag)` | The first widget of a tag under `parent`, in the order of the tree; `parent` -1: in all of the tree. -1 when there is none. |
-| `dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i)` | The node of a number; `NULL` past the tree. |
+| `const dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i)` | The node of a number, to read: the tree's, changed by the calls only; `NULL` past the tree. |
 | `const dgx_ui_widget_t *dgx_ui_widget(const dgx_ui_t *ui, int i)` | The widget of a number; `NULL` for a number that holds none. |
 
 ### The layout
@@ -414,7 +416,7 @@ static const uint8_t row_keys[8] = {
 `void dgx_ui_button_keys(dgx_ui_t *ui, const uint8_t *keys)` gives the tree such a table: after
 `dgx_ui_button_keys(&ui, row_keys)` right on "Back" moves the focus to "OK".
 
-- The table has 8 entries, one for each button, in the order of the bits `DGX_UI_PAD_*`: LEFT, RIGHT, UP, DOWN, A,
+- The table has 8 entries, one for each button, in the order of the bits `DGX_UI_GAMEPAD_*`: LEFT, RIGHT, UP, DOWN, A,
   START, BACK, B.
 - An entry is a `DGX_UI_KEY_*`, or 0xff: the button gives no key and stays the program's.
 - The tree keeps the pointer and copies nothing: give a constant.
@@ -473,7 +475,7 @@ that names it, about 1 KB more.
 struct dgx_ui_look_t {
     bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
     const void              *params;
-    int16_t                  fill;
+    uint8_t                  fill;
     const dgx_ui_behavior_t *behavior;
 };
 
@@ -489,7 +491,7 @@ typedef struct dgx_ui_behavior_t {
 
 A look is how a widget is drawn. `draw` draws the widget `i` in its state and returns `true` to be called again at
 the next pass; `params` is the look's own type; `fill` is the index of the colour it leaves under the widget's
-children, -1: what lay there. `behavior` is the behaviour of a widget of `DGX_UI_OWN` drawn by this look, or of a
+children, `DGX_UI_PAPER`: what lay there. `behavior` is the behaviour of a widget of `DGX_UI_OWN` drawn by this look, or of a
 scrolling box; `NULL`: the widget is only drawn. Of the looks of the library only `dgx_ui_look_scroll` names one,
 `dgx_ui_scroll_behavior`. The rules a `draw` keeps are in
 [A look of your own](cookbook.md#a-look-of-your-own).
@@ -808,22 +810,24 @@ typedef struct dgx_ui_paint_t {
     const dgx_ui_strips_t *strips;
     dgx_ui_rect_t   cover;
     int16_t         ox, oy;
-    /* the painter's */
+    /* the program's to read after dgx_ui_paint() */
+    uint32_t        now_ms;
+    uint32_t        wake_ms;
+    bool            painted;
+    /* while a look draws: the look reads them */
     uint8_t         paper;
     bool            on_background;
     bool            whole;
     bool            composing;
     uint8_t         part, parts;
     const dgx_ui_t *popup_over;
+    /* the painter's */
     dgx_screen_t   *rgb565;
     dgx_screen_t   *indexed;
     uint16_t       *lut;
     dgx_screen_t   *strip;
     size_t          buffer_used;
-    uint32_t        now_ms;
-    uint32_t        wake_ms;
     bool            wake_named;
-    bool            painted;
     dgx_ui_canvases_t *canvases;
     dgx_ui_rect_t   cover_was;
     const dgx_ui_scroller_t *scroller;
@@ -992,7 +996,8 @@ The struct of a look, `dgx_ui_look_t`, is declared in `dgx_ui.h`, so that the co
 name: [A look and a behaviour](#a-look-and-a-behaviour). The rules its `draw` keeps are in
 [A look of your own](cookbook.md#a-look-of-your-own).
 
-`DGX_UI_PAPER`, 0xff, as the paper of a look's parameters means the colour under the widget.
+`DGX_UI_PAPER`, 0xff, declared in `dgx_ui.h`, as the paper of a look's parameters means the colour under the widget,
+and as a look's `fill` that it leaves what lies under its children.
 
 A look takes the bits it shows from `dgx_ui_bits_shown(ui, n)` and not from `n->state.bits`: under a modal popup the
 focus is not shown. Every look of the library does.
@@ -1030,7 +1035,7 @@ A look that no widget names is not linked into the program.
 ### The drawing functions
 
 The drawing of each look of the library has a name of its own, so that a look in the program's own colours is a
-constant: `static const dgx_ui_look_t mine = {.draw = dgx_ui_draw_button, .params = &my_colours, .fill = -1};`. All
+constant: `static const dgx_ui_look_t mine = {.draw = dgx_ui_draw_button, .params = &my_colours, .fill = DGX_UI_PAPER};`. All
 have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of its look's type.
 
 | Function | The look it draws | Parameters |
@@ -1257,7 +1262,7 @@ in each of the six looks. There is no frame then, and the knob is solid:
 ```c
 /* a switch for a display with no keys: the library's colours, and no mark of the focus */
 static const dgx_ui_switch_look_t touch_switch      = {.track = 2, .fill = 3, .knob = 1, .focused = DGX_UI_PAPER, .disabled = 2};
-static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switch, .params = &touch_switch, .fill = -1};
+static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switch, .params = &touch_switch, .fill = DGX_UI_PAPER};
 ```
 
 A button or a dropdown whose `focused` is the colour of its face shows none either: the frame is not seen on the
@@ -1363,7 +1368,7 @@ typedef struct dgx_ui_dropdown_t {
 } dgx_ui_dropdown_t;
 ```
 
-The popup of a list, in the program's RAM: 284 bytes<!-- sizeof dgx_ui_dropdown_t --> on a 32-bit chip, zeroed before its first use, as a `static`
+The popup of a list, in the program's RAM: 288 bytes<!-- sizeof dgx_ui_dropdown_t --> on a 32-bit chip, zeroed before its first use, as a `static`
 is. One list is open at a time, so one serves every dropdown of the program.
 
 | Call | What it does |

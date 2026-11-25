@@ -29,7 +29,7 @@ static bool draw_asking(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     dgx_fill_rectangle(paint->scr, n->x - paint->ox, n->y - paint->oy, n->w, n->h, colors[2]);
     return true;
 }
-static const dgx_ui_look_t asking_look = {.draw = draw_asking, .fill = -1};
+static const dgx_ui_look_t asking_look = {.draw = draw_asking, .fill = DGX_UI_PAPER};
 
 /* a look of a canvas, its canvases counted */
 static int  made_count;
@@ -41,7 +41,7 @@ static bool draw_canvas(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     dgx_ui_canvas_put(paint, ui, i, -1);
     return false;
 }
-static const dgx_ui_look_t canvas_look = {.draw = draw_canvas, .fill = -1};
+static const dgx_ui_look_t canvas_look = {.draw = draw_canvas, .fill = DGX_UI_PAPER};
 
 static const dgx_ui_widget_t root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 

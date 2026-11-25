@@ -109,4 +109,4 @@ bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
 }
 
 static const dgx_ui_picture_look_t indexed_default = {.ink = 1, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t                dgx_ui_look_indexed = {.draw = dgx_ui_draw_indexed, .params = &indexed_default, .fill = -1};
+const dgx_ui_look_t                dgx_ui_look_indexed = {.draw = dgx_ui_draw_indexed, .params = &indexed_default, .fill = DGX_UI_PAPER};

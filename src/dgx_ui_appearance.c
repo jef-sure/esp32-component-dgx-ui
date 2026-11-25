@@ -419,7 +419,7 @@ static bool looks(appearance_load_t *A)
         if (place[2] ? !read_object(A, described, params, place[2]) : !fields_said(A, described, params, at, 0, 0)) return false;
         A->read.json.pos = end;
         if (look) {
-            *look        = (dgx_ui_look_t){.draw = A->names->draws[draw].draw, .params = params, .fill = (int16_t)(fill == DGX_UI_PAPER ? -1 : fill),
+            *look        = (dgx_ui_look_t){.draw = A->names->draws[draw].draw, .params = params, .fill = (uint8_t)fill,
                                           .behavior = described ? described->behavior : NULL};
             table[count] = (dgx_ui_look_name_t){name, look};
         }

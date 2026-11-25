@@ -40,7 +40,7 @@ const dgx_ui_picture_t        dot[1]      = {{.image = &dot_image}}, dots[2] = {
 static dgx_ui_font_variant_t  variant[1];
 dgx_ui_text_style_t           text, small;
 static const dgx_ui_input_look_t mine_colours = {.ink = 1, .caret = 3, .paper = 2};
-const dgx_ui_look_t           mine        = {.draw = dgx_ui_draw_input, .params = &mine_colours, .fill = -1};
+const dgx_ui_look_t           mine        = {.draw = dgx_ui_draw_input, .params = &mine_colours, .fill = DGX_UI_PAPER};
 dgx_ui_t                      settings;
 int                           title_index = -1, slider_index = -1, less_index = -1, go_index = -1;
 

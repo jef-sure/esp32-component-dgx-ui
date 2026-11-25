@@ -57,4 +57,4 @@ bool dgx_ui_draw_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
 }
 
 static const dgx_ui_picture_look_t picture_default = {.ink = 1, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t                dgx_ui_look_picture = {.draw = dgx_ui_draw_picture, .params = &picture_default, .fill = -1};
+const dgx_ui_look_t                dgx_ui_look_picture = {.draw = dgx_ui_draw_picture, .params = &picture_default, .fill = DGX_UI_PAPER};

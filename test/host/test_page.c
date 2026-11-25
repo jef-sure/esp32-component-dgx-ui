@@ -75,7 +75,7 @@ static bool take_reading(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 static bool own_key(dgx_ui_t *ui, int i, int key) { return key == DGX_UI_KEY_BACK; }
 static bool draw_nothing(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms) { return false; }
 static const dgx_ui_behavior_t own_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .key = own_key};
-static const dgx_ui_look_t     own_look     = {.draw = draw_nothing, .fill = -1, .behavior = &own_behavior};
+static const dgx_ui_look_t     own_look     = {.draw = draw_nothing, .fill = DGX_UI_PAPER, .behavior = &own_behavior};
 
 static char             dropdown_buf[16], reading_buf[16];
 static dgx_ui_textbox_t dropdown_box, reading_box;

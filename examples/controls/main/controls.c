@@ -9,7 +9,7 @@
  * The board is chosen by jef-sure/boards (board_select.py): its display and its touch, calibrated by the board's
  * data, come from it, and on the computer a window of DGX showing the board's display. There the mouse is the finger, the arrows move the
  * focus and change a value, Enter activates, Escape is BACK, which no widget takes: the program closes the popup on it.
- * The keys come as the buttons of a pad, DGX_UI_PAD_*, by the default table of dgx_ui_buttons() (dgx_ui_button_keys()
+ * The keys come as the buttons of a pad, DGX_UI_GAMEPAD_*, by the default table of dgx_ui_buttons() (dgx_ui_button_keys()
  * would give another). DGX_HOST_SCRIPT plays them with nobody at the computer: script.txt beside main/ plays the run
  * of every control. On a CYD its ILI9341 lying down and its XPT2046.
  *
@@ -108,9 +108,9 @@ static const dgx_ui_widget_t value_w  = {.kind = DGX_UI_LABEL, .text = &text_box
 /* the fields, each on a paper of its own so that it shows empty: looks of the program's colours, constants in flash;
    the PIN's a secret one, a star for each digit */
 static const dgx_ui_input_look_t field_colours  = {.ink = 1, .caret = 3, .paper = 2};
-static const dgx_ui_look_t       field_look     = {.draw = dgx_ui_draw_input, .params = &field_colours, .fill = -1};
+static const dgx_ui_look_t       field_look     = {.draw = dgx_ui_draw_input, .params = &field_colours, .fill = DGX_UI_PAPER};
 static const dgx_ui_input_look_t secret_colours = {.ink = 1, .caret = 3, .paper = 2, .secret = true};
-static const dgx_ui_look_t       secret_look    = {.draw = dgx_ui_draw_input, .params = &secret_colours, .fill = -1};
+static const dgx_ui_look_t       secret_look    = {.draw = dgx_ui_draw_input, .params = &secret_colours, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t     field_row      = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 6, .want_h = 22};
 static const dgx_ui_widget_t code_l_w = {.kind = DGX_UI_LABEL, .text = &text_box[T_CODE_LABEL], .want_w = 40, .flags = DGX_UI_STRETCH};
 static const dgx_ui_widget_t code_w   = {.kind = DGX_UI_INPUT, .text = &text_box[T_CODE], .flags = DGX_UI_REST | DGX_UI_STRETCH, .look = &field_look, .on_event = on_field};

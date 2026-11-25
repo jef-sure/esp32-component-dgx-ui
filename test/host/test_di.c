@@ -44,7 +44,7 @@ static dgx_ui_textbox_t      mid_box;
 static const dgx_ui_widget_t mid_w = {.kind = DGX_UI_INPUT, .text = &mid_box, .want_h = 22, .look = &dgx_ui_look_input};
 /* a secret field: a star for each letter */
 static const dgx_ui_input_look_t secret_colours = {.ink = 1, .caret = 3, .paper = 0, .secret = true};
-static const dgx_ui_look_t       secret_look    = {.draw = dgx_ui_draw_input, .params = &secret_colours, .fill = -1};
+static const dgx_ui_look_t       secret_look    = {.draw = dgx_ui_draw_input, .params = &secret_colours, .fill = DGX_UI_PAPER};
 static char                      pin_buf[8];
 static dgx_ui_textbox_t          pin_box;
 static const dgx_ui_widget_t     pin_w = {.kind = DGX_UI_INPUT, .text = &pin_box, .want_h = 14, .look = &secret_look};
@@ -56,7 +56,7 @@ static void                  own_up(dgx_ui_t *u, int i, int x, int y, bool click
 }
 static bool                    own_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *u, int i, uint32_t now_ms) { return false; }
 static const dgx_ui_behavior_t own_behavior = {.up = own_up};
-static const dgx_ui_look_t     own_look     = {.draw = own_draw, .fill = -1, .behavior = &own_behavior};
+static const dgx_ui_look_t     own_look     = {.draw = own_draw, .fill = DGX_UI_PAPER, .behavior = &own_behavior};
 static const dgx_ui_widget_t   own_w        = {.kind = DGX_UI_OWN, .want_h = 14, .look = &own_look};
 static dgx_ui_node_t         nodes[6];
 static dgx_ui_t              ui;

@@ -108,7 +108,7 @@ static bool clip_band(dgx_ui_paint_t *paint, const int part[4], int top, int bot
 
 static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, int v)
 {
-    dgx_ui_node_t               *node    = dgx_ui_node(ui, i);
+    dgx_ui_node_t               *node    = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t            *box     = node->widget->text;
     const dgx_ui_text_look_t    *params  = look->params;
     const dgx_ui_text_style_t   *style   = box->style;
@@ -282,7 +282,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 
 bool dgx_ui_draw_hand_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
-    dgx_ui_node_t            *node   = dgx_ui_node(ui, i);
+    dgx_ui_node_t            *node   = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t         *box    = node->widget->text;
     const dgx_ui_text_look_t *params = look->params;
     if (!box || !box->style || !box->style->count || node->w <= 0) {
@@ -303,4 +303,4 @@ bool dgx_ui_draw_hand_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dg
 }
 
 static const dgx_ui_text_look_t hand_lines_default = {.ink = 1, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t             dgx_ui_look_hand_lines = {.draw = dgx_ui_draw_hand_lines, .params = &hand_lines_default, .fill = -1};
+const dgx_ui_look_t             dgx_ui_look_hand_lines = {.draw = dgx_ui_draw_hand_lines, .params = &hand_lines_default, .fill = DGX_UI_PAPER};

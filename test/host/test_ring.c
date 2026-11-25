@@ -228,7 +228,7 @@ int main(void)
         };
         for (size_t k = 0; k < sizeof looks / sizeof *looks; ++k)
             for (int odd = 0; odd < 2; ++odd) {
-                const dgx_ui_look_t   look   = {.draw = dgx_ui_draw_ring, .params = &looks[k], .fill = -1};
+                const dgx_ui_look_t   look   = {.draw = dgx_ui_draw_ring, .params = &looks[k], .fill = DGX_UI_PAPER};
                 const dgx_ui_widget_t ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .at_x = 10, .at_y = 2, .want_w = (int16_t)(58 + odd), .want_h = (int16_t)(58 + odd), .look = &look};
                 level                        = 0;
                 const int i                  = make_ring(&ring_w, 1);
@@ -247,7 +247,7 @@ int main(void)
         for (int k = 0; k < 5; ++k)
             for (int j = 0; j < 5; ++j) {
                 const dgx_ui_ring_look_t disc = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 40, .start = (int16_t)starts[k], .sweep = (int16_t)sweeps[j]};
-                const dgx_ui_look_t      look = {.draw = dgx_ui_draw_ring, .params = &disc, .fill = -1};
+                const dgx_ui_look_t      look = {.draw = dgx_ui_draw_ring, .params = &disc, .fill = DGX_UI_PAPER};
                 const dgx_ui_widget_t    ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = 59, .want_h = 59, .look = &look};
                 level                           = 0;
                 const int            i          = make_ring(&ring_w, 1);
@@ -290,7 +290,7 @@ int main(void)
         for (int k = 0; k < 3; ++k)
             for (int odd = 0; odd < 2; ++odd) {
                 const dgx_ui_ring_look_t none = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 8, .start = (int16_t)starts[k], .sweep = 0};
-                const dgx_ui_look_t      look = {.draw = dgx_ui_draw_ring, .params = &none, .fill = -1};
+                const dgx_ui_look_t      look = {.draw = dgx_ui_draw_ring, .params = &none, .fill = DGX_UI_PAPER};
                 const dgx_ui_widget_t ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = (int16_t)(58 + odd), .want_h = (int16_t)(58 + odd), .look = &look};
                 level                        = 100;
                 const int i                  = make_ring(&ring_w, 1);
@@ -305,7 +305,7 @@ int main(void)
         static dgx_ui_band_t many[20];
         for (int k = 0; k < 20; ++k) many[k] = (dgx_ui_band_t){.below = 5 * (k + 1), .color = (uint8_t)(k % 4)};
         const dgx_ui_ring_look_t twenty = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 10, .start = 0, .sweep = 360, .band_count = 20, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = many};
-        const dgx_ui_look_t      look   = {.draw = dgx_ui_draw_ring, .params = &twenty, .fill = -1};
+        const dgx_ui_look_t      look   = {.draw = dgx_ui_draw_ring, .params = &twenty, .fill = DGX_UI_PAPER};
         const dgx_ui_widget_t    ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 99, .want_w = 60, .want_h = 60, .look = &look};
         level                           = 99;
         const int i                     = make_ring(&ring_w, 1);
@@ -319,7 +319,7 @@ int main(void)
     for (int point = 1; point <= 3; ++point)
         for (int odd = 0; odd < 2; ++odd) {
             static const dgx_ui_ring_look_t full = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 4, .start = 0, .sweep = 360};
-            const dgx_ui_look_t             look = {.draw = dgx_ui_draw_ring, .params = &full, .fill = -1};
+            const dgx_ui_look_t             look = {.draw = dgx_ui_draw_ring, .params = &full, .fill = DGX_UI_PAPER};
             const int                       points = 60 / point + odd; /* a side odd at points of 1 and 3; at 2 it cannot be */
             const dgx_ui_widget_t ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = (int16_t)points, .want_h = (int16_t)points, .look = &look};
             level                        = 100;
@@ -338,7 +338,7 @@ int main(void)
     /* a width of 0, a box of one pixel, a box wider than high; max at min and below it; values out of the range */
     {
         static const dgx_ui_ring_look_t thin = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 0, .start = -135, .sweep = 270};
-        const dgx_ui_look_t             look = {.draw = dgx_ui_draw_ring, .params = &thin, .fill = -1};
+        const dgx_ui_look_t             look = {.draw = dgx_ui_draw_ring, .params = &thin, .fill = DGX_UI_PAPER};
         const dgx_ui_widget_t widths[] = {
             {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = 40, .want_h = 40, .look = &look},
             {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = 1, .want_h = 1, .look = &dgx_ui_look_ring},

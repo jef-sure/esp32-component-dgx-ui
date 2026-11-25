@@ -26,7 +26,7 @@ enum { PAPER = 0, INK = 1, CARET = 3 };
 static const dgx_ui_font_variant_t variant[1] = {{.font = &TerminusTTFMedium12}};
 static const dgx_ui_text_style_t   style      = {.fonts = variant, .count = 1};
 static dgx_ui_input_look_t         params     = {.ink = INK, .caret = CARET, .paper = DGX_UI_PAPER, .blink_ms = 500};
-static const dgx_ui_look_t         look       = {.draw = dgx_ui_draw_input, .params = &params, .fill = -1};
+static const dgx_ui_look_t         look       = {.draw = dgx_ui_draw_input, .params = &params, .fill = DGX_UI_PAPER};
 static char                        text[16];
 static dgx_ui_textbox_t            box;
 static dgx_ui_node_t               nodes[4];

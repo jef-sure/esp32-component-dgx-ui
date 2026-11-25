@@ -235,7 +235,7 @@ typedef struct dgx_ui_paint_t  dgx_ui_paint_t;
  *     static void dial_down(dgx_ui_t *ui, int i, int x, int y) { dgx_ui_set_value_as_user(ui, i, angle_of(ui, i, x, y)); }
  *     static bool dial_move(dgx_ui_t *ui, int i, int x, int y) { dial_down(ui, i, x, y); return true; } // a drag
  *     static const dgx_ui_behavior_t dial_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .down = dial_down, .move = dial_move};
- *     static const dgx_ui_look_t     dial_look     = {.draw = draw_dial, .fill = -1, .behavior = &dial_behavior};
+ *     static const dgx_ui_look_t     dial_look     = {.draw = draw_dial, .fill = DGX_UI_PAPER, .behavior = &dial_behavior};
  *     static const dgx_ui_widget_t   dial_w        = {.kind = DGX_UI_OWN, .max = 100, .want_w = 40, .want_h = 40, .look = &dial_look};
  *
  * move() returning true takes the move as a drag: no click when let go, and a swipe from an edge that began on it is
@@ -271,10 +271,13 @@ enum {
  * @brief How a kind of widget looks: a function that draws a widget in its state, and its parameters; and for a widget
  * of the program's own, how it behaves (the painter's rules of a look: dgx_ui_paint.h).
  */
+/** The paper of a look that is not its own: the color under the widget; a look's fill that leaves what lies under it. */
+enum { DGX_UI_PAPER = 0xff };
+
 struct dgx_ui_look_t {
     bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms); ///< true: more time
     const void              *params;   ///< the look's own type
-    int16_t                  fill;     ///< the index of the color it leaves under its children; -1: what lies under it
+    uint8_t                  fill;     ///< the index of the color it leaves under its children; DGX_UI_PAPER: what lies under it
     const dgx_ui_behavior_t *behavior; ///< a widget of DGX_UI_OWN drawn by it: how it behaves; NULL, it is not worked (every look of the library)
 };
 
@@ -314,7 +317,8 @@ int dgx_ui_textbox_height(const dgx_ui_t *ui, const dgx_ui_textbox_t *box);
 typedef struct dgx_ui_widget_t {
     uint8_t        kind;           ///< DGX_UI_BOX ... DGX_UI_RADIO
     dgx_ui_bits_t  state;          ///< the state it starts with: HIDDEN, DISABLED
-    uint16_t       flags;          ///< DGX_UI_COLUMN, ROW, STRETCH, RELATIVE, DRAG, CANVAS, REST, REPEAT, PERCENT_*
+                                   ///< (two bytes free after it: room for a field of 2 bytes with no growth)
+    uint32_t       flags;          ///< DGX_UI_COLUMN, ROW, STRETCH, RELATIVE, DRAG, CANVAS, REST, REPEAT, PERCENT_*
     int16_t        pad, gap;       ///< inside a box: around its children and between them, in points, or in percent (above)
     int16_t        at_x, at_y;     ///< asked: from the parent's inside edge, in points or percent; negative from the far edge
     int16_t        want_w, want_h; ///< asked, in points or percent (0 % no size); 0 points: the content's (a picture's size, a text's lines: of any widget with a text box; a button's, a
@@ -354,11 +358,11 @@ struct dgx_ui_node_t {
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 #ifdef __cplusplus
-static_assert(sizeof(dgx_ui_widget_t) == 56, "the constant part of a widget is 56 bytes on a 32-bit chip");
+static_assert(sizeof(dgx_ui_widget_t) == 60, "the constant part of a widget is 60 bytes on a 32-bit chip");
 static_assert(sizeof(dgx_ui_picture_t) == 20, "a picture is 20 bytes on a 32-bit chip");
 static_assert(sizeof(dgx_ui_node_t) == 28, "the node of a widget is 28 bytes of RAM on a 32-bit chip");
 #else
-_Static_assert(sizeof(dgx_ui_widget_t) == 56, "the constant part of a widget is 56 bytes on a 32-bit chip");
+_Static_assert(sizeof(dgx_ui_widget_t) == 60, "the constant part of a widget is 60 bytes on a 32-bit chip");
 _Static_assert(sizeof(dgx_ui_picture_t) == 20, "a picture is 20 bytes on a 32-bit chip");
 _Static_assert(sizeof(dgx_ui_node_t) == 28, "the node of a widget is 28 bytes of RAM on a 32-bit chip");
 #endif
@@ -444,45 +448,47 @@ typedef struct dgx_ui_pointer_t {
  * Fill it by dgx_ui_init(); the members are read by the painter and the adapters, and changed by the calls only.
  */
 struct dgx_ui_t {
+    /* the program's to read, a look's too: set by dgx_ui_init() and changed by the calls only */
     dgx_ui_node_t    *first;       ///< the program's array of nodes
+    dgx_ui_t         *popup;       ///< the popup open over the tree, a tree of its own, maybe with its own; NULL none
+    dgx_ui_rect_t     root_rect;   ///< the root's rectangle: the program's (dgx_ui_set_root()), else the screen's
     int16_t           first_size;  ///< how many it holds
     int16_t           count;       ///< slots in use: the highest index + 1
-    dgx_ui_node_t   **blocks;      ///< the blocks of DGX_UI_BLOCK nodes past the array, allocated by dgx_ui_add()
-    int16_t           block_count;
-    uint8_t           unit;        ///< pixels a point of the style
-    bool              needs_layout;
-    bool              root_given;  ///< the program gave the root's rectangle; else the painter gives the screen's
-    dgx_ui_rect_t     root_rect;
     int16_t           screen_w, screen_h; ///< the screen the tree was laid for
-    uint8_t           screen_turn;        ///< its orientation as the painter tells it
-    bool              turned;             ///< the screen changed since the last layout: all to be drawn whole
     int16_t           focus;       ///< the focused widget, -1 none
     int16_t           pressed;     ///< the widget the pointer went down on, -1 none
-    int16_t           press_x, press_y, move_x, move_y;
+    uint8_t           unit;        ///< pixels a point of the style
+    uint8_t           screen_turn; ///< the screen's orientation as the painter tells it
+    uint8_t           level;       ///< how many popups lie under it: 0 for a tree that is no popup
+    uint8_t           popup_flags; ///< DGX_UI_POPUP_*
+    /* the library's: neither read nor written by a program */
+    dgx_ui_node_t   **blocks;      ///< the blocks of DGX_UI_BLOCK nodes past the array, allocated by dgx_ui_add()
+    const uint8_t    *button_keys; ///< 8 entries: the key of each button, 0xff none; NULL the default
+    dgx_ui_msg_t     *offered;     ///< the message dgx_ui_take() offers now, for dgx_ui_msg_keep(); NULL between
+    dgx_ui_t         *under;       ///< the tree this one lies over as a popup; NULL none
     int32_t           press_value;
     uint32_t          press_ms;    ///< when it went down
+    uint32_t          held;        ///< the buttons held, DGX_UI_GAMEPAD_*
+    uint32_t          repeat_at;   ///< when it repeats next
+    dgx_ui_rect_t     popup_was;   ///< where a popup closed since the last pass of the painter: composed again there
+    int16_t           block_count;
+    int16_t           press_x, press_y, move_x, move_y;
+    int16_t           page_place;  ///< home's widget its pages lie over, + 1 (dgx_ui_page_place()); 0 the screen
+    bool              needs_layout;
+    bool              root_given;  ///< the program gave the root's rectangle; else the painter gives the screen's
+    bool              turned;      ///< the screen changed since the last layout: all to be drawn whole
     bool              dragged;     ///< moved since it went down: no click when let go
     bool              swiped;      ///< swiped since it went down: no click when let go
     bool              between;     ///< a list pressed between its rows: no row taken
-    uint32_t          held;        ///< the buttons held, DGX_UI_PAD_*
     int8_t            repeat_key;  ///< the key repeating while its button is held, -1 none
-    uint32_t          repeat_at;   ///< when it repeats next
-    const uint8_t    *button_keys; ///< 8 entries: the key of each button, 0xff none; NULL the default
-    dgx_ui_msg_t     *offered;     ///< the message dgx_ui_take() offers now, for dgx_ui_msg_keep(); NULL between
     bool              told_width;  ///< the warning of a text laid with no width given once
     bool              told_look;   ///< the warning of a widget shown with no look given once
     bool              leaving;     ///< a popup whose root is told DGX_UI_EVENT_BACK now: a back for it from that on_event() closes it, untold again
     bool              setting_up;  ///< a transition is being set up over it (dgx_ui_page_open_by(), _back_by()): one asked meanwhile, from
                                    ///< an on_event() told within it, changes the pages at once, with no pictures of its own
-    dgx_ui_t         *popup;       ///< the popup open over the tree, a tree of its own, maybe with its own; NULL none
-    uint8_t           level;       ///< how many popups lie under it: 0 for a tree that is no popup
-    uint8_t           popup_flags; ///< DGX_UI_POPUP_*
-    dgx_ui_rect_t     popup_was;   ///< where a popup closed since the last pass of the painter: composed again there
-    dgx_ui_t         *under;       ///< the library's: the tree this one lies over as a popup; NULL none
-    bool              shown_told;  ///< the library's, not to be read: a program keeps a flag of its own from DGX_UI_EVENT_SHOWN and _COVERED
-    uint8_t           veiled_bits; ///< the library's: DGX_UI_FOCUSED while a modal popup lies over the tree, the bits its looks do
+    bool              shown_told;  ///< a program keeps a flag of its own from DGX_UI_EVENT_SHOWN and _COVERED
+    uint8_t           veiled_bits; ///< DGX_UI_FOCUSED while a modal popup lies over the tree, the bits its looks do
                                    ///< not show; read by dgx_ui_bits_shown()
-    int16_t           page_place;  ///< the library's: home's widget its pages lie over, + 1 (dgx_ui_page_place()); 0 the screen
 };
 /**
  * @brief The pixels of the screen a pixel of a picture takes, across and down, in a tree: 1 for scale 0, else scale
@@ -525,8 +531,8 @@ void dgx_ui_init(dgx_ui_t *ui, dgx_ui_node_t *first, int first_size, int unit);
  * only while it is not open. */
 void dgx_ui_free(dgx_ui_t *ui);
 
-/** @brief The node of a number, free or not; NULL past the tree. */
-dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i);
+/** @brief The node of a number, free or not, to read: the tree's, changed by the calls only; NULL past the tree. */
+const dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i);
 
 /** @brief The value of widget i, as dgx_ui_value_of() reads it; 0 for a number that holds no widget. */
 int32_t dgx_ui_value(const dgx_ui_t *ui, int i);
@@ -698,7 +704,7 @@ bool dgx_ui_holding(const dgx_ui_t *ui);
 bool dgx_ui_key(dgx_ui_t *ui, int key);
 
 /**
- * @brief The buttons held now, DGX_UI_PAD_*: each that went down is its key; NEXT, PREV, MORE and LESS held repeat.
+ * @brief The buttons held now, DGX_UI_GAMEPAD_*: each that went down is its key; NEXT, PREV, MORE and LESS held repeat.
  *
  * @return true when a widget took a key; BACK and the buttons of no key are the program's.
  */
@@ -727,7 +733,7 @@ bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms);
  *     };
  *     dgx_ui_button_keys(&ui, row_keys);
  *
- * The table has 8 entries, one a button, in the order of the bits of DGX_UI_PAD_* (LEFT first, B last); an entry is a
+ * The table has 8 entries, one a button, in the order of the bits of DGX_UI_GAMEPAD_* (LEFT first, B last); an entry is a
  * DGX_UI_KEY_*, or 0xff: the button gives no key and is the program's. The tree keeps the pointer, not a copy: give a
  * constant. It may be given again at any time, as when a dialog of a column gives way to one of a row. It is the table
  * of the tree given to dgx_ui_buttons(); the keys it gives go to the popups over that tree as any key does.
@@ -780,10 +786,10 @@ typedef struct dgx_ui_idle_t {
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 #ifdef __cplusplus
-static_assert(sizeof(dgx_ui_t) == 104, "a tree is 104 bytes on a 32-bit chip");
+static_assert(sizeof(dgx_ui_t) == 100, "a tree is 100 bytes on a 32-bit chip");
 static_assert(sizeof(dgx_ui_idle_t) == 28, "the user's idle is 28 bytes on a 32-bit chip");
 #else
-_Static_assert(sizeof(dgx_ui_t) == 104, "a tree is 104 bytes on a 32-bit chip");
+_Static_assert(sizeof(dgx_ui_t) == 100, "a tree is 100 bytes on a 32-bit chip");
 _Static_assert(sizeof(dgx_ui_idle_t) == 28, "the user's idle is 28 bytes on a 32-bit chip");
 #endif
 #endif

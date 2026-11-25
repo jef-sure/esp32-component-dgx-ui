@@ -122,7 +122,7 @@ int main(void)
     /* from each edge: the filled part where it should be, a fifth of the box; the part that moves alone written */
     for (int from = DGX_UI_FROM_LEFT; from <= DGX_UI_FROM_TOP; ++from) {
         const dgx_ui_level_look_t params = {.fill = 3, .track = 2, .from = (uint8_t)from};
-        const dgx_ui_look_t       look   = {.draw = dgx_ui_draw_level, .params = &params, .fill = -1};
+        const dgx_ui_look_t       look   = {.draw = dgx_ui_draw_level, .params = &params, .fill = DGX_UI_PAPER};
         const bool                across = from == DGX_UI_FROM_LEFT || from == DGX_UI_FROM_RIGHT;
         const dgx_ui_widget_t     bar_w  = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = across ? 0 : 20, .want_h = across ? 10 : 50, .look = &look};
         level                            = 20;
@@ -184,7 +184,7 @@ int main(void)
     {
         static const dgx_ui_band_t       bands[] = {{.below = 20, .color = 1}, {.below = 50, .color = 2}};
         static const dgx_ui_level_look_t params  = {.fill = 3, .track = 0, .from = DGX_UI_FROM_LEFT, .band_count = 2, .bands = bands};
-        static const dgx_ui_look_t       look    = {.draw = dgx_ui_draw_level, .params = &params, .fill = -1};
+        static const dgx_ui_look_t       look    = {.draw = dgx_ui_draw_level, .params = &params, .fill = DGX_UI_PAPER};
         static const dgx_ui_widget_t     bar_w   = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 10, .look = &look};
         level                                    = 10;
         const int            i                   = make_with(&bar_w, NULL, NULL);
@@ -206,7 +206,7 @@ int main(void)
     {
         static const dgx_ui_band_t       bands[] = {{.below = 30, .color = 1}, {.below = 70, .color = 0}};
         static const dgx_ui_level_look_t params  = {.fill = 3, .track = 2, .from = DGX_UI_FROM_LEFT, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands};
-        static const dgx_ui_look_t       look    = {.draw = dgx_ui_draw_level, .params = &params, .fill = -1};
+        static const dgx_ui_look_t       look    = {.draw = dgx_ui_draw_level, .params = &params, .fill = DGX_UI_PAPER};
         static const dgx_ui_widget_t     bar_w   = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 10, .look = &look};
         level                                    = 100;
         const int            i                   = make_with(&bar_w, NULL, NULL);
@@ -225,7 +225,7 @@ int main(void)
     for (int pictured = 0; pictured < 2; ++pictured) {
         with_map = pictured;
         static const dgx_ui_level_look_t papered = {.fill = 3, .track = DGX_UI_PAPER, .from = DGX_UI_FROM_RIGHT};
-        static const dgx_ui_look_t       look    = {.draw = dgx_ui_draw_level, .params = &papered, .fill = -1};
+        static const dgx_ui_look_t       look    = {.draw = dgx_ui_draw_level, .params = &papered, .fill = DGX_UI_PAPER};
         static const dgx_ui_widget_t     bar_w   = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_h = 10, .look = &look};
         static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &level, .max = 100, .want_h = 10, .look = &dgx_ui_look_slider};
         int                          s        = 0;

@@ -91,4 +91,4 @@ bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 
 static const dgx_ui_button_look_t button_default = {
     .face = 2, .pressed = 3, .focused = 1, .disabled = 0, .ink = 1, .ink_disabled = 2, .shadow = 0, .depth = 1};
-const dgx_ui_look_t dgx_ui_look_button = {.draw = dgx_ui_draw_button, .params = &button_default, .fill = -1};
+const dgx_ui_look_t dgx_ui_look_button = {.draw = dgx_ui_draw_button, .params = &button_default, .fill = DGX_UI_PAPER};

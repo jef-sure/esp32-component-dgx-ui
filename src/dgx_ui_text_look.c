@@ -58,7 +58,7 @@ static int fit(const dgx_ui_text_style_t *st, const char *text, int field, int u
 
 bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
-    dgx_ui_node_t            *w   = dgx_ui_node(ui, i);
+    dgx_ui_node_t            *w   = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t         *box = w->widget->text;
     const dgx_ui_text_look_t *p   = look->params;
     const uint32_t ink = dgx_ui_color(paint, p->ink), paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper);
@@ -110,4 +110,4 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
 }
 
 static const dgx_ui_text_look_t text_default = {.ink = 1, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t             dgx_ui_look_text = {.draw = dgx_ui_draw_text, .params = &text_default, .fill = -1};
+const dgx_ui_look_t             dgx_ui_look_text = {.draw = dgx_ui_draw_text, .params = &text_default, .fill = DGX_UI_PAPER};

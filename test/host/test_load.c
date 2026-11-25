@@ -893,7 +893,7 @@ int main(void)
     {
         static const struct {
             const char *json;
-            uint16_t    flags;
+            uint32_t    flags;
             int16_t     pad, gap, at_x, at_y, want_w, want_h;
         } taken[] = {
             {"\"want\": [\"50%\", 24]", DGX_UI_PERCENT_W, 0, 0, 0, 0, 12800, 24},

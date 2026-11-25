@@ -4,7 +4,7 @@
 
 dgx-ui is a light layer of widgets on [DGX](https://github.com/jef-sure/esp32-component-dgx), the display library for
 ESP32. Widgets stand in rows and columns, their values come as messages from other tasks, and the display is written
-only where something changed. It needs no memory for pixels: a widget is 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM and 56 bytes<!-- sizeof dgx_ui_widget_t --> of flash, and it
+only where something changed. It needs no memory for pixels: a widget is 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM and 60 bytes<!-- sizeof dgx_ui_widget_t --> of flash, and it
 draws straight on the display.
 
 ![A value in a frame, a clock and a note under it](docs/images/first.png)
@@ -178,7 +178,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, hello: a label an
 | --- | --- |
 | code of dgx-ui in the program | about 10 KB |
 | RAM of dgx-ui itself | a few pointers of 4 bytes: 24 bytes in hello |
-| a widget | 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM and 56 bytes<!-- sizeof dgx_ui_widget_t --> of flash |
+| a widget | 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM and 60 bytes<!-- sizeof dgx_ui_widget_t --> of flash |
 | a message | 20 bytes<!-- sizeof dgx_ui_msg_t --> |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB more |
 | the look of several lines, when a widget names it | about 2.5 KB more |
@@ -192,7 +192,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, hello: a label an
 | the statistics of painting, when the program names them | about 1.8 KB more |
 | a tree from a description in JSON, when the program loads one | about 8 KB more |
 | colours, text styles and looks from a description, when the program loads one | about 5 KB more over the loader of trees |
-| the same tree made C when the program is built | no code of dgx-ui: its widgets, 56 bytes<!-- sizeof dgx_ui_widget_t --> of flash each |
+| the same tree made C when the program is built | no code of dgx-ui: its widgets, 60 bytes<!-- sizeof dgx_ui_widget_t --> of flash each |
 | a button of a picture, when a widget names the look | about 0.8 KB more beside buttons with a text and pictures; 2.8 KB in a program with no picture yet, the drawing of pictures coming with it |
 | a level bar, when a widget names the look | about 0.9 KB more |
 | a ring scale, when a widget names the look | about 3.8 KB more |

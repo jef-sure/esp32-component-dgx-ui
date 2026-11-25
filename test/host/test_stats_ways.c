@@ -43,8 +43,8 @@ static bool draw_costly(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     return false;
 }
 static const cost_t        cost_50 = {50, 0}, cost_100 = {100, 1}, cost_300 = {300, 3};
-static const dgx_ui_look_t look_50 = {.draw = draw_costly, .params = &cost_50, .fill = -1}, look_100 = {.draw = draw_costly, .params = &cost_100, .fill = -1},
-                           look_300 = {.draw = draw_costly, .params = &cost_300, .fill = -1};
+static const dgx_ui_look_t look_50 = {.draw = draw_costly, .params = &cost_50, .fill = DGX_UI_PAPER}, look_100 = {.draw = draw_costly, .params = &cost_100, .fill = DGX_UI_PAPER},
+                           look_300 = {.draw = draw_costly, .params = &cost_300, .fill = DGX_UI_PAPER};
 
 static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .look = &look_50};
 static const dgx_ui_widget_t first_w = {.kind = DGX_UI_LABEL, .want_h = 10, .look = &look_300};

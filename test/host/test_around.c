@@ -38,7 +38,7 @@ typedef struct {
 static const dgx_ui_widget_t box_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 static const dgx_ui_widget_t row_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 2, .gap = 2};
 /* a box's look of the program's, a constant by the public draw: filled around as the library's own */
-static const dgx_ui_look_t   own_box   = {.draw = dgx_ui_draw_box, .fill = -1};
+static const dgx_ui_look_t   own_box   = {.draw = dgx_ui_draw_box, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t own_box_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .look = &own_box};
 static const dgx_ui_widget_t frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .gap = 2, .want_h = 56};
 static const dgx_ui_widget_t free_w  = {.kind = DGX_UI_BOX};

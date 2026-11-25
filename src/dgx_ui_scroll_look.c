@@ -75,7 +75,7 @@ static const dgx_ui_scroller_t scroller = {.before = before, .free = free_held};
 static void ground(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_rect_t r)
 {
     if (r.w <= 0 || r.h <= 0) return;
-    if (look->fill >= 0) dgx_fill_rectangle(paint->scr, r.x - paint->ox, r.y - paint->oy, r.w, r.h, dgx_ui_color(paint, look->fill));
+    if (look->fill != DGX_UI_PAPER) dgx_fill_rectangle(paint->scr, r.x - paint->ox, r.y - paint->oy, r.w, r.h, dgx_ui_color(paint, look->fill));
     else dgx_ui_lay_paper(paint, DGX_UI_PAPER, r.x, r.y, r.w, r.h);
 }
 
@@ -130,7 +130,7 @@ static void draw_bar(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t 
 static bool move(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui_scroll_box_t *b, int d)
 {
     const int ad = d < 0 ? -d : d;
-    if (paint->composing || paint->parts != 1 || ad >= b->rows.h || (look->fill < 0 && paint->on_background)) return false;
+    if (paint->composing || paint->parts != 1 || ad >= b->rows.h || (look->fill == DGX_UI_PAPER && paint->on_background)) return false;
     const dgx_ui_node_t *n = dgx_ui_at(ui, i);
     if (n->parent >= 0 && !(dgx_ui_at(ui, n->parent)->widget->flags & (DGX_UI_COLUMN | DGX_UI_ROW))) /* a box of neither: one over it moves too */
         for (int c = dgx_ui_at(ui, n->parent)->child; c >= 0; c = dgx_ui_at(ui, c)->next) {
@@ -196,4 +196,4 @@ bool dgx_ui_draw_scroll(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     return false;
 }
 
-const dgx_ui_look_t dgx_ui_look_scroll = {.draw = dgx_ui_draw_scroll, .params = &dgx_ui_scroll_default, .fill = -1, .behavior = &dgx_ui_scroll_behavior};
+const dgx_ui_look_t dgx_ui_look_scroll = {.draw = dgx_ui_draw_scroll, .params = &dgx_ui_scroll_default, .fill = DGX_UI_PAPER, .behavior = &dgx_ui_scroll_behavior};

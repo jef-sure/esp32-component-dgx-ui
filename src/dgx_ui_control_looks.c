@@ -77,7 +77,7 @@ bool dgx_ui_draw_switch(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 }
 
 static const dgx_ui_switch_look_t switch_default = {.track = 2, .fill = 3, .knob = 1, .focused = 1, .disabled = 2};
-const dgx_ui_look_t               dgx_ui_look_switch = {.draw = dgx_ui_draw_switch, .params = &switch_default, .fill = -1};
+const dgx_ui_look_t               dgx_ui_look_switch = {.draw = dgx_ui_draw_switch, .params = &switch_default, .fill = DGX_UI_PAPER};
 
 /* ---- a slider: paper above and below a track in the middle, filled up to the knob ---- */
 
@@ -118,4 +118,4 @@ bool dgx_ui_draw_slider(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 }
 
 static const dgx_ui_slider_look_t slider_default = {.track = 2, .fill = 3, .knob = 1, .focused = 1, .disabled = 2, .track_h = 2};
-const dgx_ui_look_t               dgx_ui_look_slider = {.draw = dgx_ui_draw_slider, .params = &slider_default, .fill = -1};
+const dgx_ui_look_t               dgx_ui_look_slider = {.draw = dgx_ui_draw_slider, .params = &slider_default, .fill = DGX_UI_PAPER};

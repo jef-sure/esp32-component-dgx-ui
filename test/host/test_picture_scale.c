@@ -219,9 +219,9 @@ static void test_panel(void)
 /* a box smaller than its picture three times, on a screen of 72x60 turned either way: nothing written outside it, the
    picture's paper (colour 2, a look's own) told from the tree's background (colour 3) */
 static const dgx_ui_picture_look_t own_paper = {.ink = 1, .paper = 2};
-static const dgx_ui_look_t         picture_own = {.draw = dgx_ui_draw_picture, .params = &own_paper, .fill = -1};
-static const dgx_ui_look_t         rgb565_own  = {.draw = dgx_ui_draw_rgb565, .params = &own_paper, .fill = -1};
-static const dgx_ui_look_t         indexed_own = {.draw = dgx_ui_draw_indexed, .params = &own_paper, .fill = -1};
+static const dgx_ui_look_t         picture_own = {.draw = dgx_ui_draw_picture, .params = &own_paper, .fill = DGX_UI_PAPER};
+static const dgx_ui_look_t         rgb565_own  = {.draw = dgx_ui_draw_rgb565, .params = &own_paper, .fill = DGX_UI_PAPER};
+static const dgx_ui_look_t         indexed_own = {.draw = dgx_ui_draw_indexed, .params = &own_paper, .fill = DGX_UI_PAPER};
 
 static void test_small_box(void)
 {

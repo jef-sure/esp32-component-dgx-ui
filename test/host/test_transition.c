@@ -58,7 +58,7 @@ static bool draw_counter(const dgx_ui_look_t *look, dgx_ui_paint_t *p, dgx_ui_t 
     dgx_ui_lay_paper(p, DGX_UI_PAPER, node->x, node->y, node->w, node->h);
     return false;
 }
-static const dgx_ui_look_t counter_look = {.draw = draw_counter, .fill = -1};
+static const dgx_ui_look_t counter_look = {.draw = draw_counter, .fill = DGX_UI_PAPER};
 
 /* a look of the program's own that keeps a count of the painter's own passes over it, and draws it as a bar: a
    picture composed before the telling pass would show one less than the trees are marked as showing */
@@ -72,7 +72,7 @@ static bool draw_passes(const dgx_ui_look_t *look, dgx_ui_paint_t *p, dgx_ui_t *
     dgx_fill_rectangle(p->scr, node->x - p->ox, node->y - p->oy, bar, node->h, dgx_ui_color(p, 3));
     return false;
 }
-static const dgx_ui_look_t passes_look = {.draw = draw_passes, .fill = -1};
+static const dgx_ui_look_t passes_look = {.draw = draw_passes, .fill = DGX_UI_PAPER};
 
 static bool take_time(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 {

@@ -123,7 +123,7 @@ bool dgx_ui_typed(dgx_ui_t *ui, const uint32_t *code_points, int count)
     if (!w || w->kind != DGX_UI_INPUT || !w->text || !w->text->buf || w->text->size < 1) return false;
     dgx_ui_textbox_t *box = w->text;
     const int         f   = ui->focus;
-    dgx_ui_node_t    *n   = dgx_ui_node(ui, f);
+    dgx_ui_node_t    *n   = dgx_ui_node_rw(ui, f);
     for (int k = 0; k < count; ++k) {
         const uint32_t c   = code_points[k];
         size_t         len = strlen(box->buf);

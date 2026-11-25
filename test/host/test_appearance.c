@@ -74,9 +74,9 @@ static const dgx_ui_slider_look_t made_params_1      = {.track = 3, .fill = 4, .
 static const dgx_ui_band_t        made_bands_2[]     = {{.below = 20, .color = 5}, {.below = 80, .color = 1}};
 static const dgx_ui_level_look_t  made_params_2      = {.fill = 4, .track = DGX_UI_PAPER, .from = DGX_UI_FROM_BOTTOM, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = made_bands_2};
 static const dgx_ui_frame_look_t  made_params_3      = {.border = 4, .width = 2};
-static const dgx_ui_look_t        made_look[4]       = {{.draw = dgx_ui_draw_button, .params = &made_params_0, .fill = -1},
-                                                        {.draw = dgx_ui_draw_slider, .params = &made_params_1, .fill = -1},
-                                                        {.draw = dgx_ui_draw_level, .params = &made_params_2, .fill = -1},
+static const dgx_ui_look_t        made_look[4]       = {{.draw = dgx_ui_draw_button, .params = &made_params_0, .fill = DGX_UI_PAPER},
+                                                        {.draw = dgx_ui_draw_slider, .params = &made_params_1, .fill = DGX_UI_PAPER},
+                                                        {.draw = dgx_ui_draw_level, .params = &made_params_2, .fill = DGX_UI_PAPER},
                                                         {.draw = dgx_ui_draw_frame, .params = &made_params_3, .fill = 2}};
 static const dgx_ui_font_variant_t made_variants_0[2] = {{.font = &TerminusTTFMedium12}, {.font = &font0ss, .height = 24, .narrow = 70, .joined = true, .pen = 2 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting}};
 static const dgx_ui_text_style_t  made_style[1]      = {{.fonts = made_variants_0, .count = 2, .flags = DGX_UI_STYLE_MIDDLE | DGX_UI_STYLE_IMPORTANT, .align = DGX_FONT_ALIGN_CENTER, .scroll_ms = 900}};
@@ -275,7 +275,7 @@ int main(void)
     for (int k = 0; k < 6; ++k) CHECK(strcmp(appearance.color_names[k], order[k]) == 0 && appearance.rgb[k] == expect[k] && dgx_ui_appearance_color(&appearance, order[k]) == k);
     CHECK(dgx_ui_appearance_color(&appearance, "red") == -1);
     const dgx_ui_button_look_t big = {.face = 2, .pressed = 4, .focused = DGX_UI_PAPER, .disabled = 0, .ink = 1, .ink_disabled = 3, .shadow = 0, .depth = 2};
-    CHECK(strcmp(appearance.looks[0].name, "big") == 0 && appearance.looks[0].look->draw == dgx_ui_draw_button && appearance.looks[0].look->fill == -1 &&
+    CHECK(strcmp(appearance.looks[0].name, "big") == 0 && appearance.looks[0].look->draw == dgx_ui_draw_button && appearance.looks[0].look->fill == DGX_UI_PAPER &&
           memcmp(appearance.looks[0].look->params, &big, sizeof big) == 0);
     const dgx_ui_slider_look_t slider = {.track = 3, .fill = 4, .knob = 1, .focused = 1, .disabled = 3, .track_h = 3};
     CHECK(strcmp(appearance.looks[1].name, "slider") == 0 && memcmp(appearance.looks[1].look->params, &slider, sizeof slider) == 0);
@@ -324,7 +324,7 @@ int main(void)
         static dgx_ui_look_t      constant_big;
         static dgx_ui_node_t      constant_nodes[2], loaded_nodes[2];
         go.style     = &plain;
-        constant_big = (dgx_ui_look_t){.draw = dgx_ui_draw_button, .params = &big, .fill = -1};
+        constant_big = (dgx_ui_look_t){.draw = dgx_ui_draw_button, .params = &big, .fill = DGX_UI_PAPER};
         const dgx_ui_widget_t made_w = {.kind = DGX_UI_BUTTON, .text = &go, .look = &constant_big}, loaded_w = {.kind = DGX_UI_BUTTON, .text = &go, .look = appearance.looks[0].look};
         dgx_ui_t made_ui, loaded_ui;
         dgx_ui_init(&made_ui, constant_nodes, 2, 1), dgx_ui_init(&loaded_ui, loaded_nodes, 2, 1);
@@ -495,12 +495,12 @@ int main(void)
             for (int k = 0; k < look_count; ++k) {
                 expected_look_t *e = &expected[k];
                 memset(e, 0, sizeof *e);
-                e->draw = chance(DRAW_COUNT), e->fill = -1;
+                e->draw = chance(DRAW_COUNT), e->fill = DGX_UI_PAPER;
                 snprintf(e->name, sizeof e->name, k == 0 && chance(3) == 0 ? "slider" : "l%d", k);
                 print(&p, "%s\"%s\": {\"draw\": \"%s\"", k ? ", " : "", e->name, draws[e->draw].name);
                 if (chance(2)) {
                     const int fill = a_color(true);
-                    e->fill        = fill == DGX_UI_PAPER ? -1 : fill;
+                    e->fill        = fill;
                     print(&p, ", \"fill\": "), print_color(&p, fill);
                 }
                 if (draws[e->draw].params->field_count || chance(2)) print(&p, ", \"params\": "), chance_params(&p, draws[e->draw].params, e);

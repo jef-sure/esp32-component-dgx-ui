@@ -43,7 +43,7 @@ static bool clip_rows(dgx_ui_paint_t *paint, const int part[4], int top, int bot
    row's base line under the box's top, -1 the first bitmap variant's */
 static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, int chosen, int first_rows)
 {
-    dgx_ui_node_t            *w   = dgx_ui_node(ui, i);
+    dgx_ui_node_t            *w   = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t         *box = w->widget->text;
     const dgx_ui_text_look_t *p   = look->params;
     const uint32_t ink = dgx_ui_color(paint, p->ink), paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper);
@@ -220,4 +220,4 @@ bool dgx_ui_draw_lines_in(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
 }
 
 static const dgx_ui_text_look_t lines_default = {.ink = 1, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t             dgx_ui_look_lines = {.draw = dgx_ui_draw_lines, .params = &lines_default, .fill = -1};
+const dgx_ui_look_t             dgx_ui_look_lines = {.draw = dgx_ui_draw_lines, .params = &lines_default, .fill = DGX_UI_PAPER};

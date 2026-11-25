@@ -46,7 +46,7 @@ static bool bar_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t 
     if (full < node->w) dgx_fill_rectangle(paint->scr, node->x + full - paint->ox, node->y - paint->oy, node->w - full, node->h, colors[2]);
     return false;
 }
-static const dgx_ui_look_t bar_look = {.draw = bar_draw, .fill = -1};
+static const dgx_ui_look_t bar_look = {.draw = bar_draw, .fill = DGX_UI_PAPER};
 
 /* the program's memory */
 static int32_t          level, row, flag, popup_level, choice, ticked;

@@ -115,7 +115,7 @@ int dgx_ui_hand_width(const dgx_ui_font_variant_t *variant, int unit, const char
 
 bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms, const dgx_ui_font_variant_t *variant)
 {
-    dgx_ui_node_t            *node   = dgx_ui_node(ui, i);
+    dgx_ui_node_t            *node   = dgx_ui_node_rw(ui, i);
     dgx_ui_textbox_t         *box    = node->widget->text;
     const char               *text   = box->buf ? box->buf : "";
     const dgx_ui_text_look_t *params = look->params;

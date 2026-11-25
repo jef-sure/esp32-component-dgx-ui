@@ -1010,7 +1010,7 @@ static void write_appearance(const char *directory, const char *const *headers, 
         for (int k = 0; k < looks; ++k) {
             const dgx_ui_look_t *look  = appearance.looks[k].look;
             const entry_t       *draw  = &appearance_tables[A_DRAW].entries[(uintptr_t)look->draw - (uintptr_t)draw_stand];
-            char                *fill  = look->fill < 0 ? copy_of("-1") : color_c(look->fill);
+            char                *fill  = look->fill == DGX_UI_PAPER ? copy_of("DGX_UI_PAPER") : color_c(look->fill);
             char                *param = look->params ? printed("&%s_params_%d", p, k) : copy_of("NULL");
             /* a scrolling box's draw: its looks carry the library's behaviour */
             out(&c_file, "    {.draw = %s, .params = %s, .fill = %s%s},  /* ", draw->c, param, fill, look->behavior ? ", .behavior = &dgx_ui_scroll_behavior" : ""),

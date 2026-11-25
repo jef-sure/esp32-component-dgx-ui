@@ -52,10 +52,10 @@ static void                   swap_up(dgx_ui_t *ui, int i, int x, int y, bool cl
     swapped = dgx_ui_add(ui, 0, swap_in);
 }
 static const dgx_ui_behavior_t swap_behavior = {.up = swap_up};
-static const dgx_ui_look_t     swap_look     = {.draw = draw_none, .fill = -1, .behavior = &swap_behavior};
+static const dgx_ui_look_t     swap_look     = {.draw = draw_none, .fill = DGX_UI_PAPER, .behavior = &swap_behavior};
 
 static const dgx_ui_behavior_t dial_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .down = dial_down, .move = dial_move, .up = dial_up, .key = dial_key};
-static const dgx_ui_look_t     dial_look     = {.draw = draw_none, .fill = -1, .behavior = &dial_behavior};
+static const dgx_ui_look_t     dial_look     = {.draw = draw_none, .fill = DGX_UI_PAPER, .behavior = &dial_behavior};
 
 /* the pad: x the value 0..100, y 0..100 in own, told by dgx_ui_tell(); the finger alone, no focus */
 static int  pad_y;
@@ -73,13 +73,13 @@ static bool pad_move(dgx_ui_t *ui, int i, int x, int y)
     return true;
 }
 static const dgx_ui_behavior_t pad_behavior = {.down = pad_at, .move = pad_move};
-static const dgx_ui_look_t     pad_look     = {.draw = draw_none, .fill = -1, .behavior = &pad_behavior};
+static const dgx_ui_look_t     pad_look     = {.draw = draw_none, .fill = DGX_UI_PAPER, .behavior = &pad_behavior};
 
 /* a widget of no move(): pressed, clicked as a button */
 static const dgx_ui_behavior_t press_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .up = dial_up};
-static const dgx_ui_look_t     press_look     = {.draw = draw_none, .fill = -1, .behavior = &press_behavior};
+static const dgx_ui_look_t     press_look     = {.draw = draw_none, .fill = DGX_UI_PAPER, .behavior = &press_behavior};
 /* a look of no behaviour */
-static const dgx_ui_look_t plain_look = {.draw = draw_none, .fill = -1};
+static const dgx_ui_look_t plain_look = {.draw = draw_none, .fill = DGX_UI_PAPER};
 
 static int  told[32], told_n, told_value[32], remove_at = -1;
 static void on_any(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)

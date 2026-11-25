@@ -22,7 +22,7 @@ static const char *TAG = "dgx_ui";
 
 /* ---- the slots ---- */
 
-dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i)
+const dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i)
 {
     if (i < 0 || i >= ui->count) return NULL;
     if (i < ui->first_size) return &ui->first[i];
@@ -61,7 +61,7 @@ static void around(dgx_ui_t *ui, int p)
 /* a node that holds a widget: not a free slot */
 static dgx_ui_node_t *live(const dgx_ui_t *ui, int i)
 {
-    dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    dgx_ui_node_t *n = dgx_ui_node_rw(ui, i);
     return n && n->widget ? n : NULL;
 }
 

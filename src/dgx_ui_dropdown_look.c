@@ -109,4 +109,4 @@ bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
 }
 
 static const dgx_ui_dropdown_look_t dropdown_default = {.face = 2, .pressed = 3, .focused = 1, .disabled = 0, .ink = 1, .ink_disabled = 2, .arrow = 1};
-const dgx_ui_look_t dgx_ui_look_dropdown = {.draw = dgx_ui_draw_dropdown, .params = &dropdown_default, .fill = -1};
+const dgx_ui_look_t dgx_ui_look_dropdown = {.draw = dgx_ui_draw_dropdown, .params = &dropdown_default, .fill = DGX_UI_PAPER};

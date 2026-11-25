@@ -42,7 +42,7 @@ static bool draw_canvas(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     dgx_ui_canvas_put(paint, ui, i, -1);
     return false;
 }
-static const dgx_ui_look_t canvas_look = {.draw = draw_canvas, .fill = -1};
+static const dgx_ui_look_t canvas_look = {.draw = draw_canvas, .fill = DGX_UI_PAPER};
 
 /* a look of the program's own that asks for time at every call and names no moment, its paper laid; the part and the
    parts of each call of a pass (not of a composing) written down, a log for each of the two trees */
@@ -56,7 +56,7 @@ static bool draw_ticking(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     return true;
 }
 static int                 ticking_tag;
-static const dgx_ui_look_t ticking_looks[2] = {{.draw = draw_ticking, .fill = -1}, {.draw = draw_ticking, .fill = -1, .params = &ticking_tag}};
+static const dgx_ui_look_t ticking_looks[2] = {{.draw = draw_ticking, .fill = DGX_UI_PAPER}, {.draw = draw_ticking, .fill = DGX_UI_PAPER, .params = &ticking_tag}};
 static const dgx_ui_widget_t ticking_w[2]   = {{.kind = DGX_UI_OWN, .want_h = 1, .look = &ticking_looks[0]}, {.kind = DGX_UI_OWN, .want_h = 1, .look = &ticking_looks[1]}};
 
 typedef struct {

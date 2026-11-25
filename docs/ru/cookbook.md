@@ -637,7 +637,7 @@ static int fan_add(dgx_ui_t *ui, int parent)
   возвращает `true`, и программе эта клавиша, пока список открыт, не достаётся.
 - **Палец, который ведут по списку,** ведёт за собой полосу, а отпущенный ничего не выбирает: список остаётся
   открытым, выбирает нажатие.
-- **`dgx_ui_dropdown_t`** — это всплывающее окно списка, 284 байта<!-- sizeof dgx_ui_dropdown_t --> ОЗУ программы на 32-битном чипе, обнулённые
+- **`dgx_ui_dropdown_t`** — это всплывающее окно списка, 288 байт<!-- sizeof dgx_ui_dropdown_t --> ОЗУ программы на 32-битном чипе, обнулённые
   перед первым открытием, как любая `static`-переменная. Открыт бывает только один список, поэтому одной структуры
   хватает на все выпадающие списки.
 - **Облики** окна — два последних аргумента, рамка и список; `NULL` значит облик библиотеки.
@@ -731,7 +731,7 @@ static int32_t charge_percent; /* written by whoever reads the battery, as any v
 /* below 20 in one colour, below 50 in another, from there up in `fill`; filled from the left */
 static const dgx_ui_band_t       charge_bands[] = {{20, ACCENT_DOWN}, {50, BORDER}};
 static const dgx_ui_level_look_t charge_colors  = {.fill = ACCENT, .track = FILL, .from = DGX_UI_FROM_LEFT, .band_count = 2, .bands = charge_bands};
-static const dgx_ui_look_t       look_charge    = {.draw = dgx_ui_draw_level, .params = &charge_colors, .fill = -1};
+static const dgx_ui_look_t       look_charge    = {.draw = dgx_ui_draw_level, .params = &charge_colors, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t     charge_w       = {.kind = DGX_UI_OWN, .max = 100, .want_h = 6, .value = &charge_percent, .look = &look_charge};
 
 /* a tank filled from the bottom: 0 to 200 litres in a box 12 points wide and 40 high; what stands above 160 litres
@@ -740,7 +740,7 @@ static int32_t                   tank_litres;
 static const dgx_ui_band_t       tank_bands[] = {{160, ACCENT}};
 static const dgx_ui_level_look_t tank_colors  = {.fill = ACCENT_DOWN, .track = FILL, .from = DGX_UI_FROM_BOTTOM, .band_count = 1,
                                                  .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = tank_bands};
-static const dgx_ui_look_t       look_tank   = {.draw = dgx_ui_draw_level, .params = &tank_colors, .fill = -1};
+static const dgx_ui_look_t       look_tank   = {.draw = dgx_ui_draw_level, .params = &tank_colors, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, .want_w = 12, .want_h = 40, .value = &tank_litres, .look = &look_tank};
 ```
 
@@ -861,7 +861,7 @@ static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int wha
   точка лицевой стороны и точка рамки с каждой стороны и одна точка под тень. Под палец задайте размер: картинка
   остаётся посередине лицевой стороны, а картинка больше лицевой стороны обрезается по ней.
 - **Цвета** — те же, что у кнопки, `dgx_ui_button_look_t`; её `text` — чернила картинки. Свой облик:
-  `{.draw = dgx_ui_draw_picture_button, .params = &my_colours, .fill = -1}`.
+  `{.draw = dgx_ui_draw_picture_button, .params = &my_colours, .fill = DGX_UI_PAPER}`.
 - **Другие картинки.** Картинка в 4 или 8 бит и картинка RGB565 не рисуется, об этом один раз говорится в журнале, а
   лицевая сторона остаётся пустой. Текст рядом с картинкой тоже не рисуется.
 - **Цена**: около 0,8 КБ сверх обычного в программе, где есть кнопки с текстом и картинки; 2,8 КБ там, где
@@ -1466,7 +1466,7 @@ static const dgx_ui_button_look_t blue_button = {
     .focused = INK, /* the frame round the face while the button has the focus */
     .ink = INK, .ink_disabled = DIM, .shadow = SHADOW, .depth = 1};
 /* the library's drawing of a button, in these colours */
-static const dgx_ui_look_t look_blue_button = {.draw = dgx_ui_draw_button, .params = &blue_button, .fill = -1};
+static const dgx_ui_look_t look_blue_button = {.draw = dgx_ui_draw_button, .params = &blue_button, .fill = DGX_UI_PAPER};
 
 static const dgx_ui_widget_t ok_w = {.kind = DGX_UI_BUTTON, .want_w = 60, .want_h = 18, .look = &look_blue_button};
 ```
@@ -1794,7 +1794,7 @@ static void air_message(const dgx_ui_msg_t *msg)
   закроет страницу по `DGX_UI_EVENT_SHOWN`.
 - **Это не `dgx_ui_show()`**: когда виджет скрывают и показывают, никому ничего не сообщается.
 - **Цена**: около 0,65 КБ в программе, которая открывает окна, и ничего в той, которая их не открывает; дерево
-  занимает 104 байта<!-- sizeof dgx_ui_t -->.
+  занимает 100 байт<!-- sizeof dgx_ui_t -->.
 
 ## Страницы, которые сдвигаются
 
@@ -1973,7 +1973,7 @@ static bool prefs_edit_changed(void)
 ```c
 enum { MSG_BUTTONS = 13 };
 typedef struct {
-    uint32_t held; /* DGX_UI_PAD_* */
+    uint32_t held; /* DGX_UI_GAMEPAD_* */
 } buttons_t;
 DGX_UI_MESSAGE(buttons, MSG_BUTTONS, buttons_t)
 
@@ -2037,7 +2037,7 @@ static void dialog_keys(dgx_ui_t *ui, bool buttons_in_a_row)
 }
 ```
 
-- В таблице 8 записей, по одной на кнопку, в порядке битов `DGX_UI_PAD_*`: LEFT, RIGHT, UP, DOWN, A, START, BACK, B.
+- В таблице 8 записей, по одной на кнопку, в порядке битов `DGX_UI_GAMEPAD_*`: LEFT, RIGHT, UP, DOWN, A, START, BACK, B.
 - Запись — это `DGX_UI_KEY_*` или 0xff: кнопка не даёт клавиши и остаётся программе.
 - Дерево запоминает указатель и ничего не копирует: дайте константу.
 - Таблицу можно задать заново в любой момент, например, когда диалог-столбец сменился диалогом-строкой. `NULL`
@@ -2333,7 +2333,7 @@ extern const size_t  keypad_size;
 
 /* a secret field: a star for each letter; the text box keeps the letters */
 static const dgx_ui_input_look_t pin_colors = {.ink = INK, .caret = INK, .paper = DGX_UI_PAPER, .secret = true};
-static const dgx_ui_look_t       look_pin   = {.draw = dgx_ui_draw_input, .params = &pin_colors, .fill = -1};
+static const dgx_ui_look_t       look_pin   = {.draw = dgx_ui_draw_input, .params = &pin_colors, .fill = DGX_UI_PAPER};
 
 static void strip_on(dgx_ui_t *strip, int i, const dgx_ui_node_t *node, int what, void *ctx);
 
@@ -2550,7 +2550,7 @@ static bool described_page_load(dgx_ui_load_error_t *err)
 - **Буквы шрифтов**: шрифт, который собирается под тексты файла, берёт и строки файла JSON, так что само описание
   можно назвать в `TEXTS` заявки.
 - **Сколько это стоит**: около 8 КБ кода в программе, которая загружает описание, а в ОЗУ — то, что говорит
-  `dgx_ui_load_need()`: здесь по 56 байт<!-- sizeof dgx_ui_widget_t --> на виджет, его узел, как у любого виджета, и текстовое поле с текстом у
+  `dgx_ui_load_need()`: здесь по 60 байт<!-- sizeof dgx_ui_widget_t --> на виджет, его узел, как у любого виджета, и текстовое поле с текстом у
   тех, у кого он есть. Дерево на константах лежит во флеше, описанное — в ОЗУ.
 
 ## Описание, переведённое на C при сборке
@@ -2665,7 +2665,7 @@ static int made_page_load(const char *json, size_t len, void *memory, size_t siz
   [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
 - **`HEADERS`** — заголовки программы, которые включает сделанный файл: те, что объявляют названное в выражениях.
 - **Сколько это стоит**: только само дерево. На ESP32 программа с этой страницей, переведённой на C, на 7,5 КБ
-  меньше той, что её загружает. Виджеты — константы во флеше, по 56 байт<!-- sizeof dgx_ui_widget_t -->; в ОЗУ лежат узлы, как у любого
+  меньше той, что её загружает. Виджеты — константы во флеше, по 60 байт<!-- sizeof dgx_ui_widget_t -->; в ОЗУ лежат узлы, как у любого
   виджета, текстовые поля и буферы текстов, которые пишет программа.
 - **Сделанные файлы не правят**: они пишутся заново при каждом изменении описания или файла имён.
 
@@ -2844,7 +2844,7 @@ static bool level_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 }
 
 static const level_look_t    level_colors = {.fill = ACCENT, .track = FILL};
-static const dgx_ui_look_t   level_look   = {.draw = level_draw, .params = &level_colors, .fill = -1};
+static const dgx_ui_look_t   level_look   = {.draw = level_draw, .params = &level_colors, .fill = DGX_UI_PAPER};
 static int32_t               level_percent; /* what the bar shows */
 static const dgx_ui_widget_t level_w      = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level_percent, .look = &level_look};
 ```
@@ -2947,7 +2947,7 @@ static bool xy_key(dgx_ui_t *ui, int i, int key)
 }
 
 static const dgx_ui_behavior_t xy_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .down = xy_at, .move = xy_move, .key = xy_key};
-static const dgx_ui_look_t     xy_look     = {.draw = xy_draw, .fill = -1, .behavior = &xy_behavior};
+static const dgx_ui_look_t     xy_look     = {.draw = xy_draw, .fill = DGX_UI_PAPER, .behavior = &xy_behavior};
 
 static xy_data_t xy_data;
 static int32_t   xy_x; /* the pad's value: where the knob is along x; its y is in xy_data */
@@ -2999,7 +2999,7 @@ static const dgx_ui_widget_t xy_w = {
 ```c
 /* the level bar of the recipe above, tapped: pressed and clicked, the focus left where it is */
 static const dgx_ui_behavior_t tap_behavior = {0};
-static const dgx_ui_look_t     tap_look     = {.draw = level_draw, .params = &level_colors, .fill = -1, .behavior = &tap_behavior};
+static const dgx_ui_look_t     tap_look     = {.draw = level_draw, .params = &level_colors, .fill = DGX_UI_PAPER, .behavior = &tap_behavior};
 static const dgx_ui_widget_t   tap_w        = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level_percent, .look = &tap_look};
 ```
 
@@ -3038,7 +3038,7 @@ static bool history_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
 }
 
 static int32_t               history_count; /* the graph's value: how many columns it has */
-static const dgx_ui_look_t   history_look = {.draw = history_draw, .fill = -1};
+static const dgx_ui_look_t   history_look = {.draw = history_draw, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t history_w    = {
     .kind = DGX_UI_OWN, .flags = DGX_UI_CANVAS, .max = HISTORY, .want_h = 20, .value = &history_count, .own = history_level, .look = &history_look};
 
@@ -3102,7 +3102,7 @@ static bool trace_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 }
 
 static int32_t               trace_count; /* the graph's value: how many columns it has */
-static const dgx_ui_look_t   trace_look = {.draw = trace_draw, .fill = -1};
+static const dgx_ui_look_t   trace_look = {.draw = trace_draw, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t trace_w    = {.kind = DGX_UI_OWN, .max = TRACE, .want_h = 20, .value = &trace_count, .own = trace_level, .look = &trace_look};
 
 /* a new value: one more column; the graph begins again when it is full. Written, and the next pass draws it */
@@ -3145,7 +3145,7 @@ static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID
 static const dgx_ui_ring_look_t ring_params  = {
     .fill = RING_HIGH, .track = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
     .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
-static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = -1};
+static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = DGX_UI_PAPER};
 ```
 
 Виджеты. Одно сообщение со значением получают и кольцо, и число. Две надписи внизу — те же, что в рецепте

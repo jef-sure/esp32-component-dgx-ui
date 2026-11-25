@@ -71,7 +71,7 @@ static bool word_list(load_t *L, const char *words, uint32_t *out)
 
 /* a number of points, low_points..INT16_MAX, or a percent, "50%", its flag then set in *flags: -128 % to 127.99 % where
    the points take negatives, 0 % to 127.99 % where they do not */
-static bool points_or_percent(load_t *L, int32_t low_points, int16_t *out, uint16_t flag, uint16_t *flags)
+static bool points_or_percent(load_t *L, int32_t low_points, int16_t *out, uint32_t flag, uint32_t *flags)
 {
     int32_t v;
     bool    percent;
@@ -82,7 +82,7 @@ static bool points_or_percent(load_t *L, int32_t low_points, int16_t *out, uint1
 }
 
 /* two numbers [a, b] of int16, each of points or a percent */
-static bool pair(load_t *L, int16_t *a, int16_t *b, uint16_t flag_a, uint16_t flag_b, uint16_t *flags)
+static bool pair(load_t *L, int16_t *a, int16_t *b, uint32_t flag_a, uint32_t flag_b, uint32_t *flags)
 {
     return dgx_ui_json_expect(&L->read.json, '[') && points_or_percent(L, INT16_MIN, a, flag_a, flags) && dgx_ui_json_expect(&L->read.json, ',') &&
            points_or_percent(L, INT16_MIN, b, flag_b, flags) && dgx_ui_json_expect(&L->read.json, ']');
@@ -146,7 +146,7 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
             /* the words of "flags" beside the percents' bits, which the numbers set, whichever is read first */
             case K_FLAGS:
                 ok = word_list(L, flag_words, &bits), bits = (bits & ~(uint32_t)FLAG_SCROLL) | (bits & FLAG_SCROLL ? DGX_UI_SCROLL : 0);
-                w.flags = (uint16_t)((w.flags & PERCENTS) | bits);
+                w.flags = (w.flags & PERCENTS) | bits;
                 break;
             case K_STATE: ok = word_list(L, state_words, &bits), w.state.bits = (uint8_t)bits; break;
             case K_PAD: ok = points_or_percent(L, 0, &w.pad, DGX_UI_PERCENT_PAD, &w.flags); break;

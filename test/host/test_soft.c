@@ -108,7 +108,7 @@ int main(void)
     static const dgx_ui_widget_t lines_w  = {.kind = DGX_UI_LABEL, .text = &lines_box, .look = &dgx_ui_look_lines};
     static const dgx_ui_widget_t choice_w = {.kind = DGX_UI_DROPDOWN, .min = 0, .max = 1, .value = &choice_pick, .text = &choice_box, .want_h = 14, .look = &dgx_ui_look_dropdown};
     static const dgx_ui_input_look_t steady   = {.ink = 1, .paper = DGX_UI_PAPER, .caret = 1}; /* a caret that does not blink: the passes end */
-    static const dgx_ui_look_t       field_look = {.draw = dgx_ui_draw_input, .params = &steady, .fill = -1};
+    static const dgx_ui_look_t       field_look = {.draw = dgx_ui_draw_input, .params = &steady, .fill = DGX_UI_PAPER};
     static const dgx_ui_widget_t field_w  = {.kind = DGX_UI_INPUT, .text = &field_box, .want_h = 12, .look = &field_look};
     static dgx_ui_node_t         nodes[8];
     static dgx_ui_t              ui;

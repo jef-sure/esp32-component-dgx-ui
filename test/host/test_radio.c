@@ -55,8 +55,8 @@ static bool counted_checkbox(const dgx_ui_look_t *look, dgx_ui_paint_t *p, dgx_u
     ++looked[tree_of(ui)][i];
     return dgx_ui_look_checkbox.draw(&dgx_ui_look_checkbox, p, ui, i, now_ms);
 }
-static const dgx_ui_look_t radio_look    = {.draw = counted_radio, .params = NULL, .fill = -1};
-static const dgx_ui_look_t checkbox_look = {.draw = counted_checkbox, .params = NULL, .fill = -1};
+static const dgx_ui_look_t radio_look    = {.draw = counted_radio, .params = NULL, .fill = DGX_UI_PAPER};
+static const dgx_ui_look_t checkbox_look = {.draw = counted_checkbox, .params = NULL, .fill = DGX_UI_PAPER};
 
 static void on_told(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {

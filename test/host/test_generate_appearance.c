@@ -33,13 +33,13 @@ const dgx_ui_picture_t card_pieces[9] = {{.image = &card_images[0]}, {.image = &
                                          {.image = &card_images[6]}, {.image = &card_images[7]}, {.image = &card_images[8]}};
 const dgx_ui_picture_t one_piece[1] = {{.image = &card_images[4]}};
 static const dgx_ui_text_look_t    mine_colours     = {.ink = 1, .paper = 0};
-const dgx_ui_look_t                mine             = {.draw = dgx_ui_draw_text, .params = &mine_colours, .fill = -1};
+const dgx_ui_look_t                mine             = {.draw = dgx_ui_draw_text, .params = &mine_colours, .fill = DGX_UI_PAPER};
 static const dgx_ui_font_variant_t plain_variant[1] = {{.font = &TerminusTTFMedium12}};
 const dgx_ui_text_style_t          plain            = {.fonts = plain_variant, .count = 1};
 bool draw_dial(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t *node = dgx_ui_node(ui, i);
-    dgx_fill_rectangle(paint->scr, node->x + paint->ox, node->y + paint->oy, node->w, node->h, dgx_ui_color(paint, look->fill < 0 ? 1 : look->fill));
+    dgx_fill_rectangle(paint->scr, node->x + paint->ox, node->y + paint->oy, node->w, node->h, dgx_ui_color(paint, look->fill == DGX_UI_PAPER ? 1 : look->fill));
     return false;
 }
 
@@ -189,7 +189,7 @@ int main(void)
         for (int k = 0; ruled && k < need.looks; ++k) {
             if (strcmp(made->looks[k].name, "card") != 0) continue;
             static const dgx_ui_nine_look_t own_params = {.pieces = card_pieces, .fill = 2, .ink = 1};
-            const dgx_ui_look_t             own        = {.draw = dgx_ui_draw_nine, .params = &own_params, .fill = -1};
+            const dgx_ui_look_t             own        = {.draw = dgx_ui_draw_nine, .params = &own_params, .fill = DGX_UI_PAPER};
             dgx_screen_t *of_made = framed(made, made->looks[k].look), *of_loaded = framed(&loaded, loaded.looks[k].look), *of_own = framed(made, &own);
             int apart = 0, inked = 0;
             for (int y = 0; y < 48; ++y)

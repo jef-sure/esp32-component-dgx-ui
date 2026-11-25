@@ -175,7 +175,7 @@ static bool walk(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper, bool
     /* else wholly under a cover: no part drawn, so its marks and its state as drawn stay, for the pass that sees it */
     *time |= more;
     if (whole || (w->marks & DGX_UI_MARK_BELOW)) {
-        const bool    fills = look && look->fill >= 0;
+        const bool    fills = look && look->fill != DGX_UI_PAPER;
         const uint8_t in    = fills ? (uint8_t)look->fill : paper;
         bool          below = false;
         for (int c = w->child; c >= 0; c = dgx_ui_at(ui, c)->next) below |= walk(paint, ui, c, in, on_bg && !fills, whole, now_ms, time, &seen);
@@ -267,7 +267,7 @@ static void walk_area(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint8_t paper,
         return;
     }
     const dgx_ui_look_t *look  = look_told(ui, i);
-    const bool           fills = look && look->fill >= 0;
+    const bool           fills = look && look->fill != DGX_UI_PAPER;
     if (background && fills) return;
     if (look) {
         paint->paper = paper, paint->on_background = on_bg, paint->whole = true;
@@ -286,7 +286,7 @@ void dgx_ui_compose_in(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t
 {
     const dgx_ui_look_t *look = dgx_ui_look_of(dgx_ui_at(ui, i)->widget);
     const uint8_t        paper = paint->paper, part = paint->part, parts = paint->parts;
-    const bool           on_bg = paint->on_background, whole = paint->whole, fills = look && look->fill >= 0;
+    const bool           on_bg = paint->on_background, whole = paint->whole, fills = look && look->fill != DGX_UI_PAPER;
     int                  cx, cy, cw, ch;
     dgx_screen_clip_get(paint->scr, &cx, &cy, &cw, &ch);
     for (int c = dgx_ui_at(ui, i)->child; c >= 0; c = dgx_ui_at(ui, c)->next)

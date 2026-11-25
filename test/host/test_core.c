@@ -15,6 +15,12 @@
 #include "dgx_ui_text.h"
 
 /* what on_event() was told, in order */
+
+/* a node as the painter holds it: the test clears its marks, as the painter does after drawing */
+static dgx_ui_node_t *painters(dgx_ui_t *ui, int i)
+{
+    return (dgx_ui_node_t *)dgx_ui_node(ui, i);
+}
 static int told[64][2], told_count, told_value, told_node_ok;
 
 static void on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
@@ -52,7 +58,7 @@ static void test_tree(void)
     const int root = dgx_ui_add(&ui, -1, &column);
     CHECK(root == 0);
     const int      a  = dgx_ui_add(&ui, root, &tagged[0]);
-    dgx_ui_node_t *pa = dgx_ui_node(&ui, a);
+    const dgx_ui_node_t *pa = dgx_ui_node(&ui, a);
     const int      b  = dgx_ui_add(&ui, root, &tagged[1]);
     const int      c  = dgx_ui_add(&ui, root, &tagged[2]);
     const int      d  = dgx_ui_insert(&ui, root, b, &tagged[3]);
@@ -122,7 +128,7 @@ static void test_layout(void)
     CHECK(wc->x == 76 && wc->y == 26); /* from the far edge: 100 - 2 - 20 - 2 */
     CHECK(!dgx_ui_layout(&ui));       /* nothing changed: not laid again */
     /* drawn: the marks are the painter's to clear */
-    for (int i = 0; i < ui.count; ++i) dgx_ui_node(&ui, i)->marks = 0;
+    for (int i = 0; i < ui.count; ++i) painters(&ui, i)->marks = 0;
     /* hidden: takes no place, the one after moves up, the box fills around its children, not drawn whole */
     dgx_ui_show(&ui, b, false);
     CHECK(dgx_ui_layout(&ui) && wc->y == 14);
@@ -132,7 +138,7 @@ static void test_layout(void)
     dgx_ui_show(&ui, b, true);
     dgx_ui_layout(&ui);
     /* the screen turned: laid again for its size, all drawn whole */
-    for (int i = 0; i < ui.count; ++i) dgx_ui_node(&ui, i)->marks = 0;
+    for (int i = 0; i < ui.count; ++i) painters(&ui, i)->marks = 0;
     dgx_ui_screen(&ui, 100, 80, 3); /* the same size, another orientation (180 degrees) */
     CHECK(dgx_ui_layout(&ui));
     for (int i = 0; i < ui.count; ++i) CHECK(dgx_ui_node(&ui, i)->marks & DGX_UI_MARK_WHOLE);
@@ -176,10 +182,10 @@ static void test_text_height(void)
     dgx_ui_layout(&ui);
     CHECK(dgx_ui_node(&ui, t)->h == 24 && dgx_ui_node(&ui, t)->w == 64);
     /* set: kept, compared, marked */
-    dgx_ui_node(&ui, t)->marks = 0;
+    painters(&ui, t)->marks = 0;
     CHECK(dgx_ui_text_printf(&ui, t, "%d ppm", 412));
     CHECK(strcmp(text_buf, "412 ppm") == 0 && (dgx_ui_node(&ui, t)->marks & DGX_UI_MARK_FIT));
-    dgx_ui_node(&ui, t)->marks = 0;
+    painters(&ui, t)->marks = 0;
     CHECK(!dgx_ui_text_printf(&ui, t, "%d ppm", 412) && dgx_ui_node(&ui, t)->marks == 0);
     /* cut to the buffer on a whole letter: 7 bytes and a 0 */
     CHECK(dgx_ui_text_set(&ui, t, "abcde\xe2\x82\xac"));
@@ -225,7 +231,7 @@ static void make_panel(void)
 static void test_pointer(void)
 {
     make_panel();
-    dgx_ui_node_t *b = dgx_ui_node(&pui, bt);
+    const dgx_ui_node_t *b = dgx_ui_node(&pui, bt);
     /* a button: pressed shows; led out onto the slider it stays pressed; let go there in 90 ms, a click of the
        button: it was meant, the slider was smudged */
     CHECK(dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .down = true, .pressed = true, .ms = 1000}));

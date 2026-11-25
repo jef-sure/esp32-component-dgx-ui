@@ -66,7 +66,7 @@ static entry_t *entry_of(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_u
 
 dgx_screen_t *dgx_ui_canvas_noted(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *made, void **note)
 {
-    dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    dgx_ui_node_t *n = dgx_ui_node_rw(ui, i);
     *made = false, *note = NULL;
     if (!n || !n->widget || !(n->widget->flags & DGX_UI_CANVAS) || n->w <= 0 || n->h <= 0) return NULL;
     entry_t *e = entry_of(paint, ui, i, n->widget, true);
@@ -107,7 +107,7 @@ dgx_screen_t *dgx_ui_canvas(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bool *ma
 
 void *dgx_ui_kept(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, size_t size, bool *made)
 {
-    dgx_ui_node_t *n = dgx_ui_node(ui, i);
+    dgx_ui_node_t *n = dgx_ui_node_rw(ui, i);
     *made            = false;
     if (!n || !n->widget || !size) return NULL;
     entry_t *e = entry_of(paint, ui, i, n->widget, true);

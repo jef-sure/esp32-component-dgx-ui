@@ -98,7 +98,7 @@ typedef struct dgx_ui_state_t {
 typedef struct dgx_ui_widget_t {
     uint8_t        kind;
     dgx_ui_bits_t  state;
-    uint16_t       flags;
+    uint32_t       flags;
     int16_t        pad, gap;
     int16_t        at_x, at_y;
     int16_t        want_w, want_h;
@@ -115,7 +115,7 @@ typedef struct dgx_ui_widget_t {
 } dgx_ui_widget_t;
 ```
 
-То, что программа говорит о виджете. Библиотека в него не пишет. На 32-битном чипе он занимает 56 байт<!-- sizeof dgx_ui_widget_t -->. Ноль —
+То, что программа говорит о виджете. Библиотека в него не пишет. На 32-битном чипе он занимает 60 байт<!-- sizeof dgx_ui_widget_t -->. Ноль —
 значение по умолчанию у каждого поля.
 
 | Поле | Что значит |
@@ -291,10 +291,12 @@ typedef struct dgx_ui_node_t {
 
 ### Дерево
 
-`dgx_ui_t` — дерево и то, что с ним сейчас делают указатель и клавиши, 104 байта<!-- sizeof dgx_ui_t -->. Программа заполняет его вызовом
-`dgx_ui_init()` и меняет только через вызовы. Поля, которые программа может читать: `focus` — номер виджета в фокусе,
-`pressed` — номер виджета, на котором удерживается указатель (оба -1, если такого нет), `popup` — открытое поверх
-дерева окно, `level` — сколько окон лежит под ним, 0 у дерева, которое не окно.
+`dgx_ui_t` — дерево и то, что с ним сейчас делают указатель и клавиши, 100 байт<!-- sizeof dgx_ui_t -->. Программа заполняет его вызовом
+`dgx_ui_init()` и меняет только через вызовы. Его первые поля программа может читать, облик тоже: `first`,
+`first_size` и `count` — узлы; `root_rect` — где разложен корень; `screen_w` и `screen_h`; `unit`; `focus` — номер
+виджета в фокусе, `pressed` — номер виджета, на котором удерживается указатель (оба -1, если такого нет); `popup` —
+открытое поверх дерева окно, с его `popup_flags`; `level` — сколько окон лежит под ним, 0 у дерева, которое не окно;
+`screen_turn`. Остальное принадлежит библиотеке: программа его не читает и не пишет.
 
 `DGX_UI_BLOCK` равно 64: узлы сверх массива программы выделяются блоками такого размера.
 
@@ -306,7 +308,7 @@ typedef struct dgx_ui_node_t {
 | `int dgx_ui_insert(dgx_ui_t *ui, int parent, int before, const dgx_ui_widget_t *w)` | То же, но перед ребёнком `before`; -1 — последним. |
 | `void dgx_ui_remove(dgx_ui_t *ui, int i)` | Виджет удалён со всем, что под ним. Фокус и нажатие внутри него сбрасываются, никому ничего не сообщается. Его номер достанется виджету, добавленному позже. Если это виджет, над которым лежат страницы (`dgx_ui_page_place()`), или контейнер над ним, страницы занимают весь экран, а корням, которые из-за этого накрыты или показаны, сообщается `DGX_UI_EVENT_COVERED` и `DGX_UI_EVENT_SHOWN` прямо внутри вызова. |
 | `int dgx_ui_find(const dgx_ui_t *ui, int parent, int tag)` | Первый виджет с таким тегом под `parent`, в порядке дерева; `parent` -1 — во всём дереве. -1, если такого нет. |
-| `dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i)` | Узел по номеру; `NULL` за пределами дерева. |
+| `const dgx_ui_node_t *dgx_ui_node(const dgx_ui_t *ui, int i)` | Узел по номеру, только для чтения: он принадлежит дереву и меняется только вызовами; `NULL` за пределами дерева. |
 | `const dgx_ui_widget_t *dgx_ui_widget(const dgx_ui_t *ui, int i)` | Виджет по номеру; `NULL`, если под этим номером виджета нет. |
 
 ### Раскладка
@@ -422,7 +424,7 @@ static const uint8_t row_keys[8] = {
 `void dgx_ui_button_keys(dgx_ui_t *ui, const uint8_t *keys)` даёт дереву такую таблицу: после
 `dgx_ui_button_keys(&ui, row_keys)` кнопка вправо на «Назад» переводит фокус на «OK».
 
-- В таблице 8 записей, по одной на кнопку, в порядке битов `DGX_UI_PAD_*`: LEFT, RIGHT, UP, DOWN, A, START, BACK, B.
+- В таблице 8 записей, по одной на кнопку, в порядке битов `DGX_UI_GAMEPAD_*`: LEFT, RIGHT, UP, DOWN, A, START, BACK, B.
 - Запись — это `DGX_UI_KEY_*` или 0xff: кнопка не даёт клавиши и остаётся программе.
 - Дерево запоминает указатель и ничего не копирует: дайте константу.
 - Таблицу можно задать заново в любой момент, например, когда диалог-столбец сменился диалогом-строкой. `NULL`
@@ -481,7 +483,7 @@ typedef struct dgx_ui_idle_t {
 struct dgx_ui_look_t {
     bool (*draw)(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
     const void              *params;
-    int16_t                  fill;
+    uint8_t                  fill;
     const dgx_ui_behavior_t *behavior;
 };
 
@@ -497,7 +499,7 @@ typedef struct dgx_ui_behavior_t {
 
 Облик — как рисуется виджет. `draw` рисует виджет `i` в его состоянии и возвращает `true`, чтобы её вызвали снова на
 следующем проходе. `params` — параметры своего типа у каждого облика. `fill` — номер цвета, который облик оставляет
-под детьми виджета; -1 — то, что там лежало. `behavior` — поведение виджета вида `DGX_UI_OWN`, который рисуется
+под детьми виджета; `DGX_UI_PAPER` — то, что там лежало. `behavior` — поведение виджета вида `DGX_UI_OWN`, который рисуется
 этим обликом, или прокручиваемого контейнера; `NULL` — виджет только рисуется. Из обликов библиотеки поведение есть
 только у `dgx_ui_look_scroll` — `dgx_ui_scroll_behavior`. Правила, которых держится `draw`,
 описаны в рецепте [Свой облик](cookbook.md#свой-облик).
@@ -816,22 +818,24 @@ typedef struct dgx_ui_paint_t {
     const dgx_ui_strips_t *strips;
     dgx_ui_rect_t   cover;
     int16_t         ox, oy;
-    /* the painter's */
+    /* the program's to read after dgx_ui_paint() */
+    uint32_t        now_ms;
+    uint32_t        wake_ms;
+    bool            painted;
+    /* while a look draws: the look reads them */
     uint8_t         paper;
     bool            on_background;
     bool            whole;
     bool            composing;
     uint8_t         part, parts;
     const dgx_ui_t *popup_over;
+    /* the painter's */
     dgx_screen_t   *rgb565;
     dgx_screen_t   *indexed;
     uint16_t       *lut;
     dgx_screen_t   *strip;
     size_t          buffer_used;
-    uint32_t        now_ms;
-    uint32_t        wake_ms;
     bool            wake_named;
-    bool            painted;
     dgx_ui_canvases_t *canvases;
     dgx_ui_rect_t   cover_was;
     const dgx_ui_scroller_t *scroller;
@@ -1002,7 +1006,8 @@ RGB565 растягивается повтором старших битов в 
 назвать: [Облик и поведение](#облик-и-поведение). Правила, которых держится его `draw`, описаны в рецепте
 [Свой облик](cookbook.md#свой-облик).
 
-`DGX_UI_PAPER`, 0xff, на месте бумаги в параметрах облика означает цвет под виджетом.
+`DGX_UI_PAPER`, 0xff, объявлен в `dgx_ui.h`; на месте бумаги в параметрах облика он означает цвет под виджетом, а в
+`fill` облика — что под детьми остаётся то, что там лежало.
 
 Биты, которые он показывает, облик берёт из `dgx_ui_bits_shown(ui, n)`, а не из `n->state.bits`: под модальным окном
 фокус не показывается. Так делают все облики библиотеки.
@@ -1040,7 +1045,7 @@ RGB565 растягивается повтором старших битов в 
 ### Функции рисования
 
 У рисования каждого облика библиотеки есть своё имя, поэтому облик в собственных цветах программы — константа:
-`static const dgx_ui_look_t mine = {.draw = dgx_ui_draw_button, .params = &my_colours, .fill = -1};`. У всех
+`static const dgx_ui_look_t mine = {.draw = dgx_ui_draw_button, .params = &my_colours, .fill = DGX_UI_PAPER};`. У всех
 сигнатура `dgx_ui_look_t::draw`, и каждая принимает параметры типа своего облика.
 
 | Функция | Какой облик рисует | Параметры |
@@ -1271,7 +1276,7 @@ typedef struct dgx_ui_scroll_look_t {
 ```c
 /* a switch for a display with no keys: the library's colours, and no mark of the focus */
 static const dgx_ui_switch_look_t touch_switch      = {.track = 2, .fill = 3, .knob = 1, .focused = DGX_UI_PAPER, .disabled = 2};
-static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switch, .params = &touch_switch, .fill = -1};
+static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switch, .params = &touch_switch, .fill = DGX_UI_PAPER};
 ```
 
 Кнопка и выпадающий список, у которых `focused` — цвет лицевой стороны, тоже его не показывают: рамку на лицевой
@@ -1375,7 +1380,7 @@ typedef struct dgx_ui_dropdown_t {
 } dgx_ui_dropdown_t;
 ```
 
-Всплывающее окно списка, в ОЗУ программы: 284 байта<!-- sizeof dgx_ui_dropdown_t --> на 32-битном чипе, обнулённые перед первым открытием, как любая
+Всплывающее окно списка, в ОЗУ программы: 288 байт<!-- sizeof dgx_ui_dropdown_t --> на 32-битном чипе, обнулённые перед первым открытием, как любая
 `static`-переменная. Открыт бывает только один список, поэтому одной структуры хватает на все выпадающие списки
 программы.
 

@@ -633,7 +633,7 @@ static int fan_add(dgx_ui_t *ui, int parent)
   program is not given that key while the list is open.
 - **A finger moved along the list** takes the bar with it and, let go, chooses nothing: the list stays open, and a
   tap chooses.
-- **`dgx_ui_dropdown_t`** is the popup of the list, 284 bytes<!-- sizeof dgx_ui_dropdown_t --> of the program's RAM on a 32-bit chip, zeroed before
+- **`dgx_ui_dropdown_t`** is the popup of the list, 288 bytes<!-- sizeof dgx_ui_dropdown_t --> of the program's RAM on a 32-bit chip, zeroed before
   its first use as a `static` is. One list is open at a time, so one serves every dropdown.
 - **The looks** of the popup are the last two arguments, its frame and its list; `NULL` is the library's.
 - **The tree knows its screen before the first list opens**: the list is placed on the screen the tree was laid
@@ -724,7 +724,7 @@ static int32_t charge_percent; /* written by whoever reads the battery, as any v
 /* below 20 in one colour, below 50 in another, from there up in `fill`; filled from the left */
 static const dgx_ui_band_t       charge_bands[] = {{20, ACCENT_DOWN}, {50, BORDER}};
 static const dgx_ui_level_look_t charge_colors  = {.fill = ACCENT, .track = FILL, .from = DGX_UI_FROM_LEFT, .band_count = 2, .bands = charge_bands};
-static const dgx_ui_look_t       look_charge    = {.draw = dgx_ui_draw_level, .params = &charge_colors, .fill = -1};
+static const dgx_ui_look_t       look_charge    = {.draw = dgx_ui_draw_level, .params = &charge_colors, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t     charge_w       = {.kind = DGX_UI_OWN, .max = 100, .want_h = 6, .value = &charge_percent, .look = &look_charge};
 
 /* a tank filled from the bottom: 0 to 200 litres in a box 12 points wide and 40 high; what stands above 160 litres
@@ -733,7 +733,7 @@ static int32_t                   tank_litres;
 static const dgx_ui_band_t       tank_bands[] = {{160, ACCENT}};
 static const dgx_ui_level_look_t tank_colors  = {.fill = ACCENT_DOWN, .track = FILL, .from = DGX_UI_FROM_BOTTOM, .band_count = 1,
                                                  .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = tank_bands};
-static const dgx_ui_look_t       look_tank   = {.draw = dgx_ui_draw_level, .params = &tank_colors, .fill = -1};
+static const dgx_ui_look_t       look_tank   = {.draw = dgx_ui_draw_level, .params = &tank_colors, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, .want_w = 12, .want_h = 40, .value = &tank_litres, .look = &look_tank};
 ```
 
@@ -851,7 +851,7 @@ static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int wha
   across and down: a point of face and the point of the frame on each side, and one for a shadow. For a finger give
   it a size: the picture stays in the middle of the face, and one larger than the face is cut by it.
 - **The colours** are the button's, a `dgx_ui_button_look_t`; its `text` is the picture's ink. A look of your own is
-  `{.draw = dgx_ui_draw_picture_button, .params = &my_colours, .fill = -1}`.
+  `{.draw = dgx_ui_draw_picture_button, .params = &my_colours, .fill = DGX_UI_PAPER}`.
 - **Other pictures.** One of 4 or 8 bits or of RGB565 is not drawn, and the log says so once: the face is plain. A
   text beside the picture is not drawn either.
 - **What it costs**: about 0.8 KB more in a program that has buttons with a text and pictures; 2.8 KB in one
@@ -1452,7 +1452,7 @@ static const dgx_ui_button_look_t blue_button = {
     .focused = INK, /* the frame round the face while the button has the focus */
     .ink = INK, .ink_disabled = DIM, .shadow = SHADOW, .depth = 1};
 /* the library's drawing of a button, in these colours */
-static const dgx_ui_look_t look_blue_button = {.draw = dgx_ui_draw_button, .params = &blue_button, .fill = -1};
+static const dgx_ui_look_t look_blue_button = {.draw = dgx_ui_draw_button, .params = &blue_button, .fill = DGX_UI_PAPER};
 
 static const dgx_ui_widget_t ok_w = {.kind = DGX_UI_BUTTON, .want_w = 60, .want_h = 18, .look = &look_blue_button};
 ```
@@ -1773,7 +1773,7 @@ static void air_message(const dgx_ui_msg_t *msg)
 - **Look at `what`.** A root's `on_event()` that took every call for `DGX_UI_EVENT_BACK` now saves or closes at
   `DGX_UI_EVENT_SHOWN`.
 - **It is not `dgx_ui_show()`**: hiding and showing a widget tells nobody.
-- **What it costs**: about 0.65 KB in a program that opens popups, nothing in one that opens none; a tree is 104
+- **What it costs**: about 0.65 KB in a program that opens popups, nothing in one that opens none; a tree is 100
   bytes<!-- sizeof dgx_ui_t -->.
 
 ## Pages that slide
@@ -1951,7 +1951,7 @@ Whoever reads the buttons sends which are held now, as bits of a game pad; the l
 ```c
 enum { MSG_BUTTONS = 13 };
 typedef struct {
-    uint32_t held; /* DGX_UI_PAD_* */
+    uint32_t held; /* DGX_UI_GAMEPAD_* */
 } buttons_t;
 DGX_UI_MESSAGE(buttons, MSG_BUTTONS, buttons_t)
 
@@ -2013,7 +2013,7 @@ static void dialog_keys(dgx_ui_t *ui, bool buttons_in_a_row)
 }
 ```
 
-- The table has 8 entries, one for each button, in the order of the bits `DGX_UI_PAD_*`: LEFT, RIGHT, UP, DOWN, A,
+- The table has 8 entries, one for each button, in the order of the bits `DGX_UI_GAMEPAD_*`: LEFT, RIGHT, UP, DOWN, A,
   START, BACK, B.
 - An entry is a `DGX_UI_KEY_*`, or 0xff: the button gives no key and stays the program's.
 - The tree keeps the pointer and copies nothing: give a constant.
@@ -2310,7 +2310,7 @@ extern const size_t  keypad_size;
 
 /* a secret field: a star for each letter; the text box keeps the letters */
 static const dgx_ui_input_look_t pin_colors = {.ink = INK, .caret = INK, .paper = DGX_UI_PAPER, .secret = true};
-static const dgx_ui_look_t       look_pin   = {.draw = dgx_ui_draw_input, .params = &pin_colors, .fill = -1};
+static const dgx_ui_look_t       look_pin   = {.draw = dgx_ui_draw_input, .params = &pin_colors, .fill = DGX_UI_PAPER};
 
 static void strip_on(dgx_ui_t *strip, int i, const dgx_ui_node_t *node, int what, void *ctx);
 
@@ -2525,7 +2525,7 @@ What to know of it:
 - **The letters of the fonts**: a font made at build time for the texts of a file takes the strings of a JSON file
   as well, so the description itself can be named in the need's `TEXTS`.
 - **What it costs**: about 8 KB of code in a program that loads a description, and in RAM what
-  `dgx_ui_load_need()` says: here 56 bytes<!-- sizeof dgx_ui_widget_t --> a widget, its node as for any widget, a text box and the text for each
+  `dgx_ui_load_need()` says: here 60 bytes<!-- sizeof dgx_ui_widget_t --> a widget, its node as for any widget, a text box and the text for each
   that has one. A constant tree lies in flash; a described one in RAM.
 
 ## A description made C when the program is built
@@ -2639,7 +2639,7 @@ What to know of it:
   [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
-  one that loads it. The widgets are constants in flash, 56 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,
+  one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,
   the text boxes and the buffers of the texts the program writes.
 - **The made files are not to be edited**: they are written again whenever the description or the names file
   changes.
@@ -2817,7 +2817,7 @@ static bool level_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 }
 
 static const level_look_t    level_colors = {.fill = ACCENT, .track = FILL};
-static const dgx_ui_look_t   level_look   = {.draw = level_draw, .params = &level_colors, .fill = -1};
+static const dgx_ui_look_t   level_look   = {.draw = level_draw, .params = &level_colors, .fill = DGX_UI_PAPER};
 static int32_t               level_percent; /* what the bar shows */
 static const dgx_ui_widget_t level_w      = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level_percent, .look = &level_look};
 ```
@@ -2919,7 +2919,7 @@ static bool xy_key(dgx_ui_t *ui, int i, int key)
 }
 
 static const dgx_ui_behavior_t xy_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .down = xy_at, .move = xy_move, .key = xy_key};
-static const dgx_ui_look_t     xy_look     = {.draw = xy_draw, .fill = -1, .behavior = &xy_behavior};
+static const dgx_ui_look_t     xy_look     = {.draw = xy_draw, .fill = DGX_UI_PAPER, .behavior = &xy_behavior};
 
 static xy_data_t xy_data;
 static int32_t   xy_x; /* the pad's value: where the knob is along x; its y is in xy_data */
@@ -2970,7 +2970,7 @@ A widget of the finger alone, the level bar of the recipe above made to be tappe
 ```c
 /* the level bar of the recipe above, tapped: pressed and clicked, the focus left where it is */
 static const dgx_ui_behavior_t tap_behavior = {0};
-static const dgx_ui_look_t     tap_look     = {.draw = level_draw, .params = &level_colors, .fill = -1, .behavior = &tap_behavior};
+static const dgx_ui_look_t     tap_look     = {.draw = level_draw, .params = &level_colors, .fill = DGX_UI_PAPER, .behavior = &tap_behavior};
 static const dgx_ui_widget_t   tap_w        = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level_percent, .look = &tap_look};
 ```
 
@@ -3009,7 +3009,7 @@ static bool history_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
 }
 
 static int32_t               history_count; /* the graph's value: how many columns it has */
-static const dgx_ui_look_t   history_look = {.draw = history_draw, .fill = -1};
+static const dgx_ui_look_t   history_look = {.draw = history_draw, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t history_w    = {
     .kind = DGX_UI_OWN, .flags = DGX_UI_CANVAS, .max = HISTORY, .want_h = 20, .value = &history_count, .own = history_level, .look = &history_look};
 
@@ -3071,7 +3071,7 @@ static bool trace_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 }
 
 static int32_t               trace_count; /* the graph's value: how many columns it has */
-static const dgx_ui_look_t   trace_look = {.draw = trace_draw, .fill = -1};
+static const dgx_ui_look_t   trace_look = {.draw = trace_draw, .fill = DGX_UI_PAPER};
 static const dgx_ui_widget_t trace_w    = {.kind = DGX_UI_OWN, .max = TRACE, .want_h = 20, .value = &trace_count, .own = trace_level, .look = &trace_look};
 
 /* a new value: one more column; the graph begins again when it is full. Written, and the next pass draws it */
@@ -3113,7 +3113,7 @@ static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID
 static const dgx_ui_ring_look_t ring_params  = {
     .fill = RING_HIGH, .track = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
     .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
-static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = -1};
+static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = DGX_UI_PAPER};
 ```
 
 The widgets. One message of the value feeds both the ring and the number; the two labels at the bottom are those of

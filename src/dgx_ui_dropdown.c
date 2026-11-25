@@ -35,7 +35,7 @@ static void lists_told(dgx_ui_t *ui, const dgx_ui_textbox_t *box)
 {
     for (dgx_ui_t *tree = ui->popup; tree; tree = tree->popup)
         for (int k = 0; k < tree->count; ++k) {
-            dgx_ui_node_t *node = dgx_ui_node(tree, k);
+            dgx_ui_node_t *node = dgx_ui_node_rw(tree, k);
             if (!node || !node->widget || node->widget->kind != DGX_UI_LIST || node->widget->text != box) continue;
             node->marks |= DGX_UI_MARK_CHANGED;
             dgx_ui_touched(tree, k);

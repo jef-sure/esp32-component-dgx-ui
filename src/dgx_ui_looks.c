@@ -119,7 +119,7 @@ bool dgx_ui_draw_box(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t 
     return false;
 }
 
-const dgx_ui_look_t dgx_ui_look_box = {.draw = dgx_ui_draw_box, .fill = -1};
+const dgx_ui_look_t dgx_ui_look_box = {.draw = dgx_ui_draw_box, .fill = DGX_UI_PAPER};
 
 /* ---- a frame: four strips of the border and the fill inside, all around its children (a child laid over the
    border is drawn over it, as when the frame is composed) ---- */

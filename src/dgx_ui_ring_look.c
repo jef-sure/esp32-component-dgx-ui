@@ -364,4 +364,4 @@ bool dgx_ui_draw_ring(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
 }
 
 static const dgx_ui_ring_look_t ring_default = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 3, .start = -135, .sweep = 270, .bands_by = DGX_UI_BANDS_BY_PLACE};
-const dgx_ui_look_t             dgx_ui_look_ring = {.draw = dgx_ui_draw_ring, .params = &ring_default, .fill = -1};
+const dgx_ui_look_t             dgx_ui_look_ring = {.draw = dgx_ui_draw_ring, .params = &ring_default, .fill = DGX_UI_PAPER};

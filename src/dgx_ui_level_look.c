@@ -87,4 +87,4 @@ bool dgx_ui_draw_level(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 }
 
 static const dgx_ui_level_look_t level_default = {.fill = 3, .track = 2, .from = DGX_UI_FROM_LEFT};
-const dgx_ui_look_t              dgx_ui_look_level = {.draw = dgx_ui_draw_level, .params = &level_default, .fill = -1};
+const dgx_ui_look_t              dgx_ui_look_level = {.draw = dgx_ui_draw_level, .params = &level_default, .fill = DGX_UI_PAPER};

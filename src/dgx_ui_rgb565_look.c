@@ -79,4 +79,4 @@ bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 }
 
 static const dgx_ui_picture_look_t rgb565_default = {.ink = 1, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t                dgx_ui_look_rgb565 = {.draw = dgx_ui_draw_rgb565, .params = &rgb565_default, .fill = -1};
+const dgx_ui_look_t                dgx_ui_look_rgb565 = {.draw = dgx_ui_draw_rgb565, .params = &rgb565_default, .fill = DGX_UI_PAPER};

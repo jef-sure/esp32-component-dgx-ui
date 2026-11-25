@@ -60,7 +60,7 @@ static bool asking_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *p, dgx_ui_t *
     dgx_ui_wake_in(p, 30);
     return true;
 }
-static const dgx_ui_look_t asking_look = {.draw = asking_draw, .fill = -1};
+static const dgx_ui_look_t asking_look = {.draw = asking_draw, .fill = DGX_UI_PAPER};
 
 static const dgx_ui_widget_t column_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 static const dgx_ui_widget_t plus_w   = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_w = 30, .want_h = 14, .text = &plus_box, .look = &dgx_ui_look_button, .on_event = on_button, .ctx = (void *)(intptr_t)PLUS};

@@ -16,6 +16,12 @@
    only where something changed, saves in time */
 dgx_ui_node_t *dgx_ui_at(const dgx_ui_t *ui, int i);
 
+/* the node of a number, checked as dgx_ui_node(), for the library to change: the tree is the library's to write */
+static inline dgx_ui_node_t *dgx_ui_node_rw(const dgx_ui_t *ui, int i)
+{
+    return (dgx_ui_node_t *)dgx_ui_node(ui, i);
+}
+
 /* the marks that say a widget itself is to be drawn: any of them, or a state that differs from the state drawn */
 #define DGX_UI_MARKS_TO_DRAW (DGX_UI_MARK_WHOLE | DGX_UI_MARK_AROUND | DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT | DGX_UI_MARK_TIME | DGX_UI_MARK_WINDOW)
 

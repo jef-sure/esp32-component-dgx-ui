@@ -113,7 +113,7 @@ static bool draw_own(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t 
     dgx_ui_lay_paper(paint, 3, n->x + n->w / 2, n->y, n->w - n->w / 2, n->h);
     return false;
 }
-static const dgx_ui_look_t own_look = {.draw = draw_own, .fill = -1};
+static const dgx_ui_look_t own_look = {.draw = draw_own, .fill = DGX_UI_PAPER};
 
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 static const dgx_ui_widget_t frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .want_h = 18};

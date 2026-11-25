@@ -108,8 +108,8 @@ static int pictures(dgx_screen_t *scr, panel_t *panel, size_t buffer_size, int k
 {
     static uint8_t                     buffer[16384];
     static const dgx_ui_picture_look_t paper  = {.ink = 1, .paper = DGX_UI_PAPER};
-    static const dgx_ui_look_t         look8  = {.draw = dgx_ui_draw_indexed, .params = &paper, .fill = -1};
-    static const dgx_ui_look_t         look565 = {.draw = dgx_ui_draw_rgb565, .params = &paper, .fill = -1};
+    static const dgx_ui_look_t         look8  = {.draw = dgx_ui_draw_indexed, .params = &paper, .fill = DGX_UI_PAPER};
+    static const dgx_ui_look_t         look565 = {.draw = dgx_ui_draw_rgb565, .params = &paper, .fill = DGX_UI_PAPER};
     pic8   = (dgx_ui_picture_t){.image = &image8, .scale = (uint8_t)(k > 1 ? k : 0)};
     pic4   = (dgx_ui_picture_t){.image = &image4, .scale = (uint8_t)(k > 1 ? k : 0)};
     pic565 = (dgx_ui_picture_t){.rgb565 = rgb565, .width = W565, .height = H565, .scale = (uint8_t)(k > 1 ? k : 0)};

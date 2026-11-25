@@ -35,7 +35,7 @@ static const dgx_ui_font_variant_t variant[1] = {{.font = &TerminusTTFMedium12}}
 static const dgx_ui_text_style_t   style      = {.fonts = variant, .count = 1};
 static const dgx_ui_scroll_look_t  bar_params = {.track = 3, .knob = 1, .focused = 4, .arrows = 5, .width = 5};
 static const dgx_ui_look_t         filled     = {.draw = dgx_ui_draw_scroll, .params = &bar_params, .fill = 2, .behavior = &dgx_ui_scroll_behavior};
-static const dgx_ui_look_t         clear      = {.draw = dgx_ui_draw_scroll, .params = &bar_params, .fill = -1, .behavior = &dgx_ui_scroll_behavior};
+static const dgx_ui_look_t         clear      = {.draw = dgx_ui_draw_scroll, .params = &bar_params, .fill = DGX_UI_PAPER, .behavior = &dgx_ui_scroll_behavior};
 
 static uint32_t seed = 20261125u;
 static int      rnd(int lo, int hi)

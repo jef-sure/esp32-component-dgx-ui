@@ -21,7 +21,7 @@
 
 /* a field whose caret does not blink (blink_ms 0): its look asks no time, so a pass of nothing changed writes nothing */
 static const dgx_ui_input_look_t steady_params = {.ink = 1, .caret = 1, .paper = DGX_UI_PAPER};
-static const dgx_ui_look_t       steady_input  = {.draw = dgx_ui_draw_input, .params = &steady_params, .fill = -1};
+static const dgx_ui_look_t       steady_input  = {.draw = dgx_ui_draw_input, .params = &steady_params, .fill = DGX_UI_PAPER};
 
 /* a place for the value of a widget made at run time, a new one each time, 0 in it */
 static int32_t  place_pool[256];
@@ -122,7 +122,7 @@ static const dgx_ui_widget_t box_w = {.kind = DGX_UI_BOX, .look = &dgx_ui_look_b
 static void make_ticks(ticks_t *t)
 {
     memset(t, 0, sizeof *t);
-    t->look = (dgx_ui_look_t){.draw = draw_tick, .params = t, .fill = -1};
+    t->look = (dgx_ui_look_t){.draw = draw_tick, .params = t, .fill = DGX_UI_PAPER};
     t->tick = (dgx_ui_widget_t){.kind = DGX_UI_BOX, .value = new_place(), .max = 1000, .want_h = 16, .look = &t->look};
     dgx_ui_init(&t->ui, t->nodes, 2, 1);
     dgx_ui_add(&t->ui, -1, &tick_root_w);

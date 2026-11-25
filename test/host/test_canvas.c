@@ -75,7 +75,7 @@ static bool draw_bars(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     dgx_ui_canvas_put(paint, ui, i, -1);
     return false;
 }
-static const dgx_ui_look_t bars_look = {.draw = draw_bars, .fill = -1};
+static const dgx_ui_look_t bars_look = {.draw = draw_bars, .fill = DGX_UI_PAPER};
 
 /* a soft circle of the ink 1 in the middle of its canvas, drawn when the canvas is made */
 static bool draw_soft(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
@@ -86,7 +86,7 @@ static bool draw_soft(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     dgx_ui_canvas_put(paint, ui, i, 1);
     return false;
 }
-static const dgx_ui_look_t soft_look = {.draw = draw_soft, .fill = -1};
+static const dgx_ui_look_t soft_look = {.draw = draw_soft, .fill = DGX_UI_PAPER};
 
 static void on_canvas(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {

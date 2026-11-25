@@ -172,5 +172,5 @@ bool dgx_ui_draw_checkbox(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
 
 static const dgx_ui_check_look_t check_default = {
     .mark = 1, .focused = 1, .disabled = 2, .sign = 1, .inside = DGX_UI_PAPER, .pressed = 2, .ink = 1, .ink_disabled = 2, .paper = DGX_UI_PAPER};
-const dgx_ui_look_t dgx_ui_look_radio    = {.draw = dgx_ui_draw_radio, .params = &check_default, .fill = -1};
-const dgx_ui_look_t dgx_ui_look_checkbox = {.draw = dgx_ui_draw_checkbox, .params = &check_default, .fill = -1};
+const dgx_ui_look_t dgx_ui_look_radio    = {.draw = dgx_ui_draw_radio, .params = &check_default, .fill = DGX_UI_PAPER};
+const dgx_ui_look_t dgx_ui_look_checkbox = {.draw = dgx_ui_draw_checkbox, .params = &check_default, .fill = DGX_UI_PAPER};

@@ -126,4 +126,4 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
 }
 
 static const dgx_ui_list_look_t list_default = {.ink = 1, .paper = DGX_UI_PAPER, .pick = 3, .pick_ink = 0, .focused = 1, .ink_disabled = 2, .knob = 3};
-const dgx_ui_look_t             dgx_ui_look_list = {.draw = dgx_ui_draw_list, .params = &list_default, .fill = -1};
+const dgx_ui_look_t             dgx_ui_look_list = {.draw = dgx_ui_draw_list, .params = &list_default, .fill = DGX_UI_PAPER};

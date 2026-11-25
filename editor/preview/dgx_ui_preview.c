@@ -602,7 +602,7 @@ static void tree_names(tree_t *tree, const char *text, size_t length)
             looks[k] = (dgx_ui_look_name_t){name, library};
         } else {
             dgx_ui_look_t *own = &tree->own_looks[tree->own_look_count++];
-            *own               = (dgx_ui_look_t){.draw = draw_named, .params = name, .fill = -1};
+            *own               = (dgx_ui_look_t){.draw = draw_named, .params = name, .fill = DGX_UI_PAPER};
             looks[k]           = (dgx_ui_look_name_t){name, own};
             say(&notes, "%slook %s: the program's own, a frame with its name\n", note_lead, name);
         }

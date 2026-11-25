@@ -80,6 +80,7 @@ typedef struct dgx_ui_scroller_t dgx_ui_scroller_t;
 
 /** @brief How a tree is drawn on a screen. Filled by the program; the members after `cover` are the painter's. */
 struct dgx_ui_paint_t {
+    /* the program's: named in its initialiser, in this order */
     dgx_screen_t                    *scr;             ///< where
     const uint32_t                  *colors;          ///< the table: an index of a look to a color of the screen
     uint16_t                         color_count;     ///< its size
@@ -105,7 +106,14 @@ struct dgx_ui_paint_t {
                                                       ///< there; else empty
     int16_t                          ox, oy;          ///< the pixel of the tree's screen at (0, 0) of scr: 0, or a
                                                       ///< buffer's place when composing
-    /* the painter's */
+    /* the program's to read after dgx_ui_paint(), and now_ms its to set before it composes with a paint that never drew */
+    uint32_t                         now_ms;          ///< the time of the last dgx_ui_paint(), given to the looks of a
+                                                      ///< composing (dgx_ui_paint_area(), a popup closed, the drawn
+                                                      ///< background changed); a program that composes with a paint
+                                                      ///< dgx_ui_paint() never draws sets it before
+    uint32_t                         wake_ms;         ///< after dgx_ui_paint(): no sooner than in so many ms from its now_ms a look asks to be called again, the least they named (dgx_ui_wake_in()); 0 the next pass; DGX_UI_WAKE_NONE none asked
+    bool                             painted;         ///< it drew a pass: now_ms and wake_ms are those of its last
+    /* while a look draws: the look reads them, the painter sets them */
     uint8_t                          paper;           ///< while a look draws: the index of the color under the widget,
                                                       ///< its parent's fill or the background
     bool                             on_background;   ///< while a look draws: what lies under the widget is the
@@ -120,6 +128,7 @@ struct dgx_ui_paint_t {
     const dgx_ui_t                  *popup_over;      ///< while a tree is drawn: the popup over it, whose rectangle and
                                                       ///< those of the popups over it are covers after the keyboard's
                                                       ///< band; NULL none
+    /* the painter's: neither read nor written by a program or a look */
     dgx_screen_t                    *rgb565;          ///< the look of RGB565: a virtual screen pointed at each picture,
                                                       ///< made at its first need
     dgx_screen_t                    *indexed;         ///< the look of indexed pictures: an 8-bit virtual screen over
@@ -128,13 +137,7 @@ struct dgx_ui_paint_t {
     dgx_screen_t                    *strip;           ///< the strips: a virtual screen of the display's depth over the
                                                       ///< buffer, made at its first need
     size_t                           buffer_used;     ///< while a strip is drawn: its bytes at the start of the buffer
-    uint32_t                         now_ms;          ///< the time of the last dgx_ui_paint(), given to the looks of a
-                                                      ///< composing (dgx_ui_paint_area(), a popup closed, the drawn
-                                                      ///< background changed); a program that composes with a paint
-                                                      ///< dgx_ui_paint() never draws sets it before
-    uint32_t                         wake_ms;         ///< after dgx_ui_paint(): no sooner than in so many ms from its now_ms a look asks to be called again, the least they named (dgx_ui_wake_in()); 0 the next pass; DGX_UI_WAKE_NONE none asked
     bool                             wake_named;      ///< while a look draws: it named its moment
-    bool                             painted;         ///< it drew a pass: now_ms and wake_ms are those of its last
     dgx_ui_canvases_t               *canvases;        ///< the canvases this paint made (dgx_ui_canvas()) for the tree
                                                       ///< it draws and the popups over it, freed by
                                                       ///< dgx_ui_paint_free(); NULL none
@@ -260,8 +263,6 @@ typedef struct dgx_ui_text_look_t {
     uint8_t paper; ///< index under them; DGX_UI_PAPER: what lies under the widget
 } dgx_ui_text_look_t;
 
-/** The paper of a look that is not its own: the color under the widget. */
-enum { DGX_UI_PAPER = 0xff };
 
 /** The looks a widget of each kind has when its look is NULL: indices 0 the paper, 1 the ink, 2 a fill, 3 a border. */
 extern const dgx_ui_look_t dgx_ui_look_box, dgx_ui_look_frame, dgx_ui_look_text;
@@ -562,7 +563,7 @@ extern const dgx_ui_look_t dgx_ui_look_hand_lines;
 
 /**
  * @brief The draw functions of the looks above, for a look of the program's own colours as a constant:
- * `static const dgx_ui_look_t mine = {.draw = dgx_ui_draw_button, .params = &my_colours, .fill = -1};`. Each takes the
+ * `static const dgx_ui_look_t mine = {.draw = dgx_ui_draw_button, .params = &my_colours, .fill = DGX_UI_PAPER};`. Each takes the
  * parameters of its look's type; one that holds children (a box, a frame) takes dgx_ui_look_t::fill as its fill.
  */
 bool dgx_ui_draw_box(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
