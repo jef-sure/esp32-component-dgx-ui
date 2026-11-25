@@ -1,5 +1,12 @@
 # Changes
 
+## 0.0.64 - 2026-11-25
+
+- A scrolling box: a box of DGX_UI_COLUMN | DGX_UI_SCROLL is a window over a taller column, its offset in pixels in its
+  place, a bar, the finger and keys as DGX-GE's; the rows still seen are moved by the screen where it can, else drawn
+  again; dgx_ui_scroll_to().
+- Docs: the scrolling box in the API page, how it works, and a recipe with its picture.
+
 ## 0.0.63 - 2026-11-25
 
 - Pictures in an appearance: a look's field names a picture of the program's, the "pieces" of "nine" nine of them at

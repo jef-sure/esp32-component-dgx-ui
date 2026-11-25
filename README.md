@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.63: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
+Version 0.0.64: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
 still change. What it has is listed under [What is in it](#what-is-in-it), what it lacks under
 [Not there yet](#not-there-yet).
 
@@ -73,7 +73,7 @@ In `main/idf_component.yml` of the project:
 dependencies:
   dgx-ui:
     git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.63"
+    version: "0.0.64"
 ```
 
 It needs ESP-IDF 5.2 or later and DGX 0.12.3 or a later 0.12; DGX comes by itself, from the registry. Start with
@@ -164,7 +164,7 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
 
 ## Not there yet
 
-- a frame of nine pictures, a box that scrolls what it holds, and a blinking cursor in a field;
+- a blinking cursor in a field;
 - pictures of colours on a display of 18 or 24 bits: the looks of RGB565 and of 4 or 8 bits draw on 16 bits only.
 
 An interface of tables, graphs and long texts is a task for
