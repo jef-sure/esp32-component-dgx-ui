@@ -1,5 +1,11 @@
 # Changes
 
+## 0.0.62 - 2026-11-25
+
+- A look of a frame of nine pictures, dgx_ui_look_nine: corners as they are, edges and middle repeated and cut, each
+  piece at its own scale, every pixel once over the paint's buffer at 16 bits.
+- Docs: the frame of nine pictures in the API page and a recipe with its picture.
+
 ## 0.0.61 - 2026-11-25
 
 - tools/dgx_ui_mcp.py: the builder with an agent beside it over MCP: it sees the page, its panel and the loader's
