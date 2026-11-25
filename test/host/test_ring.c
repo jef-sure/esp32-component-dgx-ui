@@ -140,18 +140,18 @@ static int exact_class(const dgx_ui_node_t *n, const dgx_ui_ring_look_t *p, int 
     if (far < near) return -1; /* the middle */
     if (sweep < 360 && turn > sweep) return 0xff;
     const bool on = range > 0 && (value >= w->max || (value > w->min && turn < value_turn));
-    if (!on) return p->off;
+    if (!on) return p->track;
     if (p->bands_by != DGX_UI_BANDS_BY_PLACE || !p->band_count) {
         for (int k = 0; k < p->band_count; ++k)
             if (value < p->bands[k].below) return p->bands[k].color;
-        return p->on;
+        return p->fill;
     }
     for (int k = 0; k < p->band_count; ++k) {
         if (p->bands[k].below <= w->min) continue;
         if (p->bands[k].below >= w->max) return p->bands[k].color;
         if (turn < floor((double)sweep * 64 * (p->bands[k].below - w->min) / range) / 64) return p->bands[k].color;
     }
-    return p->on;
+    return p->fill;
 }
 
 /* the pixels of the ring's box whose colour is not what the exact geometry says, those it cannot say left out */
@@ -212,19 +212,19 @@ int main(void)
     {
         static const dgx_ui_band_t      bands[] = {{.below = 30, .color = 1}, {.below = 70, .color = 0}};
         static const dgx_ui_ring_look_t looks[] = {
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 3, .start = -135, .sweep = 270, .bands_by = DGX_UI_BANDS_BY_PLACE},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 5, .start = -135, .sweep = 270, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 5, .start = -135, .sweep = 270, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_VALUE, .bands = bands},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 4, .start = 45, .sweep = -200, .bands_by = DGX_UI_BANDS_BY_PLACE},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 0, .sweep = 360, .bands_by = DGX_UI_BANDS_BY_PLACE},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 400, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 40, .start = -90, .sweep = 180, .bands_by = DGX_UI_BANDS_BY_PLACE},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = -15, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 5, .sweep = 10, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 355, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 15, .sweep = -10, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 40, .start = -20, .sweep = 15, .bands_by = DGX_UI_BANDS_BY_PLACE},
-            {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 40, .start = 170, .sweep = -15, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 3, .start = -135, .sweep = 270, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 5, .start = -135, .sweep = 270, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 5, .start = -135, .sweep = 270, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_VALUE, .bands = bands},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 4, .start = 45, .sweep = -200, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 0, .sweep = 360, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 400, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 40, .start = -90, .sweep = 180, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 6, .start = -15, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 5, .sweep = 10, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 355, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 15, .sweep = -10, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 40, .start = -20, .sweep = 15, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 40, .start = 170, .sweep = -15, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
         };
         for (size_t k = 0; k < sizeof looks / sizeof *looks; ++k)
             for (int odd = 0; odd < 2; ++odd) {
@@ -246,7 +246,7 @@ int main(void)
         const int starts[] = {-135, 0, 37, 90, 200}, sweeps[] = {270, -270, 10, -10, 360};
         for (int k = 0; k < 5; ++k)
             for (int j = 0; j < 5; ++j) {
-                const dgx_ui_ring_look_t disc = {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 40, .start = (int16_t)starts[k], .sweep = (int16_t)sweeps[j]};
+                const dgx_ui_ring_look_t disc = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 40, .start = (int16_t)starts[k], .sweep = (int16_t)sweeps[j]};
                 const dgx_ui_look_t      look = {.draw = dgx_ui_draw_ring, .params = &disc, .fill = -1};
                 const dgx_ui_widget_t    ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = 59, .want_h = 59, .look = &look};
                 level                           = 0;
@@ -289,7 +289,7 @@ int main(void)
         const int starts[3] = {0, 45, 90};
         for (int k = 0; k < 3; ++k)
             for (int odd = 0; odd < 2; ++odd) {
-                const dgx_ui_ring_look_t none = {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 8, .start = (int16_t)starts[k], .sweep = 0};
+                const dgx_ui_ring_look_t none = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 8, .start = (int16_t)starts[k], .sweep = 0};
                 const dgx_ui_look_t      look = {.draw = dgx_ui_draw_ring, .params = &none, .fill = -1};
                 const dgx_ui_widget_t ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = (int16_t)(58 + odd), .want_h = (int16_t)(58 + odd), .look = &look};
                 level                        = 100;
@@ -304,7 +304,7 @@ int main(void)
             }
         static dgx_ui_band_t many[20];
         for (int k = 0; k < 20; ++k) many[k] = (dgx_ui_band_t){.below = 5 * (k + 1), .color = (uint8_t)(k % 4)};
-        const dgx_ui_ring_look_t twenty = {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 10, .start = 0, .sweep = 360, .band_count = 20, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = many};
+        const dgx_ui_ring_look_t twenty = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 10, .start = 0, .sweep = 360, .band_count = 20, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = many};
         const dgx_ui_look_t      look   = {.draw = dgx_ui_draw_ring, .params = &twenty, .fill = -1};
         const dgx_ui_widget_t    ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 99, .want_w = 60, .want_h = 60, .look = &look};
         level                           = 99;
@@ -318,7 +318,7 @@ int main(void)
     /* a full circle at max: four quarters of one count, an odd side and an even one, at points of 1, 2 and 3 */
     for (int point = 1; point <= 3; ++point)
         for (int odd = 0; odd < 2; ++odd) {
-            static const dgx_ui_ring_look_t full = {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 4, .start = 0, .sweep = 360};
+            static const dgx_ui_ring_look_t full = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 4, .start = 0, .sweep = 360};
             const dgx_ui_look_t             look = {.draw = dgx_ui_draw_ring, .params = &full, .fill = -1};
             const int                       points = 60 / point + odd; /* a side odd at points of 1 and 3; at 2 it cannot be */
             const dgx_ui_widget_t ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = (int16_t)points, .want_h = (int16_t)points, .look = &look};
@@ -337,7 +337,7 @@ int main(void)
 
     /* a width of 0, a box of one pixel, a box wider than high; max at min and below it; values out of the range */
     {
-        static const dgx_ui_ring_look_t thin = {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 0, .start = -135, .sweep = 270};
+        static const dgx_ui_ring_look_t thin = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 0, .start = -135, .sweep = 270};
         const dgx_ui_look_t             look = {.draw = dgx_ui_draw_ring, .params = &thin, .fill = -1};
         const dgx_ui_widget_t widths[] = {
             {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = 40, .want_h = 40, .look = &look},

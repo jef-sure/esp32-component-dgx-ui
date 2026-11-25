@@ -57,7 +57,7 @@ void dgx_ui_draw_button_face(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, d
     const bool                  pressed = bits & DGX_UI_PRESSED, off = bits & DGX_UI_DISABLED;
     const uint32_t shadow = dgx_ui_color(paint, p->shadow);
     const uint32_t face   = dgx_ui_color(paint, off ? p->disabled : pressed ? p->pressed : p->face);
-    const uint32_t ink    = dgx_ui_color(paint, off ? p->text_disabled : p->text);
+    const uint32_t ink    = dgx_ui_color(paint, off ? p->ink_disabled : p->ink);
     int            d      = p->depth * ui->unit;
     const int      x = n->x, y = n->y, w = n->w, h = n->h;
     if (2 * d > w) d = w / 2;
@@ -90,5 +90,5 @@ bool dgx_ui_draw_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
 }
 
 static const dgx_ui_button_look_t button_default = {
-    .face = 2, .pressed = 3, .focused = 1, .disabled = 0, .text = 1, .text_disabled = 2, .shadow = 0, .depth = 1};
+    .face = 2, .pressed = 3, .focused = 1, .disabled = 0, .ink = 1, .ink_disabled = 2, .shadow = 0, .depth = 1};
 const dgx_ui_look_t dgx_ui_look_button = {.draw = dgx_ui_draw_button, .params = &button_default, .fill = -1};

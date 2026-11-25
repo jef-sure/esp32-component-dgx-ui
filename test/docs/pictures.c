@@ -125,9 +125,9 @@ static const dgx_ui_picture_t signal_pic[4] = {{.image = &signal_im[0]}, {.image
 
 /* looks in the program's own colours: the library's drawing, parameters of its own, constants */
 static const dgx_ui_button_look_t my_button = {
-    .face = ACCENT, .pressed = ACCENT_DOWN, .focused = INK, .disabled = FILL, .text = INK, .text_disabled = DIM, .shadow = SHADOW, .depth = 1};
+    .face = ACCENT, .pressed = ACCENT_DOWN, .focused = INK, .disabled = FILL, .ink = INK, .ink_disabled = DIM, .shadow = SHADOW, .depth = 1};
 static const dgx_ui_slider_look_t my_slider = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = INK, .disabled = DIM, .track_h = 2};
-static const dgx_ui_switch_look_t my_switch = {.off = FILL, .on = ACCENT, .knob = INK, .focused = INK, .disabled = DIM};
+static const dgx_ui_switch_look_t my_switch = {.track = FILL, .fill = ACCENT, .knob = INK, .focused = INK, .disabled = DIM};
 static const dgx_ui_look_t look_button = {.draw = dgx_ui_draw_button, .params = &my_button, .fill = -1};
 static const dgx_ui_look_t look_slider = {.draw = dgx_ui_draw_slider, .params = &my_slider, .fill = -1};
 static const dgx_ui_look_t look_switch = {.draw = dgx_ui_draw_switch, .params = &my_switch, .fill = -1};

@@ -20,7 +20,7 @@
 
 static const char *TAG = "dgx_ui";
 
-const dgx_ui_scroll_look_t dgx_ui_scroll_default = {.track = 3, .knob = 1, .focused = DGX_UI_PAPER, .arrows = 1, .bar = 5};
+const dgx_ui_scroll_look_t dgx_ui_scroll_default = {.track = 3, .knob = 1, .focused = DGX_UI_PAPER, .arrows = 1, .width = 5};
 
 /* ---- the parts of a box ---- */
 
@@ -46,7 +46,7 @@ void dgx_ui_scroll_measure(const dgx_ui_t *ui, int i, dgx_ui_scroll_box_t *b)
     b->content = top <= bottom ? bottom - top + 2 * pad : 0;
     b->offset  = top <= bottom ? n->y + pad - top : 0;
     b->most    = b->content > view ? b->content - view : 0;
-    b->bar     = b->most ? dgx_ui_scroll_params(n)->bar * ui->unit : 0;
+    b->bar     = b->most ? dgx_ui_scroll_params(n)->width * ui->unit : 0;
     if (b->bar > n->w - 2 * pad) b->bar = n->w - 2 * pad > 0 ? n->w - 2 * pad : 0;
     b->bar_x  = n->x + n->w - pad - b->bar;
     b->column = dgx_ui_rect(n->x, b->rows.y, b->bar ? b->bar_x - n->x : n->w, view);
@@ -273,6 +273,6 @@ static bool take(dgx_ui_t *ui, int x, int y)
 
 static const dgx_ui_field_t scroll_fields[] = {DGX_UI_COLOR_FIELD(dgx_ui_scroll_look_t, track), DGX_UI_COLOR_FIELD(dgx_ui_scroll_look_t, knob),
                                                DGX_UI_COLOR_OR_UNDER_FIELD(dgx_ui_scroll_look_t, focused), DGX_UI_COLOR_OR_UNDER_FIELD(dgx_ui_scroll_look_t, arrows),
-                                               DGX_UI_NUMBER_FIELD(dgx_ui_scroll_look_t, bar, 0, 32)};
+                                               DGX_UI_NUMBER_FIELD(dgx_ui_scroll_look_t, width, 0, 32)};
 const dgx_ui_params_t dgx_ui_params_scroll =
     DGX_UI_PARAMS_WITH_BEHAVIOR(dgx_ui_scroll_look_t, 1u << DGX_UI_BOX, scroll_fields, &dgx_ui_scroll_behavior);

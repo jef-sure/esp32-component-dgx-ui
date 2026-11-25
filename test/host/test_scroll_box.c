@@ -33,7 +33,7 @@ enum { WIDTH = 240, HEIGHT = 320, ROWS = 14, VIEW = 200, PAD = 2 };
 static const uint32_t              colors[6] = {0x0000, 0xffff, 0x2945, 0x8410, 0xfd20, 0x07e0};
 static const dgx_ui_font_variant_t variant[1] = {{.font = &TerminusTTFMedium12}};
 static const dgx_ui_text_style_t   style      = {.fonts = variant, .count = 1};
-static const dgx_ui_scroll_look_t  bar_params = {.track = 3, .knob = 1, .focused = 4, .arrows = 5, .bar = 5};
+static const dgx_ui_scroll_look_t  bar_params = {.track = 3, .knob = 1, .focused = 4, .arrows = 5, .width = 5};
 static const dgx_ui_look_t         filled     = {.draw = dgx_ui_draw_scroll, .params = &bar_params, .fill = 2, .behavior = &dgx_ui_scroll_behavior};
 static const dgx_ui_look_t         clear      = {.draw = dgx_ui_draw_scroll, .params = &bar_params, .fill = -1, .behavior = &dgx_ui_scroll_behavior};
 
@@ -150,7 +150,7 @@ static void on_vscreen(void)
     CHECK(wrong == 0 && pads == 0);
     {
         const dgx_ui_node_t *b = dgx_ui_node(&p.ui, p.box);
-        const int            bar = bar_params.bar, ah = (bar + 1) / 2, x = b->x + b->w - PAD - 1, low = b->y + b->h - 1;
+        const int            bar = bar_params.width, ah = (bar + 1) / 2, x = b->x + b->w - PAD - 1, low = b->y + b->h - 1;
         p.offset = 100000;
         dgx_ui_paint(&p.ui, &paint, 9000);
         CHECK(dgx_get_pixel(scr, x, low - ah) == colors[bar_params.knob] && dgx_get_pixel(scr, x, low - ah + 1) != colors[bar_params.knob]);
@@ -185,7 +185,7 @@ static void on_panel(bool lying)
         wrong += d > 0, twice += lcd_twice() > 0;
         if (lcd_vsp != vsp) {
             ++by_panel;
-            const int moved = p.offset > was ? p.offset - was : was - p.offset, bar = bar_params.bar;
+            const int moved = p.offset > was ? p.offset - was : was - p.offset, bar = bar_params.width;
             if (what <= 6 && lcd_pixels > (long)moved * WIDTH + (long)bar * VIEW) ++too_many; /* the rows that came in and the bar */
         }
     }

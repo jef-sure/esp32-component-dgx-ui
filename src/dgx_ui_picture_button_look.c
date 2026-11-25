@@ -75,5 +75,5 @@ bool dgx_ui_draw_picture_button(const dgx_ui_look_t *look, dgx_ui_paint_t *paint
 }
 
 static const dgx_ui_button_look_t picture_button_default = {
-    .face = 2, .pressed = 3, .focused = 1, .disabled = 0, .text = 1, .text_disabled = 2, .shadow = 0, .depth = 1};
+    .face = 2, .pressed = 3, .focused = 1, .disabled = 0, .ink = 1, .ink_disabled = 2, .shadow = 0, .depth = 1};
 const dgx_ui_look_t dgx_ui_look_picture_button = {.draw = dgx_ui_draw_picture_button, .params = &picture_button_default, .fill = -1};

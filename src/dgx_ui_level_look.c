@@ -28,7 +28,7 @@ static uint8_t color_of(const dgx_ui_level_look_t *p, int32_t value)
 {
     for (int k = 0; k < p->band_count; ++k)
         if (value < p->bands[k].below) return p->bands[k].color;
-    return p->bar;
+    return p->fill;
 }
 
 /* a part along the bar, from `a` to `b` pixels from the edge it fills from, laid in a colour or the paper */
@@ -46,7 +46,7 @@ static void lay_filled(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dgx_
         const int end = filled(n->widget, p->bands[k].below, length); /* the band's values end there */
         if (end > at) lay_along(paint, n, p->from, at, end < b ? end : b, p->bands[k].color), at = end;
     }
-    lay_along(paint, n, p->from, at, b, p->bar);
+    lay_along(paint, n, p->from, at, b, p->fill);
 }
 
 static void lay_along(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int from, int a, int b, uint8_t color)
@@ -82,9 +82,9 @@ bool dgx_ui_draw_level(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
         a                     = recolored ? 0 : was_filled < now_filled ? was_filled : now_filled;
     }
     lay_filled(paint, n, p, length, a, b < now_filled ? b : now_filled, bar);
-    lay_along(paint, n, p->from, a > now_filled ? a : now_filled, b, p->rest);
+    lay_along(paint, n, p->from, a > now_filled ? a : now_filled, b, p->track);
     return false;
 }
 
-static const dgx_ui_level_look_t level_default = {.bar = 3, .rest = 2, .from = DGX_UI_FROM_LEFT};
+static const dgx_ui_level_look_t level_default = {.fill = 3, .track = 2, .from = DGX_UI_FROM_LEFT};
 const dgx_ui_look_t              dgx_ui_look_level = {.draw = dgx_ui_draw_level, .params = &level_default, .fill = -1};

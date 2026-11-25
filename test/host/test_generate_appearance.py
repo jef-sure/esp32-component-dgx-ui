@@ -172,7 +172,7 @@ rand = random.Random(4545)
 make("every", chance_appearance(rand, "every", every=True), "-n", names_path)
 make("dialed", '{"dgx-ui": 1, "name": "dialed", "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#101010", "border": "#202020", "x-y": "#303030"},'
                ' "looks": {"dial": {"draw": "dial", "fill": "x-y"}, "big": {"draw": "button", "params": {"face": "fill", "pressed": "ink", "focused": null,'
-               ' "disabled": "paper", "text": "ink", "text_disabled": "border", "shadow": "paper", "depth": 1}}}}', "-n", names_path)
+               ' "disabled": "paper", "ink": "ink", "ink_disabled": "border", "shadow": "paper", "depth": 1}}}}', "-n", names_path)
 for k in range(40):
     make(f"chance{k}", chance_appearance(rand, f"chance{k}"), "-n", names_path)
 # by the rule: no names file; every draw of the library, both hands, the fonts dgx_font_<name>, the program's own

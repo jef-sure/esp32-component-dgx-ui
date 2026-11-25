@@ -23,29 +23,29 @@ static const dgx_ui_field_t frame_fields[]  = {COLOR(dgx_ui_frame_look_t, border
 static const dgx_ui_field_t text_fields[]   = {COLOR(dgx_ui_text_look_t, ink), UNDER(dgx_ui_text_look_t, paper)};
 static const dgx_ui_field_t button_fields[] = {COLOR(dgx_ui_button_look_t, face),     COLOR(dgx_ui_button_look_t, pressed),
                                                UNDER(dgx_ui_button_look_t, focused),  COLOR(dgx_ui_button_look_t, disabled),
-                                               COLOR(dgx_ui_button_look_t, text),     COLOR(dgx_ui_button_look_t, text_disabled),
+                                               COLOR(dgx_ui_button_look_t, ink),     COLOR(dgx_ui_button_look_t, ink_disabled),
                                                COLOR(dgx_ui_button_look_t, shadow),   BYTE(dgx_ui_button_look_t, depth)};
 static const dgx_ui_field_t input_fields[]  = {COLOR(dgx_ui_input_look_t, ink), COLOR(dgx_ui_input_look_t, caret), UNDER(dgx_ui_input_look_t, paper),
                                                DGX_UI_BOOL_FIELD(dgx_ui_input_look_t, secret), BYTE(dgx_ui_input_look_t, blink)};
-static const dgx_ui_field_t switch_fields[] = {COLOR(dgx_ui_switch_look_t, off), COLOR(dgx_ui_switch_look_t, on), COLOR(dgx_ui_switch_look_t, knob),
+static const dgx_ui_field_t switch_fields[] = {COLOR(dgx_ui_switch_look_t, track), COLOR(dgx_ui_switch_look_t, fill), COLOR(dgx_ui_switch_look_t, knob),
                                                UNDER(dgx_ui_switch_look_t, focused), COLOR(dgx_ui_switch_look_t, disabled)};
 static const dgx_ui_field_t slider_fields[] = {COLOR(dgx_ui_slider_look_t, track),   COLOR(dgx_ui_slider_look_t, fill),     COLOR(dgx_ui_slider_look_t, knob),
                                                UNDER(dgx_ui_slider_look_t, focused), COLOR(dgx_ui_slider_look_t, disabled), BYTE(dgx_ui_slider_look_t, track_h)};
 static const dgx_ui_field_t list_fields[]   = {COLOR(dgx_ui_list_look_t, ink),     UNDER(dgx_ui_list_look_t, paper),    COLOR(dgx_ui_list_look_t, pick),
-                                               COLOR(dgx_ui_list_look_t, pick_ink), COLOR(dgx_ui_list_look_t, focused), COLOR(dgx_ui_list_look_t, disabled),
-                                               COLOR(dgx_ui_list_look_t, bar)};
+                                               COLOR(dgx_ui_list_look_t, pick_ink), COLOR(dgx_ui_list_look_t, focused), COLOR(dgx_ui_list_look_t, ink_disabled),
+                                               COLOR(dgx_ui_list_look_t, knob)};
 static const dgx_ui_field_t dropdown_fields[] = {COLOR(dgx_ui_dropdown_look_t, face),     COLOR(dgx_ui_dropdown_look_t, pressed),
                                                  UNDER(dgx_ui_dropdown_look_t, focused),  COLOR(dgx_ui_dropdown_look_t, disabled),
-                                                 COLOR(dgx_ui_dropdown_look_t, text),     COLOR(dgx_ui_dropdown_look_t, text_disabled),
+                                                 COLOR(dgx_ui_dropdown_look_t, ink),     COLOR(dgx_ui_dropdown_look_t, ink_disabled),
                                                  COLOR(dgx_ui_dropdown_look_t, arrow)};
 static const dgx_ui_field_t picture_fields[] = {COLOR(dgx_ui_picture_look_t, ink), UNDER(dgx_ui_picture_look_t, paper)};
 static const dgx_ui_field_t check_fields[]   = {COLOR(dgx_ui_check_look_t, mark),   UNDER(dgx_ui_check_look_t, focused), COLOR(dgx_ui_check_look_t, disabled),
                                                 COLOR(dgx_ui_check_look_t, sign),   UNDER(dgx_ui_check_look_t, inside),  UNDER(dgx_ui_check_look_t, pressed),
                                                 COLOR(dgx_ui_check_look_t, ink),    COLOR(dgx_ui_check_look_t, ink_disabled), UNDER(dgx_ui_check_look_t, paper)};
-static const dgx_ui_field_t level_fields[]   = {COLOR(dgx_ui_level_look_t, bar), UNDER(dgx_ui_level_look_t, rest), DGX_UI_WORD_FIELD(dgx_ui_level_look_t, from, sides),
+static const dgx_ui_field_t level_fields[]   = {COLOR(dgx_ui_level_look_t, fill), UNDER(dgx_ui_level_look_t, track), DGX_UI_WORD_FIELD(dgx_ui_level_look_t, from, sides),
                                                 DGX_UI_WORD_FIELD(dgx_ui_level_look_t, bands_by, bands_by), DGX_UI_BANDS_FIELD(dgx_ui_level_look_t, bands, band_count)};
-static const dgx_ui_field_t ring_fields[]    = {COLOR(dgx_ui_ring_look_t, on),
-                                                COLOR(dgx_ui_ring_look_t, off),
+static const dgx_ui_field_t ring_fields[]    = {COLOR(dgx_ui_ring_look_t, fill),
+                                                COLOR(dgx_ui_ring_look_t, track),
                                                 UNDER(dgx_ui_ring_look_t, paper),
                                                 BYTE(dgx_ui_ring_look_t, width),
                                                 DGX_UI_NUMBER_FIELD(dgx_ui_ring_look_t, start, -360, 360),

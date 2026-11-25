@@ -354,7 +354,7 @@ int main(void)
     static const char look[] = "{\"dgx-ui\": 1, \"name\": \"day\", \"colors\": {\"paper\": \"#c4e8fc\", \"ink\": \"#ffffff\", \"fill\": \"#204060\", "
                                "\"border\": \"#808080\", \"accent\": \"#f0a03c\"}, \"styles\": {\"body\": {\"fonts\": [\"small\"]}}, "
                                "\"looks\": {\"big\": {\"draw\": \"button\", \"params\": {\"face\": \"accent\", \"pressed\": \"ink\", "
-                               "\"focused\": null, \"disabled\": \"border\", \"text\": \"paper\", \"text_disabled\": \"border\", "
+                               "\"focused\": null, \"disabled\": \"border\", \"ink\": \"paper\", \"ink_disabled\": \"border\", "
                                "\"shadow\": \"paper\", \"depth\": 1}}}}";
     static const char themed[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 4, \"children\": ["
                                  "{\"kind\": \"label\", \"text\": \"Day\"}, "

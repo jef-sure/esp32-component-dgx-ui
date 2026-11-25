@@ -93,8 +93,8 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     const int      scale = dgx_ui_variant_scale(&box->style->fonts[0], ui->unit); /* the pixels a pixel of the font takes */
     const bool     focused = dgx_ui_bits_shown(ui, n) & DGX_UI_FOCUSED, off = n->state.bits & DGX_UI_DISABLED;
     const uint8_t  bar = focused ? p->focused : p->pick;
-    const uint32_t ink = dgx_ui_color(paint, off ? p->disabled : p->ink);
-    const uint32_t bar_ink = dgx_ui_color(paint, off ? p->disabled : p->pick_ink);
+    const uint32_t ink = dgx_ui_color(paint, off ? p->ink_disabled : p->ink);
+    const uint32_t bar_ink = dgx_ui_color(paint, off ? p->ink_disabled : p->pick_ink);
     /* the window brought to the pick, its value set or its height changed (DGX_UI_MARK_WINDOW); stored, as what a look
        remembers, by the last part of the painter's own pass, the parts before it finding the same */
     const int pick = dgx_ui_row_of(w, dgx_ui_value_of(n)), drawn = dgx_ui_row_of(w, n->state_drawn.value); /* -1: no row */
@@ -119,11 +119,11 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         if (th < 1) th = 1;
         if (ty + th > n->y + n->h) th = n->y + n->h - ty;
         dgx_ui_lay_paper(paint, p->paper, bx, n->y, bw, ty - n->y);
-        dgx_fill_rectangle(paint->scr, bx - paint->ox, ty - paint->oy, bw, th, dgx_ui_color(paint, p->bar));
+        dgx_fill_rectangle(paint->scr, bx - paint->ox, ty - paint->oy, bw, th, dgx_ui_color(paint, p->knob));
         dgx_ui_lay_paper(paint, p->paper, bx, ty + th, bw, n->y + n->h - ty - th);
     }
     return false;
 }
 
-static const dgx_ui_list_look_t list_default = {.ink = 1, .paper = DGX_UI_PAPER, .pick = 3, .pick_ink = 0, .focused = 1, .disabled = 2, .bar = 3};
+static const dgx_ui_list_look_t list_default = {.ink = 1, .paper = DGX_UI_PAPER, .pick = 3, .pick_ink = 0, .focused = 1, .ink_disabled = 2, .knob = 3};
 const dgx_ui_look_t             dgx_ui_look_list = {.draw = dgx_ui_draw_list, .params = &list_default, .fill = -1};

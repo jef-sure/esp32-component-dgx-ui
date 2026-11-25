@@ -69,10 +69,10 @@ static dgx_screen_t *draw_tree(dgx_ui_t *ui, const uint32_t *colors, int count)
 
 static const uint32_t             made_rgb[]         = {0x12161e, 0xe8e8de, 0x2c3c56, 0x44556a, 0xf0a03c, 0xff4000};
 static const char *const          made_color_names[] = {"paper", "ink", "fill", "border", "accent", "warn"};
-static const dgx_ui_button_look_t made_params_0      = {.face = 2, .pressed = 4, .focused = DGX_UI_PAPER, .disabled = 0, .text = 1, .text_disabled = 3, .shadow = 0, .depth = 2};
+static const dgx_ui_button_look_t made_params_0      = {.face = 2, .pressed = 4, .focused = DGX_UI_PAPER, .disabled = 0, .ink = 1, .ink_disabled = 3, .shadow = 0, .depth = 2};
 static const dgx_ui_slider_look_t made_params_1      = {.track = 3, .fill = 4, .knob = 1, .focused = 1, .disabled = 3, .track_h = 3};
 static const dgx_ui_band_t        made_bands_2[]     = {{.below = 20, .color = 5}, {.below = 80, .color = 1}};
-static const dgx_ui_level_look_t  made_params_2      = {.bar = 4, .rest = DGX_UI_PAPER, .from = DGX_UI_FROM_BOTTOM, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = made_bands_2};
+static const dgx_ui_level_look_t  made_params_2      = {.fill = 4, .track = DGX_UI_PAPER, .from = DGX_UI_FROM_BOTTOM, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = made_bands_2};
 static const dgx_ui_frame_look_t  made_params_3      = {.border = 4, .width = 2};
 static const dgx_ui_look_t        made_look[4]       = {{.draw = dgx_ui_draw_button, .params = &made_params_0, .fill = -1},
                                                         {.draw = dgx_ui_draw_slider, .params = &made_params_1, .fill = -1},
@@ -254,9 +254,9 @@ int main(void)
     /* an appearance: the fixed colours among the others, a look of four draws, a style of two variants */
     static const char day[] =
         "{\"looks\": {"
-        "\"big\": {\"params\": {\"face\": \"fill\", \"pressed\": \"accent\", \"focused\": null, \"disabled\": \"paper\", \"text\": \"ink\", \"text_disabled\": \"border\", \"shadow\": \"paper\", \"depth\": 2}, \"draw\": \"button\"},"
+        "\"big\": {\"params\": {\"face\": \"fill\", \"pressed\": \"accent\", \"focused\": null, \"disabled\": \"paper\", \"ink\": \"ink\", \"ink_disabled\": \"border\", \"shadow\": \"paper\", \"depth\": 2}, \"draw\": \"button\"},"
         "\"slider\": {\"draw\": \"slider\", \"fill\": null, \"params\": {\"track\": \"border\", \"fill\": \"accent\", \"knob\": \"ink\", \"focused\": \"ink\", \"disabled\": \"border\", \"track_h\": 3}},"
-        "\"tank\": {\"draw\": \"level\", \"params\": {\"bar\": \"accent\", \"rest\": null, \"from\": \"bottom\", \"bands_by\": \"place\", \"bands\": [[20, \"warn\"], [80, \"ink\"]]}},"
+        "\"tank\": {\"draw\": \"level\", \"params\": {\"fill\": \"accent\", \"track\": null, \"from\": \"bottom\", \"bands_by\": \"place\", \"bands\": [[20, \"warn\"], [80, \"ink\"]]}},"
         "\"pane\": {\"draw\": \"frame\", \"fill\": \"fill\", \"params\": {\"border\": \"accent\", \"width\": 2}}},"
         "\"name\": \"day\", \"editor\": {\"zoom\": 1.5},"
         "\"colors\": {\"ink\": \"#e8e8de\", \"accent\": \"#f0a03c\", \"paper\": \"#12161e\", \"fill\": \"#2c3c56\", \"warn\": \"#ff4000\", \"border\": \"#44556a\"},"
@@ -274,13 +274,13 @@ int main(void)
     static const uint32_t    expect[6] = {0x12161e, 0xe8e8de, 0x2c3c56, 0x44556a, 0xf0a03c, 0xff4000};
     for (int k = 0; k < 6; ++k) CHECK(strcmp(appearance.color_names[k], order[k]) == 0 && appearance.rgb[k] == expect[k] && dgx_ui_appearance_color(&appearance, order[k]) == k);
     CHECK(dgx_ui_appearance_color(&appearance, "red") == -1);
-    const dgx_ui_button_look_t big = {.face = 2, .pressed = 4, .focused = DGX_UI_PAPER, .disabled = 0, .text = 1, .text_disabled = 3, .shadow = 0, .depth = 2};
+    const dgx_ui_button_look_t big = {.face = 2, .pressed = 4, .focused = DGX_UI_PAPER, .disabled = 0, .ink = 1, .ink_disabled = 3, .shadow = 0, .depth = 2};
     CHECK(strcmp(appearance.looks[0].name, "big") == 0 && appearance.looks[0].look->draw == dgx_ui_draw_button && appearance.looks[0].look->fill == -1 &&
           memcmp(appearance.looks[0].look->params, &big, sizeof big) == 0);
     const dgx_ui_slider_look_t slider = {.track = 3, .fill = 4, .knob = 1, .focused = 1, .disabled = 3, .track_h = 3};
     CHECK(strcmp(appearance.looks[1].name, "slider") == 0 && memcmp(appearance.looks[1].look->params, &slider, sizeof slider) == 0);
     const dgx_ui_level_look_t *tank = appearance.looks[2].look->params;
-    CHECK(tank->bar == 4 && tank->rest == DGX_UI_PAPER && tank->from == DGX_UI_FROM_BOTTOM && tank->bands_by == DGX_UI_BANDS_BY_PLACE && tank->band_count == 2 &&
+    CHECK(tank->fill == 4 && tank->track == DGX_UI_PAPER && tank->from == DGX_UI_FROM_BOTTOM && tank->bands_by == DGX_UI_BANDS_BY_PLACE && tank->band_count == 2 &&
           tank->bands[0].below == 20 && tank->bands[0].color == 5 && tank->bands[1].below == 80 && tank->bands[1].color == 1);
     const dgx_ui_frame_look_t *pane = appearance.looks[3].look->params;
     CHECK(appearance.looks[3].look->fill == 2 && pane->border == 4 && pane->width == 2 && appearance.looks[3].look->draw == dgx_ui_draw_frame);
@@ -408,8 +408,8 @@ int main(void)
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"frame\", \"params\": {\"border\": \"ink\", \"colour\": 1}}}}", DGX_UI_LOAD_KEY, 165, "colour"));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"frame\", \"draw\": \"frame\"}}}", DGX_UI_LOAD_KEY, 137, "draw"));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"frame\", \"face\": \"ink\"}}}", DGX_UI_LOAD_KEY, 137, "face"));
-    CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"level\", \"params\": {\"bar\": \"ink\", \"rest\": null, \"from\": \"up\"}}}}", DGX_UI_LOAD_UNKNOWN, 184, "up"));
-    CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"level\", \"params\": {\"bar\": \"ink\", \"rest\": null, \"bands\": [[1, \"red\"]]}}}}", DGX_UI_LOAD_UNKNOWN, 190, "red"));
+    CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"level\", \"params\": {\"fill\": \"ink\", \"track\": null, \"from\": \"up\"}}}}", DGX_UI_LOAD_UNKNOWN, 186, "up"));
+    CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"level\", \"params\": {\"fill\": \"ink\", \"track\": null, \"bands\": [[1, \"red\"]]}}}}", DGX_UI_LOAD_UNKNOWN, 192, "red"));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [\"big\"]}}}", DGX_UI_LOAD_UNKNOWN, 131, "big"));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"align\": \"left\"}}}", DGX_UI_LOAD_MISSING, 120, "fonts"));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": []}}}", DGX_UI_LOAD_RANGE, 130, "fonts"));

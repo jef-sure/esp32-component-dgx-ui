@@ -349,7 +349,7 @@ function devtools(url) {
         await sleep(50);
         await evaluate(`[...document.querySelectorAll('.dgx-ui-builder .appearance .add')].find((one) => one.querySelector('select')).querySelector('button').click()`);
         await until(`JSON.stringify([...document.querySelectorAll('.dgx-ui-builder .appearance .form .field .key')].map((one) => one.textContent.trim())) ===
-                     JSON.stringify(['name', 'draw', 'fill', 'params', 'off', 'on', 'knob', 'focused', 'disabled'])`, 'a look of a switch: its fields as the docs list them');
+                     JSON.stringify(['name', 'draw', 'fill', 'params', 'track', 'fill', 'knob', 'focused', 'disabled'])`, 'a look of a switch: its fields as the docs list them');
         check(await evaluate(`${store}.verdicts.appearance.code === 0 && JSON.parse(${store}.files['main/look.json'].text).looks.toggle.draw === 'switch'`),
               'taken, written');
 

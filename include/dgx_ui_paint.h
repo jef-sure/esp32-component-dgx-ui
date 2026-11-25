@@ -287,7 +287,7 @@ extern const dgx_ui_look_t dgx_ui_look_box, dgx_ui_look_frame, dgx_ui_look_text;
 /** Parameters of a button: a face over a shadow; pressed, the face moves onto the shadow. Indices of the table. */
 typedef struct dgx_ui_button_look_t {
     uint8_t face, pressed, focused, disabled; ///< the face, the face pressed, the frame of the focus (DGX_UI_PAPER: none shown), the face disabled
-    uint8_t text, text_disabled;              ///< the text, the variant 0 of its style, in the middle of the face
+    uint8_t ink, ink_disabled;                ///< the text, the variant 0 of its style, in the middle of the face
     uint8_t shadow;                           ///< under the face, right and below
     uint8_t depth;                            ///< of the shadow, in points of the style; 0: a flat button
 } dgx_ui_button_look_t;
@@ -295,8 +295,8 @@ typedef struct dgx_ui_button_look_t {
 /** Parameters of a switch: a track with a knob at its left end (0) or its right end (1), a point wider toward the
  * middle while a finger is on it. */
 typedef struct dgx_ui_switch_look_t {
-    uint8_t off, on, knob, focused; ///< the track off and on, the knob, the knob's border with the focus (the knob hollow then; DGX_UI_PAPER: none shown)
-    uint8_t disabled;               ///< the knob when disabled
+    uint8_t track, fill, knob, focused; ///< the track off and filled on, the knob, the knob's border with the focus (the knob hollow then; DGX_UI_PAPER: none shown)
+    uint8_t disabled;                   ///< the knob when disabled
 } dgx_ui_switch_look_t;
 
 /** Parameters of a slider: a track in the middle of its height, the part up to the knob filled, a knob of 3 points,
@@ -336,7 +336,7 @@ typedef struct dgx_ui_scroll_look_t {
     uint8_t track, knob; ///< the track, the knob: indices of the table
     uint8_t focused;     ///< the knob while the box has the focus (a box of no child that takes it); DGX_UI_PAPER: as the knob
     uint8_t arrows;      ///< the arrows on the track; DGX_UI_PAPER: none
-    uint8_t bar;         ///< the bar's width in points; 0: none drawn, the children as wide as the inside
+    uint8_t width;       ///< the bar's width in points; 0: none drawn, the children as wide as the inside
 } dgx_ui_scroll_look_t;
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
@@ -367,16 +367,16 @@ typedef struct dgx_ui_list_look_t {
     uint8_t ink, paper;     ///< a row's text and paper; paper DGX_UI_PAPER: what lies under the widget
     uint8_t pick, pick_ink; ///< the bar of the row picked and its text
     uint8_t focused;        ///< the bar while the list has the focus, its focus: a list has no frame
-    uint8_t disabled;       ///< the text of every row while the list is disabled
-    uint8_t bar;            ///< a list that scrolls: the bar on its right edge, two points wide, its length the share of
+    uint8_t ink_disabled;   ///< the text of every row while the list is disabled
+    uint8_t knob;           ///< a list that scrolls: the knob on its right edge, two points wide, its length the share of
                             ///< the rows shown and its place theirs
 } dgx_ui_list_look_t;
 
 /** Parameters of a dropdown: a flat face with the option chosen and an arrow pointing down. */
 typedef struct dgx_ui_dropdown_look_t {
     uint8_t face, pressed, focused, disabled; ///< the face, the face pressed, the frame of the focus (DGX_UI_PAPER: none shown), the face disabled
-    uint8_t text, text_disabled;              ///< the option chosen
-    uint8_t arrow;                            ///< the arrow; when disabled, text_disabled
+    uint8_t ink, ink_disabled;                ///< the option chosen
+    uint8_t arrow;                            ///< the arrow; when disabled, ink_disabled
 } dgx_ui_dropdown_look_t;
 
 /**
@@ -416,14 +416,14 @@ enum { DGX_UI_FROM_LEFT, DGX_UI_FROM_BOTTOM, DGX_UI_FROM_RIGHT, DGX_UI_FROM_TOP 
 
 /**
  * Parameters of a level bar: the value of the widget's place, within min..max, as the filled part of its box from one
- * edge; max not above min shows it empty. The filled part's colour is `bar`, or from `bands`, by the value shown or by
+ * edge; max not above min shows it empty. The filled part's colour is `fill`, or from `bands`, by the value shown or by
  * place (`bands_by`).
  */
 typedef struct dgx_ui_level_look_t {
-    uint8_t              bar;        ///< the filled part; with bands, a value past the last of them
-    uint8_t              rest;       ///< the rest of the box; DGX_UI_PAPER: what lies under the widget
+    uint8_t              fill;       ///< the filled part; with bands, a value past the last of them
+    uint8_t              track;      ///< the rest of the box; DGX_UI_PAPER: what lies under the widget
     uint8_t              from;       ///< DGX_UI_FROM_LEFT, _BOTTOM, _RIGHT, _TOP
-    uint8_t              band_count; ///< bands; 0: `bar` alone
+    uint8_t              band_count; ///< bands; 0: `fill` alone
     uint8_t              bands_by;   ///< DGX_UI_BANDS_BY_VALUE (0), DGX_UI_BANDS_BY_PLACE
     const dgx_ui_band_t *bands;      ///< the filled part's colours, the lowest band first; may lie in flash
 } dgx_ui_level_look_t;
@@ -448,14 +448,14 @@ extern const dgx_ui_look_t dgx_ui_look_level;
  * its look's `fill`, so that its children's paper is the ring's.
  */
 typedef struct dgx_ui_ring_look_t {
-    uint8_t              on, off;    ///< the arc up to the value, with no bands or past the last band; the rest of the ring
-    uint8_t              paper;      ///< around the ring and inside it; DGX_UI_PAPER: what lies under the widget
-    uint8_t              width;      ///< of the ring, in points; not less than the radius: a disc
-    int16_t              start;      ///< the angle the arc starts at, in degrees clockwise from the top
-    int16_t              sweep;      ///< all of the scale, in degrees, -360..360: clockwise, or counter-clockwise when negative
-    uint8_t              band_count; ///< bands; 0: `on` alone
-    uint8_t              bands_by;   ///< DGX_UI_BANDS_BY_PLACE (the arc by the value of each point) or DGX_UI_BANDS_BY_VALUE
-    const dgx_ui_band_t *bands;      ///< the arc's colours, the lowest band first; may lie in flash
+    uint8_t              fill, track; ///< the arc up to the value, with no bands or past the last band; the rest of the ring
+    uint8_t              paper;       ///< around the ring and inside it; DGX_UI_PAPER: what lies under the widget
+    uint8_t              width;       ///< of the ring, in points; not less than the radius: a disc
+    int16_t              start;       ///< the angle the arc starts at, in degrees clockwise from the top
+    int16_t              sweep;       ///< all of the scale, in degrees, -360..360: clockwise, or counter-clockwise when negative
+    uint8_t              band_count;  ///< bands; 0: `fill` alone
+    uint8_t              bands_by;    ///< DGX_UI_BANDS_BY_PLACE (the arc by the value of each point) or DGX_UI_BANDS_BY_VALUE
+    const dgx_ui_band_t *bands;       ///< the arc's colours, the lowest band first; may lie in flash
 } dgx_ui_ring_look_t;
 
 /**
@@ -511,7 +511,7 @@ extern const dgx_ui_behavior_t dgx_ui_scroll_behavior;
  * - dgx_ui_look_dropdown: DROPDOWN, its options the lines of its text box as a list's, the one chosen (value - min)
  *   on a flat face with an arrow pointing down;
  * - dgx_ui_look_picture_button: BUTTON, SWITCH and RADIO with a picture of 1 bit in place of a text, of the button's
- *   parameters (dgx_ui_button_look_t, its `text` and `text_disabled` the picture's ink): the button's face over its
+ *   parameters (dgx_ui_button_look_t, its `ink` and `ink_disabled` the picture's ink): the button's face over its
  *   shadow, pressed onto it, the focus a frame round the face; the picture in the middle of the face, cut to it, its
  *   zeros the face. A button shows its one picture; a switch its first while off and its second while on, on as the
  *   switch look and the checkbox call it (its value not 0), so that the three on one place always agree, whatever its

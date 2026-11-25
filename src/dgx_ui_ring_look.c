@@ -121,7 +121,7 @@ static lit_t lit_of(const ring_t *r, int32_t value)
         lit.wraps = before(&lit.to, &r->from);
     }
     if (r->p->bands_by != DGX_UI_BANDS_BY_PLACE || !r->p->band_count) {
-        lit.color = r->p->on;
+        lit.color = r->p->fill;
         for (int k = 0; k < r->p->band_count; ++k)
             if (value < r->p->bands[k].below) {
                 lit.color = r->p->bands[k].color;
@@ -162,10 +162,10 @@ static int class_of(const ring_t *r, uint32_t key, const lit_t *lit, uint32_t be
     if (!r->full && !within_past(past_start, r->wraps, key & BEFORE_END) && (key & (BEFORE_END | PAST_END)))
         return AROUND; /* outside the sweep, and not on its end ray */
     const bool on = lit->how == ALL || (lit->how == UP_TO && within_past(past_start, lit->wraps, key & before_lit));
-    if (!on) return r->p->off;
+    if (!on) return r->p->track;
     if (lit->color >= 0) return lit->color;
     const int band = (int)(key >> BAND_SHIFT);
-    return band < r->p->band_count ? r->p->bands[band].color : r->p->on;
+    return band < r->p->band_count ? r->p->bands[band].color : r->p->fill;
 }
 
 /* the runs of a row being made: from `start` to `end`, of a class, -1 none or unchanged */
@@ -363,5 +363,5 @@ bool dgx_ui_draw_ring(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     return false;
 }
 
-static const dgx_ui_ring_look_t ring_default = {.on = 3, .off = 2, .paper = DGX_UI_PAPER, .width = 3, .start = -135, .sweep = 270, .bands_by = DGX_UI_BANDS_BY_PLACE};
+static const dgx_ui_ring_look_t ring_default = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 3, .start = -135, .sweep = 270, .bands_by = DGX_UI_BANDS_BY_PLACE};
 const dgx_ui_look_t             dgx_ui_look_ring = {.draw = dgx_ui_draw_ring, .params = &ring_default, .fill = -1};

@@ -721,9 +721,9 @@ program's:
 ```c
 static int32_t charge_percent; /* written by whoever reads the battery, as any value of the program */
 
-/* below 20 in one colour, below 50 in another, from there up in `bar`; filled from the left */
+/* below 20 in one colour, below 50 in another, from there up in `fill`; filled from the left */
 static const dgx_ui_band_t       charge_bands[] = {{20, ACCENT_DOWN}, {50, BORDER}};
-static const dgx_ui_level_look_t charge_colors  = {.bar = ACCENT, .rest = FILL, .from = DGX_UI_FROM_LEFT, .band_count = 2, .bands = charge_bands};
+static const dgx_ui_level_look_t charge_colors  = {.fill = ACCENT, .track = FILL, .from = DGX_UI_FROM_LEFT, .band_count = 2, .bands = charge_bands};
 static const dgx_ui_look_t       look_charge    = {.draw = dgx_ui_draw_level, .params = &charge_colors, .fill = -1};
 static const dgx_ui_widget_t     charge_w       = {.kind = DGX_UI_OWN, .max = 100, .want_h = 6, .value = &charge_percent, .look = &look_charge};
 
@@ -731,7 +731,7 @@ static const dgx_ui_widget_t     charge_w       = {.kind = DGX_UI_OWN, .max = 10
    is of another colour, a zone at the top that keeps its place */
 static int32_t                   tank_litres;
 static const dgx_ui_band_t       tank_bands[] = {{160, ACCENT}};
-static const dgx_ui_level_look_t tank_colors  = {.bar = ACCENT_DOWN, .rest = FILL, .from = DGX_UI_FROM_BOTTOM, .band_count = 1,
+static const dgx_ui_level_look_t tank_colors  = {.fill = ACCENT_DOWN, .track = FILL, .from = DGX_UI_FROM_BOTTOM, .band_count = 1,
                                                  .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = tank_bands};
 static const dgx_ui_look_t       look_tank   = {.draw = dgx_ui_draw_level, .params = &tank_colors, .fill = -1};
 static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, .want_w = 12, .want_h = 40, .value = &tank_litres, .look = &look_tank};
@@ -742,7 +742,7 @@ static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, 
 - **The edge** it fills from is `from`: `DGX_UI_FROM_LEFT`, `DGX_UI_FROM_BOTTOM`, `DGX_UI_FROM_RIGHT`,
   `DGX_UI_FROM_TOP`.
 - **Bands.** A value below a band's `below` takes that band's colour, the lowest band first; a value past the last
-  band takes `bar`. Here 10 is `ACCENT_DOWN`, 20 and 30 are `BORDER`, 50 and 80 are `ACCENT`. All of the filled part
+  band takes `fill`. Here 10 is `ACCENT_DOWN`, 20 and 30 are `BORDER`, 50 and 80 are `ACCENT`. All of the filled part
   is of one colour, the value's: that is `bands_by` 0, `DGX_UI_BANDS_BY_VALUE`.
 - **Bands by place**, `DGX_UI_BANDS_BY_PLACE`, colour each part of the bar by the values it stands for: the tank is
   `ACCENT` up to 160 litres and `ACCENT_DOWN` above, whatever its level, a zone that shows only when the level
@@ -750,7 +750,7 @@ static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, 
 - **What is written.** When only the value moved, the part between the length that was filled and the new one:
   a bar 200 pixels long that grows by one percent sends two columns of pixels. When the colour changed, the filled
   part and what emptied. Every pixel once.
-- **`rest`** may be `DGX_UI_PAPER`: over a drawn background the empty part shows the picture.
+- **`track`** may be `DGX_UI_PAPER`: over a drawn background the empty part shows the picture.
 - **Nothing works it**: it takes no finger and no focus. A bar the user moves is a slider.
 - **What it costs**: about 0.9 KB in a program that names it.
 
@@ -1449,7 +1449,7 @@ other colours is the library's drawing with parameters of its own. It is a const
 static const dgx_ui_button_look_t blue_button = {
     .face = ACCENT, .pressed = ACCENT_DOWN, .disabled = FILL,
     .focused = INK, /* the frame round the face while the button has the focus */
-    .text = INK, .text_disabled = DIM, .shadow = SHADOW, .depth = 1};
+    .ink = INK, .ink_disabled = DIM, .shadow = SHADOW, .depth = 1};
 /* the library's drawing of a button, in these colours */
 static const dgx_ui_look_t look_blue_button = {.draw = dgx_ui_draw_button, .params = &blue_button, .fill = -1};
 
@@ -2659,7 +2659,7 @@ The appearance, `main/day.json`:
                                  "disabled": "border", "track_h": 3}},
            "button": {"draw": "button",
                       "params": {"face": "fill", "pressed": "accent", "focused": null, "disabled": "border",
-                                 "text": "ink", "text_disabled": "border", "shadow": "paper", "depth": 1}}}}
+                                 "ink": "ink", "ink_disabled": "border", "shadow": "paper", "depth": 1}}}}
 ```
 
 Three lines more in `main/vocab.txt`, what an appearance may name: its draws and its font.
@@ -2799,7 +2799,7 @@ own, [A level bar](#a-level-bar); this one is the lesson, written out.
 
 ```c
 typedef struct {
-    uint8_t bar, rest; /* indices of the table */
+    uint8_t fill, track; /* indices of the table */
 } level_look_t;
 
 static bool level_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
@@ -2810,12 +2810,12 @@ static bool level_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     const int              span = w->max > w->min ? w->max - w->min : 1;
     const int              full = n->w * (dgx_ui_value_of(n) - w->min) / span;
     const int              x = n->x - paint->ox, y = n->y - paint->oy;
-    if (full > 0) dgx_fill_rectangle(paint->scr, x, y, full, n->h, dgx_ui_color(paint, p->bar));
-    if (full < n->w) dgx_fill_rectangle(paint->scr, x + full, y, n->w - full, n->h, dgx_ui_color(paint, p->rest));
+    if (full > 0) dgx_fill_rectangle(paint->scr, x, y, full, n->h, dgx_ui_color(paint, p->fill));
+    if (full < n->w) dgx_fill_rectangle(paint->scr, x + full, y, n->w - full, n->h, dgx_ui_color(paint, p->track));
     return false; /* no more time asked */
 }
 
-static const level_look_t    level_colors = {.bar = ACCENT, .rest = FILL};
+static const level_look_t    level_colors = {.fill = ACCENT, .track = FILL};
 static const dgx_ui_look_t   level_look   = {.draw = level_draw, .params = &level_colors, .fill = -1};
 static int32_t               level_percent; /* what the bar shows */
 static const dgx_ui_widget_t level_w      = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level_percent, .look = &level_look};
@@ -3110,7 +3110,7 @@ static uint32_t ring_table[RING_COLORS]; /* the paint's on this screen: .colors 
    14 points wide, from half past seven round to half past four */
 static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID}};
 static const dgx_ui_ring_look_t ring_params  = {
-    .on = RING_HIGH, .off = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
+    .fill = RING_HIGH, .track = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
     .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
 static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = -1};
 ```

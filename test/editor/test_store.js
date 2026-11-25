@@ -517,7 +517,7 @@ const boxOf = (store, widgetPath) => {
         /* a look added from its draw's defaults; its draw changed, its fields of the same name kept */
         check(store.addLook('toggle', 'switch') && store.verdicts.appearance.code === 0, 'a look of the defaults of its draw');
         const toggle = () => JSON.parse(text('main/look.json')).looks.toggle;
-        check(same(toggle(), { draw: 'switch', params: { off: 'fill', on: 'border', knob: 'ink', focused: 'ink', disabled: 'fill' } }), 'its defaults');
+        check(same(toggle(), { draw: 'switch', params: { track: 'fill', fill: 'border', knob: 'ink', focused: 'ink', disabled: 'fill' } }), 'its defaults');
         store.setLook(['looks', 'toggle', 'params', 'knob'], 'accent');
         check(store.setDraw('toggle', 'slider') && store.verdicts.appearance.code === 0, 'its draw changed');
         check(same(toggle().params, { track: 'fill', fill: 'border', knob: 'accent', focused: 'ink', disabled: 'fill', track_h: 2 }),

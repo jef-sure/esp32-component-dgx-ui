@@ -71,18 +71,18 @@ int main(void)
     HOLDS(dgx_ui_params_text, dgx_ui_text_look_t, "ink paper", {.ink = 1, .paper = 2});
     HOLDS(dgx_ui_params_lines, dgx_ui_text_look_t, "ink paper", {.ink = 1, .paper = 2});
     HOLDS(dgx_ui_params_hand_lines, dgx_ui_text_look_t, "ink paper", {.ink = 1, .paper = 2});
-    HOLDS(dgx_ui_params_button, dgx_ui_button_look_t, "face pressed focused disabled text text_disabled shadow depth",
-          {.face = 1, .pressed = 2, .focused = 3, .disabled = 4, .text = 5, .text_disabled = 6, .shadow = 7, .depth = 8});
-    HOLDS(dgx_ui_params_picture_button, dgx_ui_button_look_t, "face pressed focused disabled text text_disabled shadow depth",
-          {.face = 1, .pressed = 2, .focused = 3, .disabled = 4, .text = 5, .text_disabled = 6, .shadow = 7, .depth = 8});
+    HOLDS(dgx_ui_params_button, dgx_ui_button_look_t, "face pressed focused disabled ink ink_disabled shadow depth",
+          {.face = 1, .pressed = 2, .focused = 3, .disabled = 4, .ink = 5, .ink_disabled = 6, .shadow = 7, .depth = 8});
+    HOLDS(dgx_ui_params_picture_button, dgx_ui_button_look_t, "face pressed focused disabled ink ink_disabled shadow depth",
+          {.face = 1, .pressed = 2, .focused = 3, .disabled = 4, .ink = 5, .ink_disabled = 6, .shadow = 7, .depth = 8});
     HOLDS(dgx_ui_params_input, dgx_ui_input_look_t, "ink caret paper secret blink", {.ink = 1, .caret = 2, .paper = 3, .secret = true, .blink = 5});
-    HOLDS(dgx_ui_params_switch, dgx_ui_switch_look_t, "off on knob focused disabled", {.off = 1, .on = 2, .knob = 3, .focused = 4, .disabled = 5});
+    HOLDS(dgx_ui_params_switch, dgx_ui_switch_look_t, "track fill knob focused disabled", {.track = 1, .fill = 2, .knob = 3, .focused = 4, .disabled = 5});
     HOLDS(dgx_ui_params_slider, dgx_ui_slider_look_t, "track fill knob focused disabled track_h",
           {.track = 1, .fill = 2, .knob = 3, .focused = 4, .disabled = 5, .track_h = 6});
-    HOLDS(dgx_ui_params_list, dgx_ui_list_look_t, "ink paper pick pick_ink focused disabled bar",
-          {.ink = 1, .paper = 2, .pick = 3, .pick_ink = 4, .focused = 5, .disabled = 6, .bar = 7});
-    HOLDS(dgx_ui_params_dropdown, dgx_ui_dropdown_look_t, "face pressed focused disabled text text_disabled arrow",
-          {.face = 1, .pressed = 2, .focused = 3, .disabled = 4, .text = 5, .text_disabled = 6, .arrow = 7});
+    HOLDS(dgx_ui_params_list, dgx_ui_list_look_t, "ink paper pick pick_ink focused ink_disabled knob",
+          {.ink = 1, .paper = 2, .pick = 3, .pick_ink = 4, .focused = 5, .ink_disabled = 6, .knob = 7});
+    HOLDS(dgx_ui_params_dropdown, dgx_ui_dropdown_look_t, "face pressed focused disabled ink ink_disabled arrow",
+          {.face = 1, .pressed = 2, .focused = 3, .disabled = 4, .ink = 5, .ink_disabled = 6, .arrow = 7});
     HOLDS(dgx_ui_params_picture, dgx_ui_picture_look_t, "ink paper", {.ink = 1, .paper = 2});
     HOLDS(dgx_ui_params_rgb565, dgx_ui_picture_look_t, "ink paper", {.ink = 1, .paper = 2});
     HOLDS(dgx_ui_params_indexed, dgx_ui_picture_look_t, "ink paper", {.ink = 1, .paper = 2});
@@ -90,10 +90,10 @@ int main(void)
           {.mark = 1, .focused = 2, .disabled = 3, .sign = 4, .inside = 5, .pressed = 6, .ink = 7, .ink_disabled = 8, .paper = 9});
     HOLDS(dgx_ui_params_checkbox, dgx_ui_check_look_t, "mark focused disabled sign inside pressed ink ink_disabled paper",
           {.mark = 1, .focused = 2, .disabled = 3, .sign = 4, .inside = 5, .pressed = 6, .ink = 7, .ink_disabled = 8, .paper = 9});
-    HOLDS(dgx_ui_params_level, dgx_ui_level_look_t, "bar rest from bands_by bands",
-          {.bar = 1, .rest = 2, .from = 3, .band_count = 5, .bands_by = 4, .bands = (const dgx_ui_band_t *)m});
-    HOLDS(dgx_ui_params_ring, dgx_ui_ring_look_t, "on off paper width start sweep bands_by bands",
-          {.on = 1, .off = 2, .paper = 3, .width = 4, .start = 5, .sweep = 6, .band_count = 8, .bands_by = 7, .bands = (const dgx_ui_band_t *)m});
+    HOLDS(dgx_ui_params_level, dgx_ui_level_look_t, "fill track from bands_by bands",
+          {.fill = 1, .track = 2, .from = 3, .band_count = 5, .bands_by = 4, .bands = (const dgx_ui_band_t *)m});
+    HOLDS(dgx_ui_params_ring, dgx_ui_ring_look_t, "fill track paper width start sweep bands_by bands",
+          {.fill = 1, .track = 2, .paper = 3, .width = 4, .start = 5, .sweep = 6, .band_count = 8, .bands_by = 7, .bands = (const dgx_ui_band_t *)m});
     HOLDS(dgx_ui_params_text_style, dgx_ui_text_style_t, "fonts align flags scroll_ms",
           {.fonts = (const dgx_ui_font_variant_t *)m, .count = 1, .flags = 3, .align = (dgx_font_align_t)2, .scroll_ms = 4});
     HOLDS(dgx_ui_params_font_variant, dgx_ui_font_variant_t, "font hand height narrow joined pen soft points",

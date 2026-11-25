@@ -52,7 +52,7 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const unsigned                bits = n->state.bits;
     const bool                    off  = bits & DGX_UI_DISABLED;
     const uint32_t face = dgx_ui_color(paint, off ? p->disabled : (bits & DGX_UI_PRESSED) ? p->pressed : p->face);
-    const uint32_t ink = dgx_ui_color(paint, off ? p->text_disabled : p->text), arrow = dgx_ui_color(paint, off ? p->text_disabled : p->arrow);
+    const uint32_t ink = dgx_ui_color(paint, off ? p->ink_disabled : p->ink), arrow = dgx_ui_color(paint, off ? p->ink_disabled : p->arrow);
     const dgx_ui_textbox_t *box = w->text;
     const dgx_font_t       *f   = box && box->style && box->style->count ? box->style->fonts[0].font : NULL;
     /* the arrow's square on the right, as wide as the box is high (at most half of it) */
@@ -108,5 +108,5 @@ bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
     return false;
 }
 
-static const dgx_ui_dropdown_look_t dropdown_default = {.face = 2, .pressed = 3, .focused = 1, .disabled = 0, .text = 1, .text_disabled = 2, .arrow = 1};
+static const dgx_ui_dropdown_look_t dropdown_default = {.face = 2, .pressed = 3, .focused = 1, .disabled = 0, .ink = 1, .ink_disabled = 2, .arrow = 1};
 const dgx_ui_look_t dgx_ui_look_dropdown = {.draw = dgx_ui_draw_dropdown, .params = &dropdown_default, .fill = -1};

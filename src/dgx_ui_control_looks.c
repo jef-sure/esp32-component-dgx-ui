@@ -61,7 +61,7 @@ bool dgx_ui_draw_switch(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     static bool                 told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
     dgx_ui_tell_no_place(i, n->widget, "a switch", &told);
     const bool     on    = dgx_ui_value_of(n) != 0;
-    const uint32_t track = dgx_ui_color(paint, on ? p->on : p->off);
+    const uint32_t track = dgx_ui_color(paint, on ? p->fill : p->track);
     const unsigned bits  = dgx_ui_bits_shown(ui, n);
     const uint32_t knob  = dgx_ui_color(paint, (bits & DGX_UI_DISABLED) ? p->disabled : p->knob);
     const int      k     = n->h < n->w / 2 ? n->h : n->w / 2; /* a square knob */
@@ -76,7 +76,7 @@ bool dgx_ui_draw_switch(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     return false;
 }
 
-static const dgx_ui_switch_look_t switch_default = {.off = 2, .on = 3, .knob = 1, .focused = 1, .disabled = 2};
+static const dgx_ui_switch_look_t switch_default = {.track = 2, .fill = 3, .knob = 1, .focused = 1, .disabled = 2};
 const dgx_ui_look_t               dgx_ui_look_switch = {.draw = dgx_ui_draw_switch, .params = &switch_default, .fill = -1};
 
 /* ---- a slider: paper above and below a track in the middle, filled up to the knob ---- */

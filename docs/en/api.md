@@ -1073,13 +1073,13 @@ typedef struct dgx_ui_text_look_t {
 
 typedef struct dgx_ui_button_look_t {
     uint8_t face, pressed, focused, disabled; /* the face, the face under a finger, the frame of the focus (DGX_UI_PAPER: none shown), the face disabled */
-    uint8_t text, text_disabled;              /* the text */
+    uint8_t ink, ink_disabled;                /* the text */
     uint8_t shadow;                           /* right of the face and below it */
     uint8_t depth;                            /* of the shadow, in points; 0: a flat button */
 } dgx_ui_button_look_t;
 
 typedef struct dgx_ui_switch_look_t {
-    uint8_t off, on, knob, focused; /* the track off and on, the knob, the border of the knob while it has the focus (DGX_UI_PAPER: none shown) */
+    uint8_t track, fill, knob, focused; /* the track off and filled on, the knob, the border of the knob while it has the focus (DGX_UI_PAPER: none shown) */
     uint8_t disabled;               /* the knob when disabled */
 } dgx_ui_switch_look_t;
 
@@ -1113,14 +1113,14 @@ typedef struct dgx_ui_list_look_t {
     uint8_t ink, paper;     /* a row's text and what is under it; DGX_UI_PAPER: what lies under the widget */
     uint8_t pick, pick_ink; /* the bar of the row picked, and its text */
     uint8_t focused;        /* the bar while the list has the focus */
-    uint8_t disabled;       /* the text of every row while the list is disabled */
-    uint8_t bar;            /* a list that scrolls: the mark on its right edge of where its window is */
+    uint8_t ink_disabled;   /* the text of every row while the list is disabled */
+    uint8_t knob;           /* a list that scrolls: the mark on its right edge of where its window is */
 } dgx_ui_list_look_t;
 
 typedef struct dgx_ui_dropdown_look_t {
     uint8_t face, pressed, focused, disabled; /* the face, the face under a finger, the frame of the focus (DGX_UI_PAPER: none shown), the face disabled */
-    uint8_t text, text_disabled;              /* the option chosen */
-    uint8_t arrow;                            /* the arrow; disabled, it is text_disabled */
+    uint8_t ink, ink_disabled;                /* the option chosen */
+    uint8_t arrow;                            /* the arrow; disabled, it is ink_disabled */
 } dgx_ui_dropdown_look_t;
 
 typedef struct dgx_ui_band_t {
@@ -1131,10 +1131,10 @@ typedef struct dgx_ui_band_t {
 enum { DGX_UI_FROM_LEFT, DGX_UI_FROM_BOTTOM, DGX_UI_FROM_RIGHT, DGX_UI_FROM_TOP };
 
 typedef struct dgx_ui_level_look_t {
-    uint8_t              bar;        /* the filled part; with bands, a value past the last of them */
-    uint8_t              rest;       /* the rest of the box; DGX_UI_PAPER: what lies under the widget */
+    uint8_t              fill;       /* the filled part; with bands, a value past the last of them */
+    uint8_t              track;      /* the rest of the box; DGX_UI_PAPER: what lies under the widget */
     uint8_t              from;       /* the edge it fills from: DGX_UI_FROM_LEFT, _BOTTOM, _RIGHT, _TOP */
-    uint8_t              band_count; /* how many bands; 0: `bar` alone */
+    uint8_t              band_count; /* how many bands; 0: `fill` alone */
     uint8_t              bands_by;   /* DGX_UI_BANDS_BY_VALUE (0) or DGX_UI_BANDS_BY_PLACE */
     const dgx_ui_band_t *bands;      /* the colours of the filled part, the lowest band first */
 } dgx_ui_level_look_t;
@@ -1142,12 +1142,12 @@ typedef struct dgx_ui_level_look_t {
 enum { DGX_UI_BANDS_BY_VALUE, DGX_UI_BANDS_BY_PLACE };
 
 typedef struct dgx_ui_ring_look_t {
-    uint8_t              on, off;    /* the arc up to the value, with no bands or past the last band; the rest of the ring */
+    uint8_t              fill, track; /* the arc up to the value, with no bands or past the last band; the rest of the ring */
     uint8_t              paper;      /* around the ring and inside it; DGX_UI_PAPER: what lies under the widget */
     uint8_t              width;      /* of the ring, in points; not less than the radius: a disc */
     int16_t              start;      /* the angle the scale starts at, in degrees clockwise from the top */
     int16_t              sweep;      /* all of the scale, in degrees, -360..360: clockwise, counter-clockwise when negative */
-    uint8_t              band_count; /* how many bands; 0: `on` alone */
+    uint8_t              band_count; /* how many bands; 0: `fill` alone */
     uint8_t              bands_by;   /* DGX_UI_BANDS_BY_VALUE (0) or DGX_UI_BANDS_BY_PLACE */
     const dgx_ui_band_t *bands;      /* the colours of the arc, the lowest band first */
 } dgx_ui_ring_look_t;
@@ -1162,7 +1162,7 @@ typedef struct dgx_ui_scroll_look_t {
     uint8_t track, knob; /* the bar's track and knob */
     uint8_t focused;     /* the knob while the box has the focus; DGX_UI_PAPER: as the knob */
     uint8_t arrows;      /* the arrows at the track's ends; DGX_UI_PAPER: none */
-    uint8_t bar;         /* the bar's width in points; 0: none drawn */
+    uint8_t width;       /* the bar's width in points; 0: none drawn */
 } dgx_ui_scroll_look_t;
 ```
 
@@ -1256,7 +1256,7 @@ in each of the six looks. There is no frame then, and the knob is solid:
 
 ```c
 /* a switch for a display with no keys: the library's colours, and no mark of the focus */
-static const dgx_ui_switch_look_t touch_switch      = {.off = 2, .on = 3, .knob = 1, .focused = DGX_UI_PAPER, .disabled = 2};
+static const dgx_ui_switch_look_t touch_switch      = {.track = 2, .fill = 3, .knob = 1, .focused = DGX_UI_PAPER, .disabled = 2};
 static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switch, .params = &touch_switch, .fill = -1};
 ```
 
@@ -1273,8 +1273,8 @@ while a finger is on it; the text is colour 1, and 2 while disabled. The mark is
 once, and of a group whose choice changed only the two buttons it touched are drawn.
 
 A picture button is a `DGX_UI_BUTTON`, a `DGX_UI_SWITCH` or a `DGX_UI_RADIO` with a picture of 1 bit, drawn by
-`dgx_ui_look_picture_button` with the parameters of a button, `dgx_ui_button_look_t`: its `text` and
-`text_disabled` are the picture's ink. The picture stands in the middle of the face, cut to it, its zeros the face;
+`dgx_ui_look_picture_button` with the parameters of a button, `dgx_ui_button_look_t`: its `ink` and
+`ink_disabled` are the picture's ink. The picture stands in the middle of the face, cut to it, its zeros the face;
 pressed, it moves with the face, and the focus is the frame round the face. A button shows its one picture. A
 switch shows its first while off and its second while on, on being a value that is not 0, as the switch look and the
 checkbox take it: the three on one place always agree, whatever `min` and `max`. A radio button shows its first
@@ -1287,7 +1287,7 @@ A level bar is a widget of `DGX_UI_OWN` that names `dgx_ui_look_level` and the p
 value, kept within `min`..`max`, is the filled part of the box from the edge `from`; `max` not above `min` shows it
 empty. By default the filled part is colour 3 and the rest colour 2, from the left. With `bands` the filled part
 takes its colour from them: that of the first band whose `below` is above the value, the lowest band first; a
-value past the last band takes `bar`. By the value shown all of the filled part is of one colour; by place each
+value past the last band takes `fill`. By the value shown all of the filled part is of one colour; by place each
 part has its own (`bands_by`, below). When only the value moved, the look writes the part between the length it
 drew and the new one; when the colour of all of it changed, the filled part and what emptied. The recipe:
 [A level bar](cookbook.md#a-level-bar).
@@ -1299,7 +1299,7 @@ round, clockwise from the top, which is not DGX's way (counter-clockwise from th
 start of -135 and a sweep of 270 here. A negative sweep goes counter-clockwise; a sweep of 0 is no scale, and all
 of the box is `paper`. The value, kept within `min`..`max`,
 is the arc from the start: none of it at `min`, all of the sweep at `max`, its edge a straight line from the middle.
-The arc is `on`, the rest of the ring `off`; around the ring, inside it and outside the sweep is `paper`. By default
+The arc is `fill`, the rest of the ring `track`; around the ring, inside it and outside the sweep is `paper`. By default
 the arc is colour 3 and the rest colour 2, 3 points wide, from -135 over 270.
 
 With `bands`, `bands_by` says how they colour, in the level bar and in the ring alike. `DGX_UI_BANDS_BY_VALUE`, 0:
@@ -1333,7 +1333,7 @@ the program's gives them; a program that names neither carries none of it. The r
 
 By default the bar of a list is colour 3 and the text on it colour 0; while the list has the focus the bar is colour
 1, so the pick shows in a frame too, whose fill is colour 2. The rows of a disabled list are colour 2, and the mark
-of a window, `bar`, colour 3.
+of a window, `knob`, colour 3.
 
 A field whose parameters say `secret` shows a star for each letter, a password or a PIN; the text box keeps the
 letters. The font of the field must have the star, `*`: without it the field shows nothing. A font made at build time
@@ -1779,22 +1779,22 @@ may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list o
 | `"text"` | `ink`; `paper`° |
 | `"lines"` | `ink`; `paper`° |
 | `"hand_lines"` | `ink`; `paper`° |
-| `"button"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `shadow`; `depth` 0…255 |
-| `"picture_button"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `shadow`; `depth` 0…255 |
+| `"button"` | `face`; `pressed`; `focused`°; `disabled`; `ink`; `ink_disabled`; `shadow`; `depth` 0…255 |
+| `"picture_button"` | `face`; `pressed`; `focused`°; `disabled`; `ink`; `ink_disabled`; `shadow`; `depth` 0…255 |
 | `"input"` | `ink`; `caret`; `paper`°; `secret` true/false; `blink` 0…255 |
-| `"switch"` | `off`; `on`; `knob`; `focused`°; `disabled` |
+| `"switch"` | `track`; `fill`; `knob`; `focused`°; `disabled` |
 | `"slider"` | `track`; `fill`; `knob`; `focused`°; `disabled`; `track_h` 0…255 |
-| `"list"` | `ink`; `paper`°; `pick`; `pick_ink`; `focused`; `disabled`; `bar` |
-| `"dropdown"` | `face`; `pressed`; `focused`°; `disabled`; `text`; `text_disabled`; `arrow` |
+| `"list"` | `ink`; `paper`°; `pick`; `pick_ink`; `focused`; `ink_disabled`; `knob` |
+| `"dropdown"` | `face`; `pressed`; `focused`°; `disabled`; `ink`; `ink_disabled`; `arrow` |
 | `"picture"` | `ink`; `paper`° |
 | `"rgb565"` | `ink`; `paper`° |
 | `"indexed"` | `ink`; `paper`° |
 | `"radio"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
-| `"level"` | `bar`; `rest`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
-| `"ring"` | `on`; `off`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
+| `"level"` | `fill`; `track`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
+| `"ring"` | `fill`; `track`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
 | `"nine"` | `fill`; `ink`; `pieces`: a name of the program's pictures, 9 of them at least |
-| `"scroll"` | `track`; `knob`; `focused`°; `arrows`°; `bar` 0…32 |
+| `"scroll"` | `track`; `knob`; `focused`°; `arrows`°; `width` 0…32 |
 
 **What is not said.** `"fill"` of a look is `null`, what lies under it. A number, a word and a list of flags are
 0, as a member of C left out, and `"joined"`, `"soft"`, `"points"` and `"secret"` false. A colour of a look's parameters must be

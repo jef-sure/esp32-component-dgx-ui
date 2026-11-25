@@ -64,8 +64,8 @@ static void    on_button(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int wha
     activated += what == DGX_UI_EVENT_ACTIVATED;
 }
 
-static const dgx_ui_button_look_t no_focus_params = {.face = 2, .pressed = 3, .focused = DGX_UI_PAPER, .disabled = 0, .text = 1, .text_disabled = 2, .shadow = 0, .depth = 1};
-static const dgx_ui_button_look_t flat_params     = {.face = 2, .pressed = 3, .focused = 1, .disabled = 0, .text = 1, .text_disabled = 2, .shadow = 0, .depth = 0};
+static const dgx_ui_button_look_t no_focus_params = {.face = 2, .pressed = 3, .focused = DGX_UI_PAPER, .disabled = 0, .ink = 1, .ink_disabled = 2, .shadow = 0, .depth = 1};
+static const dgx_ui_button_look_t flat_params     = {.face = 2, .pressed = 3, .focused = 1, .disabled = 0, .ink = 1, .ink_disabled = 2, .shadow = 0, .depth = 0};
 static const dgx_ui_look_t        no_focus_look   = {.draw = dgx_ui_draw_picture_button, .params = &no_focus_params, .fill = -1};
 static const dgx_ui_look_t        flat_look       = {.draw = dgx_ui_draw_picture_button, .params = &flat_params, .fill = -1};
 

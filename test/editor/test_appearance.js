@@ -202,12 +202,12 @@ const docOf = (text) => description.read(text).doc;
     const switchDraw = format.draws.find((one) => one.draw === 'switch'), sliderDraw = format.draws.find((one) => one.draw === 'slider');
     const params = appearance.nodeAt(doc, ['looks', 'slider', 'params']);
     const kept = sliderDraw.fields.filter((field) => switchDraw.fields.some((one) => one.name === field.name && one.type === field.type));
-    check(kept.map((field) => field.name).join() === 'knob,focused,disabled', 'slider and switch share knob, focused, disabled');
+    check(kept.map((field) => field.name).join() === 'track,fill,knob,focused,disabled', 'slider and switch share track, fill, knob, focused, disabled');
     const next = { draw: 'switch', params: {} };
     for (const field of switchDraw.fields) next.params[field.name] = kept.some((one) => one.name === field.name)
         ? description.shown(description.valueOf(params, field.name)) : switchDraw.defaults[field.name];
     appearance.setAt(doc, ['looks', 'slider'], next);
-    check(judged(doc).code === OK && next.params.disabled === 'border' && next.params.off === 'fill', 'a draw changed, taken');
+    check(judged(doc).code === OK && next.params.disabled === 'border' && next.params.track === 'border' && next.params.fill === 'accent', 'a draw changed, taken');
 
     /* the hand-written form kept; the builder's form written of it */
     const hookWritten = textOf(docOf(hook));

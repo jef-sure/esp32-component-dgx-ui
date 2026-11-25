@@ -283,9 +283,9 @@ int main(void)
     /* parameters whose focused is DGX_UI_PAPER show no focus, on the paper and over a drawn background, in each of the
        six looks; and a dropdown's of the face's colour */
     for (int pictured = 0; pictured < 2; ++pictured) {
-        static const dgx_ui_button_look_t   button_quiet   = {.face = 2, .pressed = 3, .focused = DGX_UI_PAPER, .disabled = 0, .text = 1, .text_disabled = 2, .shadow = 0, .depth = 1};
-        static const dgx_ui_dropdown_look_t dropdown_quiet = {.face = 2, .pressed = 3, .focused = 2, .disabled = 0, .text = 1, .text_disabled = 2, .arrow = 1};
-        static const dgx_ui_switch_look_t   switch_quiet   = {.off = 2, .on = 3, .knob = 1, .focused = DGX_UI_PAPER, .disabled = 2};
+        static const dgx_ui_button_look_t   button_quiet   = {.face = 2, .pressed = 3, .focused = DGX_UI_PAPER, .disabled = 0, .ink = 1, .ink_disabled = 2, .shadow = 0, .depth = 1};
+        static const dgx_ui_dropdown_look_t dropdown_quiet = {.face = 2, .pressed = 3, .focused = 2, .disabled = 0, .ink = 1, .ink_disabled = 2, .arrow = 1};
+        static const dgx_ui_switch_look_t   switch_quiet   = {.track = 2, .fill = 3, .knob = 1, .focused = DGX_UI_PAPER, .disabled = 2};
         static const dgx_ui_slider_look_t   slider_quiet   = {.track = 2, .fill = 3, .knob = 1, .focused = DGX_UI_PAPER, .disabled = 2, .track_h = 2};
         static const dgx_ui_check_look_t    check_quiet    = {
                   .mark = 1, .focused = DGX_UI_PAPER, .disabled = 2, .sign = 1, .inside = DGX_UI_PAPER, .pressed = 2, .ink = 1, .ink_disabled = 2, .paper = DGX_UI_PAPER};
@@ -318,7 +318,7 @@ int main(void)
         }
     }
     {
-        static const dgx_ui_button_look_t quiet = {.face = 2, .pressed = 3, .focused = 2, .disabled = 0, .text = 1, .text_disabled = 2, .shadow = 0, .depth = 0};
+        static const dgx_ui_button_look_t quiet = {.face = 2, .pressed = 3, .focused = 2, .disabled = 0, .ink = 1, .ink_disabled = 2, .shadow = 0, .depth = 0};
         static const dgx_ui_look_t        quiet_look = {.draw = dgx_ui_draw_button, .params = &quiet, .fill = -1};
         static const dgx_ui_widget_t      quiet_w    = {.kind = DGX_UI_BUTTON, .want_h = 14, .text = &go_box, .look = &quiet_look};
         static dgx_ui_node_t              nodes[2];
