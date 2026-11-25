@@ -1,5 +1,14 @@
 # Changes
 
+## 0.0.61 - 2026-11-25
+
+- tools/dgx_ui_mcp.py: the builder with an agent beside it over MCP: it sees the page, its panel and the loader's
+  verdicts, edits the descriptions, names file and appearance in the builder as steps the person undoes, and talks in
+  the builder's dialog; the person saves. --install for Claude Code or .mcp.json, --serve with no agent.
+- The builder's server runs nothing of a project: a project's own copy of dgx-ui gives its page alone, checked; it reads
+  only what the builder reads; every page under a Content-Security-Policy.
+- Docs: the builder with an agent; what the server reads; the README's lists of what is there and what is not.
+
 ## 0.0.60 - 2026-11-25
 
 - The builder edits the names file by forms: each line's columns and comment kept, the names a page misses added one by
