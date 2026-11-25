@@ -1,5 +1,12 @@
 # Changes
 
+## 0.0.69 - 2026-11-25
+
+- A handwritten variant's height and pen are in points of the tree, as every other size: one description draws alike on
+  every board; a handwritten line at unit 2 is now twice as tall as before.
+- The caret's blink is blink_ms, in ms (500 by default); a text box's letter_ms goes past 255, the box still 28 B.
+- Docs: the units in the API page, the handwritten and field recipes.
+
 ## 0.0.68 - 2026-11-25
 
 - One word for one thing in the looks' parameters and their appearance keys:
