@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.66 - 2026-11-25
+
+- Fixed: the example hello took the component twice inside the repository, and asked the registry for a dgx-ui it does
+  not have yet; it now takes the tag from GitHub, or the checkout inside the repository.
+- Fixed: tools/Makefile is in the package, so `make -C tools` from tools/README works in a project.
+- Fixed: the links of the fonts' notice in editor/preview/licenses lead to DGX on GitHub.
+- CHANGES: 0.0.21 dated by its tag.
+
 ## 0.0.65 - 2026-11-25
 
 - Pictures of colours on a display of 18 or 24 bits through dgx_ui_strips_pictures: indexed, RGB565 and the nine frame,
