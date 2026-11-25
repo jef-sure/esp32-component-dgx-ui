@@ -137,7 +137,7 @@ enum { DGX_UI_CP_ERASE = 0x08, DGX_UI_CP_DONE = 0x0a, DGX_UI_CP_CANCEL = 0x1b };
 
 /**
  * @brief Code points typed, to the focused field: characters go into its text, erase takes the last letter off, done
- * tells it DGX_UI_ACTIVATED and cancel DGX_UI_BACK.
+ * tells it DGX_UI_EVENT_ACTIVATED and cancel DGX_UI_EVENT_BACK.
  * @return true when a field took them.
  */
 bool dgx_ui_typed(dgx_ui_t *ui, const uint32_t *code_points, int count);

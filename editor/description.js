@@ -11,7 +11,7 @@
 
 const TOP_ORDER = ['dgx-ui', 'name', 'editor', 'tree'];
 const WIDGET_ORDER = ['kind', 'id', 'flags', 'state', 'look', 'style', 'text', 'text_size', 'lines', 'value', 'picture', 'min', 'max', 'step', 'tag',
-                      'pad', 'gap', 'at', 'want', 'on', 'take', 'ctx', 'editor', 'children'];
+                      'pad', 'gap', 'at', 'want', 'on_event', 'take', 'ctx', 'editor', 'children'];
 const ONE_LINE = 100; // a widget with no children whose line is at most so long stays on one line
 const BUILDER = 'dgx-ui-builder'; // the builder's key in "editor"
 

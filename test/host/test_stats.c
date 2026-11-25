@@ -6,7 +6,7 @@
  * measured pass, counted; a draw of two parts under a popup. The program's strips named and not, on a display behind
  * a bus of 18 bits (PANEL_BITS, given by the Makefile): the picture as by dgx_ui_paint(), the member given back.
  * Two trees drawn in turn by one paint, a struct each: dgx_ui_wake() still the least moment. A second paint of the tree
- * unmeasured; dgx_ui_changed() on the same paint before and after a measured pass. A struct begun anew keeps its clock.
+ * unmeasured; dgx_ui_paint_changes() on the same paint before and after a measured pass. A struct begun anew keeps its clock.
  */
 #include <string.h>
 
@@ -148,17 +148,17 @@ int main(void)
     dgx_ui_paint_measured(&ui, &paint, 700, &stats);
     CHECK(stats.passes == 1 && stats.drawing_passes == 1 && stats.draws_last == 1 && stats.slowest.widget == first && stats.slowest.us == 310);
 
-    /* dgx_ui_changed() on the same paint before and after a measured pass: its teller lent and given back each time */
+    /* dgx_ui_paint_changes() on the same paint before and after a measured pass: its teller lent and given back each time */
     told = 0;
     dgx_ui_redraw(&ui, other);
-    dgx_ui_changed(&ui, &paint, 800, tell_count, NULL);
+    dgx_ui_paint_changes(&ui, &paint, 800, tell_count, NULL);
     CHECK(told > 0 && paint.strips == NULL);
     dgx_ui_redraw(&ui, other);
     dgx_ui_paint_measured(&ui, &paint, 900, &stats);
     CHECK(paint.strips == NULL && stats.draws_last == 1);
     told = 0;
     dgx_ui_redraw(&ui, first);
-    dgx_ui_changed(&ui, &paint, 1000, tell_count, NULL);
+    dgx_ui_paint_changes(&ui, &paint, 1000, tell_count, NULL);
     CHECK(told > 0 && paint.strips == NULL);
     dgx_ui_paint_free(&paint), dgx_ui_free(&ui);
 

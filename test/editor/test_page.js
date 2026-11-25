@@ -144,7 +144,7 @@ function devtools(url) {
             'main/CMakeLists.txt': 'dgx_ui_appearance(look.json NAMES names.txt)\ndgx_ui_tree(home.json NAMES names.txt APPEARANCE look.json)\n' +
                                    'dgx_ui_tree(other.json NAMES fresh.txt)\n',
             'main/other.json': '{"dgx-ui": 1, "tree": {"kind": "box", "children": [{"kind": "slider", "value": "level", "max": 5}, ' +
-                               '{"kind": "button", "text": "Back", "on": "back"}]}}\n',
+                               '{"kind": "button", "text": "Back", "on_event": "back"}]}}\n',
             'main/names.txt': 'look slider\nlook button\nvalue volume &volume\nfont small TerminusTTFMedium12\ndraw text\ndraw slider\ndraw switch\n' +
                               'draw nine\npicture one one_piece\npicture card card_pieces 9\n',
             'main/look.json': '{"dgx-ui": 1, "name": "day", "colors": {"paper": "#102030", "ink": "#ffffff", "fill": "#304060", "border": "#8090a0", ' +

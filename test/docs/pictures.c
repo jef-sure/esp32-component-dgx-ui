@@ -45,11 +45,11 @@ static void make_styles(void)
     big[0]   = (dgx_ui_font_variant_t){.font = &dgx_font_large};
     big[1]   = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     small[0] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
-    st_big       = (dgx_ui_text_style_t){.fonts = big, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_big       = (dgx_ui_text_style_t){.fonts = big, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_STYLE_MIDDLE};
     st_left      = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_right     = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
     st_centre    = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
-    st_important = (dgx_ui_text_style_t){.fonts = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
+    st_important = (dgx_ui_text_style_t){.fonts = small, .count = 1, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 2000};
     st_plain     = (dgx_ui_text_style_t){.fonts = small, .count = 1};
 }
 
@@ -137,7 +137,7 @@ static dgx_ui_textbox_t title_box, light_box, wifi_box, sound_box, ok_box, cance
 static int  saved;
 static void on_ok(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) saved = 1;
+    if (what == DGX_UI_EVENT_ACTIVATED) saved = 1;
 }
 enum { TAG_LIGHT = 1, TAG_WIFI, TAG_SOUND, TAG_SIGNAL, TAG_OK, TAG_CANCEL };
 static const dgx_ui_widget_t set_root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 6, .gap = 5};
@@ -152,7 +152,7 @@ static const dgx_ui_widget_t signal_w    = {.kind = DGX_UI_ICON, .picture = sign
 static const dgx_ui_widget_t sound_lbl_w = {.kind = DGX_UI_LABEL, .text = &sound_box, .want_w = 50, .at_y = 2};
 static const dgx_ui_widget_t sound_w     = {.kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .tag = TAG_SOUND, .value = &sound_value, .look = &look_switch};
 static const dgx_ui_widget_t buttons_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 18, .gap = 6};
-static const dgx_ui_widget_t ok_w        = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &ok_box, .want_w = 60, .tag = TAG_OK, .look = &look_button, .on = on_ok};
+static const dgx_ui_widget_t ok_w        = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &ok_box, .want_w = 60, .tag = TAG_OK, .look = &look_button, .on_event = on_ok};
 static const dgx_ui_widget_t cancel_w    = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .text = &cancel_box, .want_w = 60, .tag = TAG_CANCEL, .state = {.bits = DGX_UI_DISABLED}, .look = &look_button};
 
 static dgx_ui_node_t set_nodes[20];

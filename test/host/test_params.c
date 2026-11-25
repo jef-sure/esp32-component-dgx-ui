@@ -107,7 +107,7 @@ int main(void)
     CHECK(place(by->words, "value") == DGX_UI_BANDS_BY_VALUE && place(by->words, "place") == DGX_UI_BANDS_BY_PLACE && ring_by->words == by->words);
     const dgx_ui_field_t *align = &dgx_ui_params_text_style.fields[1], *flags = &dgx_ui_params_text_style.fields[2];
     CHECK(place(align->words, "left") == DGX_FONT_ALIGN_LEFT && place(align->words, "center") == DGX_FONT_ALIGN_CENTER && place(align->words, "right") == DGX_FONT_ALIGN_RIGHT);
-    CHECK(1 << place(flags->words, "middle") == DGX_UI_TEXT_MIDDLE && 1 << place(flags->words, "important") == DGX_UI_TEXT_IMPORTANT);
+    CHECK(1 << place(flags->words, "middle") == DGX_UI_STYLE_MIDDLE && 1 << place(flags->words, "important") == DGX_UI_STYLE_IMPORTANT);
     CHECK(dgx_ui_params_font_variant.fields[6].high == (int32_t)DGX_PEN_SOFT);
     /* the kinds a draw draws, as the looks' header says */
     CHECK(dgx_ui_params_button.kinds == (1u << DGX_UI_BUTTON | 1u << DGX_UI_DROPDOWN) && dgx_ui_params_checkbox.kinds == 1u << DGX_UI_SWITCH &&

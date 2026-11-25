@@ -68,18 +68,18 @@ static bool popup_take(dgx_ui_t *tree, int i, const dgx_ui_msg_t *msg)
 }
 static void on_button(dgx_ui_t *tree, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) ++*(int *)ctx;
-    if (what == DGX_UI_EDIT) ++edits;
+    if (what == DGX_UI_EVENT_ACTIVATED) ++*(int *)ctx;
+    if (what == DGX_UI_EVENT_EDIT) ++edits;
 }
 
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .take = root_take};
-static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 14, .text = &go_box, .look = &dgx_ui_look_button, .on = on_button, .ctx = &activated};
-static const dgx_ui_widget_t plus_w   = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_w = 40, .want_h = 14, .text = &plus_box, .look = &dgx_ui_look_button, .on = on_button, .ctx = &plus_told};
+static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 14, .text = &go_box, .look = &dgx_ui_look_button, .on_event = on_button, .ctx = &activated};
+static const dgx_ui_widget_t plus_w   = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_w = 40, .want_h = 14, .text = &plus_box, .look = &dgx_ui_look_button, .on_event = on_button, .ctx = &plus_told};
 static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &level, .max = 10, .want_w = 80, .want_h = 10, .look = &dgx_ui_look_slider};
-static const dgx_ui_widget_t field_w  = {.kind = DGX_UI_INPUT, .want_w = 60, .want_h = 14, .text = &field_box, .look = &dgx_ui_look_input, .on = on_button, .ctx = &activated};
+static const dgx_ui_widget_t field_w  = {.kind = DGX_UI_INPUT, .want_w = 60, .want_h = 14, .text = &field_box, .look = &dgx_ui_look_input, .on_event = on_button, .ctx = &activated};
 static const dgx_ui_widget_t drop_w   = {.kind = DGX_UI_DROPDOWN, .value = &option, .max = 1, .want_w = 50, .want_h = 14, .text = &options_box, .look = &dgx_ui_look_dropdown};
 static const dgx_ui_widget_t frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .look = &dgx_ui_look_frame, .take = popup_take};
-static const dgx_ui_widget_t inner_w  = {.kind = DGX_UI_BUTTON, .want_w = 30, .want_h = 14, .text = &go_box, .look = &dgx_ui_look_button, .on = on_button, .ctx = &activated};
+static const dgx_ui_widget_t inner_w  = {.kind = DGX_UI_BUTTON, .want_w = 30, .want_h = 14, .text = &go_box, .look = &dgx_ui_look_button, .on_event = on_button, .ctx = &activated};
 static const dgx_ui_widget_t other_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
 
 static dgx_ui_node_t nodes[10], dialog_nodes[2], other_nodes[2], saver_nodes[2];
@@ -218,10 +218,10 @@ int main(void)
     make();
     dgx_ui_focus(&ui, button);
     idle_at(30000);
-    CHECK(told("1 ") && dgx_ui_buttons(&ui, DGX_UI_PAD_A, 30100) && activated == 0); /* spent: taken */
-    dgx_ui_buttons(&ui, DGX_UI_PAD_A, 30200), dgx_ui_time(&ui, 30200);
+    CHECK(told("1 ") && dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_A, 30100) && activated == 0); /* spent: taken */
+    dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_A, 30200), dgx_ui_time(&ui, 30200);
     CHECK(activated == 0 && told("0 "));
-    dgx_ui_buttons(&ui, 0, 30300), dgx_ui_buttons(&ui, DGX_UI_PAD_A, 30400);
+    dgx_ui_buttons(&ui, 0, 30300), dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_A, 30400);
     CHECK(activated == 1);
     dgx_ui_buttons(&ui, 0, 30500);
 
@@ -271,7 +271,7 @@ int main(void)
     idle = (dgx_ui_idle_t){.after_ms = 300, .what = IDLE_WHAT};
     dgx_ui_idle(&ui, &idle, 49000);
     level = 0;
-    dgx_ui_buttons(&ui, DGX_UI_PAD_RIGHT, 49000); /* MORE: 1 now, then from 49500 every 100 ms */
+    dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_RIGHT, 49000); /* MORE: 1 now, then from 49500 every 100 ms */
     for (t = 49010; t <= 50000; t += 10) dgx_ui_time(&ui, t);
     CHECK(!idle.idle && told("") && level == 7);
     dgx_ui_buttons(&ui, 0, 50010);
@@ -280,9 +280,9 @@ int main(void)
     make();
     idle_at(51000);
     told_idle[0] = 0;
-    CHECK(dgx_ui_buttons(&ui, DGX_UI_PAD_BACK, 51100));
+    CHECK(dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_BACK, 51100));
     CHECK(!dgx_ui_buttons(&ui, 0, 51200) && dgx_ui_idle_for(&idle, 51200) == 0 && dgx_ui_wake(NULL, &ui, 51200) == 1000); /* its let-go the user's */
-    CHECK(!dgx_ui_buttons(&ui, DGX_UI_PAD_BACK, 51300)); /* again: BACK, the program's */
+    CHECK(!dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_BACK, 51300)); /* again: BACK, the program's */
     dgx_ui_buttons(&ui, 0, 51400);
 
     /* a finger held keeps it away; an empty pointer does not */
@@ -343,8 +343,8 @@ int main(void)
     finger_on(&ui, &ui, plus, false, false, true, 81810);
     CHECK(dgx_ui_wake(NULL, &ui, 81810) == 1000); /* back at once, before any step */
     dgx_ui_focus(&ui, slider);
-    dgx_ui_buttons(&ui, DGX_UI_PAD_RIGHT, 81900);
-    for (t = 81910; t <= 83000; t += 10) dgx_ui_buttons(&ui, DGX_UI_PAD_RIGHT, t), dgx_ui_time(&ui, t);
+    dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_RIGHT, 81900);
+    for (t = 81910; t <= 83000; t += 10) dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_RIGHT, t), dgx_ui_time(&ui, t);
     CHECK(!idle.idle);
     dgx_ui_buttons(&ui, 0, 83010);
     CHECK(dgx_ui_wake(NULL, &ui, 83010) == 1000);

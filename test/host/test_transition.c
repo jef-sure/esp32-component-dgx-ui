@@ -6,7 +6,7 @@
  * crossfade: a middle frame as DGX mixes the two pictures at its alpha, in the frame buffer and strip by strip in the
  * paint's buffer. A look of the program's own that counts the painter's own passes: the last frame shows the count
  * the trees are marked as showing, `to` composed after the telling pass. Back by the key, by a button that calls dgx_ui_page_back(), and by one that calls
- * dgx_ui_page_back_by() with the root's on(DGX_UI_BACK) calling it too: one transition each, composed once. A
+ * dgx_ui_page_back_by() with the root's on(DGX_UI_EVENT_BACK) calling it too: one transition each, composed once. A
  * transition asked for while one runs starts from the trees as they stand. At once, the page changed: no pictures,
  * no time, a picture of another size or depth, the keyboard's band open, a crossfade on the panel with no buffer.
  * wake_ms 0 while the frames run.
@@ -85,12 +85,12 @@ enum { OPEN = 1, SETTINGS_ROOT, BACK };
 static void on_any(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     const int tag = node->widget->tag;
-    if (tag == OPEN && what == DGX_UI_ACTIVATED) dgx_ui_page_open_by(&home, &settings, &paint, &tr, kind);
-    if (tag == BACK && what == DGX_UI_ACTIVATED) {
+    if (tag == OPEN && what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_open_by(&home, &settings, &paint, &tr, kind);
+    if (tag == BACK && what == DGX_UI_EVENT_ACTIVATED) {
         if (back_button_way == BACK_PLAIN) dgx_ui_page_back(&home);
         else dgx_ui_page_back_by(&home, &paint, &tr, DGX_UI_SLIDE_RIGHT);
     }
-    if (tag == SETTINGS_ROOT && what == DGX_UI_BACK) {
+    if (tag == SETTINGS_ROOT && what == DGX_UI_EVENT_BACK) {
         ++told_back;
         if (root_back_by) dgx_ui_page_back_by(&home, &paint, &tr, DGX_UI_SLIDE_RIGHT);
     }
@@ -102,11 +102,11 @@ static dgx_ui_textbox_t clock_box, label_box, list_box;
 static void make_trees(void)
 {
     static const dgx_ui_widget_t home_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
-    static const dgx_ui_widget_t open_w      = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = OPEN, .on = on_any};
+    static const dgx_ui_widget_t open_w      = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = OPEN, .on_event = on_any};
     static int32_t counter_w_place; /* its value */
     static const dgx_ui_widget_t counter_w   = {.kind = DGX_UI_OWN, .value = &counter_w_place, .want_h = 2, .look = &counter_look};
-    static const dgx_ui_widget_t root_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = SETTINGS_ROOT, .on = on_any};
-    static const dgx_ui_widget_t back_w      = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = BACK, .on = on_any};
+    static const dgx_ui_widget_t root_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = SETTINGS_ROOT, .on_event = on_any};
+    static const dgx_ui_widget_t back_w      = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = BACK, .on_event = on_any};
     static int32_t passes_w_place; /* its value */
     static const dgx_ui_widget_t passes_w    = {.kind = DGX_UI_OWN, .value = &passes_w_place, .want_h = 2, .look = &passes_look};
     static dgx_ui_widget_t       clock_w, label_w, list_w;
@@ -280,9 +280,9 @@ int main(void)
     dgx_ui_redraw(&home, 0);
     dgx_ui_paint(&home, &paint, 4500);
 
-    /* back three ways, one transition each, the home composed once into `to`: the key with the root's on() calling
+    /* back three ways, one transition each, the home composed once into `to`: the key with the root's on_event() calling
        dgx_ui_page_back_by(); a button calling dgx_ui_page_back(); a button calling dgx_ui_page_back_by() with the
-       root's on() calling it too */
+       root's on_event() calling it too */
     const int ways[3][2] = {{-1, 1}, {BACK_PLAIN, 1}, {BACK_BY, 1}};
     for (int k = 0; k < 3; ++k) {
         click(&home, 10, 20, 5000 + (uint32_t)k * 1000);

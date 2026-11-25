@@ -79,7 +79,7 @@ static const dgx_ui_look_t        made_look[4]       = {{.draw = dgx_ui_draw_but
                                                         {.draw = dgx_ui_draw_level, .params = &made_params_2, .fill = -1},
                                                         {.draw = dgx_ui_draw_frame, .params = &made_params_3, .fill = 2}};
 static const dgx_ui_font_variant_t made_variants_0[2] = {{.font = &TerminusTTFMedium12}, {.font = &font0ss, .height = 24, .narrow = 70, .joined = true, .pen = 2 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting}};
-static const dgx_ui_text_style_t  made_style[1]      = {{.fonts = made_variants_0, .count = 2, .flags = DGX_UI_TEXT_MIDDLE | DGX_UI_TEXT_IMPORTANT, .align = DGX_FONT_ALIGN_CENTER, .scroll_ms = 900}};
+static const dgx_ui_text_style_t  made_style[1]      = {{.fonts = made_variants_0, .count = 2, .flags = DGX_UI_STYLE_MIDDLE | DGX_UI_STYLE_IMPORTANT, .align = DGX_FONT_ALIGN_CENTER, .scroll_ms = 900}};
 static const dgx_ui_look_name_t   made_looks[]       = {{"big", &made_look[0]}, {"slider", &made_look[1]}, {"tank", &made_look[2]}, {"pane", &made_look[3]},
                                                         DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(switch)};
 static const dgx_ui_style_name_t  made_styles[]      = {{"body", &made_style[0]}, {"plain", &plain}};
@@ -287,7 +287,7 @@ int main(void)
     CHECK(appearance.looks[4].look == &dgx_ui_look_slider && appearance.looks[5].look == &dgx_ui_look_switch); /* the program's after */
     const dgx_ui_text_style_t *body = appearance.styles[0].style;
     CHECK(strcmp(appearance.styles[0].name, "body") == 0 && body->count == 2 && body->align == DGX_FONT_ALIGN_CENTER &&
-          body->flags == (DGX_UI_TEXT_MIDDLE | DGX_UI_TEXT_IMPORTANT) && body->scroll_ms == 900);
+          body->flags == (DGX_UI_STYLE_MIDDLE | DGX_UI_STYLE_IMPORTANT) && body->scroll_ms == 900);
     CHECK(body->fonts[0].font == &TerminusTTFMedium12 && body->fonts[0].hand == NULL && body->fonts[1].font == &font0ss &&
           body->fonts[1].hand == &dgx_ui_handwriting && body->fonts[1].height == 24 && body->fonts[1].narrow == 70 && body->fonts[1].joined &&
           body->fonts[1].pen == (2 | DGX_PEN_SOFT));

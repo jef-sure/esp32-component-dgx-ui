@@ -135,7 +135,7 @@ bool dgx_ui_hand_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
        shows */
     const dgx_ui_text_style_t *style    = box->style;
     const int                  own_rows = dgx_ui_hand_base_rows(variant), first_rows = dgx_ui_first_base(style, ui->unit);
-    if (style->flags & DGX_UI_TEXT_MIDDLE) line.base = node->y + (node->h - variant->height) / 2 + own_rows;
+    if (style->flags & DGX_UI_STYLE_MIDDLE) line.base = node->y + (node->h - variant->height) / 2 + own_rows;
     else line.base = node->y + (first_rows >= 0 ? first_rows : own_rows);
     int room = 0;
     if (width <= node->w) room = style->align == DGX_FONT_ALIGN_CENTER ? (node->w - width) / 2 : style->align == DGX_FONT_ALIGN_RIGHT ? node->w - width : 0;

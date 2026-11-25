@@ -30,12 +30,12 @@ typedef struct load_t {
     uint8_t                   *memory;
     int                       *ids;  /* the index of each id of the table, written to the table once all is added */
     int                        top;  /* the first widget added: removing it removes all the load added */
-    uint8_t                    ids_met[DGX_UI_LOAD_IDS / 8]; /* the table's ids met by the walk: a second is an error */
+    uint8_t                    ids_met[DGX_UI_LOAD_MAX_IDS / 8]; /* the table's ids met by the walk: a second is an error */
     char                       tree_name[24];                /* the description's "name"; empty: none */
     struct {
         size_t end;  /* where its object ends: the reader goes on there after its children */
         int    self; /* its index, the parent of its children; -1 counting */
-    } open[DGX_UI_LOAD_DEPTH]; /* the widgets whose children are walked, the root's first */
+    } open[DGX_UI_LOAD_MAX_DEPTH]; /* the widgets whose children are walked, the root's first */
 } load_t;
 
 enum { SKIP_LEVELS = DGX_UI_READ_LEVELS };
@@ -106,7 +106,7 @@ static void *take_bytes(load_t *L, size_t n, size_t align)
    object; its node in *self (-1 counting), the place of its children in *children (0: none) */
 static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *children_out)
 {
-    if (depth > DGX_UI_LOAD_DEPTH) return fail(L, DGX_UI_LOAD_DEPTH_MAX, L->read.json.pos, NULL);
+    if (depth > DGX_UI_LOAD_MAX_DEPTH) return fail(L, DGX_UI_LOAD_TOO_DEEP, L->read.json.pos, NULL);
     if (depth > L->depth) L->depth = depth;
     const size_t at = (dgx_ui_json_peek(&L->read.json), L->read.json.pos);
     if (!dgx_ui_json_expect(&L->read.json, '{')) return false;
@@ -170,9 +170,9 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
                 if (ok) w.picture = L->names->pictures[picture].picture;
                 break;
             case K_STYLE: ok = (style = find(L, L->names->styles, L->names->style_count, sizeof *L->names->styles)) >= 0; break;
-            case K_ON:
+            case K_ON_EVENT:
                 ok = (on = find(L, L->names->handlers, L->names->handler_count, sizeof *L->names->handlers)) >= 0;
-                if (ok) w.on = L->names->handlers[on].on;
+                if (ok) w.on_event = L->names->handlers[on].on_event;
                 break;
             case K_TAKE:
                 ok = (e = find(L, L->names->takes, L->names->take_count, sizeof *L->names->takes)) >= 0;
@@ -203,9 +203,9 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
         if ((seen & 1u << k) && !(key_kinds[k] & 1u << kind)) return fail(L, DGX_UI_LOAD_FIELD, key_at[k], keys[k]);
     /* a number for ctx only to a handler that takes one, the library's page action only a page's tree or none;
        pictures no fewer than the kind reads */
-    const int takes = on >= 0 ? L->names->handlers[on].takes : DGX_UI_TAKES_OWN;
-    if (ctx_number && takes != DGX_UI_TAKES_NUMBER) return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
-    if (takes == DGX_UI_TAKES_PAGE && (seen & 1u << K_CTX) && (ctx_number || !L->names->contexts[context].page))
+    const int takes = on >= 0 ? L->names->handlers[on].ctx_kind : DGX_UI_CTX_OWN;
+    if (ctx_number && takes != DGX_UI_CTX_NUMBER) return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
+    if (takes == DGX_UI_CTX_PAGE && (seen & 1u << K_CTX) && (ctx_number || !L->names->contexts[context].page))
         return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
     if (picture >= 0) {
         const int count = L->names->pictures[picture].count ? L->names->pictures[picture].count : 1;
@@ -322,7 +322,7 @@ static bool document(load_t *L, int parent, int *index)
 /* the walk of a load: first the place of the ids' indices, then the widgets */
 static bool walk(load_t *L, int parent, int *index)
 {
-    if (L->names->id_count > DGX_UI_LOAD_IDS) return fail(L, DGX_UI_LOAD_ID, 0, NULL);
+    if (L->names->id_count > DGX_UI_LOAD_MAX_IDS) return fail(L, DGX_UI_LOAD_ID, 0, NULL);
     L->ids = take_bytes(L, (size_t)L->names->id_count * sizeof(int), _Alignof(int));
     for (int k = 0; L->build && k < L->names->id_count; ++k) L->ids[k] = -1;
     if (document(L, parent, index)) return true;

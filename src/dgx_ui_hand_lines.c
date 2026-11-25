@@ -139,7 +139,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     /* the scroll from when all came: after the letters' time, or from the pass the program showed them whole */
     const uint32_t scroll_from = box->flags & DGX_UI_TEXTBOX_WHOLE ? 0 : total_ms;
     /* an important text too long: a line up every scroll_ms once all came, as the look of lines does */
-    const bool important = style->flags & DGX_UI_TEXT_IMPORTANT;
+    const bool important = style->flags & DGX_UI_STYLE_IMPORTANT;
     const int  last_top  = total > rows ? total - rows : 0;
     int        top       = box->top;
     bool       more      = !came;
@@ -168,7 +168,7 @@ static bool write_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const int     shown_before = (box->flags & DGX_UI_TEXTBOX_COUNTED) ? (box->total_lines - box->top < rows ? box->total_lines - box->top : rows) : -1;
     const int     own    = dgx_ui_hand_base_rows(variant);
     int           base0; /* the first row's base line: the first variant's, or the block of the rows in the middle */
-    if (style->flags & DGX_UI_TEXT_MIDDLE) {
+    if (style->flags & DGX_UI_STYLE_MIDDLE) {
         const int block = (shown > 0 ? shown : 1) * line_height;
         base0           = node->y + (node->h - block) / 2 + own;
         if (rows > 1 && shown != shown_before) {

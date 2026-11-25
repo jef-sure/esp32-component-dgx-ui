@@ -2,10 +2,10 @@
  * dgx_ui_stats.c
  *
  *  The statistics of painting (dgx_ui_stats.h). A measured pass lends the paint a counter in the member of the strips,
- *  as dgx_ui_changed() lends its teller, and gives the member back after. The painter offers the counter every part a
+ *  as dgx_ui_paint_changes() lends its teller, and gives the member back after. The painter offers the counter every part a
  *  look is to draw (cut() of dgx_ui_paint.c); the counter reads the clock, hands the part to the program's strips when
  *  it named them, else calls the look itself as the painter would, and reads the clock again. A draw of a widget
- *  begins at its part 0. A told pass gives dgx_ui_changed() a telling function of its own around the program's, the
+ *  begins at its part 0. A told pass gives dgx_ui_paint_changes() a telling function of its own around the program's, the
  *  teller still the only holder of the member; the frames of a transition are timed around their call. Nothing is
  *  kept here: the counters live on the calls' stacks, the counts in the program's structs. A program that names none
  *  of it carries none of it, and each call only what it names.
@@ -149,7 +149,7 @@ bool dgx_ui_paint_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms,
 
 /* the told pass's own telling function around the program's: each rectangle a draw and a part, timed */
 typedef struct {
-    dgx_ui_changed_fn tell;
+    dgx_ui_paint_changes_t tell;
     void             *ctx;
     int64_t (*clock_us)(void);
     pass_t            pass;
@@ -165,11 +165,13 @@ static void told_measured(void *arg, dgx_ui_rect_t rect)
     if (took >= telling->pass.slowest.us) telling->pass.slowest.us = took;
 }
 
-bool dgx_ui_changed_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_changed_fn tell, void *ctx, dgx_ui_paint_stats_t *stats)
+bool dgx_ui_paint_changes_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_paint_changes_t tell, void *ctx,
+                                   dgx_ui_paint_stats_t *stats)
 {
     telling_t      telling = {.tell = tell, .ctx = ctx, .clock_us = stats->clock_us, .pass = {.slowest = {.level = -1, .widget = -1}}};
     const int64_t  start   = clock_of(stats->clock_us);
-    const bool     more    = tell ? dgx_ui_changed(ui, paint, now_ms, told_measured, &telling) : dgx_ui_changed(ui, paint, now_ms, NULL, ctx);
+    const bool     more    = tell ? dgx_ui_paint_changes(ui, paint, now_ms, told_measured, &telling)
+                                  : dgx_ui_paint_changes(ui, paint, now_ms, NULL, ctx);
     const uint32_t took    = (uint32_t)(clock_of(stats->clock_us) - start);
     count_pass(stats, ui, took, &telling.pass);
     return more;

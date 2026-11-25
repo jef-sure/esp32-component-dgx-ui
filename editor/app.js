@@ -18,7 +18,7 @@ const dgxUiBuilderMount = (() => {
         UNKNOWN: 'a name its table has not',
         NO_LOOK: 'no look said, and the looks name none for the kind',
         NO_STYLE: 'a text, and no style to draw it in',
-        DEPTH_MAX: 'nested deeper than the loader goes',
+        TOO_DEEP: 'nested deeper than the loader goes',
         MEMORY: 'the memory smaller than the need',
         NODES: 'no memory for more widgets',
         ID: 'an id on a second widget, or too many ids',
@@ -738,7 +738,7 @@ const dgxUiBuilderMount = (() => {
                         <input v-if="table === 'picture'" type="text" class="count" :value="partsOf(row).extra" :placeholder="'1'"
                                :aria-label="t('its count of pictures')"
                                @input="setPart(row, 'extra', $event.target.value.trim(), store.namesFold(table, row.words[1], 'count'))">
-                        <label v-else-if="table === 'on' || table === 'ctx' || table === 'font'" class="word">
+                        <label v-else-if="table === 'on_event' || table === 'ctx' || table === 'font'" class="word">
                             <input type="checkbox" :checked="table === 'font' ? partsOf(row).extra : partsOf(row).extra === store.namesFormat.words[table]"
                                    @change="setPart(row, 'extra', table === 'font' ? $event.target.checked : $event.target.checked ? store.namesFormat.words[table] : '')">
                             {{ store.namesFormat.words[table] }}</label>

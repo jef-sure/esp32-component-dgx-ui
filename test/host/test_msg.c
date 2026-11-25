@@ -181,7 +181,7 @@ static void field_on(dgx_ui_t *u, int i, const dgx_ui_node_t *node, int what, vo
 }
 static char                  field_buf[6];
 static dgx_ui_textbox_t      field_box;
-static const dgx_ui_widget_t field_w = {.kind = DGX_UI_INPUT, .text = &field_box, .on = field_on};
+static const dgx_ui_widget_t field_w = {.kind = DGX_UI_INPUT, .text = &field_box, .on_event = field_on};
 
 static void test_typed(void)
 {
@@ -204,7 +204,7 @@ static void test_typed(void)
     field_told_count = 0;
     const uint32_t done_cancel[] = {DGX_UI_CP_DONE, DGX_UI_CP_CANCEL};
     dgx_ui_typed(&ui, done_cancel, 2);
-    CHECK(field_told_count == 2 && field_told[0] == DGX_UI_ACTIVATED && field_told[1] == DGX_UI_BACK);
+    CHECK(field_told_count == 2 && field_told[0] == DGX_UI_EVENT_ACTIVATED && field_told[1] == DGX_UI_EVENT_BACK);
     dgx_ui_free(&ui);
 }
 

@@ -132,7 +132,7 @@ typedef struct dgx_ui_params_t {
     {.size = sizeof(type), .align = __alignof__(type), .kinds = (widget_kinds), .field_count = sizeof(field_table) / sizeof *(field_table), \
      .fields = (field_table)}
 /** The same, of a draw whose looks carry a behaviour: dgx_ui_params_scroll's. */
-#define DGX_UI_PARAMS_BEHAVING(type, widget_kinds, field_table, behaving)                                                    \
+#define DGX_UI_PARAMS_WITH_BEHAVIOR(type, widget_kinds, field_table, behaving)                                                    \
     {.size = sizeof(type), .align = __alignof__(type), .kinds = (widget_kinds), .field_count = sizeof(field_table) / sizeof *(field_table), \
      .fields = (field_table), .behavior = (behaving)}
 

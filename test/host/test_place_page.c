@@ -7,7 +7,7 @@
  * over the bar takes the finger there; a page of the whole screen over the place covers home too. The place removed,
  * and named -1, with a page open: the page on the screen, home told it is covered; named again: shown. The bar's
  * dropdown opens its list over the page and closes it alone; a dropdown of home under a hint that stays keeps the
- * hint; the list closed by the key back and by a finger outside, the list alone. A tab: back and open from its on()
+ * hint; the list closed by the key back and by a finger outside, the list alone. A tab: back and open from its on_event()
  * while the finger is down, the finger let go after. A transition in the place, begun while a button of the bar is
  * pressed: no pixel outside the place written by its frames. After each pass no pixel twice and the panel the chain as
  * a fresh paint composes it, on 16 bits straight and 18 through the strips (PANEL_BITS, by the Makefile).
@@ -47,10 +47,10 @@ static int  bar, clock_i, back_i, tab_i, bar_dd, line, place, page_go[TREES]; /*
 static bool clock_when_shown; /* P2's root told SHOWN sets the clock, outside the place, within the call */
 static void on_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_SHOWN && what != DGX_UI_COVERED) return;
-    if (clock_when_shown && what == DGX_UI_SHOWN && (int)(intptr_t)ctx == P2) clock_when_shown = false, dgx_ui_text_set(&home, clock_i, "12:03");
+    if (what != DGX_UI_EVENT_SHOWN && what != DGX_UI_EVENT_COVERED) return;
+    if (clock_when_shown && what == DGX_UI_EVENT_SHOWN && (int)(intptr_t)ctx == P2) clock_when_shown = false, dgx_ui_text_set(&home, clock_i, "12:03");
     char word[16];
-    snprintf(word, sizeof word, "%s%s ", names[(int)(intptr_t)ctx], what == DGX_UI_SHOWN ? "+" : "-");
+    snprintf(word, sizeof word, "%s%s ", names[(int)(intptr_t)ctx], what == DGX_UI_EVENT_SHOWN ? "+" : "-");
     strncat(log_text, word, sizeof log_text - strlen(log_text) - 1);
 }
 
@@ -64,14 +64,14 @@ static bool logged(const char *expected)
 
 /* the program: what its widgets were told */
 static int  back_clicked, page_clicked, bar_changed, tabs;
-static bool tab_switches; /* the tab's on() goes back and opens the other page */
+static bool tab_switches; /* the tab's on_event() goes back and opens the other page */
 static void on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) ++back_clicked, dgx_ui_page_back(&home);
+    if (what == DGX_UI_EVENT_ACTIVATED) ++back_clicked, dgx_ui_page_back(&home);
 }
 static void on_tab(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_ACTIVATED || !tab_switches) return;
+    if (what != DGX_UI_EVENT_ACTIVATED || !tab_switches) return;
     ++tabs;
     dgx_ui_t *other = home.popup == &p1 ? &p2 : &p1;
     dgx_ui_page_back(&home);
@@ -79,11 +79,11 @@ static void on_tab(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, voi
 }
 static void on_page_button(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) ++page_clicked;
+    if (what == DGX_UI_EVENT_ACTIVATED) ++page_clicked;
 }
 static void on_bar_dropdown(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) ++bar_changed;
+    if (what == DGX_UI_EVENT_CHANGED) ++bar_changed;
 }
 
 static char             clock_text[8] = "12:00";
@@ -94,18 +94,18 @@ static dgx_ui_textbox_t under_box = DGX_UI_TEXT_CONST("under", 1, &style), go_bo
 static dgx_ui_textbox_t ok_box = DGX_UI_TEXT_CONST("OK", 1, &style), wake_box = DGX_UI_TEXT_CONST("Wake", 1, &style);
 static int32_t          bar_option;
 
-static const dgx_ui_widget_t home_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .on = on_root, .ctx = (void *)(intptr_t)HOME};
+static const dgx_ui_widget_t home_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .on_event = on_root, .ctx = (void *)(intptr_t)HOME};
 static const dgx_ui_widget_t bar_w       = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 1, .gap = 2, .want_h = 18};
 static const dgx_ui_widget_t clock_w     = {.kind = DGX_UI_LABEL, .want_w = 34, .text = &clock_box};
-static const dgx_ui_widget_t back_w      = {.kind = DGX_UI_BUTTON, .want_w = 20, .text = &back_box, .look = &dgx_ui_look_button, .on = on_back};
-static const dgx_ui_widget_t tab_w       = {.kind = DGX_UI_BUTTON, .want_w = 30, .text = &tab_box, .look = &dgx_ui_look_button, .on = on_tab};
-static const dgx_ui_widget_t bar_dd_w    = {.kind = DGX_UI_DROPDOWN, .value = &bar_option, .max = 2, .want_w = 40, .text = &options_box, .look = &dgx_ui_look_dropdown, .on = on_bar_dropdown};
+static const dgx_ui_widget_t back_w      = {.kind = DGX_UI_BUTTON, .want_w = 20, .text = &back_box, .look = &dgx_ui_look_button, .on_event = on_back};
+static const dgx_ui_widget_t tab_w       = {.kind = DGX_UI_BUTTON, .want_w = 30, .text = &tab_box, .look = &dgx_ui_look_button, .on_event = on_tab};
+static const dgx_ui_widget_t bar_dd_w    = {.kind = DGX_UI_DROPDOWN, .value = &bar_option, .max = 2, .want_w = 40, .text = &options_box, .look = &dgx_ui_look_dropdown, .on_event = on_bar_dropdown};
 static const dgx_ui_widget_t line_w      = {.kind = DGX_UI_LABEL, .want_h = 14, .text = &line_box};
 static const dgx_ui_widget_t place_w     = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_REST | DGX_UI_STRETCH};
 static const dgx_ui_widget_t under_w     = {.kind = DGX_UI_LABEL, .want_h = 14, .text = &under_box};
 static dgx_ui_widget_t       page_root_w[TREES];
-static const dgx_ui_widget_t go_w   = {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 16, .text = &go_box, .look = &dgx_ui_look_button, .on = on_page_button};
-static const dgx_ui_widget_t go2_w  = {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 16, .text = &go_box, .look = &dgx_ui_look_button, .on = on_page_button};
+static const dgx_ui_widget_t go_w   = {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 16, .text = &go_box, .look = &dgx_ui_look_button, .on_event = on_page_button};
+static const dgx_ui_widget_t go2_w  = {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 16, .text = &go_box, .look = &dgx_ui_look_button, .on_event = on_page_button};
 static const dgx_ui_widget_t ok_w   = {.kind = DGX_UI_BUTTON, .want_w = 30, .want_h = 16, .text = &ok_box, .look = &dgx_ui_look_button};
 static const dgx_ui_widget_t wake_w = {.kind = DGX_UI_LABEL, .want_h = 14, .text = &wake_box};
 
@@ -114,7 +114,7 @@ static dgx_ui_node_t home_nodes[12], tree_nodes[TREES][4];
 static void make_tree(int t, const dgx_ui_widget_t *inside)
 {
     dgx_ui_init(trees[t], tree_nodes[t], 4, 1);
-    page_root_w[t] = (dgx_ui_widget_t){.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .look = &dgx_ui_look_frame, .on = on_root, .ctx = (void *)(intptr_t)t};
+    page_root_w[t] = (dgx_ui_widget_t){.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .look = &dgx_ui_look_frame, .on_event = on_root, .ctx = (void *)(intptr_t)t};
     dgx_ui_add(trees[t], -1, &page_root_w[t]);
     page_go[t] = dgx_ui_add(trees[t], 0, inside);
 }
@@ -341,7 +341,7 @@ int main(void)
     CHECK(p1.popup == NULL && home.popup == &p1 && bar_option == 1 && logged(""));
     CHECK(pass_any(now += 10) == 0);
 
-    /* a tab: back and open from its on() while the finger is down on it; let go after, nothing pressed */
+    /* a tab: back and open from its on_event() while the finger is down on it; let go after, nothing pressed */
     tab_switches = true;
     click_at(box_of(&home, tab_i), now += 10);
     CHECK(tabs == 1 && home.popup == &p2 && home.pressed < 0 && logged("P1- P2+ "));

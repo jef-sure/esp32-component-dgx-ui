@@ -6,7 +6,7 @@
     const element = id => document.getElementById(id);
     const panel = element('panel'), context = panel.getContext('2d');
     /* the loader's codes, dgx_ui_load.h */
-    const loadErrors = ['OK', 'SYNTAX', 'VERSION', 'KEY', 'KIND', 'FIELD', 'RANGE', 'NAME_BAD', 'UNKNOWN', 'NO_LOOK', 'NO_STYLE', 'DEPTH_MAX',
+    const loadErrors = ['OK', 'SYNTAX', 'VERSION', 'KEY', 'KIND', 'FIELD', 'RANGE', 'NAME_BAD', 'UNKNOWN', 'NO_LOOK', 'NO_STYLE', 'TOO_DEEP',
                         'MEMORY', 'NODES', 'ID', 'MISSING'].map(word => 'DGX_UI_LOAD_' + word);
     let pages = {};
     const preview = await DgxUiPreview.create({pageText: name => pages[name] === undefined ? null : JSON.stringify(pages[name])});

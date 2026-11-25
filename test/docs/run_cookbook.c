@@ -271,8 +271,8 @@ int main(int argc, char **argv)
         dgx_screen_t                *slide_screen = dgx_vscreen_init(160, 60, 16, DgxScreenRGB), *fresh = dgx_vscreen_init(160, 60, 16, DgxScreenRGB);
         dgx_ui_paint_t               slide_paint_here = {.scr = slide_screen, .colors = table, .color_count = COLORS, .background = PAPER};
         static const dgx_ui_widget_t slide_home_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
-        static const dgx_ui_widget_t slide_button_w = {.kind = DGX_UI_BUTTON, .want_h = 16, .look = &dgx_ui_look_button, .on = on_slide_settings};
-        static const dgx_ui_widget_t slide_page_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .on = on_slide_root};
+        static const dgx_ui_widget_t slide_button_w = {.kind = DGX_UI_BUTTON, .want_h = 16, .look = &dgx_ui_look_button, .on_event = on_slide_settings};
+        static const dgx_ui_widget_t slide_page_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .on_event = on_slide_root};
         static int32_t               slide_slider_value;
         static const dgx_ui_widget_t slide_slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .want_h = 10, .value = &slide_slider_value, .look = &dgx_ui_look_slider};
         static dgx_ui_node_t         slide_home_nodes[4];
@@ -599,7 +599,7 @@ int main(int argc, char **argv)
         prefs_edit_begin();
         dgx_ui_paint(&prefs_page, &prefs_paint, 0);
         const int shown_at_first = dgx_ui_node(&prefs_page, backlight)->state_drawn.value;
-        dgx_ui_user_value(&prefs_page, backlight, 30), dgx_ui_user_value(&prefs_page, night, 1); /* the user moves a slider and turns the switch */
+        dgx_ui_set_value_as_user(&prefs_page, backlight, 30), dgx_ui_set_value_as_user(&prefs_page, night, 1); /* the user moves a slider and turns the switch */
         dgx_ui_paint(&prefs_page, &prefs_paint, 20);
         const bool changed = prefs_edit_changed();
         const int  edited = (int)prefs_edited[PREF_BACKLIGHT], used_meanwhile = (int)prefs[PREF_BACKLIGHT];
@@ -607,7 +607,7 @@ int main(int argc, char **argv)
         dgx_ui_paint(&prefs_page, &prefs_paint, 40);
         printf("prefs: the page shows %d; the user sets 30 and night: changed %d, the copy %d, the program still reads %d; Undo: drawn %d again with no call, changed %d\n",
                shown_at_first, changed, edited, used_meanwhile, (int)dgx_ui_node(&prefs_page, backlight)->state_drawn.value, prefs_edit_changed());
-        dgx_ui_user_value(&prefs_page, volume, 55);
+        dgx_ui_set_value_as_user(&prefs_page, volume, 55);
         const bool saved = prefs_edit_save();
         printf("prefs: the volume set to 55 and saved %d: the program reads %d, committed %d time(s), %d bytes kept\n", saved, (int)prefs[PREF_VOLUME], nvs_commits,
                (int)nvs_blob_size);
@@ -818,7 +818,7 @@ int main(int argc, char **argv)
                dgx_ui_hit(&x, pn->x + 30, pn->y + 10) == pad, tn->x, tn->y, tn->w, tn->h, dgx_ui_hit(&x, tn->x + 1, tn->y + 1) == tap);
         /* step 1: down at 30, 10 */
         dgx_ui_pointer(&x, &(dgx_ui_pointer_t){.x = (int16_t)(pn->x + 30), .y = (int16_t)(pn->y + 10), .down = true, .pressed = true, .ms = 1000});
-        printf("own: down at 30,10: y %d, value %d, on() told %d time(s) the point %d,%d; pressed %d, focused %d, dragging %d\n", xy_data.y,
+        printf("own: down at 30,10: y %d, value %d, on_event() told %d time(s) the point %d,%d; pressed %d, focused %d, dragging %d\n", xy_data.y,
                dgx_ui_value_of(pn), point_calls, point_x, point_y, !!(pn->state.bits & DGX_UI_PRESSED), x.focus == pad, dgx_ui_dragging(&x));
         dgx_ui_paint(&x, &xp, 10);
         int knob = 0, kx0 = 999, ky0 = 999, field = 0;
@@ -835,7 +835,7 @@ int main(int argc, char **argv)
         /* step 3: let go: no click */
         point_calls = 0;
         dgx_ui_pointer(&x, &(dgx_ui_pointer_t){.x = (int16_t)(pn->x - 10), .y = (int16_t)(pn->y + 70), .released = true, .ms = 1100});
-        printf("own: let go: pressed %d, on() told %d more time(s)\n", !!(pn->state.bits & DGX_UI_PRESSED), point_calls);
+        printf("own: let go: pressed %d, on_event() told %d more time(s)\n", !!(pn->state.bits & DGX_UI_PRESSED), point_calls);
         /* let go, the pad keeps the focus: the knob hollow, its border of 6 by 6 pixels in the ink */
         dgx_ui_paint(&x, &xp, 1100);
         int border = 0, inside = 0;
@@ -870,7 +870,7 @@ int main(int argc, char **argv)
     dgx_ui_focus(&ui, sl), dgx_ui_key(&ui, DGX_UI_KEY_MORE);
     dgx_ui_focus(&ui, sw), dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE);
     backlight_show(30);
-    printf("slider: started at 70, MORE told backlight_set(%d); set to 30 by the program, on() not told again (%d); switch told wifi_enable(%d)\n", backlight,
+    printf("slider: started at 70, MORE told backlight_set(%d); set to 30 by the program, on_event() not told again (%d); switch told wifi_enable(%d)\n", backlight,
            backlight, wifi);
 
     /* the button, and the alarm that comes and goes */
@@ -900,10 +900,10 @@ int main(int argc, char **argv)
     dgx_ui_paint(&ui, &paint, 12);
     printf("talk: coming %d; a key, and at the next pass seen %d; a key more: line %d, coming again %d\n", talk_coming == DGX_UI_TEXT_COMING,
            talk_seen == DGX_UI_TEXT_SEEN, talk_at, dgx_ui_text_state(&ui, hint) == DGX_UI_TEXT_COMING);
-    buttons_t b = {.held = DGX_UI_PAD_DOWN};
+    buttons_t b = {.held = DGX_UI_GAMEPAD_DOWN};
     dgx_ui_msg_value(&msg, MSG_BUTTONS, &b, sizeof b), buttons_message(&ui, &msg, 100);
     const int f1 = ui.focus;
-    b.held       = DGX_UI_PAD_BACK;
+    b.held       = DGX_UI_GAMEPAD_BACK;
     dgx_ui_msg_value(&msg, MSG_BUTTONS, &b, sizeof b), buttons_message(&ui, &msg, 200);
     printf("buttons: DOWN moved the focus from %d to %d; BACK was the program's: menu_back %d time(s)\n", save, f1, backs);
     colors_set(&ui, &paint, table);
@@ -927,11 +927,11 @@ int main(int argc, char **argv)
         dgx_ui_add(&r, line, &b_w);
         dgx_ui_screen(&r, 200, 100, 0);
         dgx_ui_focus(&r, back);
-        const bool took_default = dgx_ui_buttons(&r, DGX_UI_PAD_RIGHT, 0);
+        const bool took_default = dgx_ui_buttons(&r, DGX_UI_GAMEPAD_RIGHT, 0);
         const int  f_default    = r.focus;
         dgx_ui_buttons(&r, 0, 10);
         dialog_keys(&r, true);
-        const bool took_row = dgx_ui_buttons(&r, DGX_UI_PAD_RIGHT, 20);
+        const bool took_row = dgx_ui_buttons(&r, DGX_UI_GAMEPAD_RIGHT, 20);
         printf("row of buttons: by default right is taken %d and the focus stays on Back %d; with row_keys taken %d and the focus is on OK %d\n", took_default,
                f_default == back, took_row, r.focus == ok);
     }
@@ -981,7 +981,7 @@ int main(int argc, char **argv)
         static uint32_t              tb[COLORS];
         for (int k = 0; k < COLORS; ++k) tb[k] = dgx_screen_rgb(scr, (uint8_t)(30 * k), (uint8_t)(250 - 30 * k), (uint8_t)(10 + 25 * k));
         dgx_ui_paint_t pp = {.scr = scr, .colors = tb, .color_count = COLORS, .background = PAPER};
-        st_news = (dgx_ui_text_style_t){.fonts = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
+        st_news = (dgx_ui_text_style_t){.fonts = small, .count = 1, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 2000};
         dgx_ui_textbox_init(&news_box, news_buf, sizeof news_buf, 2, &st_news);
         dgx_ui_textbox_init(&ask2_box, ask2_buf, sizeof ask2_buf, 1, &st_left);
         dgx_ui_init(&w, wn, 4, 2);
@@ -1350,19 +1350,19 @@ int main(int argc, char **argv)
         dgx_ui_pointer(&f, &down), dgx_ui_pointer(&f, &swiped), dgx_ui_pointer(&f, &(dgx_ui_pointer_t){.x = swiped.x, .y = swiped.y, .released = true, .ms = 120});
         printf("strip: a swipe begun on the field: open %d\n", f.popup != NULL || keypad_kb.open);
         /* the keys: the walk goes on from the code to the PIN and opens nothing; the key that activates opens the strip */
-        dgx_ui_buttons(&f, DGX_UI_PAD_DOWN, 1000), dgx_ui_buttons(&f, 0, 1010);
+        dgx_ui_buttons(&f, DGX_UI_GAMEPAD_DOWN, 1000), dgx_ui_buttons(&f, 0, 1010);
         const bool walked = f.focus == pin && !f.popup;
-        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1020), dgx_ui_buttons(&f, 0, 1030);
+        dgx_ui_buttons(&f, DGX_UI_GAMEPAD_A, 1020), dgx_ui_buttons(&f, 0, 1030);
         printf("strip: DOWN from the code: the focus on the PIN and nothing open %d; A on it: open %d\n", walked, f.popup == &strip_ui);
         /* a button of the board that means done: after dgx_ui_buttons() got it, the strip stays closed at the next tick */
-        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1100), edit_close(true);
-        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1115);
+        dgx_ui_buttons(&f, DGX_UI_GAMEPAD_A, 1100), edit_close(true);
+        dgx_ui_buttons(&f, DGX_UI_GAMEPAD_A, 1115);
         const bool stays = !f.popup;
         dgx_ui_buttons(&f, 0, 1130);
         /* and instead of it: the button is a new press at the next tick, and the strip opens again */
-        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1200), dgx_ui_buttons(&f, 0, 1210); /* open */
+        dgx_ui_buttons(&f, DGX_UI_GAMEPAD_A, 1200), dgx_ui_buttons(&f, 0, 1210); /* open */
         edit_close(true);                                                    /* the program's own A, dgx_ui_buttons() not called */
-        dgx_ui_buttons(&f, DGX_UI_PAD_A, 1315);
+        dgx_ui_buttons(&f, DGX_UI_GAMEPAD_A, 1315);
         printf("strip: done by a button after dgx_ui_buttons(): stays closed %d; instead of it: open again %d\n", stays, f.popup == &strip_ui);
         dgx_ui_buttons(&f, 0, 1330), edit_close(false);
         /* the PIN: the strip in the secret look, the letters kept */
@@ -1742,7 +1742,7 @@ int main(int argc, char **argv)
         for (int k = 0; same && k < made_count; ++k) {
             const dgx_ui_widget_t *a = &made_widgets[k], *b = dgx_ui_widget(&made_page, k);
             same = a->kind == b->kind && a->flags == b->flags && a->pad == b->pad && a->gap == b->gap && a->want_w == b->want_w && a->want_h == b->want_h && a->min == b->min &&
-                   a->max == b->max && a->step == b->step && a->value == b->value && a->look == b->look && a->on == b->on && !a->text == !b->text;
+                   a->max == b->max && a->step == b->step && a->value == b->value && a->look == b->look && a->on_event == b->on_event && !a->text == !b->text;
         }
         printf("made: sound_add() added %d (%d widgets), the label at %d reads \"%s\"; the same file loaded on vocab_names: the tree named \"%s\", error %d, the same "
                "widgets %d\n",

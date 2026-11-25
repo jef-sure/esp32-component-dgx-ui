@@ -43,7 +43,7 @@ static const dgx_ui_widget_t kinds[] = {
     {.kind = DGX_UI_ICON, .picture = icons, .max = 1, .want_w = 10, .want_h = 9, .at_x = 3, .at_y = 2, .look = &dgx_ui_look_picture},
     {.kind = DGX_UI_BOX, .want_h = 10, .flags = DGX_UI_COLUMN | DGX_UI_REST},
     {.kind = DGX_UI_LIST, .flags = DGX_UI_COLUMN, .want_h = 24, .max = 3},                         /* a holder too */
-    {.kind = DGX_UI_SLIDER, .flags = DGX_UI_SWIPE, .want_w = 40, .want_h = 6, .max = 10, .look = &dgx_ui_look_slider},
+    {.kind = DGX_UI_SLIDER, .flags = DGX_UI_RELATIVE, .want_w = 40, .want_h = 6, .max = 10, .look = &dgx_ui_look_slider},
 };
 enum { KINDS = sizeof kinds / sizeof kinds[0] };
 

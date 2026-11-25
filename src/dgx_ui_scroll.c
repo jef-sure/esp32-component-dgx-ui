@@ -108,12 +108,12 @@ static void lay(dgx_ui_t *ui, int i)
     if (offset) carry(ui, i, -offset);
 }
 
-/* the offset set as the person set it: within its bounds, on() told, laid again */
+/* the offset set as the person set it: within its bounds, on_event() told, laid again */
 static void scroll_to(dgx_ui_t *ui, int i, const dgx_ui_scroll_box_t *b, int to)
 {
     to = to < 0 ? 0 : to > b->most ? b->most : to;
     if (!dgx_ui_at(ui, i)->widget->value || to == b->offset) return;
-    dgx_ui_user_value(ui, i, to);
+    dgx_ui_set_value_as_user(ui, i, to);
     ui->needs_layout = true;
 }
 
@@ -216,7 +216,7 @@ static bool key(dgx_ui_t *ui, int i, int k)
 }
 
 const dgx_ui_behavior_t dgx_ui_scroll_behavior = {
-    .flags = DGX_UI_BEHAVIOR_FOCUS | DGX_UI_BEHAVIOR_ALONE, .move = moved, .up = up, .key = key, .scroll = lay};
+    .flags = DGX_UI_BEHAVIOR_FOCUS | DGX_UI_BEHAVIOR_ALONE, .move = moved, .up = up, .key = key, .lay = lay};
 
 /* the boxes above i, the nearest first, each moved the least so that i is wholly in its view */
 static void follow(dgx_ui_t *ui, int i)
@@ -260,7 +260,7 @@ static bool take(dgx_ui_t *ui, int x, int y)
     int       least = 4 * ui->unit;
     if (n->h / 2 < least) least = n->h / 2 > 0 ? n->h / 2 : 1;
     if (ay < least || ay <= ax) return false;
-    if (w->value && w->kind != DGX_UI_RADIO && dgx_ui_value_of(n) != ui->press_value) dgx_ui_user_value(ui, p, ui->press_value);
+    if (w->value && w->kind != DGX_UI_RADIO && dgx_ui_value_of(n) != ui->press_value) dgx_ui_set_value_as_user(ui, p, ui->press_value);
     n = dgx_ui_at(ui, p);
     if (n->widget) n->state.bits &= (uint8_t)~DGX_UI_PRESSED, dgx_ui_touched(ui, p);
     ui->pressed = (int16_t)a, ui->press_value = dgx_ui_value_of(dgx_ui_at(ui, a)), ui->dragged = true;
@@ -274,4 +274,5 @@ static bool take(dgx_ui_t *ui, int x, int y)
 static const dgx_ui_field_t scroll_fields[] = {DGX_UI_COLOR_FIELD(dgx_ui_scroll_look_t, track), DGX_UI_COLOR_FIELD(dgx_ui_scroll_look_t, knob),
                                                DGX_UI_COLOR_OR_UNDER_FIELD(dgx_ui_scroll_look_t, focused), DGX_UI_COLOR_OR_UNDER_FIELD(dgx_ui_scroll_look_t, arrows),
                                                DGX_UI_NUMBER_FIELD(dgx_ui_scroll_look_t, bar, 0, 32)};
-const dgx_ui_params_t dgx_ui_params_scroll = DGX_UI_PARAMS_BEHAVING(dgx_ui_scroll_look_t, 1u << DGX_UI_BOX, scroll_fields, &dgx_ui_scroll_behavior);
+const dgx_ui_params_t dgx_ui_params_scroll =
+    DGX_UI_PARAMS_WITH_BEHAVIOR(dgx_ui_scroll_look_t, 1u << DGX_UI_BOX, scroll_fields, &dgx_ui_scroll_behavior);

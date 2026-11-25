@@ -47,8 +47,8 @@ VOCABULARY = [("look", word, "&dgx_ui_look_" + word, "") for word in LIBRARY_LOO
     ("value", "picked", "&picked", ""), ("value", "loudness", "&volume", ""),
     ("picture", "dot", "dot", "1"), ("picture", "dots", "dots", "2"), ("picture", "pip", "dot", "1"),
     ("style", "text", "&text", ""), ("style", "small", "&small", ""), ("style", "big", "&small", ""),
-    ("on", "back", "dgx_ui_load_on_back", ""), ("on", "page", "dgx_ui_load_on_page", ""), ("on", "saved", "saved", ""),
-    ("on", "step", "step", "number"), ("on", "tap", "saved", ""),
+    ("on_event", "back", "dgx_ui_action_back", ""), ("on_event", "page", "dgx_ui_action_page", ""), ("on_event", "saved", "saved", ""),
+    ("on_event", "step", "step", "number"), ("on_event", "tap", "saved", ""),
     ("take", "take", "take", ""),
     ("ctx", "settings", "&settings", "page"), ("ctx", "other", "&other", ""),
     ("id", "title", "title_index", ""), ("id", "slider", "slider_index", ""), ("id", "less", "less_index", ""), ("id", "go", "go_index", ""),
@@ -59,7 +59,7 @@ with open(names_path, "w") as out:
     out.write("# the program of test_generate.c: a table, a name, its C, a count of pictures, \"number\" or \"page\"\n")
     for table, name, c, word in VOCABULARY:
         # a look of the library's every other one, and back, by the word alone
-        if (table == "look" and name in LIBRARY_LOOKS and LIBRARY_LOOKS.index(name) % 2 == 0) or (table, name) == ("on", "back"):
+        if (table == "look" and name in LIBRARY_LOOKS and LIBRARY_LOOKS.index(name) % 2 == 0) or (table, name) == ("on_event", "back"):
             c = ""
         out.write(f"{table:8} {name:15} {c:30} {word}\n".rstrip() + "\n")
 # a names file of two tables: the cases made by it are loaded on its tables alone
@@ -93,7 +93,7 @@ def names_of(table, rule):
 EVERY = r'''{"tree": {"children": [
   {"kind": "label", "text": "Volume é😀", "id": "title", "lines": 2, "style": "SMALL", "text_size": 40},
   {"kind": "slider", "value": "VOLUME", "min": -5, "max": 100, "step": 5, "want": [0, 12], "id": "slider", "tag": 7},
-  {"kind": "button", "text": "Less", "on": "step", "flags": ["repeat"], "ctx": -5, "id": "less"},
+  {"kind": "button", "text": "Less", "on_event": "step", "flags": ["repeat"], "ctx": -5, "id": "less"},
   {"kind": "frame", "flags": ["row", "stretch"], "pad": 3, "gap": 4, "at": [2, -3], "want": [80, 20], "take": "take", "children": [
      {"kind": "switch", "value": "ticked", "text": "Tick", "look": "checkbox"},
      {"kind": "radio", "value": "choice", "step": 2, "text": "Two", "state": ["disabled"]}]},
@@ -103,8 +103,8 @@ EVERY = r'''{"tree": {"children": [
   {"kind": "picture", "picture": "DOT"},
   {"kind": "icon", "picture": "dots", "value": "picked", "max": 1, "look": "picture"},
   {"kind": "own", "look": "ring", "value": "volume", "max": 100, "want": [30, 30], "pad": 5, "children": [{"kind": "box", "look": null}]},
-  {"kind": "button", "picture": "dot", "look": "picture_button", "on": "page", "ctx": "settings", "id": "go", "state": ["hidden"]},
-  {"kind": "button", "text": "Save \"q\"??= \\", "on": "SAVED", "ctx": "other"}
+  {"kind": "button", "picture": "dot", "look": "picture_button", "on_event": "page", "ctx": "settings", "id": "go", "state": ["hidden"]},
+  {"kind": "button", "text": "Save \"q\"??= \\", "on_event": "SAVED", "ctx": "other"}
 ], "kind": "box", "flags": ["column"], "pad": 2, "gap": 2}, "dgx-ui": 1}'''
 EVERY_NAMES = EVERY.replace("SMALL", "big").replace("VOLUME", "loudness").replace("DOT", "pip").replace("SAVED", "tap").replace(
     '"dgx-ui": 1}', '"dgx-ui": 1, "name": "every_names"}')
@@ -224,8 +224,8 @@ class Chance:
         elif kind == "input":
             keys.append(f'"text_size": {rand.randint(1, 12)}')
         if kind in ("button", "switch", "slider", "list", "radio") and rand.randint(0, 2) == 0:
-            on = rand.choice(names_of("on", rule))
-            keys.append(f'"on": "{on}"')
+            on = rand.choice(names_of("on_event", rule))
+            keys.append(f'"on_event": "{on}"')
             if on == "step":
                 keys.append(f'"ctx": {rand.choice([rand.randint(-5, 5), -2147483648, 2147483647])}')
             elif on == "page":
@@ -255,9 +255,9 @@ class Chance:
         elif how == "field":
             keys.append('"pad": 1' if kind not in ("box", "frame", "own") else '"text": "x"')
         elif how == "number":
-            keys = [k for k in keys if not k.startswith('"on"') and not k.startswith('"ctx"')] + ['"on": "saved"', '"ctx": 3']
+            keys = [k for k in keys if not k.startswith('"on_event"') and not k.startswith('"ctx"')] + ['"on_event": "saved"', '"ctx": 3']
         elif how == "page_ctx":  # the page action given a context that is no page's tree
-            keys = [k for k in keys if not k.startswith('"on"') and not k.startswith('"ctx"')] + ['"on": "page"', '"ctx": "other"']
+            keys = [k for k in keys if not k.startswith('"on_event"') and not k.startswith('"ctx"')] + ['"on_event": "page"', '"ctx": "other"']
         elif how == "one_picture":
             keys = [f'"kind": "switch"', '"picture": "pip"']
         elif how == "id_twice":
@@ -301,7 +301,7 @@ for k in range(20):
 # named otherwise than its prefix
 cases += [
     ("buffers", '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "label", "text": "Hello", "text_size": 12}, '
-                '{"kind": "input", "text_size": 1}, {"kind": "button", "text": "Go", "on": "saved"}, {"kind": "label", "text": "a\\nb", "lines": 2}, '
+                '{"kind": "input", "text_size": 1}, {"kind": "button", "text": "Go", "on_event": "saved"}, {"kind": "label", "text": "a\\nb", "lines": 2}, '
                 '{"kind": "label", "text": "Last one", "text_size": 30, "style": "small"}]}}', False, []),
     ("constants", '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "label", "text": "a"}, {"kind": "button", "text": "b"}]}}',
      True, []),
@@ -313,7 +313,7 @@ cases += [
     ("over_name", '{"dgx-ui": 1, "name": "my-page", "tree": {"kind": "label", "text": "x", "id": "title"}}', True, ["title"]),
     # by the file of two tables: an id with no table passed over; a handler, a style, a look the file has not
     ("partial_slider", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "volume", "max": 9, "id": "title"}}', False, []),
-    ("partial_unknown_on", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "volume", "on": "saved"}}', False, []),
+    ("partial_unknown_on", '{"dgx-ui": 1, "tree": {"kind": "slider", "value": "volume", "on_event": "saved"}}', False, []),
     ("partial_no_style", '{"dgx-ui": 1, "tree": {"kind": "label", "text": "x"}}', False, []),
     ("partial_no_look", '{"dgx-ui": 1, "tree": {"kind": "button"}}', False, []),
 ]
@@ -339,9 +339,9 @@ REFUSED = [
     '{"dgx-ui": 1, "tree": {"kind": "own"}}',
     '{"dgx-ui": 1, "tree": {"kind": "icon", "picture": "dots"}}',
     '{"dgx-ui": 1, "tree": {"kind": "label", "lines": 2}}',
-    '{"dgx-ui": 1, "tree": {"kind": "button", "on": "page", "ctx": 5}}',
+    '{"dgx-ui": 1, "tree": {"kind": "button", "on_event": "page", "ctx": 5}}',
     '{"dgx-ui": 1, "tree": {"kind": "button", "ctx": 5}}',
-    '{"dgx-ui": 1, "tree": {"kind": "button", "ctx": 5, "on": "saved"}}',
+    '{"dgx-ui": 1, "tree": {"kind": "button", "ctx": 5, "on_event": "saved"}}',
     '{"dgx-ui": 1, "tree": {"kind": "switch", "picture": "pip", "value": "ticked", "look": "picture_button"}}',
     '{"dgx-ui": 1, "tree": {"kind": "radio", "value": "choice", "picture": "dot"}}',
     '{"dgx-ui": 1, "tree": {"kind": "icon", "picture": "dots", "value": "picked", "max": 2, "look": "picture"}}',
@@ -514,7 +514,7 @@ wrong_names = os.path.join(work, "wrong_names.txt")
 for line, expect in [("colour red &red", 'no table "colour"'), ("value volume &volume 3", '"3" means nothing for a value'),
                      ("picture dots dots 0", "not a count of pictures"),
                      ("value vol-ume", 'the value "vol-ume" with no C expression: only a look of the library\'s and the actions back and page go without one'),
-                     ("look mine", 'the look "mine" with no C expression'), ("on saved", 'the on "saved" with no C expression'), ("look", "a look with no name"),
+                     ("look mine", 'the look "mine" with no C expression'), ("on_event saved", 'the on_event "saved" with no C expression'), ("look", "a look with no name"),
                      ("value v &a + 1", "more than a table, a name, an expression and a word: an expression is written with no spaces"),
                      ("value v &a +", '"+" means nothing for a value: an expression is written with no spaces'),
                      ("value volume &a\nvalue volume &b", 'the value "volume" twice'), ("value vol%ume &a", "not a name a description may have")]:
@@ -613,8 +613,8 @@ for word in ["add", "style", "widgets", "parents", "texts", "buffers"]:
     if status == 0 or f'byte {text.index(chr(34) + word)}: the id "{word}" would be page_{word}, a name dgx_ui_c makes' not in said:
         failures.append(f"the id {word}: {status} {said}")
 USES = [("value", '{"kind": "slider", "value": "%s"}'), ("picture", '{"kind": "picture", "picture": "%s"}'),
-        ("style", '{"kind": "label", "text": "x", "style": "%s"}'), ("on", '{"kind": "button", "on": "%s"}'), ("take", '{"kind": "box", "take": "%s"}'),
-        ("ctx", '{"kind": "button", "on": "saved", "ctx": "%s"}'), ("look", '{"kind": "slider", "look": "%s"}')]
+        ("style", '{"kind": "label", "text": "x", "style": "%s"}'), ("on_event", '{"kind": "button", "on_event": "%s"}'), ("take", '{"kind": "box", "take": "%s"}'),
+        ("ctx", '{"kind": "button", "on_event": "saved", "ctx": "%s"}'), ("look", '{"kind": "slider", "look": "%s"}')]
 for array in ["widgets", "parents", "texts", "buffers"]:
     for table, use in USES:
         for lead in [f"page_{array}", f"page_{array}.x"] if table in ("value", "style", "ctx") else [f"page_{array}"]:
@@ -629,7 +629,7 @@ for text in ['{"dgx-ui": 1, "name": "page", "tree": {"kind": "label", "text": "x
              '{"dgx-ui": 1, "name": "page", "tree": {"kind": "slider", "value": "page_texts_x"}}',
              '{"dgx-ui": 1, "name": "page", "tree": {"kind": "slider", "value": "page_textsx"}}',
              '{"dgx-ui": 1, "name": "page", "tree": {"kind": "slider", "value": "other_texts"}}',
-             '{"dgx-ui": 1, "name": "page", "tree": {"kind": "button", "on": "page_add", "ctx": "page_style"}}']:
+             '{"dgx-ui": 1, "name": "page", "tree": {"kind": "button", "on_event": "page_add", "ctx": "page_style"}}']:
     status, said = run_tool("near", text, True, prefix="")
     if status:
         failures.append(f"{text}: refused, not a name the tool makes: {said}")

@@ -493,12 +493,12 @@ static const char *tree_name_of(const dgx_ui_t *ui)
 typedef void (*on_fn)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 
 static const char *const what_words[] = {"ACTIVATED", "CHANGED", "FOCUS", "BACK", "NO_MEMORY", "EDIT", "SHOWN", "COVERED"};
-_Static_assert(DGX_UI_ACTIVATED == 0 && DGX_UI_COVERED == 7, "the words of what a handler is told, in its order");
+_Static_assert(DGX_UI_EVENT_ACTIVATED == 0 && DGX_UI_EVENT_COVERED == 7, "the words of what a handler is told, in its order");
 
 static void tell(const dgx_ui_t *ui, int i, int what)
 {
     const char *page = tree_name_of(ui);
-    say(&events, "told %d %s%s%s\n", i, what >= 0 && what <= DGX_UI_COVERED ? what_words[what] : "?", page ? " page " : "", page ? page : "");
+    say(&events, "told %d %s%s%s\n", i, what >= 0 && what <= DGX_UI_EVENT_COVERED ? what_words[what] : "?", page ? " page " : "", page ? page : "");
 }
 
 static void on_told(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
@@ -510,7 +510,7 @@ static void on_told(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
 static void on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     tell(ui, i, what);
-    dgx_ui_load_on_back(ui, i, node, what, ctx);
+    dgx_ui_action_back(ui, i, node, what, ctx);
 }
 
 static bool take_nothing(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
@@ -526,7 +526,7 @@ static void on_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
 {
     (void)node;
     tell(ui, i, what);
-    if (what != DGX_UI_ACTIVATED || !ctx) return;
+    if (what != DGX_UI_EVENT_ACTIVATED || !ctx) return;
     const tree_t *of = &home;
     for (int k = 0; k < PAGES; ++k)
         if (pages[k].loaded && &pages[k].ui == ui) of = &pages[k];
@@ -624,12 +624,12 @@ static void tree_names(tree_t *tree, const char *text, size_t length)
             say(&notes, "%sstyle %s: the program's own, TerminusTTFMedium12 stands in\n", note_lead,
                 strcmp(name, DEFAULT_STYLE) == 0 ? "of a text that names none" : name);
     }
-    dgx_ui_on_name_t *handlers = zeroed((size_t)tables[T_ON].count, sizeof *handlers);
-    for (int k = 0; k < tables[T_ON].count; ++k) {
-        const entry_t *entry = &tables[T_ON].entries[k];
+    dgx_ui_on_event_name_t *handlers = zeroed((size_t)tables[T_ON_EVENT].count, sizeof *handlers);
+    for (int k = 0; k < tables[T_ON_EVENT].count; ++k) {
+        const entry_t *entry = &tables[T_ON_EVENT].entries[k];
         const char    *c     = entry->c ? entry->c : "";
-        const on_fn    on    = strcmp(c, "dgx_ui_load_on_back") == 0 ? on_back : strcmp(c, "dgx_ui_load_on_page") == 0 ? on_page : on_told;
-        handlers[k]          = (dgx_ui_on_name_t){NAME_OF(T_ON, k), on, (uint8_t)takes_of(entry)};
+        const on_fn    on    = strcmp(c, "dgx_ui_action_back") == 0 ? on_back : strcmp(c, "dgx_ui_action_page") == 0 ? on_page : on_told;
+        handlers[k]          = (dgx_ui_on_event_name_t){NAME_OF(T_ON_EVENT, k), on, (uint8_t)ctx_kind_of(entry)};
     }
     dgx_ui_take_name_t *takes = zeroed((size_t)tables[T_TAKE].count, sizeof *takes);
     for (int k = 0; k < tables[T_TAKE].count; ++k) takes[k] = (dgx_ui_take_name_t){NAME_OF(T_TAKE, k), take_nothing};
@@ -637,14 +637,14 @@ static void tree_names(tree_t *tree, const char *text, size_t length)
     dgx_ui_context_name_t *contexts = zeroed((size_t)tables[T_CTX].count, sizeof *contexts);
     for (int k = 0; k < tables[T_CTX].count; ++k) contexts[k] = (dgx_ui_context_name_t){NAME_OF(T_CTX, k), &tree->contexts[k], tables[T_CTX].entries[k].page};
     tree->ids        = zeroed((size_t)tables[T_ID].count, sizeof *tree->ids);
-    dgx_ui_id_t *ids = zeroed((size_t)tables[T_ID].count, sizeof *ids);
-    for (int k = 0; k < tables[T_ID].count; ++k) ids[k] = (dgx_ui_id_t){NAME_OF(T_ID, k), &tree->ids[k]}, tree->ids[k] = -1;
+    dgx_ui_id_name_t *ids = zeroed((size_t)tables[T_ID].count, sizeof *ids);
+    for (int k = 0; k < tables[T_ID].count; ++k) ids[k] = (dgx_ui_id_name_t){NAME_OF(T_ID, k), &tree->ids[k]}, tree->ids[k] = -1;
 #undef NAME_OF
     tree->names = (dgx_ui_load_names_t){.looks = looks, .values = values, .pictures = pictures, .styles = styles, .handlers = handlers,
                                         .takes = takes,
                                         .contexts = contexts, .ids = ids, .look_count = (uint16_t)tables[T_LOOK].count,
                                         .value_count = (uint16_t)tables[T_VALUE].count, .picture_count = (uint16_t)tables[T_PICTURE].count,
-                                        .style_count = (uint16_t)tables[T_STYLE].count, .handler_count = (uint16_t)tables[T_ON].count,
+                                        .style_count = (uint16_t)tables[T_STYLE].count, .handler_count = (uint16_t)tables[T_ON_EVENT].count,
                                         .take_count = (uint16_t)tables[T_TAKE].count, .context_count = (uint16_t)tables[T_CTX].count,
                                         .id_count = (uint16_t)tables[T_ID].count};
     names_free_all();
@@ -733,7 +733,7 @@ static const key_type_t key_types[KEY_COUNT] = {
     [K_VALUE] = {.type = "name", .table = "value"},
     [K_PICTURE] = {.type = "name", .table = "picture"},
     [K_STYLE] = {.type = "name", .table = "style"},
-    [K_ON] = {.type = "name", .table = "on"},
+    [K_ON_EVENT] = {.type = "name", .table = "on_event"},
     [K_TAKE] = {.type = "name", .table = "take"},
     [K_CTX] = {.type = "name", .min = INT32_MIN, .max = INT32_MAX, .table = "ctx"},
     [K_TEXT] = {.type = "text"},
@@ -831,7 +831,7 @@ const char *preview_tables(void)
         {"value", names->values, sizeof *names->values, names->value_count},
         {"picture", names->pictures, sizeof *names->pictures, names->picture_count},
         {"style", names->styles, sizeof *names->styles, names->style_count},
-        {"on", names->handlers, sizeof *names->handlers, names->handler_count},
+        {"on_event", names->handlers, sizeof *names->handlers, names->handler_count},
         {"take", names->takes, sizeof *names->takes, names->take_count},
         {"ctx", names->contexts, sizeof *names->contexts, names->context_count},
         {"id", names->ids, sizeof *names->ids, names->id_count},
@@ -1336,13 +1336,13 @@ const char *preview_names_format(void)
     for (int t = 0; t < TABLES; ++t) grow(&said, "%s\"%s\"", t ? ", " : "", table_keys[t]);
     grow(&said, "], \"appearance\": [");
     for (int t = 0; t < A_PICTURE; ++t) grow(&said, "%s\"%s\"", t ? ", " : "", appearance_words[t]); /* pictures: the page's table's lines */
-    grow(&said, "],\n \"words\": {\"picture\": \"count\", \"on\": \"number\", \"ctx\": \"page\", \"font\": \"handwritten\"}, \"pictures\": [1, 65535],\n");
+    grow(&said, "],\n \"words\": {\"picture\": \"count\", \"on_event\": \"number\", \"ctx\": \"page\", \"font\": \"handwritten\"}, \"pictures\": [1, 65535],\n");
     grow(&said, " \"bare\": {\"look\": [");
     for (int k = 0; k < library_look_count; ++k) grow(&said, "%s\"%s\"", k ? ", " : "", library_looks[k]);
-    grow(&said, "], \"on\": [");
+    grow(&said, "], \"on_event\": [");
     static const char *const actions[] = {"back", "page"};
     for (int k = 0, first = 1; k < 2; ++k) {
-        char *c = library_c(T_ON, actions[k]);
+        char *c = library_c(T_ON_EVENT, actions[k]);
         if (c) grow(&said, "%s\"%s\"", first ? "" : ", ", actions[k]), first = 0;
         free(c);
     }
@@ -1356,7 +1356,7 @@ const char *preview_names_format(void)
    object, then its children's; stopped at what is not as it should be, which the loader then refuses */
 static void collect_kind_looks(dgx_ui_json_t *json, int depth, table_t *out, bool *unstyled)
 {
-    if (depth > DGX_UI_LOAD_DEPTH || dgx_ui_json_peek(json) != '{') return;
+    if (depth > DGX_UI_LOAD_MAX_DEPTH || dgx_ui_json_peek(json) != '{') return;
     ++json->pos;
     int  kind = -1;
     bool named = false, texted = false, styled = false, scrolls = false;
@@ -1395,7 +1395,7 @@ static void collect_kind_looks(dgx_ui_json_t *json, int depth, table_t *out, boo
         } else {
             named |= strcmp(key, "look") == 0, styled |= strcmp(key, "style") == 0;
             texted |= strcmp(key, "text") == 0 || strcmp(key, "text_size") == 0;
-            if (!dgx_ui_json_skip(json, 2 * DGX_UI_LOAD_DEPTH)) return;
+            if (!dgx_ui_json_skip(json, 2 * DGX_UI_LOAD_MAX_DEPTH)) return;
         }
         if (!dgx_ui_json_next(json, '}', &more)) return;
     }
@@ -1416,7 +1416,7 @@ static void collect_page_kind_looks(const char *text, size_t length, table_t *ou
         if (!dgx_ui_json_string(&json, key, 23, &key_length) || !dgx_ui_json_expect(&json, ':')) return;
         key[key_length < 23 ? key_length : 23] = 0;
         if (strcmp(key, "tree") == 0) collect_kind_looks(&json, 1, out, unstyled);
-        else if (!dgx_ui_json_skip(&json, 2 * DGX_UI_LOAD_DEPTH + 1)) return;
+        else if (!dgx_ui_json_skip(&json, 2 * DGX_UI_LOAD_MAX_DEPTH + 1)) return;
         if (json.error || !dgx_ui_json_next(&json, '}', &more)) return;
     }
 }
@@ -1459,7 +1459,7 @@ const char *preview_names_missing(const char *text, size_t length)
             } else if (c_name(use->name, t != T_ID)) {
                 switch (t) {
                 case T_PICTURE: c = copy_of(use->name), pictures = 65535; break;
-                case T_ON: c = copy_of(use->name), number = true; break;
+                case T_ON_EVENT: c = copy_of(use->name), number = true; break;
                 case T_TAKE: c = copy_of(use->name); break;
                 case T_CTX: c = printed("&%s", use->name), page = true; break;
                 case T_ID: c = copy_of(use->name); break;

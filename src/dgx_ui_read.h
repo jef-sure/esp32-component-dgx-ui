@@ -20,7 +20,7 @@
 /* the most levels a value passed over goes in: a widget's object and its list of children two each; a value of the top
    is passed over with one less, a value of a widget at depth d with 2 * d less, so that a value stands inside at most
    DGX_UI_READ_LEVELS brackets, the top's own one of them */
-enum { DGX_UI_READ_LEVELS = 2 * DGX_UI_LOAD_DEPTH + 2 };
+enum { DGX_UI_READ_LEVELS = 2 * DGX_UI_LOAD_MAX_DEPTH + 2 };
 _Static_assert(DGX_UI_READ_LEVELS - 1 <= DGX_UI_JSON_LEVELS, "the reader counts every level a description may take");
 
 /* a description being read: its reader of JSON, the first error */

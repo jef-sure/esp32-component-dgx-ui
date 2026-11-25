@@ -3,9 +3,9 @@
  * makes by dgx_hw_bounds(); each row equal to DGX writing its line at the row's place; empty lines, a text ending in a
  * new line, a line of spaces. A ladder of a handwritten variant and a bitmap one: each taken when it should be, both on
  * the first variant's base line. Cut with "..." in the same hand; important and scrolled, each step drawn whole;
- * DGX_UI_TEXT_MIDDLE. Letters coming over three lines, pass by pass equal to DGX writing line after line to the same
+ * DGX_UI_STYLE_MIDDLE. Letters coming over three lines, pass by pass equal to DGX writing line after line to the same
  * effort, the clock running over; a text changed and a widget hidden and shown while written; a mirror composed
- * between the passes equal to the screen; written in parts around a popup; told by dgx_ui_changed() and composed,
+ * between the passes equal to the screen; written in parts around a popup; told by dgx_ui_paint_changes() and composed,
  * equal to painted. A text longer than 65.5 s: each pass writes its new strokes only. A soft pen in a canvas.
  * dgx_ui_look_lines with a handwritten variant in its style passes it over, its picture as without it. In the middle,
  * each pass writes its new strokes only, the block drawn whole once when a line comes. Built twice: with the line
@@ -217,7 +217,7 @@ int main(void)
     reference(expected, &variant[0], node, NOTE, 0, 0, 0, true, -1);
     CHECK(differ(drawn, expected) == 0);
     /* important: a line up every scroll_ms once all came, each step drawn whole, ending at the last lines */
-    style.flags = DGX_UI_TEXT_IMPORTANT, style.scroll_ms = 500;
+    style.flags = DGX_UI_STYLE_IMPORTANT, style.scroll_ms = 500;
     dgx_ui_text_set(&tree.ui, 1, NOTE);
     dgx_ui_paint(&tree.ui, &paint, 1000);
     int scroll_off = 0;
@@ -252,7 +252,7 @@ int main(void)
     dgx_ui_paint_free(&paint), dgx_ui_free(&tree.ui);
 
     /* in the middle: two lines in a box of 64 */
-    style.flags = DGX_UI_TEXT_MIDDLE;
+    style.flags = DGX_UI_STYLE_MIDDLE;
     make(&tree, 150, 64, false, "one\ntwo", NULL);
     paint = (dgx_ui_paint_t){.scr = drawn, .colors = colors, .color_count = 4};
     dgx_ui_paint(&tree.ui, &paint, 0);
@@ -303,7 +303,7 @@ int main(void)
         dgx_ui_paint_free(&paint), dgx_ui_free(&tree.ui);
     }
 
-    /* in parts around a popup over the middle of the label; and told by dgx_ui_changed(), each rectangle composed:
+    /* in parts around a popup over the middle of the label; and told by dgx_ui_paint_changes(), each rectangle composed:
        equal to the painted screen at every pass */
     {
         static tree_t        told;
@@ -329,7 +329,7 @@ int main(void)
             for (int y = 0; y < PANEL_H; ++y)
                 for (int x = 0; x < PANEL_W; ++x)
                     parts_off += !(x >= 60 && x < 90 && y >= 10 && y < 50) && dgx_get_pixel(drawn, x, y) != dgx_get_pixel(expected, x, y);
-            dgx_ui_changed(&told.ui, &told_paint, 1000 + ms, NULL, NULL);
+            dgx_ui_paint_changes(&told.ui, &told_paint, 1000 + ms, NULL, NULL);
             dgx_ui_paint_area_to(&told.ui, &told_paint, told_screen, NULL, 0, 0, PANEL_W, PANEL_H);
             told_off += differ(told_screen, expected);
         }
@@ -346,7 +346,7 @@ int main(void)
     {
         panel_t       *panel       = panel_make();
         dgx_ui_paint_t panel_paint = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 4};
-        style.flags                = DGX_UI_TEXT_MIDDLE;
+        style.flags                = DGX_UI_STYLE_MIDDLE;
         make(&tree, 150, 64, false, NOTE, NULL);
         dgx_ui_paint(&tree.ui, &panel_paint, 0);
         dgx_ui_text_appear(&tree.ui, 1, 40);
@@ -472,7 +472,7 @@ int main(void)
     for (int k = 0; k < 16; ++k) {
         const bool canvas = k & 1, centred = k & 2, middle = k & 4, important = k & 8;
         style.align       = centred ? DGX_FONT_ALIGN_CENTER : DGX_FONT_ALIGN_LEFT;
-        style.flags       = (uint8_t)((middle ? DGX_UI_TEXT_MIDDLE : 0) | (important ? DGX_UI_TEXT_IMPORTANT : 0));
+        style.flags       = (uint8_t)((middle ? DGX_UI_STYLE_MIDDLE : 0) | (important ? DGX_UI_STYLE_IMPORTANT : 0));
         style.scroll_ms   = (uint16_t)(important ? 300 : 0);
         variant[0].hand   = canvas ? &dgx_ui_handwriting_canvas : &dgx_ui_handwriting;
         make(&tree, 150, 40, canvas, NOTE, NULL);

@@ -133,8 +133,8 @@ bool dgx_ui_typed(dgx_ui_t *ui, const uint32_t *code_points, int count)
             while (len > 0 && ((unsigned char)box->buf[len] & 0xC0) == 0x80);
             box->buf[len] = 0;
         } else if (c == DGX_UI_CP_DONE || c == DGX_UI_CP_CANCEL) {
-            if (w->on) w->on(ui, f, n, c == DGX_UI_CP_DONE ? DGX_UI_ACTIVATED : DGX_UI_BACK, w->ctx);
-            if (dgx_ui_widget(ui, f) != w) return true; /* on() removed it */
+            if (w->on_event) w->on_event(ui, f, n, c == DGX_UI_CP_DONE ? DGX_UI_EVENT_ACTIVATED : DGX_UI_EVENT_BACK, w->ctx);
+            if (dgx_ui_widget(ui, f) != w) return true; /* on_event() removed it */
             continue;
         } else {
             char      bytes[4];
@@ -145,7 +145,7 @@ bool dgx_ui_typed(dgx_ui_t *ui, const uint32_t *code_points, int count)
         }
         n->marks |= DGX_UI_MARK_CHANGED | DGX_UI_MARK_FIT;
         dgx_ui_touched(ui, f);
-        if (w->on) w->on(ui, f, n, DGX_UI_CHANGED, w->ctx); /* the user typed: the value changed */
+        if (w->on_event) w->on_event(ui, f, n, DGX_UI_EVENT_CHANGED, w->ctx); /* the user typed: the value changed */
         if (dgx_ui_widget(ui, f) != w) return true;
     }
     return true;

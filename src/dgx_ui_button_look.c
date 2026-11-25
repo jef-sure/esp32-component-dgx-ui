@@ -49,7 +49,7 @@ static void draw_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int
     }
 }
 
-void dgx_ui_draw_button_face(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_face_fn inside)
+void dgx_ui_draw_button_face(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_face_t inside)
 {
     const dgx_ui_node_t        *n = dgx_ui_node(ui, i);
     const dgx_ui_button_look_t *p = look->params;

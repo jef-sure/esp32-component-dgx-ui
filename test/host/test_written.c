@@ -5,7 +5,7 @@
  * of the program written in place and fitted again in another variant; a buffer with no 0 within its size; the
  * lines look, a text scrolled and letters coming, each begun anew; a list's rows written in place, its window kept; a
  * dropdown's options written while its list is open; handwriting in lines and in a canvas written in place; a
- * constant field typed into, and a field emptied in place; the rectangle told by dgx_ui_changed(); a widget with no
+ * constant field typed into, and a field emptied in place; the rectangle told by dgx_ui_paint_changes(); a widget with no
  * box. After each pass on a panel behind a bus (16 bits straight, 18 through the strips: PANEL_BITS, by the
  * Makefile): no pixel written twice, and the panel as a fresh paint composes the tree.
  */
@@ -347,11 +347,11 @@ int main(void)
         strcpy(text, "Before");
         const int i = make_one(&label);
         told_t    told = {0};
-        dgx_ui_changed(&tree, &paint, 0, collect, &told);
+        dgx_ui_paint_changes(&tree, &paint, 0, collect, &told);
         told.count = 0;
         strcpy(text, "After");
         dgx_ui_text_written(&tree, i);
-        dgx_ui_changed(&tree, &paint, 10, collect, &told);
+        dgx_ui_paint_changes(&tree, &paint, 10, collect, &told);
         const dgx_ui_node_t *n    = dgx_ui_node(&tree, i);
         bool                 seen = false;
         for (int k = 0; k < told.count; ++k)

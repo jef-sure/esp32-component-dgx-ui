@@ -18,12 +18,12 @@ static dgx_ui_t *home_of(dgx_ui_t *ui)
     return ui;
 }
 
-void dgx_ui_load_on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+void dgx_ui_action_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) dgx_ui_page_back(home_of(ui));
+    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_back(home_of(ui));
 }
 
-void dgx_ui_load_on_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+void dgx_ui_action_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED && ctx) dgx_ui_page_open(home_of(ui), (dgx_ui_t *)ctx);
+    if (what == DGX_UI_EVENT_ACTIVATED && ctx) dgx_ui_page_open(home_of(ui), (dgx_ui_t *)ctx);
 }

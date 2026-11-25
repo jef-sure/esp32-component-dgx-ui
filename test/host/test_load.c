@@ -54,11 +54,11 @@ static const dgx_ui_picture_t dots[2]     = {{.image = &dot_im}, {.image = &dot_
 static int  saved, stepped, taken;
 static void on_saved(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    saved += what == DGX_UI_ACTIVATED;
+    saved += what == DGX_UI_EVENT_ACTIVATED;
 }
 static void on_step(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) stepped += (int)(intptr_t)ctx;
+    if (what == DGX_UI_EVENT_ACTIVATED) stepped += (int)(intptr_t)ctx;
 }
 static bool on_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 {
@@ -75,10 +75,10 @@ static const dgx_ui_look_name_t    looks[]    = {DGX_UI_LOOK_NAME(button), DGX_U
 static const dgx_ui_value_name_t   values[]   = {{"volume", &volume}, {"choice", &choice}, {"ticked", &ticked}, {"picked", &picked}};
 static const dgx_ui_picture_name_t pictures[] = {{"dot", &dots[0], 1}, {"dots", dots, 2}, {.name = "one", .picture = &dots[1]}};
 static const dgx_ui_style_name_t   styles[]   = {{"text", &style}, {"small", &style2}};
-static const dgx_ui_on_name_t      handlers[] = {DGX_UI_ACTION_NAME(back), DGX_UI_ACTION_NAME(page), {"saved", on_saved, false}, {"step", on_step, true}};
+static const dgx_ui_on_event_name_t      handlers[] = {DGX_UI_ACTION_NAME(back), DGX_UI_ACTION_NAME(page), {"saved", on_saved, false}, {"step", on_step, true}};
 static const dgx_ui_take_name_t    takes[]    = {{"take", on_take}};
 static const dgx_ui_context_name_t contexts[] = {{"settings", &page, true}, {"other", (void *)&volume, false}};
-static const dgx_ui_id_t           ids[]      = {{"title", &title}, {"unused", &unused_id}, {"slider", &slider_id}, {"less", &less_id}, {"back", &back_id}, {"go", &go_id}};
+static const dgx_ui_id_name_t           ids[]      = {{"title", &title}, {"unused", &unused_id}, {"slider", &slider_id}, {"less", &less_id}, {"back", &back_id}, {"go", &go_id}};
 static const dgx_ui_load_names_t   names      = {.looks = looks, .look_count = 13, .values = values, .value_count = 4, .pictures = pictures, .picture_count = 3,
                                                  .styles = styles, .style_count = 2, .handlers = handlers, .handler_count = 4, .takes = takes, .take_count = 1,
                                                  .contexts = contexts, .context_count = 2, .ids = ids, .id_count = 6};
@@ -88,7 +88,7 @@ static const char every[] =
     "{\"tree\": {\"children\": ["
     "  {\"kind\": \"label\", \"text\": \"Volume \\u00e9\\ud83d\\ude00\", \"id\": \"title\", \"lines\": 2, \"style\": \"small\", \"text_size\": 40},"
     "  {\"kind\": \"slider\", \"value\": \"volume\", \"min\": -5, \"max\": 100, \"step\": 5, \"want\": [0, 12], \"id\": \"slider\", \"tag\": 7},"
-    "  {\"kind\": \"button\", \"text\": \"Less\", \"on\": \"step\", \"flags\": [\"repeat\"], \"ctx\": -5, \"id\": \"less\"},"
+    "  {\"kind\": \"button\", \"text\": \"Less\", \"on_event\": \"step\", \"flags\": [\"repeat\"], \"ctx\": -5, \"id\": \"less\"},"
     "  {\"kind\": \"frame\", \"flags\": [\"row\", \"stretch\"], \"pad\": 3, \"gap\": 4, \"at\": [2, -3], \"want\": [80, 20], \"take\": \"take\", \"children\": ["
     "     {\"kind\": \"switch\", \"value\": \"ticked\", \"text\": \"Tick\", \"look\": \"checkbox\"},"
     "     {\"kind\": \"radio\", \"value\": \"choice\", \"step\": 2, \"text\": \"Two\", \"state\": [\"disabled\"]}]},"
@@ -98,8 +98,8 @@ static const char every[] =
     "  {\"kind\": \"picture\", \"picture\": \"dot\"},"
     "  {\"kind\": \"icon\", \"picture\": \"dots\", \"value\": \"picked\", \"max\": 1},"
     "  {\"kind\": \"own\", \"look\": \"ring\", \"value\": \"volume\", \"max\": 100, \"want\": [30, 30], \"pad\": 5, \"children\": [{\"kind\": \"box\", \"look\": null}]},"
-    "  {\"kind\": \"button\", \"picture\": \"dot\", \"look\": \"picture_button\", \"on\": \"page\", \"ctx\": \"settings\", \"id\": \"go\", \"state\": [\"hidden\"]},"
-    "  {\"kind\": \"button\", \"text\": \"Save\", \"on\": \"saved\", \"ctx\": \"other\"}"
+    "  {\"kind\": \"button\", \"picture\": \"dot\", \"look\": \"picture_button\", \"on_event\": \"page\", \"ctx\": \"settings\", \"id\": \"go\", \"state\": [\"hidden\"]},"
+    "  {\"kind\": \"button\", \"text\": \"Save\", \"on_event\": \"saved\", \"ctx\": \"other\"}"
     "], \"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 2, \"gap\": 2}, \"dgx-ui\": 1}";
 
 static char label_text[40] = "Volume \xc3\xa9\xf0\x9f\x98\x80";
@@ -118,7 +118,7 @@ static void make_expected(void)
         {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2},
         {.kind = DGX_UI_LABEL, .text = &label_box},
         {.kind = DGX_UI_SLIDER, .value = &volume, .min = -5, .max = 100, .step = 5, .want_h = 12, .tag = 7, .look = &dgx_ui_look_slider},
-        {.kind = DGX_UI_BUTTON, .text = &less_box, .on = on_step, .flags = DGX_UI_REPEAT, .ctx = (void *)(intptr_t)-5, .look = &dgx_ui_look_button},
+        {.kind = DGX_UI_BUTTON, .text = &less_box, .on_event = on_step, .flags = DGX_UI_REPEAT, .ctx = (void *)(intptr_t)-5, .look = &dgx_ui_look_button},
         {.kind = DGX_UI_FRAME, .flags = DGX_UI_ROW | DGX_UI_STRETCH, .pad = 3, .gap = 4, .at_x = 2, .at_y = -3, .want_w = 80, .want_h = 20, .take = on_take},
         {.kind = DGX_UI_SWITCH, .value = &ticked, .text = &tick_box, .look = &dgx_ui_look_checkbox},
         {.kind = DGX_UI_RADIO, .value = &choice, .step = 2, .text = &two_box, .state = {DGX_UI_DISABLED}, .look = &dgx_ui_look_radio},
@@ -129,8 +129,8 @@ static void make_expected(void)
         {.kind = DGX_UI_ICON, .picture = dots, .value = &picked, .max = 1, .look = &dgx_ui_look_picture},
         {.kind = DGX_UI_OWN, .look = &dgx_ui_look_ring, .value = &volume, .max = 100, .want_w = 30, .want_h = 30, .pad = 5},
         {.kind = DGX_UI_BOX},
-        {.kind = DGX_UI_BUTTON, .picture = &dots[0], .look = &dgx_ui_look_picture_button, .on = dgx_ui_load_on_page, .ctx = &page, .state = {DGX_UI_HIDDEN}},
-        {.kind = DGX_UI_BUTTON, .text = &save_box, .on = on_saved, .ctx = (void *)&volume, .look = &dgx_ui_look_button},
+        {.kind = DGX_UI_BUTTON, .picture = &dots[0], .look = &dgx_ui_look_picture_button, .on_event = dgx_ui_action_page, .ctx = &page, .state = {DGX_UI_HIDDEN}},
+        {.kind = DGX_UI_BUTTON, .text = &save_box, .on_event = on_saved, .ctx = (void *)&volume, .look = &dgx_ui_look_button},
     };
     const int parents[] = {-1, 0, 0, 0, 0, 4, 4, 0, 0, 0, 0, 0, 0, 12, 0, 0};
     expected_count      = 16;
@@ -142,7 +142,7 @@ static bool same_widget(const dgx_ui_widget_t *a, const dgx_ui_widget_t *b)
 {
     if (a->kind != b->kind || a->flags != b->flags || a->pad != b->pad || a->gap != b->gap || a->at_x != b->at_x || a->at_y != b->at_y || a->want_w != b->want_w ||
         a->want_h != b->want_h || a->min != b->min || a->max != b->max || a->step != b->step || a->tag != b->tag || a->state.bits != b->state.bits || a->value != b->value ||
-        a->picture != b->picture || a->look != b->look || a->take != b->take || a->on != b->on || a->ctx != b->ctx || a->own != b->own || !a->text != !b->text)
+        a->picture != b->picture || a->look != b->look || a->take != b->take || a->on_event != b->on_event || a->ctx != b->ctx || a->own != b->own || !a->text != !b->text)
         return false;
     if (!a->text) return true;
     return strcmp(a->text->buf, b->text->buf) == 0 && a->text->size == b->text->size && a->text->lines == b->text->lines && a->text->style == b->text->style;
@@ -308,7 +308,7 @@ static void chance_widget(printer_t *p, int parent, int depth)
         w->text          = &chance_box[self];
         snprintf(keys[key_count++], 96, "\"text\": \"%s\"", chance_text[self]);
     }
-    if (w->kind == DGX_UI_BUTTON && chance(2)) w->on = on_step, w->ctx = (void *)(intptr_t)(chance(11) - 5), snprintf(keys[key_count++], 96, "\"on\": \"step\""), snprintf(keys[key_count++], 96, "\"ctx\": %d", (int)(intptr_t)w->ctx);
+    if (w->kind == DGX_UI_BUTTON && chance(2)) w->on_event = on_step, w->ctx = (void *)(intptr_t)(chance(11) - 5), snprintf(keys[key_count++], 96, "\"on_event\": \"step\""), snprintf(keys[key_count++], 96, "\"ctx\": %d", (int)(intptr_t)w->ctx);
     const dgx_ui_look_t *own = w->kind == DGX_UI_SLIDER ? &dgx_ui_look_slider : w->kind == DGX_UI_BUTTON ? &dgx_ui_look_button : w->kind == DGX_UI_SWITCH ? &dgx_ui_look_switch : w->kind == DGX_UI_LIST ? &dgx_ui_look_list : NULL;
     w->look = own;
     /* the keys shuffled, the children one of them, printed in its turn */
@@ -393,8 +393,8 @@ int main(void)
     /* the actions: a tap on the picture button opens the page named, the page's back button goes back */
     {
         static const char app[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"children\": ["
-                                  "{\"kind\": \"button\", \"text\": \"Go\", \"on\": \"page\", \"ctx\": \"settings\", \"want\": [40, 16], \"id\": \"go\"}]}}";
-        static const char in_page[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"text\": \"Back\", \"on\": \"back\", \"want\": [40, 16], \"id\": \"back\"}}";
+                                  "{\"kind\": \"button\", \"text\": \"Go\", \"on_event\": \"page\", \"ctx\": \"settings\", \"want\": [40, 16], \"id\": \"go\"}]}}";
+        static const char in_page[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"text\": \"Back\", \"on_event\": \"back\", \"want\": [40, 16], \"id\": \"back\"}}";
         static uint8_t    app_memory[1024] __attribute__((aligned(8))), page_memory[512] __attribute__((aligned(8)));
         dgx_ui_init(&ui, nodes, 24, 1);
         dgx_ui_init(&page, page_nodes, 4, 1);
@@ -598,11 +598,11 @@ int main(void)
             const int innermost = (int)(d - deep) - 1;
             for (int k = 0; k < lists; ++k) *d++ = ']';
             sprintf(d, "}}");
-            if (lists == 50) CHECK(fails_with(deep, DGX_UI_LOAD_DEPTH_MAX, innermost, NULL));
+            if (lists == 50) CHECK(fails_with(deep, DGX_UI_LOAD_TOO_DEEP, innermost, NULL));
             else CHECK(dgx_ui_load_need(deep, strlen(deep), &names, &need, &err));
         }
         /* a widget at depth d: its editor has the levels its place leaves, the 51st bracket an empty list at most */
-        for (int depth = 1; depth <= DGX_UI_LOAD_DEPTH; depth += DGX_UI_LOAD_DEPTH - 1)
+        for (int depth = 1; depth <= DGX_UI_LOAD_MAX_DEPTH; depth += DGX_UI_LOAD_MAX_DEPTH - 1)
             for (int more = 0; more < 2; ++more) {
                 char *d = deep + sprintf(deep, "{\"dgx-ui\": 1, \"tree\": ");
                 for (int k = 1; k < depth; ++k) d += sprintf(d, "{\"kind\": \"box\", \"children\": [");
@@ -614,7 +614,7 @@ int main(void)
                 d += sprintf(d, "}}");
                 for (int k = 1; k < depth; ++k) d += sprintf(d, "]}");
                 sprintf(d, "}");
-                if (more) CHECK(fails_with(deep, DGX_UI_LOAD_DEPTH_MAX, innermost, NULL));
+                if (more) CHECK(fails_with(deep, DGX_UI_LOAD_TOO_DEEP, innermost, NULL));
                 else CHECK(dgx_ui_load_need(deep, strlen(deep), &names, &need, &err));
             }
     }
@@ -661,21 +661,21 @@ int main(void)
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\"} x}", DGX_UI_LOAD_SYNTAX, 38, NULL));
     /* a description names only what the program listed: a number for ctx to a handler marked to take one alone; a
        switch's or a radio's two pictures, an icon's range, within the count of the pictures; an id of the table once */
-    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"page\", \"ctx\": 5}}", DGX_UI_LOAD_FIELD, 55, "ctx"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on_event\": \"page\", \"ctx\": 5}}", DGX_UI_LOAD_FIELD, 61, "ctx"));
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": 5}}", DGX_UI_LOAD_FIELD, 41, "ctx"));
-    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": 5, \"on\": \"saved\"}}", DGX_UI_LOAD_FIELD, 41, "ctx"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": 5, \"on_event\": \"saved\"}}", DGX_UI_LOAD_FIELD, 41, "ctx"));
     /* the library's page action a page's tree alone, or none; a handler of the program's own any context, a page's
        too; one that takes a number a named context too, as before */
-    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"page\", \"ctx\": \"other\"}}", DGX_UI_LOAD_FIELD, 55, "ctx"));
-    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": \"other\", \"on\": \"page\"}}", DGX_UI_LOAD_FIELD, 41, "ctx"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on_event\": \"page\", \"ctx\": \"other\"}}", DGX_UI_LOAD_FIELD, 61, "ctx"));
+    CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": \"other\", \"on_event\": \"page\"}}", DGX_UI_LOAD_FIELD, 41, "ctx"));
     {
         static const char *const taken[] = {
-            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"page\", \"ctx\": \"settings\"}}",
-            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"page\"}}",
-            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"saved\", \"ctx\": \"settings\"}}",
-            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"saved\", \"ctx\": \"other\"}}",
-            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"step\", \"ctx\": \"settings\"}}",
-            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on\": \"back\", \"ctx\": \"other\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on_event\": \"page\", \"ctx\": \"settings\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on_event\": \"page\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on_event\": \"saved\", \"ctx\": \"settings\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on_event\": \"saved\", \"ctx\": \"other\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on_event\": \"step\", \"ctx\": \"settings\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"on_event\": \"back\", \"ctx\": \"other\"}}",
         };
         for (size_t k = 0; k < sizeof taken / sizeof *taken; ++k) {
             dgx_ui_load_need_t  need;
@@ -710,7 +710,7 @@ int main(void)
     CHECK(fails_with("{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"children\": [{\"kind\": \"label\", \"id\": \"title\"}, {\"kind\": \"box\", \"children\": [{\"kind\": \"label\", \"id\": \"title\"}]}]}}", DGX_UI_LOAD_ID, 132, "title"));
     {
         static const char *loads[] = {
-            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": 5, \"on\": \"step\"}}",
+            "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"button\", \"ctx\": 5, \"on_event\": \"step\"}}",
             "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"switch\", \"picture\": \"dots\", \"value\": \"ticked\", \"look\": \"picture_button\"}}",
             "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"icon\", \"picture\": \"dots\", \"value\": \"picked\", \"min\": 3, \"max\": 4}}",
             "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"icon\", \"picture\": \"dot\", \"value\": \"picked\"}}",
@@ -723,7 +723,7 @@ int main(void)
             const int r = dgx_ui_load(&ui, -1, loads[k], strlen(loads[k]), &names, small_memory, sizeof small_memory, &err);
             if (r != 0) fprintf(stderr, "  %s: code %d offset %d name \"%s\"\n", loads[k], err.code, err.offset, err.name);
             CHECK(r == 0);
-            if (k == 0) CHECK(dgx_ui_widget(&ui, 0)->on == on_step && dgx_ui_widget(&ui, 0)->ctx == (void *)(intptr_t)5);
+            if (k == 0) CHECK(dgx_ui_widget(&ui, 0)->on_event == on_step && dgx_ui_widget(&ui, 0)->ctx == (void *)(intptr_t)5);
             dgx_ui_free(&ui);
         }
         /* the id twice: no id written, nothing added */
@@ -732,16 +732,16 @@ int main(void)
         dgx_ui_init(&ui, nodes, 24, 1);
         CHECK(dgx_ui_load(&ui, -1, twice, strlen(twice), &names, small_memory, sizeof small_memory, &err) < 0 && err.code == DGX_UI_LOAD_ID && ui.count == 0 && go_id == -9);
         dgx_ui_free(&ui);
-        /* a table of more ids than DGX_UI_LOAD_IDS refused, its count at the bound taken */
-        static dgx_ui_id_t   many[DGX_UI_LOAD_IDS + 1];
-        static int           many_index[DGX_UI_LOAD_IDS + 1];
-        static char          many_name[DGX_UI_LOAD_IDS + 1][8];
-        for (int k = 0; k <= DGX_UI_LOAD_IDS; ++k) snprintf(many_name[k], 8, "i%d", k), many[k] = (dgx_ui_id_t){many_name[k], &many_index[k]}, many_index[k] = -1;
+        /* a table of more ids than DGX_UI_LOAD_MAX_IDS refused, its count at the bound taken */
+        static dgx_ui_id_name_t   many[DGX_UI_LOAD_MAX_IDS + 1];
+        static int           many_index[DGX_UI_LOAD_MAX_IDS + 1];
+        static char          many_name[DGX_UI_LOAD_MAX_IDS + 1][8];
+        for (int k = 0; k <= DGX_UI_LOAD_MAX_IDS; ++k) snprintf(many_name[k], 8, "i%d", k), many[k] = (dgx_ui_id_name_t){many_name[k], &many_index[k]}, many_index[k] = -1;
         dgx_ui_load_names_t more = names;
-        more.ids = many, more.id_count = DGX_UI_LOAD_IDS + 1;
+        more.ids = many, more.id_count = DGX_UI_LOAD_MAX_IDS + 1;
         static const char last[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"label\", \"id\": \"i255\"}}";
         CHECK(!dgx_ui_load_need(last, strlen(last), &more, &need, &err) && err.code == DGX_UI_LOAD_ID);
-        more.id_count = DGX_UI_LOAD_IDS;
+        more.id_count = DGX_UI_LOAD_MAX_IDS;
         CHECK(dgx_ui_load_need(last, strlen(last), &more, &need, &err));
         memory = malloc(need.bytes);
         dgx_ui_init(&ui, nodes, 24, 1);
@@ -749,23 +749,23 @@ int main(void)
         dgx_ui_free(&ui), free(memory);
     }
     {
-        /* the depth: DGX_UI_LOAD_DEPTH boxes in one another loaded, one more refused */
+        /* the depth: DGX_UI_LOAD_MAX_DEPTH boxes in one another loaded, one more refused */
         char deep[2048] = "{\"dgx-ui\": 1, \"tree\": ";
-        for (int k = 0; k < DGX_UI_LOAD_DEPTH; ++k) strcat(deep, k ? ", \"children\": [{\"kind\": \"box\"" : "{\"kind\": \"box\"");
-        for (int k = 0; k < DGX_UI_LOAD_DEPTH; ++k) strcat(deep, k < DGX_UI_LOAD_DEPTH - 1 ? "}]" : "}");
+        for (int k = 0; k < DGX_UI_LOAD_MAX_DEPTH; ++k) strcat(deep, k ? ", \"children\": [{\"kind\": \"box\"" : "{\"kind\": \"box\"");
+        for (int k = 0; k < DGX_UI_LOAD_MAX_DEPTH; ++k) strcat(deep, k < DGX_UI_LOAD_MAX_DEPTH - 1 ? "}]" : "}");
         strcat(deep, "}");
-        CHECK(dgx_ui_load_need(deep, strlen(deep), &names, &need, &err) && need.depth == DGX_UI_LOAD_DEPTH && need.nodes == DGX_UI_LOAD_DEPTH);
+        CHECK(dgx_ui_load_need(deep, strlen(deep), &names, &need, &err) && need.depth == DGX_UI_LOAD_MAX_DEPTH && need.nodes == DGX_UI_LOAD_MAX_DEPTH);
         char deeper[2048] = "{\"dgx-ui\": 1, \"tree\": ";
-        for (int k = 0; k <= DGX_UI_LOAD_DEPTH; ++k) strcat(deeper, k ? ", \"children\": [{\"kind\": \"box\"" : "{\"kind\": \"box\"");
-        for (int k = 0; k <= DGX_UI_LOAD_DEPTH; ++k) strcat(deeper, k < DGX_UI_LOAD_DEPTH ? "}]" : "}");
+        for (int k = 0; k <= DGX_UI_LOAD_MAX_DEPTH; ++k) strcat(deeper, k ? ", \"children\": [{\"kind\": \"box\"" : "{\"kind\": \"box\"");
+        for (int k = 0; k <= DGX_UI_LOAD_MAX_DEPTH; ++k) strcat(deeper, k < DGX_UI_LOAD_MAX_DEPTH ? "}]" : "}");
         strcat(deeper, "}");
-        CHECK(!dgx_ui_load_need(deeper, strlen(deeper), &names, &need, &err) && err.code == DGX_UI_LOAD_DEPTH_MAX);
+        CHECK(!dgx_ui_load_need(deeper, strlen(deeper), &names, &need, &err) && err.code == DGX_UI_LOAD_TOO_DEEP);
         /* lists in one another past the levels a description may have, in a key the walk has not yet refused */
         char lists[256] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"x\": ";
         for (int k = 0; k < 60; ++k) strcat(lists, "[");
         for (int k = 0; k < 60; ++k) strcat(lists, "]");
         strcat(lists, "}}");
-        CHECK(fails_with(lists, DGX_UI_LOAD_DEPTH_MAX, 92, NULL));
+        CHECK(fails_with(lists, DGX_UI_LOAD_TOO_DEEP, 92, NULL));
     }
 
     /* the nodes one short: an add refused midway, what was added removed, the ids as they were */

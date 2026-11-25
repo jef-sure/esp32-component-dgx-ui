@@ -29,7 +29,7 @@ static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 static int changed_count;
 static void on_changed(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) *(int32_t *)ctx = dgx_ui_value_of(node), ++changed_count;
+    if (what == DGX_UI_EVENT_CHANGED) *(int32_t *)ctx = dgx_ui_value_of(node), ++changed_count;
 }
 
 static const dgx_ui_widget_t column = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
@@ -37,8 +37,8 @@ static const dgx_ui_widget_t column = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUM
 static void test_rows(void)
 {
     static int32_t               one_place, none_place, one_heard = -999, none_heard = -999;
-    static const dgx_ui_widget_t one  = {.kind = DGX_UI_LIST, .min = 0, .max = 0, .want_h = 24, .value = &one_place, .on = on_changed, .ctx = &one_heard};
-    static const dgx_ui_widget_t none = {.kind = DGX_UI_LIST, .min = 0, .max = -1, .want_h = 24, .value = &none_place, .on = on_changed, .ctx = &none_heard};
+    static const dgx_ui_widget_t one  = {.kind = DGX_UI_LIST, .min = 0, .max = 0, .want_h = 24, .value = &one_place, .on_event = on_changed, .ctx = &one_heard};
+    static const dgx_ui_widget_t none = {.kind = DGX_UI_LIST, .min = 0, .max = -1, .want_h = 24, .value = &none_place, .on_event = on_changed, .ctx = &none_heard};
     static dgx_ui_node_t         nodes[4];
     dgx_ui_t                     ui;
     dgx_ui_init(&ui, nodes, 4, 1);
@@ -57,7 +57,7 @@ static void test_rows(void)
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 10, .y = (int16_t)(n->y + 12), .down = true, .pressed = true, .ms = 100});
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 10, .y = (int16_t)(n->y + 62), .down = true, .ms = 110});
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 10, .y = (int16_t)(n->y + 62), .released = true, .ms = 120});
-    dgx_ui_user_value(&ui, e, 3);
+    dgx_ui_set_value_as_user(&ui, e, 3);
     CHECK(none_place == 0 && none_heard == -999 && changed_count == 0);
     dgx_ui_free(&ui);
 
@@ -68,7 +68,7 @@ static void test_rows(void)
     dgx_ui_init(&ui, nodes, 4, 1);
     dgx_ui_add(&ui, -1, &column);
     const int d1 = dgx_ui_add(&ui, 0, &drop_one), d0 = dgx_ui_add(&ui, 0, &drop_none);
-    dgx_ui_user_value(&ui, d1, 5), dgx_ui_user_value(&ui, d0, 5);
+    dgx_ui_set_value_as_user(&ui, d1, 5), dgx_ui_set_value_as_user(&ui, d0, 5);
     CHECK(choice_one == 0 && choice_none == 0);
     dgx_ui_free(&ui);
 }
@@ -88,14 +88,14 @@ static void test_extremes(void)
     const dgx_ui_widget_t widgets[9] = {
         {.kind = DGX_UI_SLIDER, .min = INT16_MIN, .max = INT16_MAX, .want_h = 10, .value = &places[0], .look = &dgx_ui_look_slider},
         {.kind = DGX_UI_SLIDER, .min = 0, .max = 0, .want_h = 10, .value = &places[1], .look = &dgx_ui_look_slider},
-        {.kind = DGX_UI_SLIDER, .flags = DGX_UI_SWIPE, .min = 5, .max = 5, .want_h = 10, .value = &places[2], .look = &dgx_ui_look_slider},
+        {.kind = DGX_UI_SLIDER, .flags = DGX_UI_RELATIVE, .min = 5, .max = 5, .want_h = 10, .value = &places[2], .look = &dgx_ui_look_slider},
         {.kind = DGX_UI_LIST, .min = INT16_MIN, .max = INT16_MAX, .want_h = 10, .value = &places[3], .text = &rows_box, .look = &dgx_ui_look_list},
         {.kind = DGX_UI_LIST, .min = 0, .max = -1, .want_h = 10, .value = &places[4], .text = &rows_box, .look = &dgx_ui_look_list},
         {.kind = DGX_UI_DROPDOWN, .min = INT16_MIN, .max = INT16_MAX, .want_h = 10, .value = &places[5], .text = &rows_box, .look = &dgx_ui_look_dropdown},
         /* dropdowns of no option, which draw their face by any value: min past 0 either way */
         {.kind = DGX_UI_DROPDOWN, .min = 1, .max = 0, .want_h = 10, .value = &places[6], .text = &rows_box, .look = &dgx_ui_look_dropdown},
         {.kind = DGX_UI_DROPDOWN, .min = -1, .max = -2, .want_h = 10, .value = &places[7], .text = &rows_box, .look = &dgx_ui_look_dropdown},
-        {.kind = DGX_UI_SLIDER, .flags = DGX_UI_SWIPE, .min = INT16_MIN, .max = INT16_MAX, .want_h = 10, .value = &places[8], .look = &dgx_ui_look_slider},
+        {.kind = DGX_UI_SLIDER, .flags = DGX_UI_RELATIVE, .min = INT16_MIN, .max = INT16_MAX, .want_h = 10, .value = &places[8], .look = &dgx_ui_look_slider},
     };
     dgx_screen_t *v = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     static const int32_t ends[2] = {INT32_MIN, INT32_MAX};
@@ -151,7 +151,7 @@ static dgx_ui_t home, dialog;
 static int      ok;
 static void on_plus(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_ACTIVATED) return;
+    if (what != DGX_UI_EVENT_ACTIVATED) return;
     if (++plus_told == 3) {
         dgx_ui_popup_open(&home, &dialog, 10, 10, 80, 40, DGX_UI_POPUP_MODAL);
         dgx_ui_focus(&dialog, ok);
@@ -159,19 +159,19 @@ static void on_plus(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
 }
 static void on_ok(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) ++ok_told, dgx_ui_popup_close(&home);
+    if (what == DGX_UI_EVENT_ACTIVATED) ++ok_told, dgx_ui_popup_close(&home);
 }
 static void on_plain(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) ++plain_told;
+    if (what == DGX_UI_EVENT_ACTIVATED) ++plain_told;
 }
 
 static void test_held_key(void)
 {
-    static const dgx_ui_widget_t plus_w  = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_h = 20, .on = on_plus};
-    static const dgx_ui_widget_t plain_w = {.kind = DGX_UI_BUTTON, .want_h = 20, .on = on_plain};
+    static const dgx_ui_widget_t plus_w  = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_h = 20, .on_event = on_plus};
+    static const dgx_ui_widget_t plain_w = {.kind = DGX_UI_BUTTON, .want_h = 20, .on_event = on_plain};
     static const dgx_ui_widget_t frame   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN};
-    static const dgx_ui_widget_t ok_w    = {.kind = DGX_UI_BUTTON, .want_h = 20, .on = on_ok};
+    static const dgx_ui_widget_t ok_w    = {.kind = DGX_UI_BUTTON, .want_h = 20, .on_event = on_ok};
     static dgx_ui_node_t         first[4], dnodes[2];
     dgx_ui_init(&home, first, 4, 1);
     dgx_ui_set_root(&home, 0, 0, 100, 100);
@@ -183,17 +183,17 @@ static void test_held_key(void)
     dgx_ui_layout(&home);
     /* the dialog its third repeat opens: its OK never pressed by the key still held */
     dgx_ui_focus(&home, plus);
-    dgx_ui_buttons(&home, DGX_UI_PAD_A, 0);
-    for (uint32_t t = 10; t <= 2000; t += 10) dgx_ui_buttons(&home, DGX_UI_PAD_A, t), dgx_ui_time(&home, t);
+    dgx_ui_buttons(&home, DGX_UI_GAMEPAD_A, 0);
+    for (uint32_t t = 10; t <= 2000; t += 10) dgx_ui_buttons(&home, DGX_UI_GAMEPAD_A, t), dgx_ui_time(&home, t);
     CHECK(plus_told == 3 && ok_told == 0 && home.popup == &dialog);
     dgx_ui_buttons(&home, 0, 2010);
     dgx_ui_popup_close(&home);
     /* the focus moved to a plain button while the key is held: never activated by the repeat */
     dgx_ui_focus(&home, plus);
     plus_told = -1000;
-    dgx_ui_buttons(&home, DGX_UI_PAD_A, 3000);
+    dgx_ui_buttons(&home, DGX_UI_GAMEPAD_A, 3000);
     dgx_ui_focus(&home, plain);
-    for (uint32_t t = 3010; t <= 4000; t += 10) dgx_ui_buttons(&home, DGX_UI_PAD_A, t), dgx_ui_time(&home, t);
+    for (uint32_t t = 3010; t <= 4000; t += 10) dgx_ui_buttons(&home, DGX_UI_GAMEPAD_A, t), dgx_ui_time(&home, t);
     CHECK(plain_told == 0);
     dgx_ui_buttons(&home, 0, 4010);
     dgx_ui_free(&dialog), dgx_ui_free(&home);

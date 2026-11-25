@@ -125,7 +125,7 @@ static void draw_bar(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t 
 }
 
 /* the picture moved by d rows up, the rows that came in drawn: false when it cannot be, the box drawn whole then. Not
-   under a composing, nor a clip of nothing (a teller's pass, dgx_ui_changed()), nor over a drawn background the box
+   under a composing, nor a clip of nothing (a teller's pass, dgx_ui_paint_changes()), nor over a drawn background the box
    does not fill, nor by a whole view; on a panel that moves by its own scroll, not while another box holds its area */
 static bool move(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui_scroll_box_t *b, int d)
 {

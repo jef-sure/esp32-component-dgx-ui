@@ -96,7 +96,7 @@ for k, page in enumerate(pages):
 
 themed = ('{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "pad": 2, "gap": 2, "children": ['
           '{"kind": "label", "text": "Day"}, {"kind": "slider", "value": "volume", "min": 0, "max": 100, "want": [0, 10]},'
-          '{"kind": "button", "text": "Go", "on": "go", "want": [0, 16]}]}}')
+          '{"kind": "button", "text": "Go", "on_event": "go", "want": [0, 16]}]}}')
 for k, appearance in enumerate(appearances):
     text = open(appearance, "rb").read()
     width, height, depth, unit = shapes[k % len(shapes)]
@@ -107,7 +107,7 @@ for k, appearance in enumerate(appearances):
 
 # the appearance on a names file of its own, as dgx_ui_c -a reads one made with NAMES, the page on another; by the rule,
 # as one made with none; its own spoiled; then on the page's again
-themed_names = "look slider\nlook button\nvalue volume &volume\non go\n"
+themed_names = "look slider\nlook button\nvalue volume &volume\non_event go\n"
 for k, appearance in enumerate(appearances):
     text = open(appearance, "rb").read()
     width, height, depth, unit = shapes[k % len(shapes)]
@@ -118,10 +118,10 @@ for k, appearance in enumerate(appearances):
                f"page {text_file(themed)}", "paint 1000", "dump", "appearance_on 0 -", "paint 1100", "dump"])
 
 home = ('{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": ['
-        '{"kind": "button", "text": "More", "on": "page", "ctx": "settings", "want": [0, 16]},'
-        '{"kind": "button", "text": "Lost", "on": "page", "ctx": "nowhere", "want": [0, 16]}]}}')
+        '{"kind": "button", "text": "More", "on_event": "page", "ctx": "settings", "want": [0, 16]},'
+        '{"kind": "button", "text": "Lost", "on_event": "page", "ctx": "nowhere", "want": [0, 16]}]}}')
 settings = ('{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": ['
-            '{"kind": "label", "text": "Settings"}, {"kind": "button", "text": "Back", "on": "back", "want": [0, 16]}]}}')
+            '{"kind": "label", "text": "Settings"}, {"kind": "button", "text": "Back", "on_event": "back", "want": [0, 16]}]}}')
 for depth in (16, 18, 24):
     scene([f"pagefile settings {text_file(settings)}", f"screen 96 64 {depth} 1", "names -", "appearance -", f"page {text_file(home)}",
            "paint 1000", "pointer 48 8 1 1100", "paint 1100", "pointer 48 8 0 1150", "paint 1150", "dump", "key 0", "key 2", "paint 1300", "dump",

@@ -62,7 +62,7 @@ const char *preview_version(void);
 const char *preview_format(void);
 /**
  * The names of the tables the page given is read on, by the names file or, with none, by the rule, the appearance's
- * looks and styles first: {"look": [...], "value": [...], "picture": [...], "style": [...], "on": [...], "take": [...],
+ * looks and styles first: {"look": [...], "value": [...], "picture": [...], "style": [...], "on_event": [...], "take": [...],
  * "ctx": [...], "id": [...]}. Kept from the last preview_page(), whether the page was taken or not.
  */
 const char *preview_tables(void);
@@ -124,7 +124,7 @@ const char *preview_appearance_format(void);
  * (tools/dgx_ui_names.c): {"tables": the loader's tables by their words, "keys": the key of a widget that names an
  * entry of each, in their order, "appearance": ["draw", "font", "hand"], "words": the word a line of a table may end
  * with ("count" of pictures, from "pictures": [1, 65535]), "bare": the names that go with no expression, of the tables
- * look, on, draw and hand}.
+ * look, on_event, draw and hand}.
  */
 const char *preview_names_format(void);
 /**

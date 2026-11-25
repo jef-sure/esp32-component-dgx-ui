@@ -4,7 +4,7 @@
  * over it puts the canvas again and draws nothing in it; its box of another size, a new canvas; every pixel once on a
  * panel behind a bus, as a virtual screen has it. No memory (DGX's allocator made to fail for 8 bits): a larger canvas
  * refused keeps the old one, DGX_UI_MARK_HARD_SIZE, never changed again; none at all, the box paper and
- * DGX_UI_NO_MEMORY told once, after the pass, from a pass or from a composing. A canvas freed when its widget leaves
+ * DGX_UI_EVENT_NO_MEMORY told once, after the pass, from a pass or from a composing. A canvas freed when its widget leaves
  * the tree and when its popup closes; a second paint has its own. A look of a soft pen puts amounts of its ink: over
  * the paper, over a drawn background mixed with it in a strip, its holes the picture; indices over the background,
  * their 0 the picture; a screen of 24 bits, the box paper.
@@ -90,14 +90,14 @@ static const dgx_ui_look_t soft_look = {.draw = draw_soft, .fill = -1};
 
 static void on_canvas(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_NO_MEMORY) ++((bars_t *)node->widget->own)->told;
+    if (what == DGX_UI_EVENT_NO_MEMORY) ++((bars_t *)node->widget->own)->told;
 }
 
 /* told no memory, it removes another widget that waits to be told too */
 static int  remove_i = -1;
 static void on_remove(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_NO_MEMORY) return;
+    if (what != DGX_UI_EVENT_NO_MEMORY) return;
     ++((bars_t *)node->widget->own)->told;
     if (remove_i >= 0) dgx_ui_remove(ui, remove_i), remove_i = -1;
 }
@@ -117,7 +117,7 @@ typedef struct {
 static void make(tree_t *t, const dgx_ui_look_t *look, const dgx_ui_widget_t *root)
 {
     memset(t, 0, sizeof *t);
-    t->w = (dgx_ui_widget_t){.kind = DGX_UI_OWN, .value = new_place(), .flags = DGX_UI_CANVAS, .want_h = 20, .max = 30, .look = look, .own = &t->own, .on = on_canvas};
+    t->w = (dgx_ui_widget_t){.kind = DGX_UI_OWN, .value = new_place(), .flags = DGX_UI_CANVAS, .want_h = 20, .max = 30, .look = look, .own = &t->own, .on_event = on_canvas};
     dgx_ui_init(&t->ui, t->nodes, 4, 1);
     dgx_ui_add(&t->ui, -1, root);
     t->i = dgx_ui_add(&t->ui, 0, &t->w);
@@ -231,17 +231,17 @@ int main(void)
         vc->destroy(&vc);
     }
 
-    /* two without memory, the first's on() removing the second: the second not told, nothing read of it */
+    /* two without memory, the first's on_event() removing the second: the second not told, nothing read of it */
     {
         static tree_t                t;
         static bars_t                own2;
         static const dgx_ui_widget_t after = {.kind = DGX_UI_BOX, .want_h = 4};
         dgx_ui_paint_t               pt    = {.scr = v, .colors = colors, .color_count = 4};
         make(&t, &bars_look, &root_w);
-        t.w.on              = on_remove;
+        t.w.on_event              = on_remove;
         dgx_ui_widget_t two = t.w;
         two.value = new_place();
-        two.on = on_canvas, two.own = &own2;
+        two.on_event = on_canvas, two.own = &own2;
         remove_i = dgx_ui_add(&t.ui, 0, &two);
         dgx_ui_add(&t.ui, 0, &after);
         no_memory = true;

@@ -31,7 +31,7 @@ static dgx_ui_t *top_page(dgx_ui_t *home)
 bool dgx_ui_page_open(dgx_ui_t *home, dgx_ui_t *page)
 {
     /* over the top page, from the top down, the popups a finger elsewhere would close: closed, to the first that is
-       not. The top page found again after each: a popup's on(DGX_UI_COVERED) may have gone back a page */
+       not. The top page found again after each: a popup's on(DGX_UI_EVENT_COVERED) may have gone back a page */
     for (dgx_ui_t *base = top_page(home); base->popup; base = top_page(home)) {
         dgx_ui_t *under_top = base;
         while (under_top->popup->popup) under_top = under_top->popup;

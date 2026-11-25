@@ -1,5 +1,5 @@
 /*
- * What changed, told and not drawn (dgx_ui_changed()): two trees alike, one painted by dgx_ui_paint() on a counting
+ * What changed, told and not drawn (dgx_ui_paint_changes()): two trees alike, one painted by dgx_ui_paint() on a counting
  * panel, the other told on a counting panel of its own, each rectangle told composed by dgx_ui_paint_area_to() into a
  * piece and put on a mirror, as another compositor's strips would. At every step: nothing written on the telling
  * panel, every pixel the painter wrote inside a rectangle told, the mirror equal to the painted panel. The first pass
@@ -152,11 +152,11 @@ static void compose_all_at_once(void *ctx, dgx_ui_rect_t rect)
 enum { AFTER, AT_ONCE, ALL_AT_ONCE };
 static int pass_with(uint32_t now_ms, int when)
 {
-    static const dgx_ui_changed_fn tells[3] = {collect, compose_at_once, compose_all_at_once};
+    static const dgx_ui_paint_changes_t tells[3] = {collect, compose_at_once, compose_all_at_once};
     panel_count_from_now(painted_panel), panel_count_from_now(telling_panel);
     told.count   = 0;
     painted_more = dgx_ui_paint(&painted.ui, &painted_paint, now_ms);
-    told_more    = dgx_ui_changed(&told_tree.ui, &telling_paint, now_ms, tells[when], &told);
+    told_more    = dgx_ui_paint_changes(&told_tree.ui, &telling_paint, now_ms, tells[when], &told);
     for (int k = 0; when == AFTER && k < told.count; ++k) compose(told.at[k]);
     int faults = panel_written(telling_panel);
     for (int y = 0; y < PANEL_H; ++y)
@@ -181,7 +181,7 @@ static void           collect_inner(void *ctx, dgx_ui_rect_t rect) { collect(ctx
 static void           collect_outer(void *ctx, dgx_ui_rect_t rect)
 {
     collect(ctx, rect);
-    if (outer_told.count == 1) dgx_ui_changed(&inner_tree.ui, &inner_paint, 0, collect_inner, &inner_told);
+    if (outer_told.count == 1) dgx_ui_paint_changes(&inner_tree.ui, &inner_paint, 0, collect_inner, &inner_told);
 }
 
 /* the program's picture under the tree: a colour of none of the table's, laid where asked; counted */
@@ -251,7 +251,7 @@ int main(void)
     panel_count_from_now(telling_panel);
     told.count = 0;
     dgx_ui_paint(&painted.ui, &painted_paint, 2100);
-    dgx_ui_changed(&told_tree.ui, &telling_paint, 2100, collect, &told);
+    dgx_ui_paint_changes(&told_tree.ui, &telling_paint, 2100, collect, &told);
     CHECK(told.count == 0 && panel_written(telling_panel) == 0 && (dgx_ui_node(&told_tree.ui, told_tree.slider)->marks || slider->state_drawn.value != 70));
     painted_paint.cover = telling_paint.cover = dgx_ui_rect(0, 0, 0, 0);
     CHECK(pass(2200) == 0 && told.count >= 1 && told.at[0].y == slider->y && told.at[0].w == PANEL_W && slider->state_drawn.value == 70);
@@ -324,21 +324,21 @@ int main(void)
         dgx_ui_init(&low_popup, low_nodes, 1, 1);
         dgx_ui_add(&low_popup, -1, &frame_w);
         told_t short_told = {0};
-        dgx_ui_changed(&short_tree.ui, &short_paint, 0, collect, &short_told);
+        dgx_ui_paint_changes(&short_tree.ui, &short_paint, 0, collect, &short_told);
         CHECK(dgx_ui_popup_open(&short_tree.ui, &low_popup, 10, 30, 40, 20, 0));
-        dgx_ui_changed(&short_tree.ui, &short_paint, 1, collect, &short_told);
+        dgx_ui_paint_changes(&short_tree.ui, &short_paint, 1, collect, &short_told);
         dgx_ui_popup_close(&short_tree.ui);
         short_told.count = 0;
         panel_count_from_now(telling_panel);
-        dgx_ui_changed(&short_tree.ui, &short_paint, 2, collect, &short_told);
+        dgx_ui_paint_changes(&short_tree.ui, &short_paint, 2, collect, &short_told);
         CHECK(short_told.count == 1 && short_told.at[0].x == 10 && short_told.at[0].y == 30 && short_told.at[0].h == 20 && panel_written(telling_panel) == 0);
         /* the band the same way: lying partly below the root, gone */
         short_paint.cover = dgx_ui_rect(0, 30, PANEL_W, 20);
-        dgx_ui_changed(&short_tree.ui, &short_paint, 3, collect, &short_told);
+        dgx_ui_paint_changes(&short_tree.ui, &short_paint, 3, collect, &short_told);
         short_paint.cover = dgx_ui_rect(0, 0, 0, 0);
         short_told.count  = 0;
         panel_count_from_now(telling_panel);
-        dgx_ui_changed(&short_tree.ui, &short_paint, 4, collect, &short_told);
+        dgx_ui_paint_changes(&short_tree.ui, &short_paint, 4, collect, &short_told);
         CHECK(short_told.count == 1 && short_told.at[0].y == 30 && short_told.at[0].w == PANEL_W && panel_written(telling_panel) == 0);
         dgx_ui_paint_free(&short_paint), dgx_ui_free(&low_popup), dgx_ui_free(&short_tree.ui);
     }
@@ -354,7 +354,7 @@ int main(void)
     for (int k = 0; k < 2; ++k) dgx_ui_set_value(&both[k]->ui, both[k]->slider, 10);
     panel_count_from_now(telling_panel);
     background_calls = 0, told.count = 0;
-    dgx_ui_changed(&told_tree.ui, &telling_paint, 5700, collect, &told);
+    dgx_ui_paint_changes(&told_tree.ui, &telling_paint, 5700, collect, &told);
     CHECK(told.count == 1 && background_calls == 0 && panel_written(telling_panel) == 0);
     dgx_ui_paint(&painted.ui, &painted_paint, 5700);
     for (int k = 0; k < told.count; ++k) compose(told.at[k]);
@@ -367,12 +367,12 @@ int main(void)
     telling_panel->sbus.scr.dir_x = !telling_panel->sbus.scr.dir_x;
     told.count                    = 0;
     panel_count_from_now(telling_panel);
-    dgx_ui_changed(&told_tree.ui, &telling_paint, 5800, collect, &told);
+    dgx_ui_paint_changes(&told_tree.ui, &telling_paint, 5800, collect, &told);
     CHECK(told.count == 1 && same_rect(told.at[0], dgx_ui_node(&told_tree.ui, 0)) && panel_written(telling_panel) == 0);
 
     /* dgx_ui_paint() after it on the same paint: nothing left to draw */
     dgx_ui_set_value(&told_tree.ui, told_tree.slider, 55);
-    dgx_ui_changed(&told_tree.ui, &telling_paint, 5900, collect, &told);
+    dgx_ui_paint_changes(&told_tree.ui, &telling_paint, 5900, collect, &told);
     panel_count_from_now(telling_panel);
     dgx_ui_paint(&told_tree.ui, &telling_paint, 5900);
     CHECK(panel_written(telling_panel) == 0);
@@ -382,16 +382,16 @@ int main(void)
     inner_paint = (dgx_ui_paint_t){.scr = &telling_panel->sbus.scr, .colors = colors, .color_count = 4};
     dgx_ui_set_value(&told_tree.ui, told_tree.slider, 33);
     outer_told.count = inner_told.count = 0;
-    dgx_ui_changed(&told_tree.ui, &telling_paint, 6000, collect_outer, &outer_told);
+    dgx_ui_paint_changes(&told_tree.ui, &telling_paint, 6000, collect_outer, &outer_told);
     CHECK(outer_told.count == 1 && same_rect(outer_told.at[0], dgx_ui_node(&told_tree.ui, told_tree.slider)));
     CHECK(inner_told.count == 1 && same_rect(inner_told.at[0], dgx_ui_node(&inner_tree.ui, 0)));
 
     /* nobody told: the tree marked drawn all the same, a call after it tells nothing */
     dgx_ui_set_value(&told_tree.ui, told_tree.slider, 77);
     panel_count_from_now(telling_panel);
-    dgx_ui_changed(&told_tree.ui, &telling_paint, 6100, NULL, NULL);
+    dgx_ui_paint_changes(&told_tree.ui, &telling_paint, 6100, NULL, NULL);
     told.count = 0;
-    dgx_ui_changed(&told_tree.ui, &telling_paint, 6200, collect, &told);
+    dgx_ui_paint_changes(&told_tree.ui, &telling_paint, 6200, collect, &told);
     CHECK(told.count == 0 && panel_written(telling_panel) == 0);
 
     dgx_ui_paint_free(&painted_paint), dgx_ui_paint_free(&telling_paint), dgx_ui_paint_free(&inner_paint);

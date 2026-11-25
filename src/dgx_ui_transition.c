@@ -2,7 +2,7 @@
  * dgx_ui_transition.c
  *
  *  Pages changed by a transition: the screen as it stands composed into the program's first picture, the page opened
- *  or closed, the trees marked drawn by dgx_ui_changed() with nobody told, so that the looks keep what a pass keeps,
+ *  or closed, the trees marked drawn by dgx_ui_paint_changes() with nobody told, so that the looks keep what a pass keeps,
  *  and the screen as it will be composed into the second. The frames are made from the two pictures alone: a slide by
  *  two transfers at an offset, a crossfade in the frame buffer of a display that reads it, or strip by strip in the
  *  paint's buffer on one that cannot be read. A page of home's place moves in the place alone: what else changed,
@@ -68,7 +68,7 @@ static void begin(dgx_ui_t *home, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr
 {
     if (dgx_ui_rect_empty(&area)) return; /* a place of no width or height, hidden: nothing to move, the page at once */
     tr->area = area, tr->outside = dgx_ui_rect(0, 0, 0, 0);
-    dgx_ui_changed(home, paint, paint->now_ms, outside_noted, tr);
+    dgx_ui_paint_changes(home, paint, paint->now_ms, outside_noted, tr);
     compose_whole(home, paint, tr->to);
     tr->kind = (uint8_t)kind, tr->running = true, tr->started = false;
 }
@@ -92,7 +92,7 @@ static const dgx_ui_t *top_of(const dgx_ui_t *home)
 
 bool dgx_ui_page_open_by(dgx_ui_t *home, dgx_ui_t *page, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind)
 {
-    /* from an on() told within another's setting up (a page's DGX_UI_SHOWN): the page at once, the outer one's pictures
+    /* from an on_event() told within another's setting up (a page's DGX_UI_EVENT_SHOWN): the page at once, the outer one's pictures
        holding it; or no transition to be had */
     if (home->setting_up || !ready(tr, paint, kind)) return dgx_ui_page_open(home, page);
     compose_whole(home, paint, tr->from); /* the screen as it stands: what the display shows */
@@ -100,14 +100,14 @@ bool dgx_ui_page_open_by(dgx_ui_t *home, dgx_ui_t *page, dgx_ui_paint_t *paint, 
     home->setting_up    = true;
     const bool opened   = dgx_ui_page_open(home, page);
     home->setting_up    = false;
-    /* the trees as they are after every on() told: what comes in; nothing to slide to when an on() went back at once */
+    /* the trees as they are after every on_event() told: what comes in; nothing to slide to when an on_event() went back at once */
     if (opened && top_of(home) != was) begin(home, paint, tr, kind, area_of(home, paint));
     return opened;
 }
 
 bool dgx_ui_page_back_by(dgx_ui_t *home, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind)
 {
-    /* from an on() told within another's setting up (the page's DGX_UI_BACK, a tree's DGX_UI_SHOWN): the page back at
+    /* from an on_event() told within another's setting up (the page's DGX_UI_EVENT_BACK, a tree's DGX_UI_EVENT_SHOWN): the page back at
        once, the outer one's pictures holding it; or no transition to be had. The mark is the tree's own: a back over a
        tree of another task is made meanwhile */
     if (home->setting_up || !ready(tr, paint, kind)) return dgx_ui_page_back(home);
@@ -117,7 +117,7 @@ bool dgx_ui_page_back_by(dgx_ui_t *home, dgx_ui_paint_t *paint, dgx_ui_transitio
     home->setting_up         = true;
     const bool closed        = dgx_ui_page_back(home);
     home->setting_up         = false;
-    /* the trees as they are after every on() told: what comes in; nothing to slide to when an on() opened it again */
+    /* the trees as they are after every on_event() told: what comes in; nothing to slide to when an on_event() opened it again */
     if (closed && top_of(home) != was) begin(home, paint, tr, kind, area);
     return closed;
 }

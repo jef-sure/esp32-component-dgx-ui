@@ -29,9 +29,9 @@ static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &slider
 static int                   clicks;
 static void                  on_button(dgx_ui_t *u, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    clicks += what == DGX_UI_ACTIVATED;
+    clicks += what == DGX_UI_EVENT_ACTIVATED;
 }
-static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .on = on_button};
+static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .on_event = on_button};
 static dgx_ui_font_variant_t variant[1];
 static dgx_ui_text_style_t   style;
 static char                  field_buf[16];
@@ -109,7 +109,7 @@ int main(void)
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
     dgx_ui_textbox_init(&field_box, field_buf, sizeof field_buf, 1, &style);
-    middle = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
+    middle = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_STYLE_MIDDLE};
     dgx_ui_textbox_init(&mid_box, mid_buf, sizeof mid_buf, 1, &middle);
     panel_t       *panel = panel_make();
     dgx_screen_t  *scr   = &panel->sbus.scr;
@@ -163,7 +163,7 @@ int main(void)
     dgx_ui_paint(&ui, &pp, 6002);
     CHECK(panel->mem[cy][cx] == colors[0]);
 
-    /* a field of DGX_UI_TEXT_MIDDLE: the caret in the middle rows of the field, as a label sets its text; every pixel
+    /* a field of DGX_UI_STYLE_MIDDLE: the caret in the middle rows of the field, as a label sets its text; every pixel
        once */
     mi = dgx_ui_add(&ui, 0, &mid_w); /* under the others, where the strokes above found no widget */
     dgx_ui_paint(&ui, &pp, 6003);

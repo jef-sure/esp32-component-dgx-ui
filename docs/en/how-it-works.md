@@ -152,15 +152,15 @@ as last drawn (only the picked row of a list is written again by `dgx_ui_set_val
 the pick). `dgx_ui_show()` compares by itself and changes nothing when the widget is shown or hidden already, and
 `dgx_ui_text_printf()` does for a text box of up to 256 bytes; a longer one is taken as changed every time.
 
-A widget's `on()` is told what the user did: `DGX_UI_ACTIVATED`, `DGX_UI_CHANGED`, `DGX_UI_FOCUS`, `DGX_UI_BACK`,
-`DGX_UI_EDIT`. A value, a state or a text the program sets tells it nothing. Take a thermostat: its set point comes
-by a message from the network, and `on(DGX_UI_CHANGED)` sends the user's new set point to the network. If the
-message's value told `on()` too, the program would send it back to where it came from.
+A widget's `on_event()` is told what the user did: `DGX_UI_EVENT_ACTIVATED`, `DGX_UI_EVENT_CHANGED`, `DGX_UI_EVENT_FOCUS`, `DGX_UI_EVENT_BACK`,
+`DGX_UI_EVENT_EDIT`. A value, a state or a text the program sets tells it nothing. Take a thermostat: its set point comes
+by a message from the network, and `on(DGX_UI_EVENT_CHANGED)` sends the user's new set point to the network. If the
+message's value told `on_event()` too, the program would send it back to where it came from.
 
-What else comes to `on()`: `DGX_UI_FOCUS` when the program gives the widget the focus by `dgx_ui_focus()`;
-`DGX_UI_BACK` to the root of a page or a popup the program closes by `dgx_ui_page_back()` or `dgx_ui_popup_back()`;
-`DGX_UI_NO_MEMORY` from the painter, when a canvas of the widget got no memory; and what a widget of the program's
-own tells by `dgx_ui_user_value()` and `dgx_ui_tell()`, which are made for it.
+What else comes to `on_event()`: `DGX_UI_EVENT_FOCUS` when the program gives the widget the focus by `dgx_ui_focus()`;
+`DGX_UI_EVENT_BACK` to the root of a page or a popup the program closes by `dgx_ui_page_back()` or `dgx_ui_popup_back()`;
+`DGX_UI_EVENT_NO_MEMORY` from the painter, when a canvas of the widget got no memory; and what a widget of the program's
+own tells by `dgx_ui_set_value_as_user()` and `dgx_ui_tell()`, which are made for it.
 
 For the same reason a button the program set to pressed is drawn pressed and activates nothing: a hardware "OK"
 held down may show on the screen's "OK" without pressing it.
@@ -285,7 +285,7 @@ The looks of the library draw the whole box of the widget in its state as it is,
 A look that does remember what it drew stores it only in the last part of a pass: see
 [A look of your own](cookbook.md#a-look-of-your-own).
 
-A program that sends the display its own picture need not let the painter write at all. `dgx_ui_changed()` makes
+A program that sends the display its own picture need not let the painter write at all. `dgx_ui_paint_changes()` makes
 the same pass and only tells the rectangles that changed, and `dgx_ui_paint_area_to()` composes any rectangle of the
 tree into the program's own strip or frame: see
 [The tree as a layer in another compositor's strips](cookbook.md#the-tree-as-a-layer-in-another-compositors-strips).
@@ -350,7 +350,7 @@ tree is drawn around every popup over it. The finger and the keys go to the top 
 every popup over it. The list of a dropdown is such a popup, opened by `dgx_ui_dropdown_open()`.
 
 A page is a popup on the whole screen that the key back closes: `dgx_ui_page_open()` and `dgx_ui_page_back()` keep
-a stack of them, and a page's root is told `DGX_UI_BACK` before it goes. See
+a stack of them, and a page's root is told `DGX_UI_EVENT_BACK` before it goes. See
 [Pages and "back"](cookbook.md#pages-and-back). On a board with memory for two pictures of the screen a page may
 come by a slide or a crossfade: [Pages that slide](cookbook.md#pages-that-slide).
 
@@ -358,8 +358,8 @@ The pages need not take the whole screen: the first tree names one of its widget
 while the rest, a bar with a clock or tabs, stays on the screen and takes the finger. See
 [A bar over the pages](cookbook.md#a-bar-over-the-pages).
 
-The root of a tree is told when the tree comes to the screen and when it leaves it, `DGX_UI_SHOWN` and
-`DGX_UI_COVERED`, in turn: a page keeps its ticker or the poll of a sensor only while it is seen. Only a page
+The root of a tree is told when the tree comes to the screen and when it leaves it, `DGX_UI_EVENT_SHOWN` and
+`DGX_UI_EVENT_COVERED`, in turn: a page keeps its ticker or the poll of a sensor only while it is seen. Only a page
 covers; a dialog or a list leaves the tree under it seen. See
 [A page that works only while it is seen](cookbook.md#a-page-that-works-only-while-it-is-seen).
 

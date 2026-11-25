@@ -1,7 +1,7 @@
 /*
  * controls: the controls of dgx-ui worked by a finger and by the keys. A button opens a popup that asks "Really?", a
  * switch turns, a dropdown opens its list of modes, a slider moves, two fields take digits, a code and a PIN shown as stars; a line at the bottom tells
- * what the user did last. A field clicked (DGX_UI_EDIT; Enter on it too) is edited in a strip at the top of the
+ * what the user did last. A field clicked (DGX_UI_EVENT_EDIT; Enter on it too) is edited in a strip at the top of the
  * display, a keypad of DGX-DI under it: the strip holds a copy of the field's text, given to the field on done and dropped on cancel, so a field left
  * by cancel (the keypad's, or BACK) keeps what it had. The task that owns the display sleeps on
  * its queue; a ticker wakes it every 15 ms to read the finger, as a touch panel is read.
@@ -51,12 +51,12 @@ static uint32_t buttons_held(void)
     const int n   = dgx_host_keys(keys, 8);
     for (int k = 0; k < n; ++k) {
         switch (keys[k]) {
-        case 79: held |= DGX_UI_PAD_RIGHT; break;
-        case 80: held |= DGX_UI_PAD_LEFT; break;
-        case 81: held |= DGX_UI_PAD_DOWN; break;
-        case 82: held |= DGX_UI_PAD_UP; break;
-        case 40: held |= DGX_UI_PAD_A; break;
-        case 41: held |= DGX_UI_PAD_BACK; break;
+        case 79: held |= DGX_UI_GAMEPAD_RIGHT; break;
+        case 80: held |= DGX_UI_GAMEPAD_LEFT; break;
+        case 81: held |= DGX_UI_GAMEPAD_DOWN; break;
+        case 82: held |= DGX_UI_GAMEPAD_UP; break;
+        case 40: held |= DGX_UI_GAMEPAD_A; break;
+        case 41: held |= DGX_UI_GAMEPAD_BACK; break;
         default: break;
         }
     }
@@ -74,8 +74,8 @@ static uint32_t buttons_held(void)
 enum { MSG_TOUCH = 1 };
 
 static const dgx_ui_font_variant_t variant[1] = {{.font = &dgx_font_text}};
-static const dgx_ui_text_style_t   left       = {.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_MIDDLE};
-static const dgx_ui_text_style_t   middle     = {.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+static const dgx_ui_text_style_t   left       = {.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_STYLE_MIDDLE};
+static const dgx_ui_text_style_t   middle     = {.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_STYLE_MIDDLE};
 
 /* the texts, each in a box of its own */
 enum { T_TITLE, T_POPUP, T_MODE, T_SLIDER, T_CODE_LABEL, T_CODE, T_PIN_LABEL, T_PIN, T_STATUS, T_ASK, T_YES, T_NO, T_EDIT, TEXTS };
@@ -96,14 +96,14 @@ static void on_answer(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, 
 static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 6, .gap = 8};
 static const dgx_ui_widget_t title_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_TITLE], .want_h = 20};
 static const dgx_ui_widget_t row_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 10, .want_h = 28};
-static const dgx_ui_widget_t popup_w  = {.kind = DGX_UI_BUTTON, .text = &text_box[T_POPUP], .want_w = 90, .flags = DGX_UI_STRETCH, .look = &dgx_ui_look_button, .on = on_popup_button};
+static const dgx_ui_widget_t popup_w  = {.kind = DGX_UI_BUTTON, .text = &text_box[T_POPUP], .want_w = 90, .flags = DGX_UI_STRETCH, .look = &dgx_ui_look_button, .on_event = on_popup_button};
 /* the program's values: where the switch, the dropdown and the slider keep theirs, written by the user, read here */
 static int32_t switch_on, mode_chosen, slider_percent;
-static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .value = &switch_on, .want_w = 44, .want_h = 20, .at_y = 4, .look = &dgx_ui_look_switch, .on = on_switch};
+static const dgx_ui_widget_t switch_w = {.kind = DGX_UI_SWITCH, .max = 1, .value = &switch_on, .want_w = 44, .want_h = 20, .at_y = 4, .look = &dgx_ui_look_switch, .on_event = on_switch};
 /* a dropdown of four modes: its options the lines of its text box, its list opened by dgx_ui_dropdown_open() */
 static const dgx_ui_widget_t mode_w = {.kind = DGX_UI_DROPDOWN, .text = &text_box[T_MODE], .min = 0, .max = 3, .value = &mode_chosen, .flags = DGX_UI_REST | DGX_UI_STRETCH,
-                                       .look = &dgx_ui_look_dropdown, .on = on_mode};
-static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .step = 1, .value = &slider_percent, .want_h = 22, .look = &dgx_ui_look_slider, .on = on_slider};
+                                       .look = &dgx_ui_look_dropdown, .on_event = on_mode};
+static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .max = 100, .step = 1, .value = &slider_percent, .want_h = 22, .look = &dgx_ui_look_slider, .on_event = on_slider};
 static const dgx_ui_widget_t value_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_SLIDER], .want_h = 20};
 /* the fields, each on a paper of its own so that it shows empty: looks of the program's colours, constants in flash;
    the PIN's a secret one, a star for each digit */
@@ -113,23 +113,23 @@ static const dgx_ui_input_look_t secret_colours = {.ink = 1, .caret = 3, .paper 
 static const dgx_ui_look_t       secret_look    = {.draw = dgx_ui_draw_input, .params = &secret_colours, .fill = -1};
 static const dgx_ui_widget_t     field_row      = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 6, .want_h = 22};
 static const dgx_ui_widget_t code_l_w = {.kind = DGX_UI_LABEL, .text = &text_box[T_CODE_LABEL], .want_w = 40, .flags = DGX_UI_STRETCH};
-static const dgx_ui_widget_t code_w   = {.kind = DGX_UI_INPUT, .text = &text_box[T_CODE], .flags = DGX_UI_REST | DGX_UI_STRETCH, .look = &field_look, .on = on_field};
+static const dgx_ui_widget_t code_w   = {.kind = DGX_UI_INPUT, .text = &text_box[T_CODE], .flags = DGX_UI_REST | DGX_UI_STRETCH, .look = &field_look, .on_event = on_field};
 static const dgx_ui_widget_t pin_l_w  = {.kind = DGX_UI_LABEL, .text = &text_box[T_PIN_LABEL], .want_w = 40, .flags = DGX_UI_STRETCH};
-static const dgx_ui_widget_t pin_w    = {.kind = DGX_UI_INPUT, .text = &text_box[T_PIN], .flags = DGX_UI_REST | DGX_UI_STRETCH, .look = &secret_look, .on = on_field};
+static const dgx_ui_widget_t pin_w    = {.kind = DGX_UI_INPUT, .text = &text_box[T_PIN], .flags = DGX_UI_REST | DGX_UI_STRETCH, .look = &secret_look, .on_event = on_field};
 static const dgx_ui_widget_t status_w = {.kind = DGX_UI_LABEL, .text = &text_box[T_STATUS], .flags = DGX_UI_REST};
 
 /* the strip a field is edited in, a popup at the top of the display with the keypad under it: a copy of the field's
    text, given to the field on done and dropped on cancel, so the field keeps what it had */
 static const dgx_ui_widget_t strip_w        = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 4};
-static const dgx_ui_widget_t strip_plain_w  = {.kind = DGX_UI_INPUT, .text = &text_box[T_EDIT], .flags = DGX_UI_REST | DGX_UI_STRETCH, .look = &field_look, .on = on_strip};
-static const dgx_ui_widget_t strip_secret_w = {.kind = DGX_UI_INPUT, .text = &text_box[T_EDIT], .flags = DGX_UI_REST | DGX_UI_STRETCH, .look = &secret_look, .on = on_strip};
+static const dgx_ui_widget_t strip_plain_w  = {.kind = DGX_UI_INPUT, .text = &text_box[T_EDIT], .flags = DGX_UI_REST | DGX_UI_STRETCH, .look = &field_look, .on_event = on_strip};
+static const dgx_ui_widget_t strip_secret_w = {.kind = DGX_UI_INPUT, .text = &text_box[T_EDIT], .flags = DGX_UI_REST | DGX_UI_STRETCH, .look = &secret_look, .on_event = on_strip};
 
 /* the popup: a frame of a question and a row of two buttons sharing it */
 static const dgx_ui_widget_t pop_w     = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 8, .gap = 8};
 static const dgx_ui_widget_t ask_w     = {.kind = DGX_UI_LABEL, .text = &text_box[T_ASK], .flags = DGX_UI_REST};
 static const dgx_ui_widget_t answers_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 8, .want_h = 26};
-static const dgx_ui_widget_t yes_w = {.kind = DGX_UI_BUTTON, .text = &text_box[T_YES], .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &dgx_ui_look_button, .on = on_answer, .ctx = (void *)1};
-static const dgx_ui_widget_t no_w  = {.kind = DGX_UI_BUTTON, .text = &text_box[T_NO], .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &dgx_ui_look_button, .on = on_answer, .ctx = (void *)0};
+static const dgx_ui_widget_t yes_w = {.kind = DGX_UI_BUTTON, .text = &text_box[T_YES], .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &dgx_ui_look_button, .on_event = on_answer, .ctx = (void *)1};
+static const dgx_ui_widget_t no_w  = {.kind = DGX_UI_BUTTON, .text = &text_box[T_NO], .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &dgx_ui_look_button, .on_event = on_answer, .ctx = (void *)0};
 
 static dgx_ui_node_t      nodes[20], pop_nodes[6], strip_nodes[2];
 static dgx_ui_t           ui, pop, strip;
@@ -144,29 +144,29 @@ static dgx_ui_ticker_t    ticker;
 
 static void on_popup_button(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_ACTIVATED) return;
+    if (what != DGX_UI_EVENT_ACTIVATED) return;
     dgx_ui_popup_open(t, &pop, 60, 50, 200, 100, DGX_UI_POPUP_MODAL);
     dgx_ui_text_set(t, status, "a popup asks");
 }
 
 static void on_answer(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_ACTIVATED) return;
+    if (what != DGX_UI_EVENT_ACTIVATED) return;
     dgx_ui_popup_close(&ui);
     dgx_ui_text_set(&ui, status, ctx ? "the popup said yes" : "the popup said no");
 }
 
 static void on_switch(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_CHANGED) return;
-    dgx_ui_text_printf(t, status, "the switch turned %s", switch_on ? "on" : "off");
+    if (what != DGX_UI_EVENT_CHANGED) return;
+    dgx_ui_text_printf(t, status, "the switch turned %s", switch_on ? "on_event" : "off");
 }
 
 /* the dropdown: clicked, its list opened; an option chosen, told by CHANGED */
 static void on_mode(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) dgx_ui_dropdown_open(t, i, &dropdown, NULL, NULL);
-    if (what == DGX_UI_CHANGED) {
+    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_dropdown_open(t, i, &dropdown, NULL, NULL);
+    if (what == DGX_UI_EVENT_CHANGED) {
         static const char *const modes[] = {"Auto", "Heat", "Cool", "Off"};
         dgx_ui_text_printf(t, status, "the mode: %s", modes[mode_chosen & 3]);
     }
@@ -174,7 +174,7 @@ static void on_mode(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, voi
 
 static void on_slider(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_CHANGED) return;
+    if (what != DGX_UI_EVENT_CHANGED) return;
     dgx_ui_text_printf(t, value, "%d %%", (int)slider_percent);
 }
 
@@ -223,14 +223,14 @@ static void edit_close(bool keep)
 /* a field clicked, or Enter on it: edited in the strip; the walk of the keys passes it, a swipe opens nothing */
 static void on_field(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_EDIT) edit_open(i);
+    if (what == DGX_UI_EVENT_EDIT) edit_open(i);
 }
 
 /* the strip's done and cancel, from the keypad */
 static void on_strip(dgx_ui_t *t, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) edit_close(true);
-    if (what == DGX_UI_BACK) edit_close(false);
+    if (what == DGX_UI_EVENT_ACTIVATED) edit_close(true);
+    if (what == DGX_UI_EVENT_BACK) edit_close(false);
 }
 
 /* the finger and the keys, read at a tick: the keyboard takes its fingers first, then the tree gets the first one */
@@ -254,18 +254,18 @@ static void read_input(uint32_t now)
     }
     /* the buttons, given to the tree at every tick, all those held: one it did not see go down would be a new press at
        the next tick (Enter as done would open the strip again). While the strip is open it takes them, its field told
-       DGX_UI_EDIT, which on_strip() leaves; then the program's own: A while editing is done, BACK cancels the strip or
+       DGX_UI_EVENT_EDIT, which on_strip() leaves; then the program's own: A while editing is done, BACK cancels the strip or
        closes the popup, as no widget takes it */
     static uint32_t was;
     const uint32_t  held = buttons_held(), went = held & ~was;
     const bool      was_editing = editing >= 0;
     was                         = held;
     dgx_ui_buttons(&ui, held, now);
-    if (was_editing && (went & (DGX_UI_PAD_BACK | DGX_UI_PAD_A))) {
-        edit_close(went & DGX_UI_PAD_A);
+    if (was_editing && (went & (DGX_UI_GAMEPAD_BACK | DGX_UI_GAMEPAD_A))) {
+        edit_close(went & DGX_UI_GAMEPAD_A);
         return;
     }
-    if ((went & DGX_UI_PAD_BACK) && ui.popup) {
+    if ((went & DGX_UI_GAMEPAD_BACK) && ui.popup) {
         dgx_ui_popup_close(&ui);
         dgx_ui_text_set(&ui, status, "BACK closed the popup");
     }

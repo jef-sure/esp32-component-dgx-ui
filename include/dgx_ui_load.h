@@ -7,10 +7,10 @@
  *
  *      static const dgx_ui_look_name_t   looks[]    = {DGX_UI_LOOK_NAME(button), DGX_UI_LOOK_NAME(slider)};
  *      static const dgx_ui_value_name_t  values[]   = {{"volume", &settings.volume}};
- *      static const dgx_ui_on_name_t     handlers[] = {DGX_UI_ACTION_NAME(back), {"saved", on_saved, false}};
+ *      static const dgx_ui_on_event_name_t     handlers[] = {DGX_UI_ACTION_NAME(back), {"saved", on_saved, false}};
  *      static const dgx_ui_style_name_t  styles[]   = {{"text", &style}};
  *      static int                        title;      // the label the program sets
- *      static const dgx_ui_id_t          ids[]      = {{"title", &title}};
+ *      static const dgx_ui_id_name_t          ids[]      = {{"title", &title}};
  *      static const dgx_ui_load_names_t  names = {.looks = looks, .look_count = 2, .values = values, .value_count = 1,
  *                                                 .handlers = handlers, .handler_count = 2, .styles = styles,
  *                                                 .style_count = 1, .ids = ids, .id_count = 1};
@@ -50,7 +50,7 @@
  *  a text that is not JSON; then a version that is not the integer 1; then a key of the top unknown or twice, or no
  *  "tree" (a key of the top that is no name is one unknown); then the values of the keys known. So a description of a
  *  later version is refused as one, whatever it holds, and a number of no field is told by the fault of its place. A
- *  value stands inside at most 2 * DGX_UI_LOAD_DEPTH + 2 brackets, the top's own one of them, in an editor's object as
+ *  value stands inside at most 2 * DGX_UI_LOAD_MAX_DEPTH + 2 brackets, the top's own one of them, in an editor's object as
  *  anywhere. The keys "colors", "styles" and "looks" of the top are an appearance's (dgx_ui_appearance.h), refused in a
  *  page as any key it does not know; "fonts" and "pages" are kept for a later version, refused in this one.
  *
@@ -62,7 +62,7 @@
  *  program's memory, that the program did not give. So an integer "ctx" goes only to a handler that takes a number, an
  *  icon's range and a switch's or a radio's two pictures stay within the count the pictures' table gives, and the
  *  tables say what may be reached. The text may come from a file or over the air: nothing is read past len (it need
- *  not end in 0), the depth is at most DGX_UI_LOAD_DEPTH, the stack a load takes is the same however deep the text,
+ *  not end in 0), the depth is at most DGX_UI_LOAD_MAX_DEPTH, the stack a load takes is the same however deep the text,
  *  and the whole is checked before the first widget is added: on an error the tree is as it was. Two tasks may load at
  *  once, each into its own tree. The text may be freed after the load; the memory may not, while the widgets are in
  *  the tree.
@@ -87,7 +87,7 @@ extern "C" {
 #endif
 
 /** The deepest a description nests its widgets: the root at 1; the most ids a table may hold. */
-enum { DGX_UI_LOAD_DEPTH = 24, DGX_UI_LOAD_IDS = 256 };
+enum { DGX_UI_LOAD_MAX_DEPTH = 24, DGX_UI_LOAD_MAX_IDS = 256 };
 
 /** A name of a table and what it stands for. Each table is the program's, a constant. */
 typedef struct dgx_ui_look_name_t {
@@ -110,15 +110,15 @@ typedef struct dgx_ui_style_name_t {
 /**
  * What a handler's ctx may be: a context of the program's own, as the program pairs them; a number, never read as a
  * pointer, given to it alone of an integer "ctx"; a page's tree, a context whose page is true, for the library's page
- * action. A handler of the program's own (DGX_UI_TAKES_OWN) is given whatever context of the program's own the
+ * action. A handler of the program's own (DGX_UI_CTX_OWN) is given whatever context of the program's own the
  * description names; the loader checks only a number and a page.
  */
-enum { DGX_UI_TAKES_OWN = 0, DGX_UI_TAKES_NUMBER = 1, DGX_UI_TAKES_PAGE = 2 };
-typedef struct dgx_ui_on_name_t {
+enum { DGX_UI_CTX_OWN = 0, DGX_UI_CTX_NUMBER = 1, DGX_UI_CTX_PAGE = 2 };
+typedef struct dgx_ui_on_event_name_t {
     const char *name;
-    void (*on)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
-    uint8_t takes; ///< DGX_UI_TAKES_*: what a widget's "ctx" may be with it
-} dgx_ui_on_name_t;
+    void (*on_event)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
+    uint8_t ctx_kind; ///< DGX_UI_CTX_*: what a widget's "ctx" may be with it
+} dgx_ui_on_event_name_t;
 typedef struct dgx_ui_take_name_t {
     const char *name;
     bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg);
@@ -129,10 +129,10 @@ typedef struct dgx_ui_context_name_t {
     bool        page; ///< ctx is a page's tree, a dgx_ui_t: the context DGX_UI_ACTION_NAME(page) takes
 } dgx_ui_context_name_t;
 /** A widget the program finds: its index written to *index by the load, when the description has the id. */
-typedef struct dgx_ui_id_t {
+typedef struct dgx_ui_id_name_t {
     const char *name;
     int        *index;
-} dgx_ui_id_t;
+} dgx_ui_id_name_t;
 
 /** A look of the library by its own word: DGX_UI_LOOK_NAME(slider) is {"slider", &dgx_ui_look_slider}. */
 #define DGX_UI_LOOK_NAME(word) {#word, &dgx_ui_look_##word}
@@ -142,10 +142,10 @@ typedef struct dgx_ui_id_t {
  * goes back a page (dgx_ui_page_back() of the tree's home), DGX_UI_ACTION_NAME(page) opens the page that is the
  * button's "ctx" (a tree of the contexts' table). A program that lists neither carries neither.
  */
-#define DGX_UI_ACTION_NAME(word) {#word, dgx_ui_load_on_##word, DGX_UI_LOAD_TAKES_##word}
-enum { DGX_UI_LOAD_TAKES_back = DGX_UI_TAKES_OWN, DGX_UI_LOAD_TAKES_page = DGX_UI_TAKES_PAGE };
-void dgx_ui_load_on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
-void dgx_ui_load_on_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
+#define DGX_UI_ACTION_NAME(word) {#word, dgx_ui_action_##word, DGX_UI_ACTION_CTX_##word}
+enum { DGX_UI_ACTION_CTX_back = DGX_UI_CTX_OWN, DGX_UI_ACTION_CTX_page = DGX_UI_CTX_PAGE };
+void dgx_ui_action_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
+void dgx_ui_action_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 
 /** The tables of a load; a table may be NULL with its count 0. */
 typedef struct dgx_ui_load_names_t {
@@ -153,10 +153,10 @@ typedef struct dgx_ui_load_names_t {
     const dgx_ui_value_name_t   *values;
     const dgx_ui_picture_name_t *pictures;
     const dgx_ui_style_name_t   *styles;
-    const dgx_ui_on_name_t      *handlers;
+    const dgx_ui_on_event_name_t      *handlers;
     const dgx_ui_take_name_t    *takes;
     const dgx_ui_context_name_t *contexts;
-    const dgx_ui_id_t           *ids;
+    const dgx_ui_id_name_t           *ids;
     uint16_t look_count, value_count, picture_count, style_count, handler_count, take_count, context_count, id_count;
 } dgx_ui_load_names_t;
 
@@ -182,10 +182,10 @@ enum {
     DGX_UI_LOAD_UNKNOWN,   ///< a name its table has not (name: the name)
     DGX_UI_LOAD_NO_LOOK,   ///< a widget with no look said, and the looks' table names none for its kind (name: the kind)
     DGX_UI_LOAD_NO_STYLE,  ///< a text and the styles' table empty
-    DGX_UI_LOAD_DEPTH_MAX, ///< nested deeper than DGX_UI_LOAD_DEPTH
+    DGX_UI_LOAD_TOO_DEEP,  ///< nested deeper than DGX_UI_LOAD_MAX_DEPTH
     DGX_UI_LOAD_MEMORY,    ///< the memory smaller than the need, or not aligned as a pointer
     DGX_UI_LOAD_NODES,     ///< dgx_ui_add() refused (no memory for a block of nodes): what was begun removed
-    DGX_UI_LOAD_ID,        ///< an id of the table on a second widget, or a table of more than DGX_UI_LOAD_IDS (name: the id)
+    DGX_UI_LOAD_ID,        ///< an id of the table on a second widget, or a table of more than DGX_UI_LOAD_MAX_IDS (name: the id)
     DGX_UI_LOAD_MISSING,   ///< an appearance's: what must be said was not, a colour, a look's draw or its colour, a style's fonts (name: it)
 };
 

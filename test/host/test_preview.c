@@ -31,11 +31,11 @@
 static const char page[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"pad\": 2, \"gap\": 2, \"children\": ["
                            "{\"kind\": \"frame\", \"want\": [0, 20], \"pad\": 2, \"children\": [{\"kind\": \"label\", \"text\": \"Hello\"}]},"
                            "{\"kind\": \"slider\", \"value\": \"v\", \"min\": 0, \"max\": 100, \"want\": [0, 10]},"
-                           "{\"kind\": \"button\", \"text\": \"Go\", \"on\": \"go\", \"want\": [0, 16]}]}}";
+                           "{\"kind\": \"button\", \"text\": \"Go\", \"on_event\": \"go\", \"want\": [0, 16]}]}}";
 
 static const char settings[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"children\": ["
                                "{\"kind\": \"label\", \"text\": \"Settings\"}, "
-                               "{\"kind\": \"button\", \"text\": \"Back\", \"on\": \"back\", \"want\": [0, 16]}]}}";
+                               "{\"kind\": \"button\", \"text\": \"Back\", \"on_event\": \"back\", \"want\": [0, 16]}]}}";
 
 /* the pages the action page opens, by their name */
 size_t preview_page_text(const char *name, char *out, size_t size)
@@ -50,7 +50,7 @@ static int  went;
 static void on_go(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     (void)ui, (void)i, (void)node, (void)ctx;
-    went += what == DGX_UI_ACTIVATED;
+    went += what == DGX_UI_EVENT_ACTIVATED;
 }
 
 static const dgx_ui_font_variant_t terminus[1]  = {{.font = &TerminusTTFMedium12}};
@@ -62,7 +62,7 @@ static panel_t *drawn_directly(int pixels_a_point)
     static const dgx_ui_look_name_t  looks[]    = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(button)};
     static const dgx_ui_style_name_t styles[]   = {{"the default", &plain}};
     const dgx_ui_value_name_t        values[]   = {{"v", &direct_value}};
-    static const dgx_ui_on_name_t    handlers[] = {{"go", on_go, false}};
+    static const dgx_ui_on_event_name_t    handlers[] = {{"go", on_go, false}};
     const dgx_ui_load_names_t names = {.looks = looks, .look_count = 2, .styles = styles, .style_count = 1, .values = values, .value_count = 1,
                                        .handlers = handlers, .handler_count = 1};
     static dgx_ui_node_t nodes[16];
@@ -308,7 +308,7 @@ int main(void)
     static const char wrong[] = "value v &v\nvalues w &w\n";
     verdict = preview_names(wrong, sizeof wrong - 1);
     CHECK(verdict->code == PREVIEW_NAMES_REFUSED && strstr(verdict->said, "names:2: no table \"values\"") == verdict->said);
-    static const char file[] = "value v &v\nlook slider\nlook button\non go go_fn\nstyle body &body\n";
+    static const char file[] = "value v &v\nlook slider\nlook button\non_event go go_fn\nstyle body &body\n";
     CHECK(preview_names(file, sizeof file - 1)->code == 0);
     CHECK(preview_page(page, sizeof page - 1)->code == 0 && preview_count() == 5);
     static const char other[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"slider\", \"value\": \"w\"}}";
@@ -318,8 +318,8 @@ int main(void)
 
     /* a page opened by the action page, by its name, and closed by back */
     static const char home_page[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"flags\": [\"column\"], \"children\": ["
-                                    "{\"kind\": \"button\", \"text\": \"More\", \"on\": \"page\", \"ctx\": \"settings\", \"want\": [0, 16]},"
-                                    "{\"kind\": \"button\", \"text\": \"Lost\", \"on\": \"page\", \"ctx\": \"nowhere\", \"want\": [0, 16]}]}}";
+                                    "{\"kind\": \"button\", \"text\": \"More\", \"on_event\": \"page\", \"ctx\": \"settings\", \"want\": [0, 16]},"
+                                    "{\"kind\": \"button\", \"text\": \"Lost\", \"on_event\": \"page\", \"ctx\": \"nowhere\", \"want\": [0, 16]}]}}";
     CHECK(preview_page(home_page, sizeof home_page - 1)->code == 0);
     preview_paint(now), preview_changed(), preview_events();
     click(1, &now);
@@ -493,15 +493,15 @@ int main(void)
             snprintf(said, sizeof said, "\"%s\"", table_words[t]);
             CHECK(strstr(format, said) != NULL);
         }
-        CHECK(strstr(format, "\"keys\": [\"look\", \"value\", \"picture\", \"style\", \"on\", \"take\", \"ctx\", \"id\"]") != NULL);
+        CHECK(strstr(format, "\"keys\": [\"look\", \"value\", \"picture\", \"style\", \"on_event\", \"take\", \"ctx\", \"id\"]") != NULL);
         for (int k = 0; k < library_look_count; ++k) {
             snprintf(said, sizeof said, "\"%s\"", library_looks[k]);
             CHECK(strstr(strstr(format, "\"bare\""), said) != NULL);
         }
         static const char named[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"id\": \"top\", \"children\": ["
                                     "{\"kind\": \"slider\", \"value\": \"settings.volume\"}, {\"kind\": \"label\", \"text\": \"x\"},"
-                                    "{\"kind\": \"button\", \"text\": \"Go\", \"style\": \"big\", \"on\": \"go\", \"ctx\": \"settings\", \"picture\": \"icons\"},"
-                                    "{\"kind\": \"button\", \"text\": \"Back\", \"on\": \"back\", \"look\": \"plain\", \"take\": \"take_it\"},"
+                                    "{\"kind\": \"button\", \"text\": \"Go\", \"style\": \"big\", \"on_event\": \"go\", \"ctx\": \"settings\", \"picture\": \"icons\"},"
+                                    "{\"kind\": \"button\", \"text\": \"Back\", \"on_event\": \"back\", \"look\": \"plain\", \"take\": \"take_it\"},"
                                     "{\"kind\": \"slider\", \"value\": \"not-c\"}]}}";
         CHECK(preview_names(NULL, 0)->code == 0 && preview_appearance(NULL, 0)->code == 0 && preview_page(named, sizeof named - 1)->code == 0);
         const char *missing = preview_names_missing("value other &other\n", 19);

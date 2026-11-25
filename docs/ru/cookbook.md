@@ -217,8 +217,8 @@ static int face_add(dgx_ui_t *ui, int parent)
     /* not made for the board: its every pixel a point, a square of the unit */
     status_variant[0] = (dgx_ui_font_variant_t){.font = &dgx_font_status, .points = !DGX_FONT_STATUS_MADE};
     st_status         = (dgx_ui_text_style_t){.fonts = status_variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    st_clock           = (dgx_ui_text_style_t){.fonts = clock_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
-    st_caption         = (dgx_ui_text_style_t){.fonts = caption_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_clock           = (dgx_ui_text_style_t){.fonts = clock_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_STYLE_MIDDLE};
+    st_caption         = (dgx_ui_text_style_t){.fonts = caption_variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_STYLE_MIDDLE};
     dgx_ui_textbox_init(&face_time_box, face_time_buf, sizeof face_time_buf, 1, &st_clock);
     dgx_ui_textbox_init(&face_warm_box, face_warm_buf, sizeof face_warm_buf, 1, &st_caption);
     dgx_ui_textbox_init(&face_wet_box, face_wet_buf, sizeof face_wet_buf, 1, &st_caption);
@@ -335,8 +335,8 @@ static bool minutes_start(QueueHandle_t queue)
 
 ![Экран настроек: ползунок, два переключателя, значок, две кнопки](../images/settings.png)
 
-Элемент управления называет свой облик. Текст кнопки — текстовое поле, как у надписи. Функции `on()` сообщается
-`DGX_UI_ACTIVATED`, когда пользователь нажал кнопку пальцем или клавишей «выбрать», пока на кнопке фокус.
+Элемент управления называет свой облик. Текст кнопки — текстовое поле, как у надписи. Функции `on_event()` сообщается
+`DGX_UI_EVENT_ACTIVATED`, когда пользователь нажал кнопку пальцем или клавишей «выбрать», пока на кнопке фокус.
 
 ```c
 void settings_save(void);
@@ -345,11 +345,11 @@ static dgx_ui_textbox_t save_box = DGX_UI_TEXT_CONST("Save", 1, &st_centre); /* 
 
 static void save_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) settings_save();
+    if (what == DGX_UI_EVENT_ACTIVATED) settings_save();
 }
 
 static const dgx_ui_widget_t save_w = {
-    .kind = DGX_UI_BUTTON, .text = &save_box, .want_w = 60, .want_h = 18, .look = &dgx_ui_look_button, .on = save_on};
+    .kind = DGX_UI_BUTTON, .text = &save_box, .want_w = 60, .want_h = 18, .look = &dgx_ui_look_button, .on_event = save_on};
 
 static int save_add(dgx_ui_t *ui, int parent)
 {
@@ -361,7 +361,7 @@ static int save_add(dgx_ui_t *ui, int parent)
   сказано иначе: задайте `want_h`, а в строке — флаг `DGX_UI_STRETCH`, с ним кнопка высотой со строку.
 - `dgx_ui_set_state(ui, b, DGX_UI_PRESSED, true)` рисует кнопку нажатой и ничего не запускает: так кнопка платы
   может отражаться на экране.
-- `on()` может удалять виджеты, и саму кнопку тоже: диалог может закрыть себя прямо там.
+- `on_event()` может удалять виджеты, и саму кнопку тоже: диалог может закрыть себя прямо там.
 
 ## Подпись из строковой константы
 
@@ -408,8 +408,8 @@ static void captions_language(dgx_ui_t *ui, const int widgets[CAPTIONS], int lan
 
 Значение элемента управления живёт в переменной программы, `int32_t`, которую называет виджет:
 `.value = &backlight_percent`. Туда его пишет палец пользователя, туда же может писать программа; отрисовка смотрит на
-неё при каждом проходе и рисует виджет, если в переменной не то значение, что нарисовано. Функции `on()` сообщается
-`DGX_UI_CHANGED`, когда значение изменил пользователь: у ползунка — на каждом шаге пальца, у переключателя — по
+неё при каждом проходе и рисует виджет, если в переменной не то значение, что нарисовано. Функции `on_event()` сообщается
+`DGX_UI_EVENT_CHANGED`, когда значение изменил пользователь: у ползунка — на каждом шаге пальца, у переключателя — по
 нажатию.
 
 ```c
@@ -421,34 +421,34 @@ static int32_t backlight_percent = 70, wifi_wanted;
 
 static void backlight_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) backlight_set(backlight_percent);
+    if (what == DGX_UI_EVENT_CHANGED) backlight_set(backlight_percent);
 }
 
 static void wifi_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) wifi_enable(wifi_wanted != 0);
+    if (what == DGX_UI_EVENT_CHANGED) wifi_enable(wifi_wanted != 0);
 }
 
 /* a slider of 0..100 by 5 and a switch, each naming the place of its value */
 static const dgx_ui_widget_t backlight_w = {
-    .kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &backlight_percent, .look = &dgx_ui_look_slider, .on = backlight_on};
+    .kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &backlight_percent, .look = &dgx_ui_look_slider, .on_event = backlight_on};
 static const dgx_ui_widget_t wifi_w = {
-    .kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .want_h = 12, .value = &wifi_wanted, .look = &dgx_ui_look_switch, .on = wifi_on};
+    .kind = DGX_UI_SWITCH, .max = 1, .want_w = 26, .want_h = 12, .value = &wifi_wanted, .look = &dgx_ui_look_switch, .on_event = wifi_on};
 
-/* the value came from elsewhere, in the task that owns the tree: written, and the next pass shows it; on() is not told */
+/* the value came from elsewhere, in the task that owns the tree: written, and the next pass shows it; on_event() is not told */
 static void backlight_show(int percent)
 {
     backlight_percent = percent;
 }
 ```
 
-- Значение, которое записала программа, показывается на следующем проходе и `on()` не вызывает: свои собственные
+- Значение, которое записала программа, показывается на следующем проходе и `on_event()` не вызывает: свои собственные
   изменения программа обратно не слышит. Пишет его задача, владеющая деревом; другая задача шлёт сообщение.
 - Значение вне `min..max`, каким оно может прийти из флеша, показывается в этих пределах, а сама переменная остаётся
   как есть, пока виджет не изменит пользователь. `dgx_ui_set_value()` пишет сразу в пределах.
 - Элемент управления без `.value` показывает 0, и ничто его не меняет; его облик сообщает об этом в журнале.
 - Одну переменную могут называть несколько виджетов, ползунок и число рядом с ним: все они идут за ней.
-- С флагом `DGX_UI_SWIPE` ползунок двигается на столько, на сколько ушёл палец от места касания, а не туда, где
+- С флагом `DGX_UI_RELATIVE` ползунок двигается на столько, на сколько ушёл палец от места касания, а не туда, где
   палец: получается широкая полоса, в которую легко попасть.
 - Клавиши «больше» и «меньше» двигают ползунок на его шаг и ставят переключатель.
 
@@ -457,11 +457,11 @@ static void backlight_show(int percent)
 Значение, которое выставляют мелкими шагами и точно: минуты, порог. Две кнопки и надпись над одной переменной. Кнопки
 имеют флаг `DGX_UI_REPEAT`: короткое нажатие — один шаг, а пока палец держит кнопку, шаги идут дальше.
 
-1. Пользователь нажимает «+». Кнопке сообщается `DGX_UI_ACTIVATED`, как только палец опустился: 15 становится 20, и
+1. Пользователь нажимает «+». Кнопке сообщается `DGX_UI_EVENT_ACTIVATED`, как только палец опустился: 15 становится 20, и
    надпись это показывает. Когда палец поднимается, ничего больше не сообщается.
 2. Пользователь держит «+». Первый шаг приходит при нажатии, следующий — через полсекунды, а дальше по одному каждые
    100 мс: за две секунды это нажатие и ещё шестнадцать шагов.
-3. На 120 функция `on()` кнопки больше ничего не меняет, хотя ей продолжают сообщать. Пользователь отпускает кнопку.
+3. На 120 функция `on_event()` кнопки больше ничего не меняет, хотя ей продолжают сообщать. Пользователь отпускает кнопку.
 
 ```c
 static int32_t step_minutes = 15; /* the value: 0 to 120 by 5 */
@@ -474,7 +474,7 @@ static int              step_label = -1; /* the number of the label in its tree,
 /* a button of the stepper: its ctx is the step it makes, -5 or 5. Told at the press and at every repeat */
 static void on_step(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_ACTIVATED) return;
+    if (what != DGX_UI_EVENT_ACTIVATED) return;
     int32_t next = step_minutes + (int32_t)(intptr_t)ctx;
     if (next < 0) next = 0;
     if (next > 120) next = 120;
@@ -485,11 +485,11 @@ static void on_step(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
 
 static const dgx_ui_widget_t step_row_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
 static const dgx_ui_widget_t step_minus_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_minus_box, .look = &dgx_ui_look_button, .on = on_step,
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_minus_box, .look = &dgx_ui_look_button, .on_event = on_step,
     .ctx = (void *)-5};
 static const dgx_ui_widget_t step_value_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .at_y = 2, .text = &step_box};
 static const dgx_ui_widget_t step_plus_w  = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_plus_box, .look = &dgx_ui_look_button, .on = on_step,
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_plus_box, .look = &dgx_ui_look_button, .on_event = on_step,
     .ctx = (void *)5};
 
 static void step_add(dgx_ui_t *ui, int parent)
@@ -510,7 +510,7 @@ static void step_add(dgx_ui_t *ui, int parent)
 - **Пока держат — нажата.** Повтор идёт, куда бы ни ушёл палец: кнопка остаётся нажатой и выглядит нажатой, пока
   палец не поднят. Он кончается, когда палец поднялся, при свайпе, а также когда кнопку скрыли, отключили или
   удалили или над её деревом открылось окно.
-- **Диапазон** — дело самих кнопок: здесь их `on()` держит значение между 0 и 120.
+- **Диапазон** — дело самих кнопок: здесь их `on_event()` держит значение между 0 и 120.
 - **С клавиш** клавиша «выбрать», удерживаемая на кнопке в фокусе, повторяется так же (`dgx_ui_buttons()`).
 - **Повторяется что-то одно**, начатое последним: клавиша, нажатая, пока повторяет палец, перехватывает повтор, а
   когда её отпускают, повтор пальца заново не начинается.
@@ -534,12 +534,12 @@ static int32_t          mode_picked; /* the row picked */
 
 static void mode_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) mode_set(mode_picked); /* a row clicked, or activated by a key */
+    if (what == DGX_UI_EVENT_ACTIVATED) mode_set(mode_picked); /* a row clicked, or activated by a key */
 }
 
 /* four rows of 14 points each: the rows share the height of the list */
 static const dgx_ui_widget_t mode_w = {
-    .kind = DGX_UI_LIST, .text = &mode_box, .min = 0, .max = 3, .want_h = 56, .value = &mode_picked, .look = &dgx_ui_look_list, .on = mode_on};
+    .kind = DGX_UI_LIST, .text = &mode_box, .min = 0, .max = 3, .want_h = 56, .value = &mode_picked, .look = &dgx_ui_look_list, .on_event = mode_on};
 
 static int mode_add(dgx_ui_t *ui, int parent)
 {
@@ -558,18 +558,18 @@ static int mode_add(dgx_ui_t *ui, int parent)
   56 пикселей, шрифтом в 13 пикселей на строку, — это четыре строки за раз, а тонкая полоска у правого края
   показывает, где окно находится среди всех строк. `step` виджета — наименьшая высота строки в пунктах, чтобы в строку
   попадал палец; 0 значит строку текста.
-- **Палец на списке, все строки которого видны.** Когда палец опускается на строку, она выбирается, и `on()`
-  сообщается `DGX_UI_CHANGED`. Если вести палец по списку, выбор идёт за ним: выбрана та строка, что под пальцем.
-  Палец, отпущенный вскоре на той же строке, на которую опустился, — это нажатие: `DGX_UI_ACTIVATED`. Если он с
+- **Палец на списке, все строки которого видны.** Когда палец опускается на строку, она выбирается, и `on_event()`
+  сообщается `DGX_UI_EVENT_CHANGED`. Если вести палец по списку, выбор идёт за ним: выбрана та строка, что под пальцем.
+  Палец, отпущенный вскоре на той же строке, на которую опустился, — это нажатие: `DGX_UI_EVENT_ACTIVATED`. Если он с
   этой строки ушёл, отпускание уже не нажатие. Верхняя и нижняя двенадцатая часть строки не принадлежит ни одной
   строке, и палец там ничего не выбирает.
 - **Палец на списке, который прокручивается.** Опущенный палец ничего не выбирает. Если сдвинуть его вверх или
   вниз на полстроки, он двигает выбор — на строку за каждую высоту строки, вверх значит дальше по списку, — а окно
-  идёт за выбором. Палец, отпущенный без сдвига, — это нажатие на строку под ним: строка выбирается, и `on()`
-  сообщаются `DGX_UI_CHANGED` и `DGX_UI_ACTIVATED`.
-- **Клавиши.** «Следующий» и «предыдущий» сначала ведут выбор по строкам, с `DGX_UI_CHANGED` на каждой, и окно идёт за
+  идёт за выбором. Палец, отпущенный без сдвига, — это нажатие на строку под ним: строка выбирается, и `on_event()`
+  сообщаются `DGX_UI_EVENT_CHANGED` и `DGX_UI_EVENT_ACTIVATED`.
+- **Клавиши.** «Следующий» и «предыдущий» сначала ведут выбор по строкам, с `DGX_UI_EVENT_CHANGED` на каждой, и окно идёт за
   ним, а с последней строки фокус уходит к следующему виджету. Клавиша «активировать» сообщает
-  `DGX_UI_ACTIVATED`.
+  `DGX_UI_EVENT_ACTIVATED`.
 - **Окно** всегда содержит выбранную строку после того, как выбор изменился: клавишей, пальцем или вызовом
   `dgx_ui_set_value()`. `dgx_ui_text_scroll(ui, list, rows)` двигает одно окно, выбор остаётся на месте, — для
   своей полосы прокрутки.
@@ -589,12 +589,12 @@ static int mode_add(dgx_ui_t *ui, int parent)
 
 Возьмём вентилятор со скоростями Low, Medium и High; сейчас стоит Low:
 
-1. Выпадающий список показывает «Low», его значение 0. Пользователь нажимает на него. Его `on()` получает
-   `DGX_UI_ACTIVATED` и вызывает `dgx_ui_dropdown_open()`: под ним открывается список из трёх строк высотой с сам
+1. Выпадающий список показывает «Low», его значение 0. Пользователь нажимает на него. Его `on_event()` получает
+   `DGX_UI_EVENT_ACTIVATED` и вызывает `dgx_ui_dropdown_open()`: под ним открывается список из трёх строк высотой с сам
    выпадающий список, «Low» выделена полосой.
-2. Пользователь нажимает «High». Значение выпадающего списка становится 2, его `on()` получает `DGX_UI_CHANGED`,
+2. Пользователь нажимает «High». Значение выпадающего списка становится 2, его `on_event()` получает `DGX_UI_EVENT_CHANGED`,
    список закрывается, и на кнопке написано «High».
-3. Если бы пользователь нажал мимо списка, список закрылся бы, значение осталось бы 0, а `on()` ничего бы не
+3. Если бы пользователь нажал мимо списка, список закрылся бы, значение осталось бы 0, а `on_event()` ничего бы не
    получила. То же при нажатии на «Low» — вариант, который уже стоял.
 
 ```c
@@ -609,12 +609,12 @@ static int32_t           fan_choice; /* the option chosen */
 
 static void fan_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) dgx_ui_dropdown_open(ui, i, &fan_list, NULL, NULL); /* clicked: its list opens */
-    if (what == DGX_UI_CHANGED) fan_set(fan_choice);                                  /* the user chose an option */
+    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_dropdown_open(ui, i, &fan_list, NULL, NULL); /* clicked: its list opens */
+    if (what == DGX_UI_EVENT_CHANGED) fan_set(fan_choice);                                  /* the user chose an option */
 }
 
 static const dgx_ui_widget_t fan_w = {
-    .kind = DGX_UI_DROPDOWN, .text = &fan_box, .min = 0, .max = 2, .want_h = 16, .value = &fan_choice, .look = &dgx_ui_look_dropdown, .on = fan_on};
+    .kind = DGX_UI_DROPDOWN, .text = &fan_box, .min = 0, .max = 2, .want_h = 16, .value = &fan_choice, .look = &dgx_ui_look_dropdown, .on_event = fan_on};
 
 static int fan_add(dgx_ui_t *ui, int parent)
 {
@@ -631,7 +631,7 @@ static int fan_add(dgx_ui_t *ui, int parent)
   попадёшь и в строку. Если вариантов больше, чем строк помещается на весь экран, список прокручивается: он
   встаёт там, где места больше, под выпадающим списком или над ним, в столько строк, сколько туда помещается, его
   окно стоит на выбранном варианте, а сам выпадающий список он никогда не закрывает.
-- **Клавиши.** Клавиша «активировать» на выпадающем списке сообщает `DGX_UI_ACTIVATED`, как и нажатие. В списке
+- **Клавиши.** Клавиша «активировать» на выпадающем списке сообщает `DGX_UI_EVENT_ACTIVATED`, как и нажатие. В списке
   «следующий» и «предыдущий» ведут выбор, «активировать» выбирает. Список модальный, поэтому клавиши остаются в
   нём. Клавиша «назад» закрывает список, значение остаётся прежним: это делает библиотека, `dgx_ui_key()`
   возвращает `true`, и программе эта клавиша, пока список открыт, не достаётся.
@@ -646,7 +646,7 @@ static int fan_add(dgx_ui_t *ui, int parent)
   этого `dgx_ui_dropdown_open()` возвращает `false` и ничего не открывает.
 - **Пока список открыт,** программа может задать варианты заново, например по пришедшему сообщению: список сразу
   показывает новые, его окно остаётся на месте. Сам выпадающий список она не удаляет: сначала закрывает список.
-- Если программе нужен другой список, например выбор на весь экран, она по `DGX_UI_ACTIVATED` открывает своё
+- Если программе нужен другой список, например выбор на весь экран, она по `DGX_UI_EVENT_ACTIVATED` открывает своё
   всплывающее окно.
 
 ## Одно из нескольких и галочка
@@ -670,24 +670,24 @@ static dgx_ui_textbox_t beep_box = DGX_UI_TEXT_CONST("Beep", 1, &st_left);
 
 static void air_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) air_mode_set(air_mode); /* the user chose another button */
+    if (what == DGX_UI_EVENT_CHANGED) air_mode_set(air_mode); /* the user chose another button */
 }
 
 static void beep_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) beep_enable(beep_wanted != 0);
+    if (what == DGX_UI_EVENT_CHANGED) beep_enable(beep_wanted != 0);
 }
 
 /* a button stands for the number in its step, and is chosen while the group's variable holds that number */
 static const dgx_ui_widget_t air_w[AIR_MODES] = {
-    {.kind = DGX_UI_RADIO, .step = AIR_AUTO, .text = &air_box[AIR_AUTO], .value = &air_mode, .look = &dgx_ui_look_radio, .on = air_on},
-    {.kind = DGX_UI_RADIO, .step = AIR_DAY, .text = &air_box[AIR_DAY], .value = &air_mode, .look = &dgx_ui_look_radio, .on = air_on},
-    {.kind = DGX_UI_RADIO, .step = AIR_NIGHT, .text = &air_box[AIR_NIGHT], .value = &air_mode, .look = &dgx_ui_look_radio, .on = air_on},
+    {.kind = DGX_UI_RADIO, .step = AIR_AUTO, .text = &air_box[AIR_AUTO], .value = &air_mode, .look = &dgx_ui_look_radio, .on_event = air_on},
+    {.kind = DGX_UI_RADIO, .step = AIR_DAY, .text = &air_box[AIR_DAY], .value = &air_mode, .look = &dgx_ui_look_radio, .on_event = air_on},
+    {.kind = DGX_UI_RADIO, .step = AIR_NIGHT, .text = &air_box[AIR_NIGHT], .value = &air_mode, .look = &dgx_ui_look_radio, .on_event = air_on},
 };
 
 /* a checkbox is a switch drawn as a square with a tick, its text beside it */
 static const dgx_ui_widget_t beep_w = {
-    .kind = DGX_UI_SWITCH, .max = 1, .text = &beep_box, .value = &beep_wanted, .look = &dgx_ui_look_checkbox, .on = beep_on};
+    .kind = DGX_UI_SWITCH, .max = 1, .text = &beep_box, .value = &beep_wanted, .look = &dgx_ui_look_checkbox, .on_event = beep_on};
 
 static void air_add(dgx_ui_t *ui, int parent)
 {
@@ -698,7 +698,7 @@ static void air_add(dgx_ui_t *ui, int parent)
 
 - **Группа — это переменная.** Кнопки могут стоять в раскладке где угодно: в разных строках, на странице и в дереве
   под ней. Все, кто называет `air_mode`, — одна группа и идут за ней.
-- **Щелчок или клавиша «активировать»** пишет число кнопки в переменную. Её `on()` получает `DGX_UI_CHANGED`, если
+- **Щелчок или клавиша «активировать»** пишет число кнопки в переменную. Её `on_event()` получает `DGX_UI_EVENT_CHANGED`, если
   переменная от этого изменилась; кнопка, выбранная ещё раз, ничего не сообщает, и кнопке, которая была выбрана,
   ничего не сообщается.
 - **Программа тоже пишет в переменную** — по сообщению или из загруженных настроек: на следующем проходе рисуются
@@ -835,7 +835,7 @@ static int32_t icon_sound_on, icon_tab_shown = 1; /* the toggle's place; the tab
 static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 
 /* a button: one picture. A toggle: a switch of two. Tabs: radios of one place, two pictures each */
-static const dgx_ui_widget_t icon_back_w  = {.kind = DGX_UI_BUTTON, .picture = icon_back, .look = &dgx_ui_look_picture_button, .on = on_icon_back};
+static const dgx_ui_widget_t icon_back_w  = {.kind = DGX_UI_BUTTON, .picture = icon_back, .look = &dgx_ui_look_picture_button, .on_event = on_icon_back};
 static const dgx_ui_widget_t icon_sound_w = {.kind = DGX_UI_SWITCH, .picture = icon_sound, .value = &icon_sound_on, .look = &dgx_ui_look_picture_button};
 static const dgx_ui_widget_t icon_tab_w[2] = {
     {.kind = DGX_UI_RADIO, .picture = icon_tab, .value = &icon_tab_shown, .step = 1, .look = &dgx_ui_look_picture_button},
@@ -845,11 +845,11 @@ static const dgx_ui_widget_t icon_tab_w[2] = {
 static int icon_backs; /* what "back" does is the program's; here it is counted */
 static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) ++icon_backs;
+    if (what == DGX_UI_EVENT_ACTIVATED) ++icon_backs;
 }
 ```
 
-- **Кнопка** показывает свою единственную картинку и по щелчку сообщает `DGX_UI_ACTIVATED`, как любая кнопка.
+- **Кнопка** показывает свою единственную картинку и по щелчку сообщает `DGX_UI_EVENT_ACTIVATED`, как любая кнопка.
 - **Переключатель** — это виджет вида `DGX_UI_SWITCH` с двумя картинками: первая — пока он выключен, вторая — пока
   включён. Включён он тогда же, когда и обычный переключатель: при значении не 0. Поэтому кнопка с картинкой,
   переключатель и флажок на одной переменной всегда показывают одно и то же.
@@ -1083,7 +1083,7 @@ static const dgx_ui_widget_t hint_w = {.kind = DGX_UI_LABEL, .text = &hint_box, 
 static void texts_add(dgx_ui_t *ui, int parent)
 {
     /* an important text too long scrolls a line up every 2 s; one that is not is cut with an ellipsis */
-    st_important = (dgx_ui_text_style_t){.fonts = small, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
+    st_important = (dgx_ui_text_style_t){.fonts = small, .count = 1, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 2000};
     dgx_ui_textbox_init(&news_box, news_buf, sizeof news_buf, 3, &st_important);
     dgx_ui_textbox_init(&hint_box, hint_buf, sizeof hint_buf, 2, &st_left);
     const int news = dgx_ui_add(ui, parent, &news_w);
@@ -1241,12 +1241,12 @@ static void city_style_init(void)
 {
     city_fonts[0] = (dgx_ui_font_variant_t){.font = &dgx_font_large};
     city_fonts[1] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
-    st_city = (dgx_ui_text_style_t){.fonts = city_fonts, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_city = (dgx_ui_text_style_t){.fonts = city_fonts, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_STYLE_MIDDLE};
 }
 ```
 
 - Высота надписи — строка её первого шрифта, поэтому размер надписи не зависит от того, какой шрифт выбран.
-- Меньший шрифт стоит на базовой линии первого. С флагом `DGX_UI_TEXT_MIDDLE` он стоит посередине высоты.
+- Меньший шрифт стоит на базовой линии первого. С флагом `DGX_UI_STYLE_MIDDLE` он стоит посередине высоты.
 - Матричный шрифт, сделанный для программы или из поставки DGX, не масштабируется, как и точечный. Рукописный
   шрифт пишется на любой высоте: следующий рецепт.
 
@@ -1430,7 +1430,7 @@ static const dgx_ui_widget_t note_w = {.kind = DGX_UI_LABEL, .text = &note_box, 
 3. Заметка, которая не помещается в три строки при высоте 20, берёт матричный шрифт; он рисуется так же, как его
    рисует `dgx_ui_look_lines`, а его первая строка стоит на базовой линии, которая была бы у рукописной.
 4. Если в стиле только рукописный вариант, слишком длинная заметка обрезается, и её последняя строка кончается
-   `...` тем же пером. С `DGX_UI_TEXT_IMPORTANT` и `scroll_ms` в стиле она прокручивается на строку вверх каждые
+   `...` тем же пером. С `DGX_UI_STYLE_IMPORTANT` и `scroll_ms` в стиле она прокручивается на строку вверх каждые
    `scroll_ms`, когда пришли все её буквы.
 
 Что о нём надо знать:
@@ -1518,14 +1518,14 @@ static dgx_ui_t        *ask_over; /* the tree it is open over */
 
 static void yes_on(dgx_ui_t *popup, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_ACTIVATED) return;
+    if (what != DGX_UI_EVENT_ACTIVATED) return;
     settings_save();
     dgx_ui_popup_close(ask_over);
 }
 
 static void no_on(dgx_ui_t *popup, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) dgx_ui_popup_close(ask_over);
+    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_popup_close(ask_over);
 }
 
 static const dgx_ui_widget_t ask_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 5, .gap = 5};
@@ -1533,9 +1533,9 @@ static const dgx_ui_widget_t ask_w      = {.kind = DGX_UI_LABEL, .text = &ask_bo
 static const dgx_ui_widget_t ask_row_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 18, .gap = 6};
 /* the two buttons share the row: as high as it (STRETCH), each a half of what it has (REST) */
 static const dgx_ui_widget_t yes_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &yes_box, .look = &dgx_ui_look_button, .on = yes_on};
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &yes_box, .look = &dgx_ui_look_button, .on_event = yes_on};
 static const dgx_ui_widget_t no_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &no_box, .look = &dgx_ui_look_button, .on = no_on};
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &no_box, .look = &dgx_ui_look_button, .on_event = no_on};
 
 static void ask_open(dgx_ui_t *ui)
 {
@@ -1592,7 +1592,7 @@ static bool sure_open(void)
    часов берёт его, под страницей.
 3. Из настроек пользователь открывает «о программе»: вторая страница поверх первой.
 4. «Назад» — клавишей или кнопкой самой страницы — закрывает верхнюю страницу: снова видны настройки. Ещё раз
-   «назад»: корню настроек сообщается `DGX_UI_BACK`, программа сохраняет то, что на странице, и страница
+   «назад»: корню настроек сообщается `DGX_UI_EVENT_BACK`, программа сохраняет то, что на странице, и страница
    закрывается: видны часы, уже со значением, которое пришло на шаге 2.
 5. «Назад» на часах: ничего не открыто, `dgx_ui_key()` возвращает `false`, клавиша достаётся программе.
 
@@ -1607,28 +1607,28 @@ static dgx_ui_t     *pages_home; /* the first tree, under every page */
 /* a button of the first tree opens the settings; a button of the settings opens "about" */
 static void on_open_settings(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) dgx_ui_page_open(pages_home, &page_settings);
+    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_open(pages_home, &page_settings);
 }
 static void on_open_about(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) dgx_ui_page_open(pages_home, &page_about);
+    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_open(pages_home, &page_about);
 }
 
 /* the "back" button of a page does what the key back does */
 static void on_page_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) dgx_ui_page_back(pages_home);
+    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_back(pages_home);
 }
 
 /* the root of the settings is told when the page goes, by the key or by the button, while its widgets can be read */
 static void on_settings_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_BACK) settings_save();
+    if (what == DGX_UI_EVENT_BACK) settings_save();
 }
 
-static const dgx_ui_widget_t settings_root_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .on = on_settings_root};
-static const dgx_ui_widget_t settings_back_w  = {.kind = DGX_UI_BUTTON, .want_h = 16, .look = &dgx_ui_look_button, .on = on_page_back};
-static const dgx_ui_widget_t settings_about_w = {.kind = DGX_UI_BUTTON, .want_h = 16, .look = &dgx_ui_look_button, .on = on_open_about};
+static const dgx_ui_widget_t settings_root_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .on_event = on_settings_root};
+static const dgx_ui_widget_t settings_back_w  = {.kind = DGX_UI_BUTTON, .want_h = 16, .look = &dgx_ui_look_button, .on_event = on_page_back};
+static const dgx_ui_widget_t settings_about_w = {.kind = DGX_UI_BUTTON, .want_h = 16, .look = &dgx_ui_look_button, .on_event = on_open_about};
 static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2};
 ```
 
@@ -1636,9 +1636,9 @@ static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = 
   поэтому раскладывается правильно, даже если открыта до первого прохода, и перекладывается при повороте экрана.
   Программа может открыть такое окно и сама, через `dgx_ui_popup_open()`.
 - **«Назад».** Клавиша `DGX_UI_KEY_BACK` закрывает верхнюю страницу, если её не взял ни один виджет страницы;
-  `dgx_ui_page_back()` делает то же для кнопки. В обоих случаях корню страницы сначала сообщается `DGX_UI_BACK`,
+  `dgx_ui_page_back()` делает то же для кнопки. В обоих случаях корню страницы сначала сообщается `DGX_UI_EVENT_BACK`,
   пока страница ещё открыта и её виджеты можно прочитать.
-- **Чтобы спросить перед уходом**, `on(DGX_UI_BACK)` корня открывает вопрос поверх страницы: тогда ничего не
+- **Чтобы спросить перед уходом**, `on(DGX_UI_EVENT_BACK)` корня открывает вопрос поверх страницы: тогда ничего не
   закрывается, страница остаётся под вопросом.
 - **Что лежит над страницей.** «Назад» сначала закрывает раскрытый выпадающий список, потом страницу. Когда
   открывается новая страница, окна над верхней страницей, которые закрыл бы палец в другом месте, — список,
@@ -1665,8 +1665,8 @@ static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = 
 2. Пользователь нажимает «Air». `on_tab()` не находит страницы, которую надо закрыть, и открывает страницу воздуха:
    она ложится на прямоугольник под полосой. Первое дерево не накрыто: его корню ничего не сообщается, тикер идёт.
 3. Проходит минута. Часы получают сообщение тикера, и их надпись рисуется в полосе, рядом с открытой страницей.
-4. Пользователь нажимает «Log». Странице воздуха сообщаются `DGX_UI_BACK` и `DGX_UI_COVERED`, и она закрывается;
-   страница журнала открывается на том же месте и получает `DGX_UI_SHOWN`.
+4. Пользователь нажимает «Log». Странице воздуха сообщаются `DGX_UI_EVENT_BACK` и `DGX_UI_EVENT_COVERED`, и она закрывается;
+   страница журнала открывается на том же месте и получает `DGX_UI_EVENT_SHOWN`.
 5. Клавиша «назад» или кнопка «Back» в полосе закрывает страницу. Место снова показывает контейнер первого дерева.
 
 ```c
@@ -1681,25 +1681,25 @@ static dgx_ui_textbox_t tab_back_box = DGX_UI_TEXT_CONST("Back", 1, &st_centre);
 /* a tab of the bar: the page open now goes, its own comes; the widget's ctx names its page */
 static void on_tab(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_ACTIVATED) return;
-    dgx_ui_page_back(tab_home); /* told DGX_UI_BACK and closed; no page open: nothing */
+    if (what != DGX_UI_EVENT_ACTIVATED) return;
+    dgx_ui_page_back(tab_home); /* told DGX_UI_EVENT_BACK and closed; no page open: nothing */
     dgx_ui_page_open(tab_home, ctx);
 }
 
 static void on_tab_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) dgx_ui_page_back(tab_home);
+    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_back(tab_home);
 }
 
 static const dgx_ui_widget_t tab_root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
 static const dgx_ui_widget_t tab_bar_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
 static const dgx_ui_widget_t tab_clock_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .at_y = 2, .text = &tab_clock_box, .take = date_take};
 static const dgx_ui_widget_t tab_air_w   = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 30, .text = &tab_air_box, .look = &dgx_ui_look_button, .on = on_tab, .ctx = &tab_air};
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 30, .text = &tab_air_box, .look = &dgx_ui_look_button, .on_event = on_tab, .ctx = &tab_air};
 static const dgx_ui_widget_t tab_log_w   = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 30, .text = &tab_log_box, .look = &dgx_ui_look_button, .on = on_tab, .ctx = &tab_log};
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 30, .text = &tab_log_box, .look = &dgx_ui_look_button, .on_event = on_tab, .ctx = &tab_log};
 static const dgx_ui_widget_t tab_back_w  = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 34, .text = &tab_back_box, .look = &dgx_ui_look_button, .on = on_tab_back};
+    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH, .want_w = 34, .text = &tab_back_box, .look = &dgx_ui_look_button, .on_event = on_tab_back};
 static const dgx_ui_widget_t tab_place_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
 
 static void tab_build(dgx_ui_t *home)
@@ -1716,7 +1716,7 @@ static void tab_build(dgx_ui_t *home)
   прямоугольником и идут за ним, когда дерево раскладывается заново: при повороте, когда виджет полосы показали или
   скрыли. `dgx_ui_page_place(home, -1)` снова отдаёт страницам весь экран.
 - **Полоса работает.** Её виджеты принимают палец, надписи получают сообщения и рисуются, а корню не сообщается
-  `DGX_UI_COVERED`: страница на месте накрывает страницы под собой на этом месте, а не первое дерево.
+  `DGX_UI_EVENT_COVERED`: страница на месте накрывает страницы под собой на этом месте, а не первое дерево.
 - **Клавиши идут странице.** Пока страница открыта, полосой управляет только палец, и её виджеты фокус не
   показывают. Программа с одними клавишами добирается до того, что делает полоса, иначе: клавишей «назад», кнопкой
   страницы.
@@ -1725,7 +1725,7 @@ static void tab_build(dgx_ui_t *home)
   top->popup;`. Выпадающий список в полосе сам открывает свой список над верхом.
 - **Страницу на весь экран** поверх всего, тревогу, программа открывает сама:
   `dgx_ui_popup_open(top, &alarm, 0, 0, 0, 0, DGX_UI_POPUP_MODAL | DGX_UI_POPUP_BACK | DGX_UI_POPUP_SCREEN)`. Она
-  накрывает и полосу, первому дереву сообщается `DGX_UI_COVERED`, а «назад» закрывает её, как любую страницу.
+  накрывает и полосу, первому дереву сообщается `DGX_UI_EVENT_COVERED`, а «назад» закрывает её, как любую страницу.
 - **Диалог страницы** лежит там, где его открыли, в пикселях экрана, и забирает любой палец, в том числе палец на
   полосе.
 - **При сдвиге** ([Страницы, которые сдвигаются](#страницы-которые-сдвигаются)) кадры двигают только место, и из
@@ -1735,19 +1735,19 @@ static void tab_build(dgx_ui_t *home)
 
 ## Страница, которая работает, только пока её видно
 
-Корню дерева сообщают, когда дерево появляется на экране, `DGX_UI_SHOWN`, и когда уходит с него, `DGX_UI_COVERED`.
+Корню дерева сообщают, когда дерево появляется на экране, `DGX_UI_EVENT_SHOWN`, и когда уходит с него, `DGX_UI_EVENT_COVERED`.
 События идут по очереди: что корень запустил по первому, он останавливает по второму, и ничего не остаётся
 работать. Возьмём часы со страницей «воздух», которая раз в секунду опрашивает датчик:
 
-1. Пользователь открывает страницу. Корню часов сообщается `DGX_UI_COVERED`, затем корню страницы — `DGX_UI_SHOWN`:
+1. Пользователь открывает страницу. Корню часов сообщается `DGX_UI_EVENT_COVERED`, затем корню страницы — `DGX_UI_EVENT_SHOWN`:
    он запускает свой тикер.
 2. Над страницей открывается вопрос, диалог: «сбросить датчик?». Странице ничего не сообщается: её по-прежнему видно
-   вокруг диалога, тикер идёт. Корню диалога сообщается `DGX_UI_SHOWN`, а когда диалог закроется — `DGX_UI_COVERED`.
-3. Со страницы пользователь открывает «о программе», вторую страницу. Первой сообщается `DGX_UI_COVERED`, и она
-   останавливает тикер; «о программе» получает `DGX_UI_SHOWN`.
-4. «Назад»: «о программе» получает `DGX_UI_COVERED`, страница — `DGX_UI_SHOWN`, тикер идёт снова.
-5. Ещё раз «назад»: корню страницы сообщается `DGX_UI_BACK`, пока она открыта, затем `DGX_UI_COVERED`, когда она
-   закрывается. Часам сообщается `DGX_UI_SHOWN`.
+   вокруг диалога, тикер идёт. Корню диалога сообщается `DGX_UI_EVENT_SHOWN`, а когда диалог закроется — `DGX_UI_EVENT_COVERED`.
+3. Со страницы пользователь открывает «о программе», вторую страницу. Первой сообщается `DGX_UI_EVENT_COVERED`, и она
+   останавливает тикер; «о программе» получает `DGX_UI_EVENT_SHOWN`.
+4. «Назад»: «о программе» получает `DGX_UI_EVENT_COVERED`, страница — `DGX_UI_EVENT_SHOWN`, тикер идёт снова.
+5. Ещё раз «назад»: корню страницы сообщается `DGX_UI_EVENT_BACK`, пока она открыта, затем `DGX_UI_EVENT_COVERED`, когда она
+   закрывается. Часам сообщается `DGX_UI_EVENT_SHOWN`.
 
 ```c
 enum { MSG_AIR_POLL = 20 };
@@ -1756,14 +1756,14 @@ static QueueHandle_t   air_queue; /* the queue of the loop that owns the trees *
 
 void air_read(void); /* the program's: asks the sensor, whose answer comes as a message */
 
-/* the root of the page: its ticker runs from DGX_UI_SHOWN to DGX_UI_COVERED and at no other time */
+/* the root of the page: its ticker runs from DGX_UI_EVENT_SHOWN to DGX_UI_EVENT_COVERED and at no other time */
 static void on_air_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_SHOWN) dgx_ui_ticker_start(&air_ticker, air_queue, MSG_AIR_POLL, 1000);
-    else if (what == DGX_UI_COVERED) dgx_ui_ticker_stop(&air_ticker);
+    if (what == DGX_UI_EVENT_SHOWN) dgx_ui_ticker_start(&air_ticker, air_queue, MSG_AIR_POLL, 1000);
+    else if (what == DGX_UI_EVENT_COVERED) dgx_ui_ticker_stop(&air_ticker);
 }
 
-static const dgx_ui_widget_t air_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .on = on_air_root};
+static const dgx_ui_widget_t air_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .on_event = on_air_root};
 
 /* in the loop, for a message no widget claimed */
 static void air_message(const dgx_ui_msg_t *msg)
@@ -1779,18 +1779,18 @@ static void air_message(const dgx_ui_msg_t *msg)
 - **Сообщается при вызове.** Корням сообщает тот вызов, который открывает или закрывает, в том числе клавиша
   «назад», а не проход: две страницы, открытые подряд до первой отрисовки, получат то же самое.
 - **Первое дерево** показано с самого начала, и тогда ему ничего не сообщается. Запустите то, что ему нужно, когда
-  строите его, или сообщите сами, чтобы у всех экранов был один путь: `dgx_ui_tell(&home, 0, DGX_UI_SHOWN)`.
+  строите его, или сообщите сами, чтобы у всех экранов был один путь: `dgx_ui_tell(&home, 0, DGX_UI_EVENT_SHOWN)`.
 - **Накрытая страница по-прежнему получает сообщения**: когда она покажется снова, в её надписях будут последние
   значения. Останавливается только то, что страница запустила сама.
 - **Тик, который уже в пути**, когда тикер останавливают, всё равно придёт: `air_read()` может быть вызвана ещё раз
-  после `DGX_UI_COVERED`.
+  после `DGX_UI_EVENT_COVERED`.
 - **При сдвиге** ([Страницы, которые сдвигаются](#страницы-которые-сдвигаются)) корням сообщается в начале перехода,
-  до того как собрана въезжающая картинка: то, что выставлено по `DGX_UI_SHOWN`, в неё попадёт.
+  до того как собрана въезжающая картинка: то, что выставлено по `DGX_UI_EVENT_SHOWN`, в неё попадёт.
 - **В обработчике** корень может открывать и закрывать страницы, закрыть или освободить своё дерево. Другое дерево,
   закрытое тем же вызовом, он не открывает, не закрывает и не освобождает: ему сообщат следующим. Не открывает он и
   дерево, которое сейчас освобождают.
-- **Смотрите на `what`.** Обработчик корня, который любой вызов принимал за `DGX_UI_BACK`, теперь сохранит или
-  закроет страницу по `DGX_UI_SHOWN`.
+- **Смотрите на `what`.** Обработчик корня, который любой вызов принимал за `DGX_UI_EVENT_BACK`, теперь сохранит или
+  закроет страницу по `DGX_UI_EVENT_SHOWN`.
 - **Это не `dgx_ui_show()`**: когда виджет скрывают и показывают, никому ничего не сообщается.
 - **Цена**: около 0,65 КБ в программе, которая открывает окна, и ничего в той, которая их не открывает; дерево
   занимает 104 байта<!-- sizeof dgx_ui_t -->.
@@ -1807,7 +1807,7 @@ static void air_message(const dgx_ui_msg_t *msg)
 void *big_memory(size_t bytes); /* the program's: from PSRAM; NULL when there is none */
 
 static dgx_ui_transition_t page_slide = {.ms = 250};
-static dgx_ui_paint_t     *slide_paint; /* the paint of the loop, for the calls made from on() */
+static dgx_ui_paint_t     *slide_paint; /* the paint of the loop, for the calls made from on_event() */
 
 /* two pictures of the whole screen, of its depth; without them every page changes at once */
 static void slide_init(dgx_ui_paint_t *paint)
@@ -1824,13 +1824,13 @@ static void slide_init(dgx_ui_paint_t *paint)
 /* a button of the first tree: the settings come in from the right */
 static void on_slide_settings(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) dgx_ui_page_open_by(pages_home, &page_settings, slide_paint, &page_slide, DGX_UI_SLIDE_LEFT);
+    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_open_by(pages_home, &page_settings, slide_paint, &page_slide, DGX_UI_SLIDE_LEFT);
 }
 
 /* the root of a page that slides away: the key back and the page's "back" button both come here */
 static void on_slide_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_BACK) return;
+    if (what != DGX_UI_EVENT_BACK) return;
     settings_save();
     dgx_ui_page_back_by(pages_home, slide_paint, &page_slide, DGX_UI_SLIDE_RIGHT);
 }
@@ -1854,7 +1854,7 @@ static bool slide_show(dgx_ui_t *home, dgx_ui_paint_t *paint, const dgx_ui_point
 3. Пока идут кадры, приходит сообщение для часов. Надпись часов его берёт; ничего не рисуется.
 4. Через 250 мс последний кадр кладёт `to` целиком. Цикл снова рисует, и этот проход рисует только то, что
    изменилось за это время.
-5. «Назад», клавишей или кнопкой страницы: корню настроек сообщается `DGX_UI_BACK`, он сохраняет и вызывает
+5. «Назад», клавишей или кнопкой страницы: корню настроек сообщается `DGX_UI_EVENT_BACK`, он сохраняет и вызывает
    `dgx_ui_page_back_by()`: страница уходит вправо, видны часы, с текстом, который пришёл на шаге 3.
 
 Чего держаться:
@@ -1862,7 +1862,7 @@ static bool slide_show(dgx_ui_t *home, dgx_ui_paint_t *paint, const dgx_ui_point
 - **Цикл.** Пока идёт переход, вместо прохода зовётся кадр: проход нарисовал бы поверх кадров. Палец и клавиши
   деревьям в это время не даются. Палец, который опустился во время кадров и ещё опущен после них, приходит без
   своего нажатия и остаётся ничьим, пока не поднимется.
-- **«Назад»** называется в `on(DGX_UI_BACK)` корня страницы. Через него идут и клавиша «назад», и кнопка «назад»,
+- **«Назад»** называется в `on(DGX_UI_EVENT_BACK)` корня страницы. Через него идут и клавиша «назад», и кнопка «назад»,
   которая вызывает `dgx_ui_page_back()`, — одним переходом.
 - **Память** — две картинки экрана, его глубины. В RGB565: 0,3 МБ для 320 на 240, 0,5 МБ для 480 на 272, 1,5 МБ
   для 480 на 800, 2,5 МБ для 1024 на 600, 4,1 МБ для 800 на 1280.
@@ -1878,7 +1878,7 @@ static bool slide_show(dgx_ui_t *home, dgx_ui_paint_t *paint, const dgx_ui_point
   скоростью 33 кадра в секунду, 30 мс на кадр, а кроссфейд — 15,6 кадра, 64 мс на кадр; начало, когда собираются
   оба экрана, занимает 53 мс. Тот же экран, повёрнутый в 1280 на 800, даёт 12 кадров в секунду на сдвиге и 7,5
   на кроссфейде: экран, повёрнутый относительно панели, платит за поворот в каждой пересылке.
-- **Чего это стоит.** Около 1,3 КБ, вместе с 0,6 КБ `dgx_ui_changed()` и 0,2 КБ вызовов страниц, и виртуальные
+- **Чего это стоит.** Около 1,3 КБ, вместе с 0,6 КБ `dgx_ui_paint_changes()` и 0,2 КБ вызовов страниц, и виртуальные
   экраны DGX (`CONFIG_DGX_ENABLE_VSCREEN=y`).
 
 ## Настройки, которые сохраняются
@@ -1984,7 +1984,7 @@ static void buttons_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg, uint32_t now_
     buttons_t b;
     if (msg_decode_buttons(msg, &b) != ESP_OK) return;
     const bool taken = dgx_ui_buttons(ui, b.held, now_ms);
-    if (!taken && (b.held & (DGX_UI_PAD_BACK | DGX_UI_PAD_B))) menu_back();
+    if (!taken && (b.held & (DGX_UI_GAMEPAD_BACK | DGX_UI_GAMEPAD_B))) menu_back();
 }
 ```
 
@@ -1999,13 +1999,13 @@ static void buttons_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg, uint32_t now_
 
 | Кнопка | Её клавиша по умолчанию | Что делает клавиша |
 | ------ | ----------------------- | ------------------ |
-| `DGX_UI_PAD_UP` | `DGX_UI_KEY_PREV` | фокус переходит к предыдущему виджету |
-| `DGX_UI_PAD_DOWN` | `DGX_UI_KEY_NEXT` | фокус переходит к следующему виджету |
-| `DGX_UI_PAD_LEFT` | `DGX_UI_KEY_LESS` | ползунок в фокусе на шаг вниз, переключатель выключается |
-| `DGX_UI_PAD_RIGHT` | `DGX_UI_KEY_MORE` | ползунок в фокусе на шаг вверх, переключатель включается |
-| `DGX_UI_PAD_A` | `DGX_UI_KEY_ACTIVATE` | срабатывает кнопка, строка или выпадающий список в фокусе, переключатель меняет положение, полю ввода сообщается `DGX_UI_EDIT` |
-| `DGX_UI_PAD_BACK`, `DGX_UI_PAD_B` | `DGX_UI_KEY_BACK` | виджеты её не берут: достаётся программе |
-| `DGX_UI_PAD_START` | никакая | кнопка достаётся программе |
+| `DGX_UI_GAMEPAD_UP` | `DGX_UI_KEY_PREV` | фокус переходит к предыдущему виджету |
+| `DGX_UI_GAMEPAD_DOWN` | `DGX_UI_KEY_NEXT` | фокус переходит к следующему виджету |
+| `DGX_UI_GAMEPAD_LEFT` | `DGX_UI_KEY_LESS` | ползунок в фокусе на шаг вниз, переключатель выключается |
+| `DGX_UI_GAMEPAD_RIGHT` | `DGX_UI_KEY_MORE` | ползунок в фокусе на шаг вверх, переключатель включается |
+| `DGX_UI_GAMEPAD_A` | `DGX_UI_KEY_ACTIVATE` | срабатывает кнопка, строка или выпадающий список в фокусе, переключатель меняет положение, полю ввода сообщается `DGX_UI_EVENT_EDIT` |
+| `DGX_UI_GAMEPAD_BACK`, `DGX_UI_GAMEPAD_B` | `DGX_UI_KEY_BACK` | виджеты её не берут: достаётся программе |
+| `DGX_UI_GAMEPAD_START` | никакая | кнопка достаётся программе |
 
 Таблица по умолчанию подходит столбцу настроек: вверх и вниз переходят от одной к другой, влево и вправо меняют ту,
 что в фокусе.
@@ -2020,14 +2020,14 @@ static void buttons_message(dgx_ui_t *ui, const dgx_ui_msg_t *msg, uint32_t now_
 ```c
 /* three buttons in a row, "Back", "OK", "Next": left and right move the focus along the row */
 static const uint8_t row_keys[8] = {
-    DGX_UI_KEY_PREV,     /* DGX_UI_PAD_LEFT:  the focus to the button on the left; by default LESS */
-    DGX_UI_KEY_NEXT,     /* DGX_UI_PAD_RIGHT: the focus to the button on the right; by default MORE */
-    DGX_UI_KEY_PREV,     /* DGX_UI_PAD_UP:    the focus back, as by default */
-    DGX_UI_KEY_NEXT,     /* DGX_UI_PAD_DOWN:  the focus on, as by default */
-    DGX_UI_KEY_ACTIVATE, /* DGX_UI_PAD_A:     the focused button activated, as by default */
-    0xff,                /* DGX_UI_PAD_START: no key, the button is the program's, as by default */
-    DGX_UI_KEY_BACK,     /* DGX_UI_PAD_BACK:  back, which no widget takes: the program's, as by default */
-    DGX_UI_KEY_BACK,     /* DGX_UI_PAD_B:     the same */
+    DGX_UI_KEY_PREV,     /* DGX_UI_GAMEPAD_LEFT:  the focus to the button on the left; by default LESS */
+    DGX_UI_KEY_NEXT,     /* DGX_UI_GAMEPAD_RIGHT: the focus to the button on the right; by default MORE */
+    DGX_UI_KEY_PREV,     /* DGX_UI_GAMEPAD_UP:    the focus back, as by default */
+    DGX_UI_KEY_NEXT,     /* DGX_UI_GAMEPAD_DOWN:  the focus on, as by default */
+    DGX_UI_KEY_ACTIVATE, /* DGX_UI_GAMEPAD_A:     the focused button activated, as by default */
+    0xff,                /* DGX_UI_GAMEPAD_START: no key, the button is the program's, as by default */
+    DGX_UI_KEY_BACK,     /* DGX_UI_GAMEPAD_BACK:  back, which no widget takes: the program's, as by default */
+    DGX_UI_KEY_BACK,     /* DGX_UI_GAMEPAD_B:     the same */
 };
 
 static void dialog_keys(dgx_ui_t *ui, bool buttons_in_a_row)
@@ -2266,11 +2266,11 @@ static dgx_ui_textbox_t pass_box;
 
 static void pass_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) wifi_connect(pass_buf); /* "done" was typed */
-    if (what == DGX_UI_BACK) dgx_ui_text_set(ui, i, "");  /* "cancel" was typed */
+    if (what == DGX_UI_EVENT_ACTIVATED) wifi_connect(pass_buf); /* "done" was typed */
+    if (what == DGX_UI_EVENT_BACK) dgx_ui_text_set(ui, i, "");  /* "cancel" was typed */
 }
 
-static const dgx_ui_widget_t pass_w = {.kind = DGX_UI_INPUT, .text = &pass_box, .want_h = 14, .look = &dgx_ui_look_input, .on = pass_on};
+static const dgx_ui_widget_t pass_w = {.kind = DGX_UI_INPUT, .text = &pass_box, .want_h = 14, .look = &dgx_ui_look_input, .on_event = pass_on};
 
 /* in the loop, after the pointer was read and before the tree gets the finger: the keyboard of DGX-DI takes its
    fingers first and types into the focused field */
@@ -2290,13 +2290,13 @@ static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
 
 - Размер буфера — это сколько поле вмещает; буква, которой нет места, не набирается.
 - «Стереть» убирает последнюю букву целиком, в UTF-8.
-- Функции `on()` сообщается `DGX_UI_CHANGED` на каждую букву, `DGX_UI_FOCUS`, когда поле получает фокус, и
-  `DGX_UI_EDIT`, когда на поле нажали пальцем или клавишей, пока оно в фокусе: здесь и открывать клавиатуру.
-- Полосу клавиатуры отрисовке называют прямо перед рисованием, а не там, где берут буквы: между ними `on()` мог
+- Функции `on_event()` сообщается `DGX_UI_EVENT_CHANGED` на каждую букву, `DGX_UI_EVENT_FOCUS`, когда поле получает фокус, и
+  `DGX_UI_EVENT_EDIT`, когда на поле нажали пальцем или клавишей, пока оно в фокусе: здесь и открывать клавиатуру.
+- Полосу клавиатуры отрисовке называют прямо перед рисованием, а не там, где берут буквы: между ними `on_event()` мог
   открыть или закрыть клавиатуру, и виджет, нарисованный в этот проход, лёг бы поверх её клавиш.
 - Когда клавиатура закрывается и полоса снова свободна, отрисовка сама рисует там дерево.
 - Символы из любого другого источника идут тем же путём: `dgx_ui_typed(ui, code_points, count)`.
-- Текст стоит у верхнего края поля; с флагом `DGX_UI_TEXT_MIDDLE` в стиле — посередине его высоты.
+- Текст стоит у верхнего края поля; с флагом `DGX_UI_STYLE_MIDDLE` в стиле — посередине его высоты.
 - Курсор мигает, пока поле в фокусе, раз в 500 мс; набранная буква показывает его сразу. Цикл просыпается ради него
   дважды в секунду: собственный облик поля с `.blink = 0` оставляет курсор ровным, а цикл спящим.
 - Клавиши клавиатуры DGX-DI размером с палец, в миллиметрах стекла. На маленьком дисплее, как 2,8 дюйма у CYD,
@@ -2313,7 +2313,7 @@ static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
 
 Пусть в поле «Код» записано `123`:
 
-1. Пользователь нажимает на поле. Его `on()` получает `DGX_UI_EDIT` и вызывает `edit_open()`.
+1. Пользователь нажимает на поле. Его `on_event()` получает `DGX_UI_EVENT_EDIT` и вызывает `edit_open()`.
 2. `edit_open()` открывает клавиатуру и называет ей поле высотой в один пиксель у самого верха дисплея. Клавиатура
    становится в стороне от названного ей поля, поэтому её полоса уходит вниз; `keypad_kb.y` — где эта полоса
    начинается.
@@ -2321,8 +2321,8 @@ static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
    получает фокус окна и копию текста, так что в полосе видно `123` и курсор после него.
 4. Пользователь набирает `9`. `dgx_ui_typed()` сначала отдаёт букву верхнему всплывающему окну, поэтому она
    попадает в копию: в полосе `1239`, в поле под ней по-прежнему `123`.
-5. «Готово» на клавиатуре: `on()` полосы получает `DGX_UI_ACTIVATED`, и `edit_close(true)` отдаёт копию полю — в
-   нём теперь `1239`. Если вместо этого нажать «отмену», придёт `DGX_UI_BACK`, и `edit_close(false)` только закроет
+5. «Готово» на клавиатуре: `on_event()` полосы получает `DGX_UI_EVENT_ACTIVATED`, и `edit_close(true)` отдаёт копию полю — в
+   нём теперь `1239`. Если вместо этого нажать «отмену», придёт `DGX_UI_EVENT_BACK`, и `edit_close(false)` только закроет
    полосу. В само поле ничего не писали, поэтому в нём осталось `123` и отменять нечего.
 
 ```c
@@ -2340,9 +2340,9 @@ static char             edit_buf[33]; /* the copy that is typed into */
 static dgx_ui_textbox_t edit_box;
 static const dgx_ui_widget_t strip_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 4};
 static const dgx_ui_widget_t strip_in_w = {
-    .kind = DGX_UI_INPUT, .text = &edit_box, .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &dgx_ui_look_input, .on = strip_on};
+    .kind = DGX_UI_INPUT, .text = &edit_box, .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &dgx_ui_look_input, .on_event = strip_on};
 static const dgx_ui_widget_t strip_pin_w = {
-    .kind = DGX_UI_INPUT, .text = &edit_box, .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &look_pin, .on = strip_on};
+    .kind = DGX_UI_INPUT, .text = &edit_box, .flags = DGX_UI_STRETCH | DGX_UI_REST, .look = &look_pin, .on_event = strip_on};
 
 static dgx_ui_node_t     strip_nodes[2];
 static dgx_ui_t          strip_ui;
@@ -2381,22 +2381,22 @@ static void edit_close(bool keep)
     edit_field = -1;
 }
 
-/* the on() of every field edited so: clicked, or activated by a key while it has the focus */
+/* the on_event() of every field edited so: clicked, or activated by a key while it has the focus */
 static void field_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_EDIT) edit_open(i);
+    if (what == DGX_UI_EVENT_EDIT) edit_open(i);
 }
 
 static void strip_on(dgx_ui_t *strip, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) edit_close(true); /* "done" on the keypad */
-    if (what == DGX_UI_BACK) edit_close(false);     /* "cancel": the field keeps what it had */
+    if (what == DGX_UI_EVENT_ACTIVATED) edit_close(true); /* "done" on the keypad */
+    if (what == DGX_UI_EVENT_BACK) edit_close(false);     /* "cancel": the field keeps what it had */
 }
 
 static char             code_buf[9], pin_buf[9];
 static dgx_ui_textbox_t code_box, pin_box;
-static const dgx_ui_widget_t code_w = {.kind = DGX_UI_INPUT, .text = &code_box, .want_h = 14, .look = &dgx_ui_look_input, .on = field_on};
-static const dgx_ui_widget_t pin_w  = {.kind = DGX_UI_INPUT, .text = &pin_box, .want_h = 14, .look = &look_pin, .on = field_on};
+static const dgx_ui_widget_t code_w = {.kind = DGX_UI_INPUT, .text = &code_box, .want_h = 14, .look = &dgx_ui_look_input, .on_event = field_on};
+static const dgx_ui_widget_t pin_w  = {.kind = DGX_UI_INPUT, .text = &pin_box, .want_h = 14, .look = &look_pin, .on_event = field_on};
 ```
 
 - **Цикл** тот же, что в рецепте выше: `keyboard_pass(ui, &keypad_kb, pointer, now_ms)` до того, как палец отдан
@@ -2411,7 +2411,7 @@ static const dgx_ui_widget_t pin_w  = {.kind = DGX_UI_INPUT, .text = &pin_box, .
   звёздочка, и в поле, и в полосе, а сами буквы остаются в текстовом поле. В шрифте должна быть звёздочка. В
   шрифте, сделанном при сборке под цифры PIN, её нет, и поле тогда ничего не показывает: добавьте `*` к знакам
   запроса.
-- **`DGX_UI_EDIT` — это нажатие**, как у кнопки: палец отпущен вскоре и без свайпа. Свайп, начатый на поле, ничего
+- **`DGX_UI_EVENT_EDIT` — это нажатие**, как у кнопки: палец отпущен вскоре и без свайпа. Свайп, начатый на поле, ничего
   не открывает, а повторное нажатие на поле открывает полосу снова.
 - **Фокус остаётся на поле**, когда полоса закрывается. Обход клавишами проходит поля и ничего не открывает,
   поэтому клавиши идут с поля дальше, к следующему виджету; клавиша «активировать» на поле открывает его полосу.
@@ -2468,7 +2468,7 @@ static const char described_json[] =
     "  {\"kind\": \"label\", \"text\": \"Sound\", \"id\": \"title\", \"text_size\": 24},"
     "  {\"kind\": \"slider\", \"value\": \"volume\", \"max\": 100, \"step\": 5, \"want\": [0, 12]},"
     "  {\"kind\": \"switch\", \"value\": \"mute\", \"text\": \"Mute\", \"look\": \"checkbox\"},"
-    "  {\"kind\": \"button\", \"text\": \"Back\", \"on\": \"back\"}]}}";
+    "  {\"kind\": \"button\", \"text\": \"Back\", \"on_event\": \"back\"}]}}";
 
 static int32_t       described_volume = 40, described_mute;
 static int           described_title  = -1; /* индекс надписи, его пишет загрузка */
@@ -2480,8 +2480,8 @@ static void         *described_memory;
 static const dgx_ui_look_name_t  described_looks[]    = {DGX_UI_LOOK_NAME(slider), DGX_UI_LOOK_NAME(checkbox), DGX_UI_LOOK_NAME(button)};
 static const dgx_ui_value_name_t described_values[]   = {{"volume", &described_volume}, {"mute", &described_mute}};
 static const dgx_ui_style_name_t described_styles[]   = {{"text", &st_left}};
-static const dgx_ui_on_name_t    described_handlers[] = {DGX_UI_ACTION_NAME(back)};
-static const dgx_ui_id_t         described_ids[]      = {{"title", &described_title}};
+static const dgx_ui_on_event_name_t    described_handlers[] = {DGX_UI_ACTION_NAME(back)};
+static const dgx_ui_id_name_t         described_ids[]      = {{"title", &described_title}};
 static const dgx_ui_load_names_t described_names      = {
     .looks = described_looks, .look_count = 3, .values = described_values, .value_count = 2, .styles = described_styles, .style_count = 1,
     .handlers = described_handlers, .handler_count = 1, .ids = described_ids, .id_count = 1};
@@ -2565,7 +2565,7 @@ static bool described_page_load(dgx_ui_load_error_t *err)
   {"kind": "label", "text": "Sound", "id": "title", "text_size": 24},
   {"kind": "slider", "value": "volume", "max": 100, "step": 5, "want": [0, 12]},
   {"kind": "switch", "value": "mute", "text": "Mute", "look": "checkbox"},
-  {"kind": "button", "text": "Back", "on": "back"}]}}
+  {"kind": "button", "text": "Back", "on_event": "back"}]}}
 ```
 
 Файл имён, `main/vocab.txt`: что описание может назвать и к какому C ведёт каждое имя.
@@ -2578,7 +2578,7 @@ look      button
 value     volume    &room_volume
 value     mute      &room_mute
 style     text      &room_style
-on        back
+on_event  back
 id        title     room_title
 ```
 
@@ -2927,9 +2927,9 @@ static void xy_at(dgx_ui_t *ui, int i, int x, int y)
     if (ny != d->y) {
         d->y = (int16_t)ny;
         dgx_ui_redraw(ui, i);               /* data of its own changed: to be drawn */
-        dgx_ui_tell(ui, i, DGX_UI_CHANGED); /* and on() told, as for a value */
+        dgx_ui_tell(ui, i, DGX_UI_EVENT_CHANGED); /* and on_event() told, as for a value */
     }
-    dgx_ui_user_value(ui, i, nx); /* kept within min..max; on() told when it changed */
+    dgx_ui_set_value_as_user(ui, i, nx); /* kept within min..max; on_event() told when it changed */
 }
 
 static bool xy_move(dgx_ui_t *ui, int i, int x, int y)
@@ -2941,7 +2941,7 @@ static bool xy_move(dgx_ui_t *ui, int i, int x, int y)
 static bool xy_key(dgx_ui_t *ui, int i, int key)
 {
     if (key != DGX_UI_KEY_MORE && key != DGX_UI_KEY_LESS) return false; /* the rest is the core's */
-    dgx_ui_user_value(ui, i, dgx_ui_value(ui, i) + (key == DGX_UI_KEY_MORE ? 5 : -5));
+    dgx_ui_set_value_as_user(ui, i, dgx_ui_value(ui, i) + (key == DGX_UI_KEY_MORE ? 5 : -5));
     return true;
 }
 
@@ -2952,35 +2952,35 @@ static xy_data_t xy_data;
 static int32_t   xy_x; /* the pad's value: where the knob is along x; its y is in xy_data */
 static void      on_xy(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) point_set(xy_x, xy_data.y);
+    if (what == DGX_UI_EVENT_CHANGED) point_set(xy_x, xy_data.y);
 }
 static const dgx_ui_widget_t xy_w = {
-    .kind = DGX_UI_OWN, .min = 0, .max = 100, .want_w = 40, .want_h = 40, .value = &xy_x, .look = &xy_look, .own = &xy_data, .on = on_xy};
+    .kind = DGX_UI_OWN, .min = 0, .max = 100, .want_w = 40, .want_h = 40, .value = &xy_x, .look = &xy_look, .own = &xy_data, .on_event = on_xy};
 ```
 
 Что происходит по шагам на площадке 40 на 40 пикселей:
 
 1. Палец опускается в точку 30, 10 виджета. Ядро ставит `DGX_UI_PRESSED`, даёт виджету фокус и вызывает
-   `down(ui, i, 30, 10)`. `xy_at()` записывает 25 в `xy_data.y`, помечает виджет и сообщает `on()` событие
-   `DGX_UI_CHANGED`; затем `dgx_ui_user_value()` ставит значение 76, и `on()` вызывается ещё раз.
+   `down(ui, i, 30, 10)`. `xy_at()` записывает 25 в `xy_data.y`, помечает виджет и сообщает `on_event()` событие
+   `DGX_UI_EVENT_CHANGED`; затем `dgx_ui_set_value_as_user()` ставит значение 76, и `on_event()` вызывается ещё раз.
 2. Палец движется, куда угодно: виджет держит его, пока палец не поднят, поэтому x и y бывают отрицательными и
    больше размеров виджета. `move()` вызывается при каждом опросе указателя. Она возвращает `true`: это
    перетаскивание. После этого отпускание — уже не щелчок, а свайп от края, начатый на площадке, достаётся ей, а не
    программе (`dgx_ui_dragging()`).
 3. Палец поднят: `up()`, если она есть, вызывается с `click`, равным `false`. Если бы виджет не перетаскивали и
-   отпустили раньше `DGX_UI_CLICK_MS`, `click` был бы `true`, и после `up()` ядро сообщило бы `on()` событие
-   `DGX_UI_ACTIVATED`.
+   отпустили раньше `DGX_UI_CLICK_MS`, `click` был бы `true`, и после `up()` ядро сообщило бы `on_event()` событие
+   `DGX_UI_EVENT_ACTIVATED`.
 4. Клавиши: `key()` виджета в фокусе спрашивают первой, о каждой клавише. Площадка берёт `DGX_UI_KEY_MORE` и
    `DGX_UI_KEY_LESS`. С тем, на что она ответила `false`, ядро поступает как обычно: «следующий» и «предыдущий»
-   переводят фокус дальше, `DGX_UI_KEY_ACTIVATE` сообщает `on()` событие `DGX_UI_ACTIVATED`, «назад» остаётся
+   переводят фокус дальше, `DGX_UI_KEY_ACTIVATE` сообщает `on_event()` событие `DGX_UI_EVENT_ACTIVATED`, «назад» остаётся
    программе.
 
 На что опирается код:
 
-- **`dgx_ui_user_value()`** ставит значение так, как его ставит пользователь: в пределах `min`..`max`, виджет
-  помечен, `on()` получает `DGX_UI_CHANGED`, если значение изменилось, и ничего, если оно то же.
-  `dgx_ui_set_value()` — установка самой программой, о ней `on()` не сообщают.
-- **`dgx_ui_tell()`** сообщает `on()` событие, о котором ядро не знает: здесь это вторая ось. Свои данные виджета,
+- **`dgx_ui_set_value_as_user()`** ставит значение так, как его ставит пользователь: в пределах `min`..`max`, виджет
+  помечен, `on_event()` получает `DGX_UI_EVENT_CHANGED`, если значение изменилось, и ничего, если оно то же.
+  `dgx_ui_set_value()` — установка самой программой, о ней `on_event()` не сообщают.
+- **`dgx_ui_tell()`** сообщает `on_event()` событие, о котором ядро не знает: здесь это вторая ось. Свои данные виджета,
   которые рисует его облик, помечают вызовом `dgx_ui_redraw()`.
 - **Щелчок или перетаскивание.** Площадка возвращает `true` на каждое движение, поэтому щелчка у неё не бывает.
   Виджет, который и перетаскивают, и щёлкают, возвращает `true` только когда палец ушёл достаточно далеко от
@@ -3061,8 +3061,8 @@ static void history_add(int ppm)
 - **Чего это стоит.** Байт ОЗУ на пиксель прямоугольника — 9600 байт для графика 240 на 40 пикселей — и около 1,5 КБ
   кода для программы, у которой есть холст. Нужны `CONFIG_DGX_ENABLE_VSCREEN=y` и 16-битный экран; на другом
   прямоугольник виджета — бумага.
-- **Если памяти на холст нет**, прямоугольник виджета — бумага, об этом пишется в журнал, а `on()` виджета получает
-  `DGX_UI_NO_MEMORY`, когда проход закончен, один раз для этого размера. Новая попытка делается каждый раз, когда
+- **Если памяти на холст нет**, прямоугольник виджета — бумага, об этом пишется в журнал, а `on_event()` виджета получает
+  `DGX_UI_EVENT_NO_MEMORY`, когда проход закончен, один раз для этого размера. Новая попытка делается каждый раз, когда
   облик просит холст. Холст, который не удалось создать большего размера, остаётся прежним и обрезается по
   прямоугольнику.
 - **Одна структура отрисовки — одно дерево.** Холсты принадлежат структуре отрисовки, для дерева, которое она
@@ -3551,8 +3551,8 @@ frames slide: 11 frames, transitions run to their end: 1; a frame 29700 us mean,
   которому нужно 30 мс на кадр, ни один цикл не покажет больше 33.
 - Частота берётся по переходам, дошедшим до конца.
 
-**Программа, дерево которой рисует её собственный компоновщик,** вызывает `dgx_ui_changed_measured()` вместо
-`dgx_ui_changed()`, со своей структурой: сообщённый прямоугольник тогда — отрисовка, а время функции, которой
+**Программа, дерево которой рисует её собственный компоновщик,** вызывает `dgx_ui_paint_changes_measured()` вместо
+`dgx_ui_paint_changes()`, со своей структурой: сообщённый прямоугольник тогда — отрисовка, а время функции, которой
 сообщают, то есть время сборки, — время рисования.
 
 ## Зеркало экрана
@@ -3595,7 +3595,7 @@ static void mirror(dgx_ui_t *ui, dgx_ui_paint_t *paint, const dgx_di_keyboard_t 
 ## Дерево как слой в чужих полосах
 
 Программе, которая сама шлёт на дисплей свою картинку полосами — игра, карта, видео, — нужно, чтобы виджеты
-попадали в те же полосы, а не рисовались поверх них потом. Это делают два вызова. `dgx_ui_changed()` делает тот же
+попадали в те же полосы, а не рисовались поверх них потом. Это делают два вызова. `dgx_ui_paint_changes()` делает тот же
 проход, что `dgx_ui_paint()`, но ничего не пишет: каждый изменившийся прямоугольник он сообщает функции программы
 и отмечает нарисованным. `dgx_ui_paint_area_to()` потом собирает любой прямоугольник дерева на экран программы.
 В примере сцена — фон-картинка дерева, поэтому одна сборка кладёт и сцену, и виджеты поверх неё.
@@ -3630,7 +3630,7 @@ static void layer_init(dgx_ui_paint_t *paint)
 /* in the loop, where dgx_ui_paint() would be; true while a look asks for time */
 static bool layer_show(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
 {
-    const bool    busy  = dgx_ui_changed(ui, paint, now_ms, layer_changed, NULL);
+    const bool    busy  = dgx_ui_paint_changes(ui, paint, now_ms, layer_changed, NULL);
     dgx_screen_t *strip = dgx_vscreen_from_array(strip_pixels, LAYER_W, STRIP_ROWS, 16, DgxScreenRGB);
     if (!strip) return busy;
     for (int number = 0; number < STRIPS; ++number) {
@@ -3659,8 +3659,8 @@ static bool layer_show(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
 
 Чего держаться:
 
-- **Одно из двух.** Дерево ведёт либо `dgx_ui_paint()`, либо `dgx_ui_changed()`, но не оба: после
-  `dgx_ui_changed()` пометки сняты, а на экране отрисовки ничего нет.
+- **Одно из двух.** Дерево ведёт либо `dgx_ui_paint()`, либо `dgx_ui_paint_changes()`, но не оба: после
+  `dgx_ui_paint_changes()` пометки сняты, а на экране отрисовки ничего нет.
 - **Экран отрисовки** — сам дисплей. По нему дерево раскладывается под размер и поворот, писать на него никто не
   будет, поэтому экран размером с дисплей не нужен.
 - **Когда звать.** Тогда, когда цикл рисовал бы: после ввода и сообщений и когда `dgx_ui_wake()` говорит, что
@@ -3673,7 +3673,7 @@ static bool layer_show(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
   который только что собрал его целиком.
 - **Клавиатура и пад DGX-DI** кладутся в ту же полосу после дерева, как в рецепте
   [Зеркало экрана](#зеркало-экрана).
-- **Чего это стоит.** Около 0,6 КБ у программы, которая вызывает `dgx_ui_changed()`, и 0,5 КБ фона-картинки; у
+- **Чего это стоит.** Около 0,6 КБ у программы, которая вызывает `dgx_ui_paint_changes()`, и 0,5 КБ фона-картинки; у
   той, что не вызывает, — ничего.
 
 ## Поворот экрана
@@ -3701,7 +3701,7 @@ static void screen_turn(dgx_screen_t *scr, bool landscape)
 static int  saved;
 static void test_save_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED) ++saved;
+    if (what == DGX_UI_EVENT_ACTIVATED) ++saved;
 }
 
 static void interface_test(void)
@@ -3710,7 +3710,7 @@ static void interface_test(void)
     static dgx_ui_textbox_t      box;
     static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
     static const dgx_ui_widget_t label_w  = {.kind = DGX_UI_LABEL, .text = &box, .take = temp_take};
-    static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .want_h = 20, .on = test_save_on};
+    static const dgx_ui_widget_t button_w = {.kind = DGX_UI_BUTTON, .want_h = 20, .on_event = test_save_on};
     static dgx_ui_node_t         nodes[4];
     dgx_ui_t                     ui;
 
@@ -3740,9 +3740,9 @@ static void interface_test(void)
 }
 ```
 
-Тест двигает элемент управления, как это сделал бы пользователь, вызовом `dgx_ui_user_value(&ui, slider, 7)`:
-значение ставится в пределах диапазона, и `on()` получает `DGX_UI_CHANGED`, чего `dgx_ui_set_value()` не делает.
-`dgx_ui_tell()` сообщает `on()` любое событие.
+Тест двигает элемент управления, как это сделал бы пользователь, вызовом `dgx_ui_set_value_as_user(&ui, slider, 7)`:
+значение ставится в пределах диапазона, и `on_event()` получает `DGX_UI_EVENT_CHANGED`, чего `dgx_ui_set_value()` не делает.
+`dgx_ui_tell()` сообщает `on_event()` любое событие.
 
 `dgx_ui_dump(&ui)` печатает дерево, которое построил тест: по строке на виджет — номер, вид, место и размер,
 значение, состояние и начало текста, — а потом сколько узлов занято и выделен ли блок сверх массива программы.

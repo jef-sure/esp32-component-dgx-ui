@@ -233,7 +233,7 @@ int main(void)
     }
     /* where the line stands. A ladder of one face, 32 and 16 high, in a label 120 by 40: a text that takes the smaller
        stands on the first's base line, the bottoms of its letters on the row of the larger's. A bitmap variant first and
-       the handwriting after it: on the bitmap's base line. DGX_UI_TEXT_MIDDLE: the line in the middle of the box */
+       the handwriting after it: on the bitmap's base line. DGX_UI_STYLE_MIDDLE: the line in the middle of the box */
     {
         const dgx_ui_font_variant_t saved[2]   = {variant[0], variant[1]};
         const dgx_ui_text_style_t   saved_style = style;
@@ -284,7 +284,7 @@ int main(void)
         dgx_ui_paint_free(&ladder_paint), dgx_ui_free(&ladder.ui);
         /* in the middle: one variant 24 high in a box 40 high */
         variant[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 24, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
-        style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_TEXT_MIDDLE};
+        style      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_STYLE_MIDDLE};
         ladder_paint = (dgx_ui_paint_t){.scr = drawn, .colors = colors, .color_count = 4};
         make(&ladder, 120, 40, false, "mmm");
         dgx_ui_paint(&ladder.ui, &ladder_paint, 0);

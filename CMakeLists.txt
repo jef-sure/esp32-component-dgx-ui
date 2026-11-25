@@ -4,7 +4,7 @@
 set(srcs "src/dgx_ui.c" "src/dgx_ui_text.c" "src/dgx_ui_rect.c" "src/dgx_ui_msg.c" "src/dgx_ui_post.c" "src/dgx_ui_ticker.c"
 	"src/dgx_ui_paint.c" "src/dgx_ui_looks.c" "src/dgx_ui_text_look.c" "src/dgx_ui_lines_look.c"
 	"src/dgx_ui_button_look.c" "src/dgx_ui_picture_button_look.c" "src/dgx_ui_input_look.c" "src/dgx_ui_control_looks.c" "src/dgx_ui_check_looks.c" "src/dgx_ui_level_look.c" "src/dgx_ui_ring_look.c" "src/dgx_ui_list_look.c" "src/dgx_ui_dropdown_look.c" "src/dgx_ui_dropdown.c" "src/dgx_ui_picture_look.c" "src/dgx_ui_rgb565_look.c" "src/dgx_ui_indexed_look.c" "src/dgx_ui_nine_look.c" "src/dgx_ui_scroll.c" "src/dgx_ui_scroll_look.c"
-	"src/dgx_ui_strips.c" "src/dgx_ui_deep.c" "src/dgx_ui_background.c" "src/dgx_ui_canvas.c" "src/dgx_ui_dump.c" "src/dgx_ui_hand.c" "src/dgx_ui_hand_canvas.c" "src/dgx_ui_changed.c" "src/dgx_ui_page.c" "src/dgx_ui_transition.c" "src/dgx_ui_hand_lines.c"
+	"src/dgx_ui_strips.c" "src/dgx_ui_deep.c" "src/dgx_ui_background.c" "src/dgx_ui_canvas.c" "src/dgx_ui_dump.c" "src/dgx_ui_hand.c" "src/dgx_ui_hand_canvas.c" "src/dgx_ui_paint_changes.c" "src/dgx_ui_page.c" "src/dgx_ui_transition.c" "src/dgx_ui_hand_lines.c"
 	"src/dgx_ui_stats.c" "src/dgx_ui_idle.c" "src/dgx_ui_load.c" "src/dgx_ui_load_actions.c" "src/dgx_ui_json.c" "src/dgx_ui_read.c" "src/dgx_ui_appearance.c" "src/dgx_ui_params.c")
 
 idf_component_register(

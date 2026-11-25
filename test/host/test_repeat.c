@@ -1,10 +1,10 @@
 /*
- * Before any press, the time asks nothing. A button of DGX_UI_REPEAT: told DGX_UI_ACTIVATED at the press and again every DGX_UI_REPEAT_MS from
+ * Before any press, the time asks nothing. A button of DGX_UI_REPEAT: told DGX_UI_EVENT_ACTIVATED at the press and again every DGX_UI_REPEAT_MS from
  * DGX_UI_REPEAT_FIRST_MS on by dgx_ui_time() while it is held, wherever the finger goes; nothing at the release. The
  * exact count of a hold of 2 s, the press and sixteen more; dgx_ui_wake() the exact wait, and the lesser of it and a
  * look's; a click, one; the key ACTIVATE once, and held on it focused, repeating; the finger far off and back, the
  * count as if it had not moved; a stall, one; the clock running over its end in a hold. It ends at the release, at a
- * swipe, when the button is hidden, disabled or removed, under a modal popup, and when its own on() removes it. A
+ * swipe, when the button is hidden, disabled or removed, under a modal popup, and when its own on_event() removes it. A
  * button in a dialog, stepped by home's time; one of the bar over a page in home's place; one drawn by the picture
  * button's look. A key held while the finger repeats takes over, and the reverse, the other not beginning again.
  * DGX_UI_PRESSED set by the program repeats nothing; a button also of DGX_UI_DRAG does not repeat. After the passes no
@@ -36,14 +36,14 @@ static dgx_ui_text_style_t   style = {.fonts = variant, .count = 1};
 static dgx_ui_textbox_t      plus_box = DGX_UI_TEXT_CONST("+", 1, &style), minus_box = DGX_UI_TEXT_CONST("-", 1, &style);
 static dgx_ui_textbox_t      go_box = DGX_UI_TEXT_CONST("Go", 1, &style), drag_box = DGX_UI_TEXT_CONST("=", 1, &style);
 
-/* what each button was told; a button whose on() removes it at the n-th time */
+/* what each button was told; a button whose on_event() removes it at the n-th time */
 enum { PLUS, MINUS, PLAIN, DRAGGED, PICTURED, INNER, BUTTONS };
 static int  told[BUTTONS];
-static int  remove_at; /* PLUS removed by its own on() when told so many times; 0 never */
+static int  remove_at; /* PLUS removed by its own on_event() when told so many times; 0 never */
 static void on_button(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     const int which = (int)(intptr_t)ctx;
-    if (what != DGX_UI_ACTIVATED) return;
+    if (what != DGX_UI_EVENT_ACTIVATED) return;
     ++told[which];
     if (which == PLUS && remove_at && told[PLUS] == remove_at) dgx_ui_remove(ui, i);
 }
@@ -63,12 +63,12 @@ static bool asking_draw(const dgx_ui_look_t *look, dgx_ui_paint_t *p, dgx_ui_t *
 static const dgx_ui_look_t asking_look = {.draw = asking_draw, .fill = -1};
 
 static const dgx_ui_widget_t column_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
-static const dgx_ui_widget_t plus_w   = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_w = 30, .want_h = 14, .text = &plus_box, .look = &dgx_ui_look_button, .on = on_button, .ctx = (void *)(intptr_t)PLUS};
-static const dgx_ui_widget_t minus_w  = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_w = 30, .want_h = 14, .text = &minus_box, .look = &dgx_ui_look_button, .on = on_button, .ctx = (void *)(intptr_t)MINUS};
-static const dgx_ui_widget_t plain_w  = {.kind = DGX_UI_BUTTON, .want_w = 30, .want_h = 14, .text = &go_box, .look = &dgx_ui_look_button, .on = on_button, .ctx = (void *)(intptr_t)PLAIN};
-static const dgx_ui_widget_t drag_w   = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_DRAG, .want_w = 30, .want_h = 14, .text = &drag_box, .look = &dgx_ui_look_button, .on = on_button, .ctx = (void *)(intptr_t)DRAGGED};
-static const dgx_ui_widget_t pic_w    = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .picture = &dot, .look = &dgx_ui_look_picture_button, .on = on_button, .ctx = (void *)(intptr_t)PICTURED};
-static const dgx_ui_widget_t inner_w  = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_w = 30, .want_h = 14, .text = &plus_box, .look = &dgx_ui_look_button, .on = on_button, .ctx = (void *)(intptr_t)INNER};
+static const dgx_ui_widget_t plus_w   = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_w = 30, .want_h = 14, .text = &plus_box, .look = &dgx_ui_look_button, .on_event = on_button, .ctx = (void *)(intptr_t)PLUS};
+static const dgx_ui_widget_t minus_w  = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_w = 30, .want_h = 14, .text = &minus_box, .look = &dgx_ui_look_button, .on_event = on_button, .ctx = (void *)(intptr_t)MINUS};
+static const dgx_ui_widget_t plain_w  = {.kind = DGX_UI_BUTTON, .want_w = 30, .want_h = 14, .text = &go_box, .look = &dgx_ui_look_button, .on_event = on_button, .ctx = (void *)(intptr_t)PLAIN};
+static const dgx_ui_widget_t drag_w   = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_DRAG, .want_w = 30, .want_h = 14, .text = &drag_box, .look = &dgx_ui_look_button, .on_event = on_button, .ctx = (void *)(intptr_t)DRAGGED};
+static const dgx_ui_widget_t pic_w    = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .picture = &dot, .look = &dgx_ui_look_picture_button, .on_event = on_button, .ctx = (void *)(intptr_t)PICTURED};
+static const dgx_ui_widget_t inner_w  = {.kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT, .want_w = 30, .want_h = 14, .text = &plus_box, .look = &dgx_ui_look_button, .on_event = on_button, .ctx = (void *)(intptr_t)INNER};
 static const dgx_ui_widget_t asking_w = {.kind = DGX_UI_OWN, .want_w = 10, .want_h = 6, .look = &asking_look};
 static const dgx_ui_widget_t frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .look = &dgx_ui_look_frame};
 static const dgx_ui_widget_t place_w  = {.kind = DGX_UI_BOX, .want_h = 30};
@@ -185,7 +185,7 @@ int main(void)
     up_on(&ui, plus, 9760);
     CHECK(!dgx_ui_time(&ui, 9900));
 
-    /* ended by a swipe, by hiding, disabling, removing, a modal popup over it, and by its own on() removing it */
+    /* ended by a swipe, by hiding, disabling, removing, a modal popup over it, and by its own on_event() removing it */
     down_on(&ui, plus, 10000);
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 1, .y = 1, .down = true, .swipe = true, .ms = 10100});
     CHECK(!dgx_ui_time(&ui, 10600) && told[PLUS] == 25);
@@ -203,7 +203,7 @@ int main(void)
         if (ui.popup) dgx_ui_popup_close(&ui);
         CHECK(pass(11000 + 1000 * k + 800) == 0);
     }
-    remove_at = told[PLUS] + 3; /* removed by its own on() at its third repeat's tell */
+    remove_at = told[PLUS] + 3; /* removed by its own on_event() at its third repeat's tell */
     down_on(&ui, plus, 15000);
     time_through(15010, 15800);
     CHECK(told[PLUS] == remove_at && !dgx_ui_node(&ui, plus)->widget && !dgx_ui_time(&ui, 15900));
@@ -226,7 +226,7 @@ int main(void)
     time_through(3010, 3600); /* 3500, 3600 */
     CHECK(told[PLUS] == 3);
     dgx_ui_focus(&ui, minus);
-    dgx_ui_buttons(&ui, DGX_UI_PAD_A, 3610); /* ACTIVATE on minus, focused, repeating */
+    dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_A, 3610); /* ACTIVATE on minus, focused, repeating */
     CHECK(told[MINUS] == 1);
     time_through(3620, 4200); /* the key's: 4110 */
     CHECK(told[PLUS] == 3 && told[MINUS] == 2);
@@ -234,7 +234,7 @@ int main(void)
     CHECK(!dgx_ui_time(&ui, 4800) && told[PLUS] == 3 && told[MINUS] == 2);
     up_on(&ui, plus, 4900);
     /* the reverse: the key repeating, the finger on another takes over; the key's does not begin again */
-    dgx_ui_buttons(&ui, DGX_UI_PAD_A, 5000);
+    dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_A, 5000);
     time_through(5010, 5500);
     CHECK(told[MINUS] == 4);
     down_on(&ui, plus, 5505);
@@ -249,12 +249,12 @@ int main(void)
     /* the key ACTIVATE held on a button with the focus: the press and its repeats; a key held on a plain button, once */
     dgx_ui_focus(&ui, minus);
     const int at = told[MINUS];
-    dgx_ui_buttons(&ui, DGX_UI_PAD_A, 7000);
+    dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_A, 7000);
     time_through(7010, 9000);
     dgx_ui_buttons(&ui, 0, 9005);
     CHECK(told[MINUS] == at + 17 && !dgx_ui_time(&ui, 9500));
     dgx_ui_focus(&ui, plain);
-    dgx_ui_buttons(&ui, DGX_UI_PAD_A, 10000);
+    dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_A, 10000);
     CHECK(!dgx_ui_time(&ui, 10600) && told[PLAIN] == 1);
     dgx_ui_buttons(&ui, 0, 10700);
     dgx_ui_focus(&ui, -1);

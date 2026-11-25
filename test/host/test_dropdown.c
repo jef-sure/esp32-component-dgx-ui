@@ -27,8 +27,8 @@ static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 static int  changed, last_value, activated;
 static void on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) ++changed, last_value = dgx_ui_value_of(node);
-    if (what == DGX_UI_ACTIVATED) ++activated;
+    if (what == DGX_UI_EVENT_CHANGED) ++changed, last_value = dgx_ui_value_of(node);
+    if (what == DGX_UI_EVENT_ACTIVATED) ++activated;
 }
 
 static dgx_ui_font_variant_t variant[1];
@@ -87,7 +87,7 @@ int main(void)
     static int32_t base_place = 1; /* its value */
     static int32_t copy_place[5] = {1, 1, 1, 1, 1}; /* a copy of a widget shares its place otherwise */
     const dgx_ui_widget_t base = {.kind = DGX_UI_DROPDOWN, .value = &base_place, .text = &opt_box, .min = 1, .max = 3, .want_w = 40, .want_h = 16,
-                                  .look = &dgx_ui_look_dropdown, .on = on};
+                                  .look = &dgx_ui_look_dropdown, .on_event = on};
     top_w = base, top_w.at_y = 0, top_w.value = &copy_place[0];
     bottom_w = base, bottom_w.at_y = -0, bottom_w.value = &copy_place[1]; /* from the far edge: at the bottom */
     bottom_w.at_y = -1, bottom_w.at_x = 0;

@@ -7,7 +7,7 @@
  * bar of the library on the slider's place, and a ring scale with a child in it; a picture button and a toggle of two
  * pictures on the switch's place; the button repeating while a finger holds it, the time stepped at every step; an
  * idle of 200 ms named, its 1 and 0 told to home's root by turns, 1 first; home's pages put in a place of it and
- * on the screen again, the place's box removed and added again, by the script and from within the roots' on(), the
+ * on the screen again, the place's box removed and added again, by the script and from within the roots' on_event(), the
  * slider above the place in the bar the pages leave. Each seed in two modes: on the paper straight, and over a drawn background with the strips
  * named. After every pass: no pixel written twice, and the panel is the tree composed anew by a fresh paint, the
  * band's own rows left out. At the end of each seed, with the band gone, the popup closed and the finger up, a pass,
@@ -63,7 +63,7 @@ enum { HOME_TREE, POPUP_TREE, PAGE_TREE, TREES };
 static bool shown_last[TREES];
 static int  out_of_turn;
 
-/* home and the place its pages may lie in; a root's on() sometimes moves the pages or removes the place and adds it
+/* home and the place its pages may lie in; a root's on_event() sometimes moves the pages or removes the place and adds it
    again, as the rules of SHOWN and COVERED let it: no tree opened, closed or freed */
 static dgx_ui_t             *home_tree;
 static int                   place_at = -1;
@@ -80,9 +80,9 @@ static void                  place_again(dgx_ui_t *home)
 static void on_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     const int tree = (int)(intptr_t)ctx;
-    if (what == DGX_UI_SHOWN) out_of_turn += shown_last[tree], shown_last[tree] = true;
-    if (what == DGX_UI_COVERED) out_of_turn += !shown_last[tree], shown_last[tree] = false;
-    if (!roots_act || acting_depth > 1 || (what != DGX_UI_SHOWN && what != DGX_UI_COVERED) || chance(6)) return;
+    if (what == DGX_UI_EVENT_SHOWN) out_of_turn += shown_last[tree], shown_last[tree] = true;
+    if (what == DGX_UI_EVENT_COVERED) out_of_turn += !shown_last[tree], shown_last[tree] = false;
+    if (!roots_act || acting_depth > 1 || (what != DGX_UI_EVENT_SHOWN && what != DGX_UI_EVENT_COVERED) || chance(6)) return;
     ++acting_depth, ++roots_acted;
     if (chance(2)) dgx_ui_page_place(home_tree, chance(2) ? place_at : -1);
     else place_again(home_tree);
@@ -99,7 +99,7 @@ static bool idle_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
     idle_out_of_turn += byte != !idle_last, idle_last = byte, ++idle_told[byte & 1];
     return true;
 }
-static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .on = on_root, .ctx = (void *)(intptr_t)HOME_TREE, .take = idle_take};
+static const dgx_ui_widget_t root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .on_event = on_root, .ctx = (void *)(intptr_t)HOME_TREE, .take = idle_take};
 static const dgx_ui_widget_t note_w   = {.kind = DGX_UI_LABEL, .text = &note_box, .look = &dgx_ui_look_lines};
 static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .min = 0, .max = 100, .step = 5, .want_h = 12, .value = &level, .look = &dgx_ui_look_slider};
 static const dgx_ui_widget_t bar_w    = {.kind = DGX_UI_OWN, .min = 0, .max = 100, .want_h = 6, .value = &level, .look = &bar_look};
@@ -125,8 +125,8 @@ static const dgx_ui_widget_t radio_w[3] = {
     {.kind = DGX_UI_RADIO, .value = &choice, .step = 2, .text = &six_box, .want_w = 44, .look = &dgx_ui_look_radio},
 };
 static const dgx_ui_widget_t tick_w  = {.kind = DGX_UI_SWITCH, .value = &ticked, .text = &tick_box, .want_w = 56, .look = &dgx_ui_look_checkbox};
-static const dgx_ui_widget_t frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .gap = 2, .look = &dgx_ui_look_frame, .on = on_root, .ctx = (void *)(intptr_t)POPUP_TREE};
-static const dgx_ui_widget_t page_w  = {.kind = DGX_UI_FRAME, .look = &dgx_ui_look_frame, .on = on_root, .ctx = (void *)(intptr_t)PAGE_TREE};
+static const dgx_ui_widget_t frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .gap = 2, .look = &dgx_ui_look_frame, .on_event = on_root, .ctx = (void *)(intptr_t)POPUP_TREE};
+static const dgx_ui_widget_t page_w  = {.kind = DGX_UI_FRAME, .look = &dgx_ui_look_frame, .on_event = on_root, .ctx = (void *)(intptr_t)PAGE_TREE};
 
 /* each tree's last word what a walk of the chain from home says: shown while no page lies above it; out of it covered */
 static bool as_the_chain_says(dgx_ui_t *home, dgx_ui_t *const trees[TREES])
@@ -326,7 +326,7 @@ int main(void)
                         break;
                     case 26: dgx_ui_page_place(&ui, chance(3) ? place_at : -1); break; /* the pages in the place, or on the screen */
                     case 27: place_again(&ui); break;                                  /* the place's box removed and added again */
-                    case 28: roots_act = !roots_act; break;                            /* the roots' on() acting, or not */
+                    case 28: roots_act = !roots_act; break;                            /* the roots' on_event() acting, or not */
                     case 29: { /* the finger down on the repeating button, held a while, let go */
                         const dgx_ui_node_t *n = dgx_ui_node(&ui, button);
                         const int16_t        x = (int16_t)(n->x + n->w / 2), y = (int16_t)(n->y + n->h / 2);

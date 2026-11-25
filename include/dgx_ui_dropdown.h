@@ -4,7 +4,7 @@
  *
  *  The list of a dropdown opened as a popup. A dropdown (DGX_UI_DROPDOWN) is a button showing the option chosen: its
  *  options are the lines of its text box, as a list's ("Apple\nBanana\nCherry"), numbered min..max, its value the one
- *  chosen. Clicked, or DGX_UI_KEY_ACTIVATE while it has the focus, it is told DGX_UI_ACTIVATED; the program opens its
+ *  chosen. Clicked, or DGX_UI_KEY_ACTIVATE while it has the focus, it is told DGX_UI_EVENT_ACTIVATED; the program opens its
  *  list then, with one call:
  *
  *      static dgx_ui_dropdown_t dropdown; // one serves every dropdown of the program: one list is open at a time
@@ -12,8 +12,8 @@
  *
  *      static void on_fruit(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
  *      {
- *          if (what == DGX_UI_ACTIVATED) dgx_ui_dropdown_open(ui, i, &dropdown, NULL, NULL);
- *          if (what == DGX_UI_CHANGED) printf("the fruit: %d\n", (int)fruit); // the user chose: its place, .value = &fruit
+ *          if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_dropdown_open(ui, i, &dropdown, NULL, NULL);
+ *          if (what == DGX_UI_EVENT_CHANGED) printf("the fruit: %d\n", (int)fruit); // the user chose: its place, .value = &fruit
  *      }
  *
  *  The list stands under the dropdown, as wide as it; above it when the screen has no room below; else moved up so
@@ -24,7 +24,7 @@
  *  The popup is modal and closed by a finger outside it: the keys stay in the list (NEXT and PREV move the pick,
  *  ACTIVATE chooses), a finger elsewhere closes it, and BACK closes it too (DGX_UI_POPUP_BACK): dgx_ui_key() takes it
  *  and returns true, and the program does not get that key while the list is open. A row chosen, by a click or by
- *  ACTIVATE, sets the dropdown's value and tells it DGX_UI_CHANGED, then the list closes; the option it had, chosen
+ *  ACTIVATE, sets the dropdown's value and tells it DGX_UI_EVENT_CHANGED, then the list closes; the option it had, chosen
  *  again, closes it and tells nothing; closed otherwise, the value stays and nothing is told. The list shows the
  *  dropdown's own text box: options set while it is open (dgx_ui_text_set() on the dropdown) are shown at once, its
  *  window where it was.

@@ -64,9 +64,9 @@ int main(void)
     bitmap[0]         = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     hand[0]           = (dgx_ui_font_variant_t){.font = &font0ss, .height = 14, .pen = 1, .hand = &dgx_ui_handwriting};
     plain             = (dgx_ui_text_style_t){.fonts = bitmap, .count = 1};
-    important         = (dgx_ui_text_style_t){.fonts = bitmap, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 100};
+    important         = (dgx_ui_text_style_t){.fonts = bitmap, .count = 1, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 100};
     written           = (dgx_ui_text_style_t){.fonts = hand, .count = 1};
-    written_important = (dgx_ui_text_style_t){.fonts = hand, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 100};
+    written_important = (dgx_ui_text_style_t){.fonts = hand, .count = 1, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 100};
     dgx_screen_t  *v  = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     dgx_ui_paint_t pv = {.scr = v, .colors = colors, .color_count = 2};
     CHECK(dgx_ui_text_state(&ui, 99) == 0);

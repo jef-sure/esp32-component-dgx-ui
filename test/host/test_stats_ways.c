@@ -1,6 +1,6 @@
 /*
  * The statistics of the other ways (dgx_ui_stats.h), by a clock of the test's own, 10 us a read, its looks and told
- * functions costing it a set time. A pass by dgx_ui_changed_measured() is the same pass as by dgx_ui_changed(): the
+ * functions costing it a set time. A pass by dgx_ui_paint_changes_measured() is the same pass as by dgx_ui_paint_changes(): the
  * same rectangles in the same order, the same marks left, with a function that composes at once and with none; its
  * rectangles counted and timed. The frames of a transition: the same screens as unmeasured, their cost and the rate
  * shown over the span with the loop's waits, one begun again before its end, none counted with no transition; by a
@@ -106,8 +106,8 @@ int main(void)
         for (uint32_t now = 0; now <= 200; now += 100) {
             if (now == 200) dgx_ui_redraw(&trees[0], 2), dgx_ui_redraw(&trees[1], 2);
             told[0].count = told[1].count = 0;
-            dgx_ui_changed(&trees[0], &paints[0], now, tell_rect, &told[0]);
-            dgx_ui_changed_measured(&trees[1], &paints[1], now, tell_rect, &told[1], &stats);
+            dgx_ui_paint_changes(&trees[0], &paints[0], now, tell_rect, &told[0]);
+            dgx_ui_paint_changes_measured(&trees[1], &paints[1], now, tell_rect, &told[1], &stats);
             CHECK(told[0].count == told[1].count && memcmp(told[0].rects, told[1].rects, sizeof told[0].rects) == 0 && differ(frames[0], frames[1]) == 0);
             CHECK(paints[0].strips == NULL && paints[1].strips == NULL);
         }
@@ -127,7 +127,7 @@ int main(void)
         /* tell NULL: given as NULL, nobody told, the marks taken; the call timed, a pass that drew nothing */
         dgx_ui_redraw(&trees[1], 1);
         const uint32_t drew = stats.drawing_passes;
-        dgx_ui_changed_measured(&trees[1], &paints[1], 400, NULL, NULL, &stats);
+        dgx_ui_paint_changes_measured(&trees[1], &paints[1], 400, NULL, NULL, &stats);
         CHECK(stats.passes == 4 && stats.drawing_passes == drew && stats.draws_last == 0 && paints[1].strips == NULL);
         dgx_ui_paint_measured(&trees[1], &paints[1], 500, &after[1]);
         CHECK(after[1].draws_last == 0);

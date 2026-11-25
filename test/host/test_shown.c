@@ -1,12 +1,12 @@
 /*
- * Where a tree is, told to its root: DGX_UI_SHOWN when it comes to the screen, DGX_UI_COVERED when it leaves it, in
+ * Where a tree is, told to its root: DGX_UI_EVENT_SHOWN when it comes to the screen, DGX_UI_EVENT_COVERED when it leaves it, in
  * pairs. A page over home and back by the key; a page shown again when the page over it closes; two pages opened in
  * one go; a dialog, a popup closed by a finger outside and a dropdown's list, which cover nothing; a page over a
  * dialog over home; a chain closed from home; a page opened over home while one is open there; a popup opened again
  * elsewhere; an on(SHOWN) that opens a page, an on(COVERED) that closes the page that covers it, an on(COVERED) of a
  * popup that goes back a page while dgx_ui_page_open() closes it; a page on the heap freed in its on(COVERED); a tree
- * freed with a page over it; an open refused; a root with no on(), and one removed; a page opened, closed and opened
- * over another tree; one dialog over two pages in turn; transitions, told at their start, an inner one from an on()
+ * freed with a page over it; an open refused; a root with no on_event(), and one removed; a page opened, closed and opened
+ * over another tree; one dialog over two pages in turn; transitions, told at their start, an inner one from an on_event()
  * changing the pages at once under the outer one's pictures. Each case's log of what each root was told, and after
  * each: every tree's last word what a walk of the chain says, and each tree's words alternating.
  */
@@ -32,29 +32,29 @@ static char log_text[400];
 static bool shown_last[TREES];
 static int  out_of_turn; /* a SHOWN to a tree shown, a COVERED to one covered */
 
-/* what a root's on() does besides logging: set by a case */
+/* what a root's on_event() does besides logging: set by a case */
 static void (*then)(int tree, int what);
 
 static void on_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     const int tree = (int)(intptr_t)ctx;
-    if (what != DGX_UI_SHOWN && what != DGX_UI_COVERED && what != DGX_UI_BACK) return;
+    if (what != DGX_UI_EVENT_SHOWN && what != DGX_UI_EVENT_COVERED && what != DGX_UI_EVENT_BACK) return;
     char word[16];
-    snprintf(word, sizeof word, "%s%s ", names[tree], what == DGX_UI_SHOWN ? "+" : what == DGX_UI_COVERED ? "-" : "!");
+    snprintf(word, sizeof word, "%s%s ", names[tree], what == DGX_UI_EVENT_SHOWN ? "+" : what == DGX_UI_EVENT_COVERED ? "-" : "!");
     strncat(log_text, word, sizeof log_text - strlen(log_text) - 1);
-    if (what == DGX_UI_SHOWN) out_of_turn += shown_last[tree], shown_last[tree] = true;
-    if (what == DGX_UI_COVERED) out_of_turn += !shown_last[tree], shown_last[tree] = false;
+    if (what == DGX_UI_EVENT_SHOWN) out_of_turn += shown_last[tree], shown_last[tree] = true;
+    if (what == DGX_UI_EVENT_COVERED) out_of_turn += !shown_last[tree], shown_last[tree] = false;
     if (then) then(tree, what);
 }
 
 static dgx_ui_node_t         nodes[TREES][2];
-static const dgx_ui_widget_t home_root_w = {.kind = DGX_UI_BOX, .on = on_root, .ctx = (void *)(intptr_t)HOME};
+static const dgx_ui_widget_t home_root_w = {.kind = DGX_UI_BOX, .on_event = on_root, .ctx = (void *)(intptr_t)HOME};
 static dgx_ui_widget_t       root_w[TREES];
 
 static void make(dgx_ui_t *ui, int tree)
 {
     dgx_ui_init(ui, nodes[tree], 2, 1);
-    root_w[tree] = (dgx_ui_widget_t){.kind = DGX_UI_FRAME, .look = &dgx_ui_look_frame, .on = on_root, .ctx = (void *)(intptr_t)tree};
+    root_w[tree] = (dgx_ui_widget_t){.kind = DGX_UI_FRAME, .look = &dgx_ui_look_frame, .on_event = on_root, .ctx = (void *)(intptr_t)tree};
     dgx_ui_add(ui, -1, tree == HOME ? &home_root_w : &root_w[tree]);
     dgx_ui_screen(ui, 96, 64, 0);
 }
@@ -104,30 +104,30 @@ static void open_dialog(dgx_ui_t *under, dgx_ui_t *popup)
     CHECK(dgx_ui_popup_open(under, popup, 10, 10, 40, 30, DGX_UI_POPUP_MODAL));
 }
 
-/* the actions of some cases, from an on() */
+/* the actions of some cases, from an on_event() */
 static void home_opens_p2_when_shown(int tree, int what)
 {
-    if (tree == HOME && what == DGX_UI_SHOWN) then = NULL, dgx_ui_page_open(&home, &p2);
+    if (tree == HOME && what == DGX_UI_EVENT_SHOWN) then = NULL, dgx_ui_page_open(&home, &p2);
 }
 static void home_closes_its_cover(int tree, int what)
 {
-    if (tree == HOME && what == DGX_UI_COVERED) then = NULL, dgx_ui_popup_close(&home);
+    if (tree == HOME && what == DGX_UI_EVENT_COVERED) then = NULL, dgx_ui_popup_close(&home);
 }
 static void list_goes_back_a_page(int tree, int what)
 {
-    if (tree == LIST && what == DGX_UI_COVERED) then = NULL, dgx_ui_page_back(&home);
+    if (tree == LIST && what == DGX_UI_EVENT_COVERED) then = NULL, dgx_ui_page_back(&home);
 }
 static void home_reopens_p1_when_shown(int tree, int what)
 {
-    if (tree == HOME && what == DGX_UI_SHOWN) then = NULL, dgx_ui_page_open(&home, &p1);
+    if (tree == HOME && what == DGX_UI_EVENT_SHOWN) then = NULL, dgx_ui_page_open(&home, &p1);
 }
 static void p1_reopens_itself_when_covered(int tree, int what)
 {
-    if (tree == P1 && what == DGX_UI_COVERED) then = NULL, dgx_ui_page_open(&home, &p1);
+    if (tree == P1 && what == DGX_UI_EVENT_COVERED) then = NULL, dgx_ui_page_open(&home, &p1);
 }
 static void heap_frees_itself(int tree, int what)
 {
-    if (tree == HEAP && what == DGX_UI_COVERED) {
+    if (tree == HEAP && what == DGX_UI_EVENT_COVERED) {
         then = NULL;
         dgx_ui_free(heap), free(heap);
         heap = NULL, trees[HEAP] = NULL;
@@ -141,15 +141,15 @@ static dgx_ui_transition_t tr;
 static uint32_t            colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 static void                p1_backs_by_when_shown(int tree, int what)
 {
-    if (tree == P1 && what == DGX_UI_SHOWN) then = NULL, dgx_ui_page_back_by(&home, &paint, &tr, DGX_UI_SLIDE_RIGHT);
+    if (tree == P1 && what == DGX_UI_EVENT_SHOWN) then = NULL, dgx_ui_page_back_by(&home, &paint, &tr, DGX_UI_SLIDE_RIGHT);
 }
 static void p1_goes_back_when_shown(int tree, int what)
 {
-    if (tree == P1 && what == DGX_UI_SHOWN) then = NULL, dgx_ui_page_back(&home);
+    if (tree == P1 && what == DGX_UI_EVENT_SHOWN) then = NULL, dgx_ui_page_back(&home);
 }
 static void p1_opens_by_when_shown(int tree, int what)
 {
-    if (tree == P1 && what == DGX_UI_SHOWN) then = NULL, dgx_ui_page_open_by(&home, &p2, &paint, &tr, DGX_UI_SLIDE_LEFT);
+    if (tree == P1 && what == DGX_UI_EVENT_SHOWN) then = NULL, dgx_ui_page_open_by(&home, &p2, &paint, &tr, DGX_UI_SLIDE_LEFT);
 }
 
 /* the screen as the trees stand, composed into a picture */
@@ -308,7 +308,7 @@ int main(void)
     log_text[0] = 0;
     CHECK(!dgx_ui_popup_open(&dialog, &p1, 0, 0, 10, 10, 0) && logged("") && as_the_chain_says());
 
-    /* a root with no on(), and a root removed while shown: nothing told, the rest as it stands */
+    /* a root with no on_event(), and a root removed while shown: nothing told, the rest as it stands */
     start();
     static const dgx_ui_widget_t mute_w = {.kind = DGX_UI_FRAME, .look = &dgx_ui_look_frame};
     dgx_ui_init(&p3, nodes[P3], 2, 1), dgx_ui_add(&p3, -1, &mute_w), dgx_ui_screen(&p3, 96, 64, 0);
@@ -339,7 +339,7 @@ int main(void)
     open_dialog(&p2, &dialog);
     CHECK(dialog.under == &p2 && logged("home- P1+ D+ D- P1- P2+ D+ ") && as_the_chain_says());
 
-    /* transitions: told at the start, nothing at the frames; one asked from an on() within another's setting up changes
+    /* transitions: told at the start, nothing at the frames; one asked from an on_event() within another's setting up changes
        the pages at once, and the outer one slides from what the display showed to what the trees are at the end */
     screen    = dgx_vscreen_init(96, 64, 16, DgxScreenRGB);
     from_seen = dgx_vscreen_init(96, 64, 16, DgxScreenRGB), to_seen = dgx_vscreen_init(96, 64, 16, DgxScreenRGB);

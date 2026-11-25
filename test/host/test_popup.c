@@ -20,7 +20,7 @@ static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 static int  activated[8], activated_count, caught;
 static void on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED && activated_count < 8) activated[activated_count++] = (int)(intptr_t)ctx;
+    if (what == DGX_UI_EVENT_ACTIVATED && activated_count < 8) activated[activated_count++] = (int)(intptr_t)ctx;
 }
 static bool take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 {
@@ -35,24 +35,24 @@ static dgx_ui_textbox_t      under_box, ok_box;
 
 static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 static const dgx_ui_widget_t under_w = {.kind = DGX_UI_LABEL, .text = &under_box};
-static const dgx_ui_widget_t main_bt = {.kind = DGX_UI_BUTTON, .want_h = 14, .look = &dgx_ui_look_button, .on = on, .ctx = (void *)1};
+static const dgx_ui_widget_t main_bt = {.kind = DGX_UI_BUTTON, .want_h = 14, .look = &dgx_ui_look_button, .on_event = on, .ctx = (void *)1};
 static const dgx_ui_widget_t pop_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2};
-static const dgx_ui_widget_t pop_bt  = {.kind = DGX_UI_BUTTON, .text = &ok_box, .want_h = 14, .look = &dgx_ui_look_button, .on = on, .ctx = (void *)2, .take = take};
+static const dgx_ui_widget_t pop_bt  = {.kind = DGX_UI_BUTTON, .text = &ok_box, .want_h = 14, .look = &dgx_ui_look_button, .on_event = on, .ctx = (void *)2, .take = take};
 
 static dgx_ui_t *editor_of_focus;
 static void      on_focus_opens(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_FOCUS) dgx_ui_popup_open(ui, editor_of_focus, 0, 0, PANEL_W, 20, DGX_UI_POPUP_MODAL);
+    if (what == DGX_UI_EVENT_FOCUS) dgx_ui_popup_open(ui, editor_of_focus, 0, 0, PANEL_W, 20, DGX_UI_POPUP_MODAL);
 }
 static void on_focus_closes(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_FOCUS) dgx_ui_popup_close(ui);
+    if (what == DGX_UI_EVENT_FOCUS) dgx_ui_popup_close(ui);
     on(ui, i, node, what, ctx);
 }
-static const dgx_ui_widget_t focus_closes_w = {.kind = DGX_UI_BUTTON, .want_h = 14, .on = on_focus_closes, .ctx = (void *)5};
+static const dgx_ui_widget_t focus_closes_w = {.kind = DGX_UI_BUTTON, .want_h = 14, .on_event = on_focus_closes, .ctx = (void *)5};
 static char                  focus_buf[8];
 static dgx_ui_textbox_t      focus_box;
-static const dgx_ui_widget_t focus_opens_w = {.kind = DGX_UI_INPUT, .text = &focus_box, .want_h = 14, .on = on_focus_opens};
+static const dgx_ui_widget_t focus_opens_w = {.kind = DGX_UI_INPUT, .text = &focus_box, .want_h = 14, .on_event = on_focus_opens};
 
 static dgx_ui_node_t nodes[4], pop_nodes[4];
 static dgx_ui_t      ui, pop;
@@ -184,7 +184,7 @@ int main(void)
         static dgx_ui_node_t         n2[2], m2[2], q2[2];
         static const dgx_ui_widget_t cover_all = {.kind = DGX_UI_FRAME};
         two[0] = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32}, two[1] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-        st2    = (dgx_ui_text_style_t){.fonts = two, .count = 2, .flags = DGX_UI_TEXT_MIDDLE};
+        st2    = (dgx_ui_text_style_t){.fonts = two, .count = 2, .flags = DGX_UI_STYLE_MIDDLE};
         dgx_ui_t a, b, all;
         dgx_ui_textbox_init(&t2, b2, sizeof b2, 1, &st2);
         w2 = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &t2, .want_w = 80};

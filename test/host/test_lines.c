@@ -71,7 +71,7 @@ int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     plain      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    important  = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 100};
+    important  = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 100};
     centred    = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
     dgx_screen_t  *v = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB), *e = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
     dgx_ui_paint_t pv = {.scr = v, .colors = colors, .color_count = 2};
@@ -302,8 +302,8 @@ int main(void)
     {
         const dgx_font_t          *font   = &TerminusTTFMedium12;
         static dgx_ui_text_style_t middle, important_middle;
-        middle                            = plain, middle.flags = DGX_UI_TEXT_MIDDLE;
-        important_middle                  = important, important_middle.flags |= DGX_UI_TEXT_MIDDLE;
+        middle                            = plain, middle.flags = DGX_UI_STYLE_MIDDLE;
+        important_middle                  = important, important_middle.flags |= DGX_UI_STYLE_MIDDLE;
         const dgx_ui_text_style_t *styles[2] = {&plain, &middle};
         for (int k = 0; k < 2; ++k) {
             const int      id     = make(styles[k], 4, 90);
@@ -370,7 +370,7 @@ int main(void)
             styles[k]           = (dgx_ui_text_style_t){.fonts  = variant,
                                                         .count     = 1,
                                                         .align     = aligns[k % 3],
-                                                        .flags     = (uint8_t)((middle_k ? DGX_UI_TEXT_MIDDLE : 0) | (important_k ? DGX_UI_TEXT_IMPORTANT : 0)),
+                                                        .flags     = (uint8_t)((middle_k ? DGX_UI_STYLE_MIDDLE : 0) | (important_k ? DGX_UI_STYLE_IMPORTANT : 0)),
                                                         .scroll_ms = (uint16_t)(important_k ? 150 : 0)};
             int id        = make(&styles[k], 4, 88);
             text_w.want_h = 56;

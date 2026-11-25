@@ -6,7 +6,7 @@
  * right again when it is picked anew. Memory out of a widget's bounds drawn within them and left as it is. A list's
  * pick written into memory: its window follows, under a page too. A control of no place. Undo by a copy. A take()
  * that writes the memory itself. A hidden widget, and one under the keyboard's band written three times: drawn once
- * when seen. dgx_ui_changed() telling the widget whose memory changed. A key stepping from memory out of the bounds.
+ * when seen. dgx_ui_paint_changes() telling the widget whose memory changed. A key stepping from memory out of the bounds.
  * The place written while the finger holds the slider: the last writer wins. The dropdown's place written while its
  * list is open. A slider of a page open over the tree, its place written. A tree with no paint reads the memory at
  * once. A place written after a pass asks for no pass. A tree of nodes in blocks past the program's array, and of
@@ -393,14 +393,14 @@ int main(void)
         const dgx_ui_node_t *n = dgx_ui_node(&ui, l);
         CHECK(level == 8 && n->state_drawn.value == 8 && panel_written(panel) > 0 && panel_twice(panel) == 0);
 
-        /* dgx_ui_changed(): the widget whose memory changed told, and nothing at the call after; nothing written */
+        /* dgx_ui_paint_changes(): the widget whose memory changed told, and nothing at the call after; nothing written */
         told_t told = {0};
         level       = 3;
         panel_count_from_now(panel);
-        dgx_ui_changed(&ui, &paint, 2, collect, &told);
+        dgx_ui_paint_changes(&ui, &paint, 2, collect, &told);
         CHECK(told.count == 1 && told.at[0].x == n->x && told.at[0].y == n->y && told.at[0].w == n->w && told.at[0].h == n->h);
         told.count = 0;
-        dgx_ui_changed(&ui, &paint, 3, collect, &told);
+        dgx_ui_paint_changes(&ui, &paint, 3, collect, &told);
         CHECK(told.count == 0 && panel_written(panel) == 0);
         dgx_ui_paint_free(&paint);
         dgx_ui_free(&ui);

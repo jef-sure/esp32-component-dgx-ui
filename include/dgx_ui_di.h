@@ -30,10 +30,10 @@ extern "C" {
 #define DGX_UI_DI_ASSERT _Static_assert
 #endif
 
-DGX_UI_DI_ASSERT((unsigned)DGX_UI_PAD_LEFT == DGX_DI_PAD_LEFT && (unsigned)DGX_UI_PAD_RIGHT == DGX_DI_PAD_RIGHT &&
-                     (unsigned)DGX_UI_PAD_UP == DGX_DI_PAD_UP && (unsigned)DGX_UI_PAD_DOWN == DGX_DI_PAD_DOWN &&
-                     (unsigned)DGX_UI_PAD_A == DGX_DI_PAD_A && (unsigned)DGX_UI_PAD_START == DGX_DI_PAD_START &&
-                     (unsigned)DGX_UI_PAD_BACK == DGX_DI_PAD_BACK && (unsigned)DGX_UI_PAD_B == DGX_DI_PAD_B,
+DGX_UI_DI_ASSERT((unsigned)DGX_UI_GAMEPAD_LEFT == DGX_DI_PAD_LEFT && (unsigned)DGX_UI_GAMEPAD_RIGHT == DGX_DI_PAD_RIGHT &&
+                     (unsigned)DGX_UI_GAMEPAD_UP == DGX_DI_PAD_UP && (unsigned)DGX_UI_GAMEPAD_DOWN == DGX_DI_PAD_DOWN &&
+                     (unsigned)DGX_UI_GAMEPAD_A == DGX_DI_PAD_A && (unsigned)DGX_UI_GAMEPAD_START == DGX_DI_PAD_START &&
+                     (unsigned)DGX_UI_GAMEPAD_BACK == DGX_DI_PAD_BACK && (unsigned)DGX_UI_GAMEPAD_B == DGX_DI_PAD_B,
                  "the buttons of dgx-ui are those of DGX-DI's pad");
 
 /** @brief The gestures of a touch that are the program's, since the last look. */

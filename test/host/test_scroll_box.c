@@ -5,7 +5,7 @@
  * edge by the panel's own scroll; and lying, where it cannot and the box is drawn again. On the panel no pixel is
  * written twice in a pass, and a move writes no more than the rows that came in and the bar. The area the panel holds
  * let go when its page goes, when a second box needs it, and by dgx_ui_paint_free(). No move under a popup over the
- * box's rows, under dgx_ui_changed() (the rectangles told cover the rows), over a drawn background the box does not
+ * box's rows, under dgx_ui_paint_changes() (the rectangles told cover the rows), over a drawn background the box does not
  * fill; a mirror composed by a second paint equals the screen. The finger drags the rows and the knob, gives a
  * button's press to the box when it goes up or down first, keeps a slider's sideways move; taps on the bar step and
  * page; the focus kept in view by the keys and by dgx_ui_scroll_to(); a box of text alone takes the focus and the keys
@@ -59,7 +59,7 @@ static void on_box(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, voi
 {
     (void)ui, (void)i, (void)node;
     page_t *p = ctx;
-    if (what == DGX_UI_CHANGED) ++p->changed;
+    if (what == DGX_UI_EVENT_CHANGED) ++p->changed;
     ++p->told;
 }
 
@@ -71,7 +71,7 @@ static void make(page_t *p, const dgx_ui_look_t *look, int top, int view, bool b
     dgx_ui_add(&p->ui, -1, &p->widgets[0]);
     p->widgets[1] = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .want_h = (int16_t)top, .text = &p->boxes[ROWS]};
     p->widgets[2] = (dgx_ui_widget_t){.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_SCROLL, .pad = PAD, .gap = 2, .want_h = (int16_t)view,
-                                      .value = &p->offset, .look = look, .on = on_box, .ctx = p};
+                                      .value = &p->offset, .look = look, .on_event = on_box, .ctx = p};
     dgx_ui_textbox_init(&p->boxes[ROWS], p->texts[ROWS], 24, 1, &style);
     dgx_ui_add(&p->ui, 0, &p->widgets[1]);
     p->box = dgx_ui_add(&p->ui, 0, &p->widgets[2]);
@@ -340,7 +340,7 @@ static void covers_and_layers(void)
     for (int k = 0; k < 6; ++k) {
         p.offset += 11;
         told_count = 0;
-        dgx_ui_changed(&p.ui, &paint, 400u + 20u * (uint32_t)k, tell, NULL);
+        dgx_ui_paint_changes(&p.ui, &paint, 400u + 20u * (uint32_t)k, tell, NULL);
        
         const dgx_ui_node_t *n = dgx_ui_node(&p.ui, p.box);
         bool                 covered = false;

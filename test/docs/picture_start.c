@@ -89,7 +89,7 @@ int main(int argc, char **argv)
     vbig[0]    = (dgx_ui_font_variant_t){.font = &dgx_font_large};
     vbig[1]    = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     vsmall[0]  = (dgx_ui_font_variant_t){.font = &dgx_font_body};
-    st_big    = (dgx_ui_text_style_t){.fonts = vbig, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    st_big    = (dgx_ui_text_style_t){.fonts = vbig, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_STYLE_MIDDLE};
     st_centre = (dgx_ui_text_style_t){.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_CENTER};
     st_left   = (dgx_ui_text_style_t){.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
     st_right  = (dgx_ui_text_style_t){.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};

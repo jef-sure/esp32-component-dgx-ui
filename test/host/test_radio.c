@@ -60,7 +60,7 @@ static const dgx_ui_look_t checkbox_look = {.draw = counted_checkbox, .params = 
 
 static void on_told(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) ++told[tree_of(ui)][i];
+    if (what == DGX_UI_EVENT_CHANGED) ++told[tree_of(ui)][i];
 }
 
 static dgx_ui_textbox_t one_box   = {.buf = (char *)"One", .lines = 1, .style = &style};
@@ -73,18 +73,18 @@ static dgx_ui_textbox_t four_box  = {.buf = (char *)"Four", .lines = 1, .style =
 static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .pad = 1, .gap = 2};
 static const dgx_ui_widget_t left_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .want_w = 56};
 static const dgx_ui_widget_t radio_w[3] = {
-    {.kind = DGX_UI_RADIO, .value = &choice, .step = 0, .text = &one_box, .look = &radio_look, .on = on_told},
-    {.kind = DGX_UI_RADIO, .value = &choice, .step = 1, .text = &two_box, .look = &radio_look, .on = on_told},
-    {.kind = DGX_UI_RADIO, .value = &choice, .step = 2, .text = &three_box, .look = &radio_look, .on = on_told},
+    {.kind = DGX_UI_RADIO, .value = &choice, .step = 0, .text = &one_box, .look = &radio_look, .on_event = on_told},
+    {.kind = DGX_UI_RADIO, .value = &choice, .step = 1, .text = &two_box, .look = &radio_look, .on_event = on_told},
+    {.kind = DGX_UI_RADIO, .value = &choice, .step = 2, .text = &three_box, .look = &radio_look, .on_event = on_told},
 };
-static const dgx_ui_widget_t tick_w = {.kind = DGX_UI_SWITCH, .value = &ticked, .text = &tick_box, .look = &checkbox_look, .on = on_told};
+static const dgx_ui_widget_t tick_w = {.kind = DGX_UI_SWITCH, .value = &ticked, .text = &tick_box, .look = &checkbox_look, .on_event = on_told};
 static const dgx_ui_widget_t list_w = {
-    .kind = DGX_UI_LIST, .flags = DGX_UI_REST, .value = &choice, .min = 0, .max = 2, .text = &rows_box, .look = &dgx_ui_look_list, .on = on_told};
+    .kind = DGX_UI_LIST, .flags = DGX_UI_REST, .value = &choice, .min = 0, .max = 2, .text = &rows_box, .look = &dgx_ui_look_list, .on_event = on_told};
 
 /* the popup: a frame holding a fourth radio of the place and a second of number 1 */
 static const dgx_ui_widget_t frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .look = &dgx_ui_look_frame};
-static const dgx_ui_widget_t four_w   = {.kind = DGX_UI_RADIO, .value = &choice, .step = 3, .text = &four_box, .look = &radio_look, .on = on_told};
-static const dgx_ui_widget_t second_w = {.kind = DGX_UI_RADIO, .value = &choice, .step = 1, .text = &two_box, .look = &radio_look, .on = on_told};
+static const dgx_ui_widget_t four_w   = {.kind = DGX_UI_RADIO, .value = &choice, .step = 3, .text = &four_box, .look = &radio_look, .on_event = on_told};
+static const dgx_ui_widget_t second_w = {.kind = DGX_UI_RADIO, .value = &choice, .step = 1, .text = &two_box, .look = &radio_look, .on_event = on_told};
 
 /* a box that is hidden, holding a radio of the group and a slider */
 static int32_t               level;
@@ -95,7 +95,7 @@ static const dgx_ui_widget_t slider_w = {.kind = DGX_UI_SLIDER, .value = &level,
 /* odd ones, each alone in a tree of its own */
 static int32_t               stray_place;
 static const dgx_ui_widget_t stray_w    = {.kind = DGX_UI_RADIO, .value = &stray_place, .min = 0, .max = 2, .step = 3, .look = &dgx_ui_look_radio};
-static const dgx_ui_widget_t no_place_w = {.kind = DGX_UI_RADIO, .step = 0, .text = &one_box, .look = &radio_look, .on = on_told};
+static const dgx_ui_widget_t no_place_w = {.kind = DGX_UI_RADIO, .step = 0, .text = &one_box, .look = &radio_look, .on_event = on_told};
 
 static dgx_ui_node_t home_nodes[8], popup_nodes[3];
 static int           left, radio[3], tick, list, four, second;

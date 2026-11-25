@@ -49,7 +49,7 @@
             <textarea id="page" spellcheck="false">{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "pad": 4, "gap": 4, "children": [
   {"kind": "frame", "want": [0, 40], "pad": 3, "children": [{"kind": "label", "text": "Hello"}]},
   {"kind": "slider", "value": "volume", "min": 0, "max": 100, "want": [0, 16]},
-  {"kind": "button", "text": "More", "on": "page", "ctx": "settings", "want": [0, 24]}]}}</textarea>
+  {"kind": "button", "text": "More", "on_event": "page", "ctx": "settings", "want": [0, 24]}]}}</textarea>
             <div id="page-said" class="said"></div>
             <div>Appearance <span class="small">(empty: none)</span></div>
             <textarea id="appearance" spellcheck="false"></textarea>
@@ -61,7 +61,7 @@
             <div id="names-said" class="said"></div>
             <div>Pages the action page opens <span class="small">(a JSON object: name to description)</span></div>
             <textarea id="pages" spellcheck="false">{"settings": {"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "pad": 4, "children": [
-  {"kind": "label", "text": "Settings"}, {"kind": "button", "text": "Back", "on": "back", "want": [0, 24]}]}}}</textarea>
+  {"kind": "label", "text": "Settings"}, {"kind": "button", "text": "Back", "on_event": "back", "want": [0, 24]}]}}}</textarea>
             <div id="pages-said" class="said"></div>
             <div>Font files <span class="small">(the directory of dgx_fonts-files.txt, as DGX writes it)</span></div>
             <input id="fonts" type="file" webkitdirectory multiple>

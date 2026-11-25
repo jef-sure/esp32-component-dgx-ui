@@ -31,7 +31,7 @@ const useDgxUiBuilder = (() => {
     const DEPTHS = [16, 18, 24];
     const ZOOMS = [1, 2, 3, 4];
     // the loader's codes, dgx_ui_load.h; -1 a names file refused, -3 a font, both in words
-    const LOAD_CODES = ['OK', 'SYNTAX', 'VERSION', 'KEY', 'KIND', 'FIELD', 'RANGE', 'NAME_BAD', 'UNKNOWN', 'NO_LOOK', 'NO_STYLE', 'DEPTH_MAX',
+    const LOAD_CODES = ['OK', 'SYNTAX', 'VERSION', 'KEY', 'KIND', 'FIELD', 'RANGE', 'NAME_BAD', 'UNKNOWN', 'NO_LOOK', 'NO_STYLE', 'TOO_DEEP',
                         'MEMORY', 'NODES', 'ID', 'MISSING'];
     const SYNTAX = 1, NO_LOOK = 9;
     const CALLS = { dgx_ui_tree: ['PREFIX', 'NAMES', 'APPEARANCE'], dgx_ui_names: ['PREFIX', 'APPEARANCE'], dgx_ui_appearance: ['PREFIX', 'NAMES'] };
@@ -1373,7 +1373,7 @@ const useDgxUiBuilder = (() => {
                     plan.warnings.push({ text: '"{0}" is the word of a kind: the widgets of the kind that name no look are refused after it, for want of one', values: [from] });
                 if (table === 'look' && kinds.includes(to))
                     plan.warnings.push({ text: '"{0}" is the word of a kind: every widget of the kind that names no look takes it', values: [to] });
-                if (['value', 'picture', 'on', 'take', 'ctx', 'id', 'style', 'look', 'font', 'draw'].includes(table))
+                if (['value', 'picture', 'on_event', 'take', 'ctx', 'id', 'style', 'look', 'font', 'draw'].includes(table))
                     plan.warnings.push({ text: 'the C expression stays as it is, the program\'s: only the name the pages and appearances use changes', values: [] });
                 return plan;
             },
@@ -1431,7 +1431,7 @@ const useDgxUiBuilder = (() => {
                 if (table === 'font' && (!rest.length || rest[0] === 'handwritten')) return [table, to, `dgx_font_${from}`, ...rest];
                 if (rest.length) return [table, to, ...rest];
                 if (table === 'look') return [table, to, `&dgx_ui_look_${from}`];
-                if (table === 'on') return [table, to, `dgx_ui_load_on_${from}`];
+                if (table === 'on_event') return [table, to, `dgx_ui_action_${from}`];
                 if (table === 'draw') return [table, to, `dgx_ui_draw_${from}`, `&dgx_ui_params_${from}`];
                 return [table, to];
             },

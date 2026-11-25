@@ -85,7 +85,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
     }
     /* the letters come so far and the first line shown; once all came, and once the scroll reached its end, no
        time is counted for them: a text drawn again days later is as it was */
-    const bool     important = st->flags & DGX_UI_TEXT_IMPORTANT;
+    const bool     important = st->flags & DGX_UI_STYLE_IMPORTANT;
     const int      last_top  = total > rows ? total - rows : 0;
     const uint32_t elapsed   = now_ms - since; /* by difference: now_ms runs over in 49.7 days */
     const bool     came      = !box->letter_ms || (box->flags & DGX_UI_TEXTBOX_CAME);
@@ -131,7 +131,7 @@ static bool draw_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 
     /* the base line of the first row: the first variant's, or the block of the rows shown in the middle */
     int base0 = w->y + (first_rows >= 0 ? first_rows : -f0->y_offset_lowest * scale0);
-    if (st->flags & DGX_UI_TEXT_MIDDLE) {
+    if (st->flags & DGX_UI_STYLE_MIDDLE) {
         const int block = shown > 0 ? (shown - 1) * lh + cell : cell;
         base0           = w->y + (w->h - block) / 2 - cell_top;
         if (rows > 1 && shown != shown_before) paint->whole = true; /* the block moved: the rows around it too */

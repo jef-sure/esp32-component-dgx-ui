@@ -26,10 +26,10 @@ global.ImageData = class {
 };
 
 const pages = {settings: '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "label", "text": "Settings"}, ' +
-                         '{"kind": "button", "text": "Back", "on": "back", "want": [0, 16]}]}}'};
+                         '{"kind": "button", "text": "Back", "on_event": "back", "want": [0, 16]}]}}'};
 const home  = '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [' +
-              '{"kind": "button", "text": "More", "on": "page", "ctx": "settings", "want": [0, 16]},' +
-              '{"kind": "button", "text": "Lost", "on": "page", "ctx": "broken", "want": [0, 16]},' +
+              '{"kind": "button", "text": "More", "on_event": "page", "ctx": "settings", "want": [0, 16]},' +
+              '{"kind": "button", "text": "Lost", "on_event": "page", "ctx": "broken", "want": [0, 16]},' +
               '{"kind": "slider", "value": "volume", "min": 0, "max": 100, "want": [0, 10]}]}}';
 
 (async () => {

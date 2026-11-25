@@ -2,7 +2,7 @@
  * dgx_ui_input_look.c
  *
  *  The look of a field typed into: its text, the variant 0 of its style, at the top of the field or in its middle
- *  (DGX_UI_TEXT_MIDDLE), and when it is focused a caret where the next letter goes, shown and hidden every half
+ *  (DGX_UI_STYLE_MIDDLE), and when it is focused a caret where the next letter goes, shown and hidden every half
  *  period (blink); a secret field a star for each letter. The row of the text is cut into the field up to the caret,
  *  the caret, and the empty field after it, so every pixel is written once; a text longer than the field shows its
  *  end, the caret at the right edge. The caret's phase counts from the text set or the focus come, kept in the text
@@ -56,7 +56,7 @@ static bool draw(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui,
     if (half) dgx_ui_wake_in(paint, half * (halves + 1) - gone);
     const int   s    = dgx_ui_variant_scale(&box->style->fonts[0], ui->unit); /* the pixels a pixel of the font takes */
     const int   cell = (f->y_bottom_max - f->y_offset_lowest) * s;
-    const int   base = (box->style->flags & DGX_UI_TEXT_MIDDLE) ? n->y + (n->h - cell) / 2 - f->y_offset_lowest * s : n->y - f->y_offset_lowest * s;
+    const int   base = (box->style->flags & DGX_UI_STYLE_MIDDLE) ? n->y + (n->h - cell) / 2 - f->y_offset_lowest * s : n->y - f->y_offset_lowest * s;
     const int   top = base + f->y_offset_lowest * s, bottom = base + f->y_bottom_max * s;
     const int room = n->w - cw, tw = dgx_ui_width_of(f, text, (int)strlen(text)) * s;
     const int field = tw < room ? tw : room;

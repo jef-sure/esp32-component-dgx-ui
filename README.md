@@ -86,7 +86,7 @@ on a board or in a window on the computer.
 | ---- | ------------- |
 | [Getting started](docs/en/getting-started.md) | adding the component, the first program piece by piece, building for a chip and for the computer |
 | [How it works](docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
-| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, texts of several lines, a handwritten text, a popup, keys, touch, a field and a keyboard, a look of your own, a control of your own, the tree as a layer in another compositor's strips |
+| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, pictures and a frame of nine of them, texts of several lines, a page that scrolls, a handwritten text, colours of your own, popups and pages, keys and touch, a field and a keyboard, pages and appearances from descriptions, a look and a control of your own, a display of 18 or 24 bits, the tree as a layer in another compositor's strips |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
 | [The builder of pages](editor/README.md) | a project's pages edited in a browser, drawn as the board draws them: opening a project, the panel, the properties, the appearance and the names file by forms, saving, an agent beside it, in another page |
 | [The preview](editor/preview/README.md) | a description drawn in a browser as the board draws it: the page to try it by hand, the calls for a page that edits descriptions |
@@ -128,7 +128,7 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
   properties, added, moved, wrapped, with undo; their appearance and names file by forms. Only the files edited are
   saved. Served from a terminal, `tools/dgx_ui_mcp.py`, it has an agent beside it over MCP.
 - **Rows and columns**: a box stacks its children as a column or a row, with a padding and a gap, in points that are
-  so many pixels; a child may take all that is left. The layout is made again only when the screen, the widgets or
+  so many pixels or in percent; a child may take all that is left. The layout is made again only when the screen, the widgets or
   their sizes change, and then only what moved is drawn.
 - **Messages**: a number of the program's and up to 12 bytes by value, or data by reference. Other tasks send them
   through a queue of FreeRTOS, an interrupt too; every widget is offered a message and catches its own values.
@@ -136,12 +136,15 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
 - **A painter that writes only what changed**, in one batch of DGX, each widget under a clip of its box. A value
   drawn again writes every pixel of its field once, so it does not blink on a display behind a bus; on one of 18 or
   24 bits it is drawn through a buffer of the program's for that.
+- **A scrolling box**: a column of children taller than its box, dragged by the finger, kept at the focus by the
+  keys, with a bar; when only its offset changed, the rows still seen are moved by the screen where it can.
 - **Texts**: one line, or several laid word by word; the font picked from a list so that the text goes in; a text
   too long cut with an ellipsis or scrolled; letters that appear one by one. A text in a handwritten font of DGX,
   of one line or several, written by a pen stroke by stroke.
 - **Controls**: a button with a shadow and a pressed face, a button of a picture, a switch, a checkbox, radio
-  buttons, a slider, a list, a dropdown with its list, a field typed into, pictures and icons of 1, 4 and 8 bits and
-  of RGB565.
+  buttons, a slider, a list, a dropdown with its list, a field typed into with a blinking caret, pictures and icons
+  of 1, 4 and 8 bits and of RGB565, on a display of 16 bits and through the buffer on one of 18 or 24, and a frame
+  of nine pictures.
 - **Scales** that show a value: a level bar and a ring scale, each with bands of colour, drawn by the library in
   whole pixels, with no memory for pixels. A control names its look, so a program
   carries only the looks it uses.
@@ -169,12 +172,12 @@ An interface of tables, graphs and long texts is a task for
 
 ## How light
 
-Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by a message:
+Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, hello: a label and a count fed by a message:
 
 | | |
 | --- | --- |
-| code of dgx-ui in the program | about 8 KB |
-| RAM of dgx-ui itself | a few pointers of 4 bytes: 20 bytes in the program of Getting started |
+| code of dgx-ui in the program | about 10 KB |
+| RAM of dgx-ui itself | a few pointers of 4 bytes: 24 bytes in hello |
 | a widget | 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM and 56 bytes<!-- sizeof dgx_ui_widget_t --> of flash |
 | a message | 20 bytes<!-- sizeof dgx_ui_msg_t --> |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB more |
@@ -184,7 +187,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | drawing through the buffer for a display of 18 or 24 bits, when the program names it | about 0.6 KB more, and 5 KB of DGX |
 | a picture for the background, when the program sets one | about 0.5 KB more |
 | a canvas, when a widget has one | about 1.5 KB more, and a byte of RAM a pixel of its box |
-| `dgx_ui_changed()`, when the program calls it | about 0.6 KB more |
+| `dgx_ui_paint_changes()`, when the program calls it | about 0.6 KB more |
 | transitions between pages, when the program names them | about 2 KB more, and two pictures of the screen in RAM |
 | the statistics of painting, when the program names them | about 1.8 KB more |
 | a tree from a description in JSON, when the program loads one | about 8 KB more |
@@ -195,6 +198,10 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, one label fed by 
 | a ring scale, when a widget names the look | about 3.8 KB more |
 | a checkbox or radio buttons, when a widget names the look | about 1.9 KB more for a checkbox, 1.7 KB for radio buttons; both, 2.1 KB |
 | the frame of the focus, once in a program that names the look of a button, a dropdown, a radio button or a checkbox | about 0.5 KB more |
+| a field's blinking caret, in a program with a field | about 0.4 KB more |
+| a frame of nine pictures, when a look names it | about 2.4 KB more |
+| a scrolling box, when a widget names the look | about 5.8 KB more |
+| pictures of colours on a display of 18 or 24 bits, when the program names their strips | about 1.4 KB more |
 
 ## License
 

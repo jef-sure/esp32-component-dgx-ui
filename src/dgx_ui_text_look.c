@@ -86,7 +86,7 @@ bool dgx_ui_draw_text(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     const int first_rows = dgx_ui_first_base(st, ui->unit);
     /* the base line: the first variant's, or the middle of the box for a smaller one */
     const int cell = (f->y_bottom_max - f->y_offset_lowest) * s;
-    const int base = (st->flags & DGX_UI_TEXT_MIDDLE) ? w->y + (w->h - cell) / 2 - f->y_offset_lowest * s
+    const int base = (st->flags & DGX_UI_STYLE_MIDDLE) ? w->y + (w->h - cell) / 2 - f->y_offset_lowest * s
                                                       : w->y + (first_rows >= 0 ? first_rows : -f->y_offset_lowest * s);
     const int top = base + f->y_offset_lowest * s, bottom = base + f->y_bottom_max * s;
     if (paint->whole) {

@@ -29,7 +29,7 @@ extern const char *const    library_hands[2];
 
 /* ---- the tables ---- */
 
-enum { T_LOOK, T_VALUE, T_PICTURE, T_STYLE, T_ON, T_TAKE, T_CTX, T_ID, TABLES };
+enum { T_LOOK, T_VALUE, T_PICTURE, T_STYLE, T_ON_EVENT, T_TAKE, T_CTX, T_ID, TABLES };
 extern const char *const table_words[TABLES];
 /* the keys of a widget that name an entry of a table, in the order of the tables */
 extern const char *const table_keys[TABLES];
@@ -77,8 +77,8 @@ bool loader_name(const char *name);
 bool c_name(const char *name, bool members);
 /* the C of a word of the library's: a look of its own, or the action back or page; NULL when it is none */
 char *library_c(int table, const char *word);
-/* what a handler of the table of handlers takes in its ctx: DGX_UI_TAKES_* */
-int takes_of(const entry_t *handler);
+/* the kind of ctx a handler of the table of handlers takes: DGX_UI_CTX_* */
+int ctx_kind_of(const entry_t *handler);
 int   library_draw_of(const char *word);
 bool  library_hand(const char *word);
 

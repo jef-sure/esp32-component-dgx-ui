@@ -40,7 +40,7 @@ enum { DGX_UI_SLIDE_LEFT, DGX_UI_SLIDE_RIGHT, DGX_UI_SLIDE_UP, DGX_UI_SLIDE_DOWN
  *     slide.to   = dgx_vscreen_from_array(heap_caps_malloc(1024 * 600 * 2, MALLOC_CAP_SPIRAM), 1024, 600, 16, DgxScreenRGB);
  *     ...
  *     // the home's button: dgx_ui_page_open_by(&home, &settings, &paint, &slide, DGX_UI_SLIDE_LEFT);
- *     // the settings' root, on(DGX_UI_BACK): dgx_ui_page_back_by(&home, &paint, &slide, DGX_UI_SLIDE_RIGHT);
+ *     // the settings' root, on(DGX_UI_EVENT_BACK): dgx_ui_page_back_by(&home, &paint, &slide, DGX_UI_SLIDE_RIGHT);
  *     ...
  *     if (!slide.running) dgx_ui_pointer(&home, &finger);    // no input while it runs: spent
  *     busy = slide.running ? dgx_ui_transition_frame(&slide, &paint, now) : dgx_ui_paint(&home, &paint, now);
@@ -72,16 +72,16 @@ typedef struct dgx_ui_transition_t {
 
 /**
  * @brief dgx_ui_page_open() by a transition: the screen as it stands into `from`, the page opened, the trees marked
- * drawn by dgx_ui_changed() with nobody told, the screen as it will be into `to`; the frames then run. Called from an
- * on(), at the time of the last pass. Asked for while one runs, a new one starts from the trees as they stand.
+ * drawn by dgx_ui_paint_changes() with nobody told, the screen as it will be into `to`; the frames then run. Called from an
+ * on_event(), at the time of the last pass. Asked for while one runs, a new one starts from the trees as they stand.
  * @return dgx_ui_page_open()'s.
  */
 bool dgx_ui_page_open_by(dgx_ui_t *home, dgx_ui_t *page, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind);
 
 /**
  * @brief dgx_ui_page_back() by a transition: `from` composed with the top page still open, then the page closed. Call
- * it from the page's root's on(DGX_UI_BACK): then the key back, a "back" button that calls dgx_ui_page_back() and one
- * that calls this all go by one transition; called from a button and from that on() as well, it runs once.
+ * it from the page's root's on(DGX_UI_EVENT_BACK): then the key back, a "back" button that calls dgx_ui_page_back() and one
+ * that calls this all go by one transition; called from a button and from that on_event() as well, it runs once.
  * @return dgx_ui_page_back()'s.
  */
 bool dgx_ui_page_back_by(dgx_ui_t *home, dgx_ui_paint_t *paint, dgx_ui_transition_t *tr, int kind);

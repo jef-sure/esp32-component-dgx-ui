@@ -2,7 +2,7 @@
 /*
  * dgx_ui_stats.h
  *
- *  The statistics of painting: a pass of dgx_ui_paint() or of dgx_ui_changed() measured, how long it took and what it
+ *  The statistics of painting: a pass of dgx_ui_paint() or of dgx_ui_paint_changes() measured, how long it took and what it
  *  drew, counted into a struct of the program's; each widget of a tree the program names counted apart if it gives an
  *  array for them; the frames of a transition in a struct of their own. A program that names none of it carries none
  *  of it, and each call only what it names.
@@ -26,11 +26,11 @@
  *  draw.
  *
  *  A struct is one tree's, with its popups, and one way's: two trees drawn in turn by one paint take a struct each, and
- *  so do a tree's passes by dgx_ui_paint() and by dgx_ui_changed() if a program had both. It is the program's, one
+ *  so do a tree's passes by dgx_ui_paint() and by dgx_ui_paint_changes() if a program had both. It is the program's, one
  *  call's at a time; the library keeps nothing of it between calls. The measured calls are the painter's own: they are
- *  not made from a look, nor from a function told by dgx_ui_changed().
+ *  not made from a look, nor from a function told by dgx_ui_paint_changes().
  *
- *  A pass by dgx_ui_changed_measured() draws nothing itself: a rectangle told is its draw and its part, the program's
+ *  A pass by dgx_ui_paint_changes_measured() draws nothing itself: a rectangle told is its draw and its part, the program's
  *  function told it (the composing) its drawing's time, and the slowest draw the slowest rectangle's, "a rectangle
  *  told". The looks it calls under an empty clip are the core's time there. Its rectangles are not counted for each
  *  widget.
@@ -85,7 +85,7 @@ typedef struct dgx_ui_paint_stats_t {
     uint32_t               last_drawing_us;    ///< the time of the last pass that drew
     uint32_t               longest_drawing_us; ///< and of the longest
     uint32_t               looks_last_us;      ///< the drawing's time at the last pass: the sum of the parts the looks were called
-                                               ///< for; of a pass by dgx_ui_changed_measured(), the program's function told
+                                               ///< for; of a pass by dgx_ui_paint_changes_measured(), the program's function told
     uint64_t               looks_us;           ///< at all of them
     uint16_t               draws_last;   ///< draws of widgets at the last pass
     uint16_t               parts_last;   ///< parts a look was called for at the last pass
@@ -120,11 +120,12 @@ _Static_assert(sizeof(dgx_ui_widget_stats_t) == 16, "an entry of a widget's stat
 bool dgx_ui_paint_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_paint_stats_t *stats);
 
 /**
- * @brief dgx_ui_changed(), measured: the same pass, telling the same rectangles to tell, each timed; counted into stats
- * as above. tell NULL: dgx_ui_changed() is given NULL, as asked, and only the call is timed.
- * @return As dgx_ui_changed().
+ * @brief dgx_ui_paint_changes(), measured: the same pass, telling the same rectangles to tell, each timed; counted into stats
+ * as above. tell NULL: dgx_ui_paint_changes() is given NULL, as asked, and only the call is timed.
+ * @return As dgx_ui_paint_changes().
  */
-bool dgx_ui_changed_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_changed_fn tell, void *ctx, dgx_ui_paint_stats_t *stats);
+bool dgx_ui_paint_changes_measured(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_paint_changes_t tell, void *ctx,
+                                   dgx_ui_paint_stats_t *stats);
 
 /** @brief The counts to zero, and the entries of the array named; the clock and the naming of the array kept. */
 void dgx_ui_paint_stats_restart(dgx_ui_paint_stats_t *stats);

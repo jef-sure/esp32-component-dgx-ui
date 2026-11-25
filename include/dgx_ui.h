@@ -125,7 +125,7 @@ enum {
         number the place holds is chosen; one of no place never is. Its value is the group's: dgx_ui_value() of any
         button is the number chosen, the same for every button of the group, and dgx_ui_set_value() on any writes the
         group's place; a button is chosen when the value is its step (dgx_ui_radio_chosen()). Not bound by min and max.
-        A click, or DGX_UI_KEY_ACTIVATE while it has the focus, writes its own number: on() told DGX_UI_CHANGED when
+        A click, or DGX_UI_KEY_ACTIVATE while it has the focus, writes its own number: on_event() told DGX_UI_EVENT_CHANGED when
         the place changed, the button that was chosen told nothing */
     DGX_UI_RADIO,
 };
@@ -135,12 +135,12 @@ enum {
     DGX_UI_COLUMN      = 1u << 0,  ///< a box: children one under another
     DGX_UI_ROW         = 1u << 1,  ///< a box: children side by side
     DGX_UI_STRETCH     = 1u << 2,  ///< across the stacking as wide (in a column) or as tall (in a row) as the box
-    DGX_UI_SWIPE       = 1u << 3,  ///< a slider moved by the way the finger goes from where it went down
+    DGX_UI_RELATIVE    = 1u << 3,  ///< a slider moved by the way the finger goes from where it went down
     DGX_UI_DRAG        = 1u << 4,  ///< a button dragged up or down as well as pressed (a scroll bar's knob)
     DGX_UI_CANVAS      = 1u << 5,  ///< the widget has a canvas of its own, made after the layout
     DGX_UI_REST        = 1u << 6,  ///< along the stacking of a column or a row, all the box has left after the others, the
                                    ///< gaps and the pads; several share it, the last taking the odd pixels; never below 0
-    DGX_UI_REPEAT      = 1u << 7,  ///< a button told DGX_UI_ACTIVATED again and again while it is held (below): a
+    DGX_UI_REPEAT      = 1u << 7,  ///< a button told DGX_UI_EVENT_ACTIVATED again and again while it is held (below): a
                                    ///< stepper's "+"
     DGX_UI_PERCENT_X   = 1u << 8,  ///< at_x in percent (DGX_UI_PERCENT()), not in points
     DGX_UI_PERCENT_Y   = 1u << 9,  ///< at_y in percent
@@ -179,7 +179,7 @@ enum {
     ((p) * 256 >= 32767.5 ? (int16_t)32767 : (p) * 256 <= -32768.5 ? (int16_t)-32768 : (int16_t)((p) * 256 + ((p) < 0 ? -0.5 : 0.5)))
 
 /*
- * DGX_UI_REPEAT: a button told DGX_UI_ACTIVATED when the finger goes down on it, and again every DGX_UI_REPEAT_MS from
+ * DGX_UI_REPEAT: a button told DGX_UI_EVENT_ACTIVATED when the finger goes down on it, and again every DGX_UI_REPEAT_MS from
  * DGX_UI_REPEAT_FIRST_MS on while the finger holds it, wherever the finger goes, as it stays pressed and looks so till
  * the finger goes up; nothing told when it goes up, so a click is one ACTIVATED. The key ACTIVATE held on it while it
  * has the focus (dgx_ui_buttons()) repeats the same way. The repeats come from dgx_ui_time(): a loop with such a button
@@ -204,18 +204,18 @@ enum {
     DGX_UI_MARK_WINDOW    = 1u << 7, ///< a list's window to be brought to its pick when it is drawn next: its value set, its height changed
 };
 
-/** What a widget's on() is told: what the user did, never what the program set; and to a tree's root, where the tree
- * is, whoever opened or closed the popups (DGX_UI_SHOWN, DGX_UI_COVERED: see the popups below). */
+/** What a widget's on_event() is told: what the user did, never what the program set; and to a tree's root, where the tree
+ * is, whoever opened or closed the popups (DGX_UI_EVENT_SHOWN, DGX_UI_EVENT_COVERED: see the popups below). */
 enum {
-    DGX_UI_ACTIVATED, ///< a click of a button, a list's row, a dropdown or a widget of the program's own; a field's "done"
-    DGX_UI_CHANGED,   ///< the value changed by the finger or a key
-    DGX_UI_FOCUS,     ///< the focus came to it
-    DGX_UI_BACK,      ///< a field's "cancel"; to a popup's root, a page's or a popup's closed by the key back, told while it is still open
-    DGX_UI_NO_MEMORY, ///< its canvas could not be had, told once for that size after the pass; tried again whenever its look asks
-    DGX_UI_EDIT,      ///< a field clicked, or DGX_UI_KEY_ACTIVATE while it has the focus: the program opens its editor
-    DGX_UI_SHOWN,     ///< to a tree's root: the tree came to the screen, no page over it any more, or it opened as a popup with
+    DGX_UI_EVENT_ACTIVATED, ///< a click of a button, a list's row, a dropdown or a widget of the program's own; a field's "done"
+    DGX_UI_EVENT_CHANGED,   ///< the value changed by the finger or a key
+    DGX_UI_EVENT_FOCUS,     ///< the focus came to it
+    DGX_UI_EVENT_BACK,      ///< a field's "cancel"; to a popup's root, a page's or a popup's closed by the key back, told while it is still open
+    DGX_UI_EVENT_NO_MEMORY, ///< its canvas could not be had, told once for that size after the pass; tried again whenever its look asks
+    DGX_UI_EVENT_EDIT,      ///< a field clicked, or DGX_UI_KEY_ACTIVATE while it has the focus: the program opens its editor
+    DGX_UI_EVENT_SHOWN,     ///< to a tree's root: the tree came to the screen, no page over it any more, or it opened as a popup with
                       ///< none over it; never to home at the start, nor for dgx_ui_show() of a widget
-    DGX_UI_COVERED,   ///< to a tree's root: the tree left the screen, a page came over it, or it closed while it was shown
+    DGX_UI_EVENT_COVERED,   ///< to a tree's root: the tree left the screen, a page came over it, or it closed while it was shown
 };
 
 typedef struct dgx_ui_t        dgx_ui_t;
@@ -232,7 +232,7 @@ typedef struct dgx_ui_paint_t  dgx_ui_paint_t;
  * may be NULL; x and y are in the widget's own pixels, from the top left of its box.
  *
  *     // a dial 0..100: the angle of the finger round its middle, set as the user set it
- *     static void dial_down(dgx_ui_t *ui, int i, int x, int y) { dgx_ui_user_value(ui, i, angle_of(ui, i, x, y)); }
+ *     static void dial_down(dgx_ui_t *ui, int i, int x, int y) { dgx_ui_set_value_as_user(ui, i, angle_of(ui, i, x, y)); }
  *     static bool dial_move(dgx_ui_t *ui, int i, int x, int y) { dial_down(ui, i, x, y); return true; } // a drag
  *     static const dgx_ui_behavior_t dial_behavior = {.flags = DGX_UI_BEHAVIOR_FOCUS, .down = dial_down, .move = dial_move};
  *     static const dgx_ui_look_t     dial_look     = {.draw = draw_dial, .fill = -1, .behavior = &dial_behavior};
@@ -241,11 +241,11 @@ typedef struct dgx_ui_paint_t  dgx_ui_paint_t;
  * move() returning true takes the move as a drag: no click when let go, and a swipe from an edge that began on it is
  * not the program's (dgx_ui_dragging()); a widget that is only pressed returns false, or has no move(), and keeps its
  * click. Let go: up() first, with click by the rule of a click (not dragged, within DGX_UI_CLICK_MS), then on a click
- * the core tells DGX_UI_ACTIVATED, so a value up() sets is the one the program hears of. A key while it has the focus
+ * the core tells DGX_UI_EVENT_ACTIVATED, so a value up() sets is the one the program hears of. A key while it has the focus
  * goes to key() first; what it does not take (false) the core does as for any widget: NEXT and PREV move the focus on,
- * ACTIVATE is told as DGX_UI_ACTIVATED, as a click (up() is the finger's and is not called), BACK is the program's. A
+ * ACTIVATE is told as DGX_UI_EVENT_ACTIVATED, as a click (up() is the finger's and is not called), BACK is the program's. A
  * widget of no DGX_UI_BEHAVIOR_FOCUS takes no focus: a press on it leaves the focus where it was, and dgx_ui_focus() on
- * it leaves nobody focused, as on any widget that cannot take it. The widget's on() stays the program's: the behaviour tells through it, by dgx_ui_user_value()
+ * it leaves nobody focused, as on any widget that cannot take it. The widget's on_event() stays the program's: the behaviour tells through it, by dgx_ui_set_value_as_user()
  * and dgx_ui_tell(). Not in it yet: the code points typed go to a DGX_UI_INPUT only, and the hit is the widget's
  * rectangle, so a round dial is hit in its corners too.
  */
@@ -255,9 +255,10 @@ typedef struct dgx_ui_behavior_t {
     bool (*move)(dgx_ui_t *ui, int i, int x, int y);           ///< the finger moved while it holds it, anywhere; true: a drag
     void (*up)(dgx_ui_t *ui, int i, int x, int y, bool click); ///< the finger let go; click: by the rule of a click
     bool (*key)(dgx_ui_t *ui, int i, int key);                 ///< a key while it has the focus; true: taken
-    /** a box of DGX_UI_SCROLL: its children laid, in its column at its offset, the place kept within it; a child only
-        carried by the offset marked by nothing. The library's (dgx_ui_look_scroll); NULL for a widget of the program's own */
-    void (*scroll)(dgx_ui_t *ui, int i);
+    /** the look's laying of its children, called by the layout for a box of DGX_UI_SCROLL in place of the core's: a
+        scrolling box lays them in its column at its offset, the place kept within it, a child only carried by the offset
+        marked by nothing. The library's (dgx_ui_look_scroll); NULL for a widget of the program's own */
+    void (*lay)(dgx_ui_t *ui, int i);
 } dgx_ui_behavior_t;
 
 /** Flags of a dgx_ui_behavior_t. */
@@ -330,10 +331,10 @@ typedef struct dgx_ui_widget_t {
     dgx_ui_textbox_t       *text;    ///< LABEL, BUTTON, LIST, INPUT, DROPDOWN, RADIO, a SWITCH drawn as a checkbox: the text box, in RAM
     const dgx_ui_look_t    *look;    ///< how it is drawn; NULL: the look of its kind
     bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg); ///< a message offered; true: claimed
-    /** told what the user did, DGX_UI_ACTIVATED ...; node: the widget's node as it is now, its value set by the finger
+    /** told what the user did, DGX_UI_EVENT_ACTIVATED ...; node: the widget's node as it is now, its value set by the finger
         or a key in the widget's place, dgx_ui_value_of(node) (a slider moved, a list's row taken); valid while the widget is in the tree */
-    void (*on)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
-    void *ctx;                     ///< for on()
+    void (*on_event)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
+    void *ctx;                     ///< for on_event()
     void *own;                     ///< OWN: its data
 } dgx_ui_widget_t;
 
@@ -401,14 +402,14 @@ enum {
 
 /** The buttons of dgx_ui_buttons(): the bits of a game pad as DGX-GE's dgx_ge_input.h and DGX-DI's pad have them. */
 enum {
-    DGX_UI_PAD_LEFT  = 1u << 0,
-    DGX_UI_PAD_RIGHT = 1u << 1,
-    DGX_UI_PAD_UP    = 1u << 2,
-    DGX_UI_PAD_DOWN  = 1u << 3,
-    DGX_UI_PAD_A     = 1u << 4,
-    DGX_UI_PAD_START = 1u << 5,
-    DGX_UI_PAD_BACK  = 1u << 6,
-    DGX_UI_PAD_B     = 1u << 7,
+    DGX_UI_GAMEPAD_LEFT  = 1u << 0,
+    DGX_UI_GAMEPAD_RIGHT = 1u << 1,
+    DGX_UI_GAMEPAD_UP    = 1u << 2,
+    DGX_UI_GAMEPAD_DOWN  = 1u << 3,
+    DGX_UI_GAMEPAD_A     = 1u << 4,
+    DGX_UI_GAMEPAD_START = 1u << 5,
+    DGX_UI_GAMEPAD_BACK  = 1u << 6,
+    DGX_UI_GAMEPAD_B     = 1u << 7,
 };
 
 /** Held keys repeat from so long after they went down, every so often: as DGX-DI's keyboard repeats erase. */
@@ -418,7 +419,7 @@ enum { DGX_UI_REPEAT_FIRST_MS = 500, DGX_UI_REPEAT_MS = 100 };
 enum { DGX_UI_KNOB = 3 };
 
 /** Of a list's row, its top and its bottom 1/n belong to no row: a finger between two rows takes neither. */
-enum { DGX_UI_ROW_GAP = 12 };
+enum { DGX_UI_LIST_ROW_EDGE = 12 };
 
 /**
  * A click: a widget pressed and let go within so long, and not swiped (DGX-DI's long press begins there). Wherever the
@@ -470,15 +471,15 @@ struct dgx_ui_t {
     dgx_ui_msg_t     *offered;     ///< the message dgx_ui_take() offers now, for dgx_ui_msg_keep(); NULL between
     bool              told_width;  ///< the warning of a text laid with no width given once
     bool              told_look;   ///< the warning of a widget shown with no look given once
-    bool              leaving;     ///< a popup whose root is told DGX_UI_BACK now: a back for it from that on() closes it, untold again
+    bool              leaving;     ///< a popup whose root is told DGX_UI_EVENT_BACK now: a back for it from that on_event() closes it, untold again
     bool              setting_up;  ///< a transition is being set up over it (dgx_ui_page_open_by(), _back_by()): one asked meanwhile, from
-                                   ///< an on() told within it, changes the pages at once, with no pictures of its own
+                                   ///< an on_event() told within it, changes the pages at once, with no pictures of its own
     dgx_ui_t         *popup;       ///< the popup open over the tree, a tree of its own, maybe with its own; NULL none
     uint8_t           level;       ///< how many popups lie under it: 0 for a tree that is no popup
     uint8_t           popup_flags; ///< DGX_UI_POPUP_*
     dgx_ui_rect_t     popup_was;   ///< where a popup closed since the last pass of the painter: composed again there
     dgx_ui_t         *under;       ///< the library's: the tree this one lies over as a popup; NULL none
-    bool              shown_told;  ///< the library's, not to be read: a program keeps a flag of its own from DGX_UI_SHOWN and _COVERED
+    bool              shown_told;  ///< the library's, not to be read: a program keeps a flag of its own from DGX_UI_EVENT_SHOWN and _COVERED
     uint8_t           veiled_bits; ///< the library's: DGX_UI_FOCUSED while a modal popup lies over the tree, the bits its looks do
                                    ///< not show; read by dgx_ui_bits_shown()
     int16_t           page_place;  ///< the library's: home's widget its pages lie over, + 1 (dgx_ui_page_place()); 0 the screen
@@ -498,7 +499,7 @@ enum {
     DGX_UI_POPUP_MODAL         = 1u << 0, ///< it takes every pointer and key that reaches it: nothing goes to the tree under it,
                                           ///< and the trees under it show no focus
     DGX_UI_POPUP_CLOSE_OUTSIDE = 1u << 1, ///< a finger that goes down outside it closes it (a dropdown's list)
-    DGX_UI_POPUP_BACK          = 1u << 2, ///< the key back that nothing in it took closes it, its root told DGX_UI_BACK first
+    DGX_UI_POPUP_BACK          = 1u << 2, ///< the key back that nothing in it took closes it, its root told DGX_UI_EVENT_BACK first
     DGX_UI_POPUP_SCREEN        = 1u << 3, ///< it lies on the whole screen of the tree, laid again when the screen turns; x, y, w, h not read
     DGX_UI_POPUP_PLACE         = 1u << 4, ///< it lies on the box of home's widget named by dgx_ui_page_place(), laid again when that box
                                           ///< changes, the screen while none is named; x, y, w, h not read. With MODAL a finger outside
@@ -519,8 +520,8 @@ enum { DGX_UI_POPUP_DEPTH = 8 };
 void dgx_ui_init(dgx_ui_t *ui, dgx_ui_node_t *first, int first_size, int unit);
 
 /** @brief The blocks given back, every widget removed; the program's array is the program's. A tree with popups open
- * over it, or open as a popup itself, has them closed first: a tree being freed is told DGX_UI_COVERED if it was
- * shown, never DGX_UI_SHOWN, and the chain it lay in is told after the tree is wiped. A tree is built by dgx_ui_init()
+ * over it, or open as a popup itself, has them closed first: a tree being freed is told DGX_UI_EVENT_COVERED if it was
+ * shown, never DGX_UI_EVENT_SHOWN, and the chain it lay in is told after the tree is wiped. A tree is built by dgx_ui_init()
  * only while it is not open. */
 void dgx_ui_free(dgx_ui_t *ui);
 
@@ -571,7 +572,7 @@ int dgx_ui_insert(dgx_ui_t *ui, int parent, int before, const dgx_ui_widget_t *w
  * A focus or a press inside it is dropped: no ACTIVATED comes, and the widgets removed are told nothing. Their
  * slots are taken again by dgx_ui_add(). The widget that home's pages lie over removed, or one above it
  * (dgx_ui_page_place()), the pages take the whole screen, and the trees covered or shown by that are told so here,
- * from within this call, by the rules of DGX_UI_SHOWN and DGX_UI_COVERED.
+ * from within this call, by the rules of DGX_UI_EVENT_SHOWN and DGX_UI_EVENT_COVERED.
  */
 void dgx_ui_remove(dgx_ui_t *ui, int i);
 
@@ -605,7 +606,7 @@ void dgx_ui_screen(dgx_ui_t *ui, int width, int height, int turn);
 bool dgx_ui_layout(dgx_ui_t *ui);
 
 /*
- * The state, changed by the program. None of these calls on(): it tells only what the user did.
+ * The state, changed by the program. None of these calls on_event(): it tells only what the user did.
  */
 
 /**
@@ -631,7 +632,7 @@ void dgx_ui_redraw(dgx_ui_t *ui, int i);
 /**
  * @brief Widget i brought wholly into the view of every scrolling box above it (DGX_UI_SCROLL), each by the least
  * move: the nearest first. One taller than a box's inside comes with its top at the inside's top. The boxes' places
- * written, their on() told DGX_UI_CHANGED as for a scroll by the finger. The focus brings the widget it comes to so.
+ * written, their on_event() told DGX_UI_EVENT_CHANGED as for a scroll by the finger. The focus brings the widget it comes to so.
  */
 void dgx_ui_scroll_to(dgx_ui_t *ui, int i);
 
@@ -653,7 +654,7 @@ int dgx_ui_hit(dgx_ui_t *ui, int x, int y);
  *
  * The widget it went down on is pressed (DGX_UI_PRESSED) till it goes up, wherever it goes; let go within
  * DGX_UI_CLICK_MS, not swiped nor dragged, it is a click: a button, a list's row, a dropdown activated, a switch
- * turned, a field told DGX_UI_EDIT. A swipe that begins on a field opens no editor.
+ * turned, a field told DGX_UI_EVENT_EDIT. A swipe that begins on a field opens no editor.
  *
  * A list whose rows all show picks the row under the finger as it moves. A list that scrolls (more rows than its box
  * takes, dgx_ui_text_scroll()) picks nothing when the finger goes down: moved up or down half a row's height, the
@@ -676,13 +677,13 @@ bool dgx_ui_dragging(const dgx_ui_t *ui);
 
 /**
  * @brief The value of widget i set as the user sets it, as the core sets a slider's: within min..max, the widget
- * marked, DGX_UI_CHANGED told to its on() when it changed, nothing when it is the same. For the behaviour of a widget
+ * marked, DGX_UI_EVENT_CHANGED told to its on_event() when it changed, nothing when it is the same. For the behaviour of a widget
  * of the program's own (dgx_ui_behavior_t), and for any widget: a program's test acts as the user by it.
  */
-void dgx_ui_user_value(dgx_ui_t *ui, int i, int value);
+void dgx_ui_set_value_as_user(dgx_ui_t *ui, int i, int value);
 
 /**
- * @brief An event told to widget i's on(), DGX_UI_CHANGED, DGX_UI_ACTIVATED ..., the node as it is now: for the
+ * @brief An event told to widget i's on_event(), DGX_UI_EVENT_CHANGED, DGX_UI_EVENT_ACTIVATED ..., the node as it is now: for the
  * behaviour of a widget of the program's own (a value of its own in `own` changed), and for any widget.
  */
 void dgx_ui_tell(dgx_ui_t *ui, int i, int what);
@@ -692,7 +693,7 @@ bool dgx_ui_holding(const dgx_ui_t *ui);
 
 /**
  * @brief A key of a dialog, DGX_UI_KEY_*: the focus moves, the focused one is worked; true when a widget took it.
- * DGX_UI_KEY_ACTIVATE on a field tells it DGX_UI_EDIT: the walk of the keys passes the fields and opens no editor.
+ * DGX_UI_KEY_ACTIVATE on a field tells it DGX_UI_EVENT_EDIT: the walk of the keys passes the fields and opens no editor.
  */
 bool dgx_ui_key(dgx_ui_t *ui, int key);
 
@@ -715,14 +716,14 @@ bool dgx_ui_buttons(dgx_ui_t *ui, uint32_t held, uint32_t now_ms);
  * the focus moves by up and down only. A table of the program's makes right NEXT and left PREV:
  *
  *     static const uint8_t row_keys[8] = {
- *         DGX_UI_KEY_PREV,     // DGX_UI_PAD_LEFT:  to the widget before
- *         DGX_UI_KEY_NEXT,     // DGX_UI_PAD_RIGHT: to the widget after
- *         DGX_UI_KEY_PREV,     // DGX_UI_PAD_UP
- *         DGX_UI_KEY_NEXT,     // DGX_UI_PAD_DOWN
- *         DGX_UI_KEY_ACTIVATE, // DGX_UI_PAD_A
- *         0xff,                // DGX_UI_PAD_START: no key, the program's
- *         DGX_UI_KEY_BACK,     // DGX_UI_PAD_BACK
- *         DGX_UI_KEY_BACK,     // DGX_UI_PAD_B
+ *         DGX_UI_KEY_PREV,     // DGX_UI_GAMEPAD_LEFT:  to the widget before
+ *         DGX_UI_KEY_NEXT,     // DGX_UI_GAMEPAD_RIGHT: to the widget after
+ *         DGX_UI_KEY_PREV,     // DGX_UI_GAMEPAD_UP
+ *         DGX_UI_KEY_NEXT,     // DGX_UI_GAMEPAD_DOWN
+ *         DGX_UI_KEY_ACTIVATE, // DGX_UI_GAMEPAD_A
+ *         0xff,                // DGX_UI_GAMEPAD_START: no key, the program's
+ *         DGX_UI_KEY_BACK,     // DGX_UI_GAMEPAD_BACK
+ *         DGX_UI_KEY_BACK,     // DGX_UI_GAMEPAD_B
  *     };
  *     dgx_ui_button_keys(&ui, row_keys);
  *
@@ -797,7 +798,7 @@ void dgx_ui_idle(dgx_ui_t *home, dgx_ui_idle_t *idle, uint32_t now_ms);
 /** @brief The milliseconds since the user's last input; 0 while one of no time waits for the next dgx_ui_time(). */
 uint32_t dgx_ui_idle_for(const dgx_ui_idle_t *idle, uint32_t now_ms);
 
-/** @brief The focus put on a widget (-1: none); its on() told DGX_UI_FOCUS. */
+/** @brief The focus put on a widget (-1: none); its on_event() told DGX_UI_EVENT_FOCUS. */
 void dgx_ui_focus(dgx_ui_t *ui, int i);
 
 /*
@@ -811,20 +812,20 @@ void dgx_ui_focus(dgx_ui_t *ui, int i);
  * in home's place (DGX_UI_POPUP_PLACE, dgx_ui_page_place()) covers the trees of the place alone: the lowest popup of
  * the place in the chain and those above it. Home under it stays shown, and so does a dialog opened over home before
  * the pages; a popup of the place while home names no place covers as one of the screen. Its root is told
- * DGX_UI_SHOWN when it comes to the screen (a popup opened, a page over it closed) and DGX_UI_COVERED when it leaves it
+ * DGX_UI_EVENT_SHOWN when it comes to the screen (a popup opened, a page over it closed) and DGX_UI_EVENT_COVERED when it leaves it
  * (a page opened over it, or it closed while shown), in pairs: a page keeps a ticker or a sensor's poll from SHOWN to
  * COVERED and never has one left running. Told by the calls that open and close (the key back's too), at the call and
  * not at a pass, once the chain of popups stands: first the trees closed that were shown, then the trees covered now,
- * from the top down, then those come to the screen, from the bottom up; the chain is read again after each, as an on()
+ * from the top down, then those come to the screen, from the bottom up; the chain is read again after each, as an on_event()
  * may open or close in its turn. A popup opened again elsewhere stays as it was told. Home is shown from the start and
  * told nothing then; a program that wants one path for all its screens tells it itself,
- * `dgx_ui_tell(&home, 0, DGX_UI_SHOWN)`. A covered tree still takes messages. An on() told these two may close or
+ * `dgx_ui_tell(&home, 0, DGX_UI_EVENT_SHOWN)`. A covered tree still takes messages. An on_event() told these two may close or
  * free its own tree; it never opens, closes or frees another tree closed by the same call, which the library tells
  * next, nor opens a tree being freed.
  *
  * The focus under a popup: while a popup of DGX_UI_POPUP_MODAL lies over a tree, anywhere above it, the tree's looks
  * show no focus (dgx_ui_bits_shown()); its focus stays where it is, the widget's DGX_UI_FOCUSED and ui->focus too, and
- * the mark is back where the focus is then when the popup closes, with no DGX_UI_FOCUS told. Under a popup that is not
+ * the mark is back where the focus is then when the popup closes, with no DGX_UI_EVENT_FOCUS told. Under a popup that is not
  * modal the mark stays: the keys go to that popup first all the same when it has widgets that take the focus, and a
  * program whose popup should take the mark off the tree under it opens it DGX_UI_POPUP_MODAL.
  */
@@ -849,11 +850,11 @@ bool dgx_ui_popup_open(dgx_ui_t *ui, dgx_ui_t *popup, int x, int y, int w, int h
 void dgx_ui_popup_close(dgx_ui_t *ui);
 
 /**
- * @brief The popup of a tree closed as the key back closes one of DGX_UI_POPUP_BACK: its root told DGX_UI_BACK first,
- * while it is open, then it and every popup over it closed, unless that on() closed it, opened another in its place
+ * @brief The popup of a tree closed as the key back closes one of DGX_UI_POPUP_BACK: its root told DGX_UI_EVENT_BACK first,
+ * while it is open, then it and every popup over it closed, unless that on_event() closed it, opened another in its place
  * or opened one over it: the program's then. That is how a page asks before it goes ("discard the changes?"): its
- * on(DGX_UI_BACK) opens the question over itself, and the page stays under it.
- * Called from that on() for the same popup, it closes it without telling again.
+ * on(DGX_UI_EVENT_BACK) opens the question over itself, and the page stays under it.
+ * Called from that on_event() for the same popup, it closes it without telling again.
  * @return false: no popup is open over the tree.
  */
 bool dgx_ui_popup_back(dgx_ui_t *ui);
@@ -866,18 +867,18 @@ bool dgx_ui_popup_back(dgx_ui_t *ui);
  *
  *     static void on_settings(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
  *     {
- *         if (what == DGX_UI_ACTIVATED) dgx_ui_page_open(&home, &settings);    // a button of the home
+ *         if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_open(&home, &settings);    // a button of the home
  *     }
  *     static void on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
  *     {
- *         if (what == DGX_UI_ACTIVATED) dgx_ui_page_back(&home);             // the page's own "back"
+ *         if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_back(&home);             // the page's own "back"
  *     }
  *     static void on_settings_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
  *     {
- *         if (what == DGX_UI_BACK) save(&settings);                           // closed: its widgets read still
+ *         if (what == DGX_UI_EVENT_BACK) save(&settings);                           // closed: its widgets read still
  *     }
  *
- * The key back closes the top page as its "back" button does; the page's root is told DGX_UI_BACK first either way.
+ * The key back closes the top page as its "back" button does; the page's root is told DGX_UI_EVENT_BACK first either way.
  */
 
 /**
@@ -889,7 +890,7 @@ bool dgx_ui_popup_back(dgx_ui_t *ui);
 bool dgx_ui_page_open(dgx_ui_t *home, dgx_ui_t *page);
 
 /**
- * @brief The top page of home closed, with all over it; its root told DGX_UI_BACK first, while it is open.
+ * @brief The top page of home closed, with all over it; its root told DGX_UI_EVENT_BACK first, while it is open.
  * @return false: no page is open over home.
  */
 bool dgx_ui_page_back(dgx_ui_t *home);
@@ -901,7 +902,7 @@ bool dgx_ui_page_back(dgx_ui_t *home);
  * The pages opened from then on are of DGX_UI_POPUP_PLACE, and those open move there at once: each lies on the box of
  * widget i and follows it when home is laid again (a turn, a widget shown or hidden), at the layout, so that a finger
  * and a composing meet it where it is. The rest of home stays on the screen and alive: its widgets take the finger,
- * a ticker of it keeps running, as home is not covered (DGX_UI_COVERED). The keys still go to the top page alone, so
+ * a ticker of it keeps running, as home is not covered (DGX_UI_EVENT_COVERED). The keys still go to the top page alone, so
  * that while a page is open the bar is of the finger alone: a program of keys only reaches what the bar does another
  * way, by the key back or a button of the page. Widget i hidden, the pages over it are hidden too, told nothing, and
  * the keys still go to the top page; removed, or one above it, the pages take the screen (dgx_ui_remove()).

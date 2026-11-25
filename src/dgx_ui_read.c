@@ -42,7 +42,7 @@ bool dgx_ui_read_failed(const dgx_ui_read_t *R)
 void dgx_ui_read_reader_error(dgx_ui_read_t *R)
 {
     if (R->json.error == DGX_UI_JSON_OK || R->err->code != DGX_UI_LOAD_OK) return;
-    R->err->code   = R->json.error == DGX_UI_JSON_RANGE ? DGX_UI_LOAD_RANGE : R->json.error == DGX_UI_JSON_DEPTH ? DGX_UI_LOAD_DEPTH_MAX : DGX_UI_LOAD_SYNTAX;
+    R->err->code   = R->json.error == DGX_UI_JSON_RANGE ? DGX_UI_LOAD_RANGE : R->json.error == DGX_UI_JSON_DEPTH ? DGX_UI_LOAD_TOO_DEEP : DGX_UI_LOAD_SYNTAX;
     R->err->offset = (int)R->json.error_at;
 }
 

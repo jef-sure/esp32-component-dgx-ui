@@ -170,7 +170,7 @@ int main(void)
     const dgx_ui_font_variant_t points[1] = {{.font = terminus, .points = true}}, own[1] = {{.font = terminus}};
     const dgx_ui_font_variant_t ladder[2] = {{.font = terminus, .points = true}, {.font = terminus}};
     const dgx_ui_text_style_t   in_points = {.fonts = points, .count = 1}, in_own = {.fonts = own, .count = 1};
-    const dgx_ui_text_style_t   middle = {.fonts = points, .count = 1, .flags = DGX_UI_TEXT_MIDDLE}, two = {.fonts = ladder, .count = 2};
+    const dgx_ui_text_style_t   middle = {.fonts = points, .count = 1, .flags = DGX_UI_STYLE_MIDDLE}, two = {.fonts = ladder, .count = 2};
     dgx_screen_t               *v = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB), *ref = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
 
     /* a label at a unit of 1, 2 and 4: as DGX draws the text at that scale; its height the font's line so many times */
@@ -376,7 +376,7 @@ int main(void)
         }
     }
 
-    /* in the middle of the box (DGX_UI_TEXT_MIDDLE): the font's cell, so many times high, centred; the letter in it as
+    /* in the middle of the box (DGX_UI_STYLE_MIDDLE): the font's cell, so many times high, centred; the letter in it as
        many times further down from its top */
     {
         int depth[2], height[2];

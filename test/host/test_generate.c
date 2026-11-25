@@ -60,10 +60,10 @@ static const dgx_ui_look_name_t looks[] = {
 static const dgx_ui_value_name_t   values[]   = {{"volume", &volume}, {"choice", &choice}, {"ticked", &ticked}, {"picked", &picked}, {"loudness", &volume}};
 static const dgx_ui_picture_name_t pictures[] = {{"dot", dot, 1}, {"dots", dots, 2}, {"pip", dot, 1}};
 static const dgx_ui_style_name_t   styles[]   = {{"text", &text}, {"small", &small}, {"big", &small}};
-static const dgx_ui_on_name_t      handlers[] = {DGX_UI_ACTION_NAME(back), DGX_UI_ACTION_NAME(page), {"saved", saved, false}, {"step", step, true}, {"tap", saved, false}};
+static const dgx_ui_on_event_name_t      handlers[] = {DGX_UI_ACTION_NAME(back), DGX_UI_ACTION_NAME(page), {"saved", saved, false}, {"step", step, true}, {"tap", saved, false}};
 static const dgx_ui_take_name_t    takes[]    = {{"take", take}};
 static const dgx_ui_context_name_t contexts[] = {{"settings", &settings, true}, {"other", &other, false}};
-static const dgx_ui_id_t           ids[]      = {{"title", &title_index}, {"slider", &slider_index}, {"less", &less_index}, {"go", &go_index}};
+static const dgx_ui_id_name_t           ids[]      = {{"title", &title_index}, {"slider", &slider_index}, {"less", &less_index}, {"go", &go_index}};
 enum { ID_COUNT = sizeof ids / sizeof *ids };
 #define COUNT(table) (uint16_t)(sizeof table / sizeof *table)
 static const dgx_ui_load_names_t names = {.looks = looks, .look_count = COUNT(looks), .values = values, .value_count = COUNT(values), .pictures = pictures,
@@ -102,7 +102,7 @@ static bool same_tables(const dgx_ui_load_names_t *a, const dgx_ui_load_names_t 
         same = !strcmp(a->pictures[k].name, b->pictures[k].name) && a->pictures[k].picture == b->pictures[k].picture && a->pictures[k].count == b->pictures[k].count;
     for (int k = 0; same && k < a->style_count; ++k) same = !strcmp(a->styles[k].name, b->styles[k].name) && a->styles[k].style == b->styles[k].style;
     for (int k = 0; same && k < a->handler_count; ++k)
-        same = !strcmp(a->handlers[k].name, b->handlers[k].name) && a->handlers[k].on == b->handlers[k].on && a->handlers[k].takes == b->handlers[k].takes;
+        same = !strcmp(a->handlers[k].name, b->handlers[k].name) && a->handlers[k].on_event == b->handlers[k].on_event && a->handlers[k].ctx_kind == b->handlers[k].ctx_kind;
     for (int k = 0; same && k < a->take_count; ++k) same = !strcmp(a->takes[k].name, b->takes[k].name) && a->takes[k].take == b->takes[k].take;
     for (int k = 0; same && k < a->context_count; ++k)
         same = !strcmp(a->contexts[k].name, b->contexts[k].name) && a->contexts[k].ctx == b->contexts[k].ctx && a->contexts[k].page == b->contexts[k].page;
@@ -127,7 +127,7 @@ static bool same_widget(const dgx_ui_widget_t *loaded, const dgx_ui_widget_t *ma
     const bool own_offsets = (a->flags & DGX_UI_SCROLL) && a->value && b->value && !named_place(a->value) && !named_place(b->value) && !*a->value && !*b->value;
     if (a->kind != b->kind || a->flags != b->flags || a->pad != b->pad || a->gap != b->gap || a->at_x != b->at_x || a->at_y != b->at_y || a->want_w != b->want_w ||
         a->want_h != b->want_h || a->min != b->min || a->max != b->max || a->step != b->step || a->tag != b->tag || a->state.bits != b->state.bits || (a->value != b->value && !own_offsets) ||
-        a->picture != b->picture || a->look != b->look || a->take != b->take || a->on != b->on || a->ctx != b->ctx || a->own != b->own || !a->text != !b->text)
+        a->picture != b->picture || a->look != b->look || a->take != b->take || a->on_event != b->on_event || a->ctx != b->ctx || a->own != b->own || !a->text != !b->text)
         return false;
     if (!a->text) return true;
     const bool same_style = a->text->style == b->text->style || (default_style && b->text->style == default_style && a->text->style == styles[0].style);
@@ -238,7 +238,7 @@ int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     text       = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    small      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_TEXT_MIDDLE};
+    small      = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_STYLE_MIDDLE};
     dgx_ui_init(&settings, NULL, 0, 1);
     CHECK(same_tables(&program_names, &names));
     int off = 0;

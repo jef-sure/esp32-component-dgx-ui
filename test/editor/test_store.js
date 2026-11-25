@@ -192,12 +192,12 @@ const boxOf = (store, widgetPath) => {
 
     /* ---- a project in memory ---- */
     const fonts = fs.readFileSync(path.join(fontDirectory, 'dgx_fonts-files.txt'), 'utf8');
-    const NAMES = 'look slider\nlook button\nvalue volume &volume\non page\nctx settings &settings_page page\nfont small TerminusTTFMedium12\n';
+    const NAMES = 'look slider\nlook button\nvalue volume &volume\non_event page\nctx settings &settings_page page\nfont small TerminusTTFMedium12\n';
     const home = '{"dgx-ui": 1, "name": "home",\n "tree": {"kind": "box", "flags": ["column"], "pad": 4, "gap": 4, "children": [\n' +
                  '  {"kind": "label", "text": "Caf\\u00e9", "style": "body", "want": [0, 30]},\n' +
                  '  {"kind": "slider", "value": "volume", "min": 0, "max": 100, "want": [0, 20]},\n' +
                  '  {"kind": "box", "flags": ["row"], "want": [0, 40], "children": [\n' +
-                 '    {"kind": "button", "text": "More", "style": "body", "want": [80, 30], "on": "page", "ctx": "settings"}]}]}}\n';
+                 '    {"kind": "button", "text": "More", "style": "body", "want": [80, 30], "on_event": "page", "ctx": "settings"}]}]}}\n';
     const settings = '{"dgx-ui": 1, "name": "settings", "tree": {"kind": "box", "children": [\n' +
                      ' {"kind": "label", "text": "Settings", "style": "body"}]}}\n';
     const project = {
@@ -239,7 +239,7 @@ const boxOf = (store, widgetPath) => {
           'home, its names file and its appearance taken: ' + JSON.stringify(store.verdicts));
     paint(store);
     check(!store.notes.length, 'its font given, no stand-in: ' + store.notes.join(' | '));
-    check(same(store.tables.value, ['volume']) && store.tables.on.includes('page'),
+    check(same(store.tables.value, ['volume']) && store.tables.on_event.includes('page'),
           'the names offered, the names file\'s: ' + JSON.stringify(store.tables));
 
     /* the selection, by the boxes of the layout */
@@ -553,13 +553,13 @@ const boxOf = (store, widgetPath) => {
     /* ---- the names file by its forms: two pages on one names file, an appearance read on it, a file not there yet ---- */
     {
         const vocab = '# table   name      C expression\nlook      slider\nlook      button\nvalue     volume    &room_volume\n' +
-                      'value     spare     &spare_value   # no page names it\nstyle     body      &body_style\non        back\n' +
+                      'value     spare     &spare_value   # no page names it\nstyle     body      &body_style\non_event  back\n' +
                       'font      small     TerminusTTFMedium12\nfont      tiny\nhand      handwriting\ndraw      text\n';
         const a = '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "slider", "value": "volume", "max": 9}, ' +
-                  '{"kind": "label", "text": "A"}, {"kind": "button", "text": "Back", "look": "button", "on": "back"}]}}\n';
+                  '{"kind": "label", "text": "A"}, {"kind": "button", "text": "Back", "look": "button", "on_event": "back"}]}}\n';
         const b = '{"dgx-ui": 1, "tree": {"kind": "box", "children": [{"kind": "slider", "value": "volume", "max": 5}, {"kind": "label", "text": "B"}]}}\n';
         const c = '{"dgx-ui": 1, "tree": {"kind": "box", "id": "top", "children": [{"kind": "slider", "value": "level", "max": 5}, ' +
-                  '{"kind": "button", "text": "Go", "on": "go", "ctx": "settings"}, {"kind": "label", "text": "C"}]}}\n';
+                  '{"kind": "button", "text": "Go", "on_event": "go", "ctx": "settings"}, {"kind": "label", "text": "C"}]}}\n';
         const look = '{"dgx-ui": 1, "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#202020", "border": "#808080"}, ' +
                      '"styles": {"big": {"fonts": ["small"]}}, "looks": {"plain": {"draw": "text", "params": {"ink": "ink", "paper": null}}}}\n';
         const files = {
@@ -673,14 +673,14 @@ const boxOf = (store, widgetPath) => {
         store.setTab('names');
         check(store.page.names === 'main/new.txt' && store.files['main/new.txt'].missing && store.undoPath === 'main/new.txt', 'c on a file not there');
         const missing = store.namesMissing.map((entry) => `${entry.table} ${entry.name}`);
-        check(same(missing, ['look slider', 'look button', 'value level', 'on go', 'ctx settings', 'id top', 'style body']) ||
-              ['look slider', 'value level', 'on go', 'ctx settings', 'id top', 'style body'].every((one) => missing.includes(one)), 'its names missing: ' + missing);
+        check(same(missing, ['look slider', 'look button', 'value level', 'on_event go', 'ctx settings', 'id top', 'style body']) ||
+              ['look slider', 'value level', 'on_event go', 'ctx settings', 'id top', 'style body'].every((one) => missing.includes(one)), 'its names missing: ' + missing);
         check(store.addAllMissing() && store.verdicts.names.code === 0 && store.verdicts.page.code === 0 && !store.namesMissing.length,
               'all added: c taken: ' + JSON.stringify(store.verdicts.page));
         const made = run('DgxUiNames').lines(text('main/new.txt')).filter((line) => line.words.length);
         const words = (k) => made.filter((line) => line.words.length > k).map((line) => line.words[k].col);
         check(made.length === missing.length && [1, 2, 3].every((k) => new Set(words(k)).size === 1) &&
-              text('main/new.txt').includes('on     go        go         number\n') && text('main/new.txt').includes('&settings  page\n'),
+              text('main/new.txt').includes('on_event  go        go         number\n') && text('main/new.txt').includes('&settings  page\n'),
               'by the rule\'s C, laid in columns: ' + JSON.stringify(text('main/new.txt')));
         check(store.undo() && store.namesMissing.length === missing.length, 'undone in one step');
         check(store.addMissing(store.namesMissing.find((entry) => entry.name === 'level')) && text('main/new.txt') === 'value level &level\n', 'one added');

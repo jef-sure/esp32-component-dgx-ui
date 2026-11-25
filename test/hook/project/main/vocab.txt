@@ -1,11 +1,11 @@
 # the program's names: a table, a name, its C, a count of pictures or "number"
-look  slider
-look  switch
-look  button
-look  checkbox
-value volume   &volume
-value muted    &muted
-style text     &text_style
-on    back
-on    saved    on_saved
-id    title    title_index
+look     slider
+look     switch
+look     button
+look     checkbox
+value    volume   &volume
+value    muted    &muted
+style    text     &text_style
+on_event back
+on_event saved    on_saved
+id       title    title_index

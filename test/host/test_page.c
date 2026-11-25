@@ -1,14 +1,14 @@
 /*
  * Pages and the key back: dgx_ui_page_open(), dgx_ui_page_back(), dgx_ui_popup_back() and the popup flags
  * DGX_UI_POPUP_BACK and DGX_UI_POPUP_SCREEN. A page opened by a button and pressed before any pass: its own. Three
- * pages closed by the key back and by the page's "back" button, each root told DGX_UI_BACK once while still open, its
+ * pages closed by the key back and by the page's "back" button, each root told DGX_UI_EVENT_BACK once while still open, its
  * widgets read then; on the home, back is the program's. The finger and the keys to the top page only; a message
  * reaches a page under the top; the ninth popup refused. A page opened before the first pass laid at it, and laid again
  * when the screen turns; a tree that was a popup of its own rectangle, opened as a page, on the whole screen. A dropdown's list over a page closed by back first, its pick kept; a page opened over a list
  * closes it, over a modal dialog leaves it under; that dialog, not closed by back, keeps back the program's and the
- * page under it open. The root's on(DGX_UI_BACK) closing the page or calling dgx_ui_page_back() again: closed once,
+ * page under it open. The root's on(DGX_UI_EVENT_BACK) closing the page or calling dgx_ui_page_back() again: closed once,
  * told once; opening another over it: both stay, the program's. A popup without the flag: back the program's. A widget of
- * the page's own taking back: the page stays. Told by dgx_ui_changed(): a page closed is the screen.
+ * the page's own taking back: the page stays. Told by dgx_ui_paint_changes(): a page closed is the screen.
  */
 #include <string.h>
 
@@ -51,11 +51,11 @@ static int  slider_seen;
 static void on_any(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     const int tag = node->widget->tag;
-    if (what == DGX_UI_BACK) ++told_back[tag];
-    if (what == DGX_UI_ACTIVATED) ++told_activated[tag];
-    if (tag == OPEN && what == DGX_UI_ACTIVATED) dgx_ui_page_open(&home, &settings);
-    if (tag == BACK && what == DGX_UI_ACTIVATED) CHECK(dgx_ui_page_back(&home)); /* the page's own "back" */
-    if (tag == SETTINGS_ROOT && what == DGX_UI_BACK) {
+    if (what == DGX_UI_EVENT_BACK) ++told_back[tag];
+    if (what == DGX_UI_EVENT_ACTIVATED) ++told_activated[tag];
+    if (tag == OPEN && what == DGX_UI_EVENT_ACTIVATED) dgx_ui_page_open(&home, &settings);
+    if (tag == BACK && what == DGX_UI_EVENT_ACTIVATED) CHECK(dgx_ui_page_back(&home)); /* the page's own "back" */
+    if (tag == SETTINGS_ROOT && what == DGX_UI_EVENT_BACK) {
         open_when_told = settings.level > 0;
         slider_seen    = dgx_ui_value_of(dgx_ui_node(&settings, slider));
         if (back_mode == CLOSE_ITSELF) dgx_ui_popup_close(&home);
@@ -82,23 +82,23 @@ static dgx_ui_textbox_t dropdown_box, reading_box;
 
 static void make_trees(void)
 {
-    static const dgx_ui_widget_t home_root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .tag = HOME_ROOT, .on = on_any};
-    static const dgx_ui_widget_t open_w        = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = OPEN, .on = on_any};
-    static const dgx_ui_widget_t settings_w    = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = SETTINGS_ROOT, .on = on_any};
-    static const dgx_ui_widget_t back_w        = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = BACK, .on = on_any};
+    static const dgx_ui_widget_t home_root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2, .tag = HOME_ROOT, .on_event = on_any};
+    static const dgx_ui_widget_t open_w        = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = OPEN, .on_event = on_any};
+    static const dgx_ui_widget_t settings_w    = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = SETTINGS_ROOT, .on_event = on_any};
+    static const dgx_ui_widget_t back_w        = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .tag = BACK, .on_event = on_any};
     static int32_t slider_w_place; /* its value */
-    static const dgx_ui_widget_t slider_w      = {.kind = DGX_UI_SLIDER, .value = &slider_w_place, .max = 100, .want_h = 8, .tag = SLIDER, .on = on_any};
+    static const dgx_ui_widget_t slider_w      = {.kind = DGX_UI_SLIDER, .value = &slider_w_place, .max = 100, .want_h = 8, .tag = SLIDER, .on_event = on_any};
     static int32_t own_w_place; /* its value */
-    static const dgx_ui_widget_t own_w         = {.kind = DGX_UI_OWN, .value = &own_w_place, .want_h = 4, .look = &own_look, .tag = OWN, .on = on_any};
-    static const dgx_ui_widget_t second_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = SECOND_ROOT, .on = on_any};
-    static const dgx_ui_widget_t third_w       = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = THIRD_ROOT, .on = on_any};
-    static const dgx_ui_widget_t small_w       = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .on = on_any};
-    static const dgx_ui_widget_t dialog_w      = {.kind = DGX_UI_FRAME, .tag = DIALOG_ROOT, .on = on_any};
-    static const dgx_ui_widget_t deep_w        = {.kind = DGX_UI_FRAME, .tag = DEEP_ROOT, .on = on_any};
+    static const dgx_ui_widget_t own_w         = {.kind = DGX_UI_OWN, .value = &own_w_place, .want_h = 4, .look = &own_look, .tag = OWN, .on_event = on_any};
+    static const dgx_ui_widget_t second_w      = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = SECOND_ROOT, .on_event = on_any};
+    static const dgx_ui_widget_t third_w       = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .tag = THIRD_ROOT, .on_event = on_any};
+    static const dgx_ui_widget_t small_w       = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .on_event = on_any};
+    static const dgx_ui_widget_t dialog_w      = {.kind = DGX_UI_FRAME, .tag = DIALOG_ROOT, .on_event = on_any};
+    static const dgx_ui_widget_t deep_w        = {.kind = DGX_UI_FRAME, .tag = DEEP_ROOT, .on_event = on_any};
     static dgx_ui_widget_t       dropdown_w, reading_w;
     dgx_ui_textbox_init(&dropdown_box, dropdown_buf, sizeof dropdown_buf, 1, &style);
     dgx_ui_textbox_init(&reading_box, reading_buf, sizeof reading_buf, 1, &style);
-    dropdown_w = (dgx_ui_widget_t){.kind = DGX_UI_DROPDOWN, .value = new_place(), .text = &dropdown_box, .max = 2, .want_h = 12, .look = &dgx_ui_look_dropdown, .tag = DROPDOWN, .on = on_any};
+    dropdown_w = (dgx_ui_widget_t){.kind = DGX_UI_DROPDOWN, .value = new_place(), .text = &dropdown_box, .max = 2, .want_h = 12, .look = &dgx_ui_look_dropdown, .tag = DROPDOWN, .on_event = on_any};
     reading_w  = (dgx_ui_widget_t){.kind = DGX_UI_LABEL, .text = &reading_box, .want_h = 6, .tag = READING, .take = take_reading};
     strcpy(dropdown_buf, "a\nb\nc");
     dgx_ui_init(&home, home_nodes, 3, 1);
@@ -215,7 +215,7 @@ int main(void)
     CHECK(screen_rect(&dialog, 96, 64) && dgx_ui_node(&dialog, 0)->w == 96);
     dgx_ui_popup_close(&home);
 
-    /* the root's on(DGX_UI_BACK) closing the page, opening another, calling dgx_ui_page_back() again: told once,
+    /* the root's on(DGX_UI_EVENT_BACK) closing the page, opening another, calling dgx_ui_page_back() again: told once,
        closed once */
     const int modes[3] = {CLOSE_ITSELF, OPEN_ANOTHER, BACK_AGAIN};
     for (int k = 0; k < 3; ++k) {
@@ -256,13 +256,13 @@ int main(void)
         turned->destroy(&turned);
     }
 
-    /* told by dgx_ui_changed(): a page closed is one rectangle, the screen */
+    /* told by dgx_ui_paint_changes(): a page closed is one rectangle, the screen */
     CHECK(dgx_ui_page_open(&home, &settings));
     dgx_ui_rect_t last = {0};
-    dgx_ui_changed(&home, &paint, 700, count_told, &last);
+    dgx_ui_paint_changes(&home, &paint, 700, count_told, &last);
     CHECK(dgx_ui_page_back(&home));
     told_count = 0;
-    dgx_ui_changed(&home, &paint, 800, count_told, &last);
+    dgx_ui_paint_changes(&home, &paint, 800, count_told, &last);
     CHECK(told_count == 1 && last.x == 0 && last.y == 0 && last.w == 96 && last.h == 64);
 
     dgx_ui_paint_free(&paint);

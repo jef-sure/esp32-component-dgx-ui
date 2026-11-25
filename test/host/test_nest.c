@@ -23,7 +23,7 @@ static uint32_t colors[4] = {0x0000, 0xffff, 0x2104, 0xf800};
 static int  activated[8], activated_count, caught[4];
 static void on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_ACTIVATED && activated_count < 8) activated[activated_count++] = (int)(intptr_t)ctx;
+    if (what == DGX_UI_EVENT_ACTIVATED && activated_count < 8) activated[activated_count++] = (int)(intptr_t)ctx;
 }
 static bool take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 {
@@ -38,17 +38,17 @@ static dgx_ui_textbox_t      low_box, dlg_box, field_box;
 
 /* the main tree: a button at the top, a label low, under where the list hangs */
 static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
-static const dgx_ui_widget_t main_bt = {.kind = DGX_UI_BUTTON, .want_h = 30, .look = &dgx_ui_look_button, .on = on, .ctx = (void *)0, .take = take};
+static const dgx_ui_widget_t main_bt = {.kind = DGX_UI_BUTTON, .want_h = 30, .look = &dgx_ui_look_button, .on_event = on, .ctx = (void *)0, .take = take};
 static const dgx_ui_widget_t low_w   = {.kind = DGX_UI_LABEL, .text = &low_box, .want_h = 20};
 /* the dialog at (8, 4, 60, 30): a button, a label under the list */
 static const dgx_ui_rect_t   dlg_r   = {8, 4, 60, 30};
 static const dgx_ui_widget_t dlg_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 1};
-static const dgx_ui_widget_t dlg_bt  = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .on = on, .ctx = (void *)1, .take = take};
+static const dgx_ui_widget_t dlg_bt  = {.kind = DGX_UI_BUTTON, .want_h = 10, .look = &dgx_ui_look_button, .on_event = on, .ctx = (void *)1, .take = take};
 static const dgx_ui_widget_t dlg_lb  = {.kind = DGX_UI_LABEL, .text = &dlg_box, .want_h = 14};
 /* the list at (30, 20, 40, 36): over the dialog's bottom right, hanging out below it to y 56 */
 static const dgx_ui_rect_t   list_r  = {30, 20, 40, 36};
 static const dgx_ui_widget_t list_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2};
-static const dgx_ui_widget_t list_bt = {.kind = DGX_UI_BUTTON, .want_h = 30, .look = &dgx_ui_look_button, .on = on, .ctx = (void *)2, .take = take};
+static const dgx_ui_widget_t list_bt = {.kind = DGX_UI_BUTTON, .want_h = 30, .look = &dgx_ui_look_button, .on_event = on, .ctx = (void *)2, .take = take};
 /* the question at (40, 30, 50, 30): a slider and a field */
 static const dgx_ui_rect_t   ask_r   = {40, 30, 50, 30};
 static const dgx_ui_widget_t ask_w   = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 1};

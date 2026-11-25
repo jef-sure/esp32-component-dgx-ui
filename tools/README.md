@@ -116,22 +116,22 @@ look      tall       &tall_slider
 value     volume     &settings.volume
 picture   dots       dots                   2
 style     text       &text_style
-on        step       on_step                number
-on        back
+on_event  step       on_step                number
+on_event  back
 take      co2        take_co2
 ctx       settings   &settings_page  page
 id        title      title_index
 ```
 
-- The tables are `look`, `value`, `picture`, `style`, `on`, `take`, `ctx` and `id`.
+- The tables are `look`, `value`, `picture`, `style`, `on_event`, `take`, `ctx` and `id`.
 - A name is a name of the format: letters, digits, `_`, `.` and `-`, at most 23. A name twice in a table is refused.
 - The expression is C written with no spaces. A look of the library's goes without one, `look slider` is
-  `&dgx_ui_look_slider`, and so do the actions `on back` and `on page`, `dgx_ui_load_on_back` and `_page`.
+  `&dgx_ui_look_slider`, and so do the actions `on_event back` and `on_event page`, `dgx_ui_action_back` and `_page`.
 - A picture's count is 1 when none is said; `number` marks a handler whose ctx is a number, and `page` a context
   that is a page's tree, the only context the action `page` takes.
 - The expression of an id is an int of the program's, which the add function writes the widget's index to; the
   others are constant expressions, as the widgets are constants.
-- A table has at most 65535 names, the ids' `DGX_UI_LOAD_IDS`, 256.
+- A table has at most 65535 names, the ids' `DGX_UI_LOAD_MAX_IDS`, 256.
 - The builder of pages edits a names file a line at a time and keeps every other line as written:
   [The names file](../editor/README.md#the-names-file).
 
@@ -151,7 +151,7 @@ The tables are made of the names the description uses:
 | value | `&<name>`: `"settings.volume"` is `&settings.volume` |
 | picture | `<name>`, an array of as many pictures as the widget reads |
 | style | `&<name>`; a text that names none `&<prefix>_style`, which the program defines |
-| on | `back` and `page` the library's actions, `dgx_ui_load_on_back` and `_page`; any other `<name>` |
+| on_event | `back` and `page` the library's actions, `dgx_ui_action_back` and `_page`; any other `<name>` |
 | take | `<name>` |
 | ctx | `&<name>`; an integer `(void *)(intptr_t)<n>` |
 | id | `int <prefix>_<id>`, declared by the header |

@@ -41,15 +41,15 @@ static int                   told[16], told_n;
 
 static void on_list(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (told_n < 16 && (what == DGX_UI_CHANGED || what == DGX_UI_ACTIVATED)) told[told_n++] = what; /* the focus not counted */
+    if (told_n < 16 && (what == DGX_UI_EVENT_CHANGED || what == DGX_UI_EVENT_ACTIVATED)) told[told_n++] = what; /* the focus not counted */
 }
 
 /* a list whose on(CHANGED) takes it away and puts a button in its slot: the button is told nothing */
-static const dgx_ui_widget_t newcomer_w = {.kind = DGX_UI_BUTTON, .want_h = 20, .on = on_list};
+static const dgx_ui_widget_t newcomer_w = {.kind = DGX_UI_BUTTON, .want_h = 20, .on_event = on_list};
 static int                   swapped    = -1;
 static void                  on_swap(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_CHANGED) return;
+    if (what != DGX_UI_EVENT_CHANGED) return;
     dgx_ui_remove(ui, i);
     swapped = dgx_ui_add(ui, 0, &newcomer_w);
 }
@@ -72,7 +72,7 @@ static void make(tree_t *t, const char *text, int min, int max, int want_w, int 
     memset(t, 0, sizeof *t);
     dgx_ui_textbox_init(&t->box, t->buf, sizeof t->buf, 1, &style);
     t->w = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .value = new_place(), .text = &t->box, .min = (int16_t)min, .max = (int16_t)max, .want_w = (int16_t)want_w,
-                             .want_h = (int16_t)want_h, .look = &dgx_ui_look_list, .on = on_list};
+                             .want_h = (int16_t)want_h, .look = &dgx_ui_look_list, .on_event = on_list};
     dgx_ui_init(&t->ui, t->nodes, 4, 1);
     dgx_ui_add(&t->ui, -1, &root_w);
     const int holder = framed ? dgx_ui_add(&t->ui, 0, &frame_w) : 0;
@@ -164,12 +164,12 @@ int main(void)
     finger(&s.ui, fx, fy + rh, false, false, 160); /* back down past where it went down: back up the list */
     CHECK(dgx_ui_value_of(n) == 4 && s.box.top == 4);
     finger(&s.ui, fx, fy + rh, false, true, 180);
-    CHECK(told_n == 3 && told[0] == DGX_UI_CHANGED && told[2] == DGX_UI_CHANGED);
+    CHECK(told_n == 3 && told[0] == DGX_UI_EVENT_CHANGED && told[2] == DGX_UI_EVENT_CHANGED);
     /* a tap on the third row shown: picked, and activated */
     told_n = 0;
     finger(&s.ui, fx, n->y + 2 * rh + rh / 2, true, false, 1000);
     finger(&s.ui, fx, n->y + 2 * rh + rh / 2, false, true, 1100);
-    CHECK(dgx_ui_value_of(n) == 6 && told_n == 2 && told[0] == DGX_UI_CHANGED && told[1] == DGX_UI_ACTIVATED);
+    CHECK(dgx_ui_value_of(n) == 6 && told_n == 2 && told[0] == DGX_UI_EVENT_CHANGED && told[1] == DGX_UI_EVENT_ACTIVATED);
     dgx_ui_focus(&s.ui, -1); /* the finger brought the focus: the reference has none */
     dgx_ui_paint(&s.ui, &ps, 11);
 
@@ -262,7 +262,7 @@ int main(void)
         static const dgx_ui_widget_t rest_root = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
         memset(&grow, 0, sizeof grow);
         dgx_ui_textbox_init(&grow.box, grow.buf, sizeof grow.buf, 1, &style);
-        grow.w = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .value = new_place(), .flags = DGX_UI_REST, .text = &grow.box, .max = 11, .look = &dgx_ui_look_list, .on = on_list};
+        grow.w = (dgx_ui_widget_t){.kind = DGX_UI_LIST, .value = new_place(), .flags = DGX_UI_REST, .text = &grow.box, .max = 11, .look = &dgx_ui_look_list, .on_event = on_list};
         dgx_ui_init(&grow.ui, grow.nodes, 4, 1);
         dgx_ui_add(&grow.ui, -1, &rest_root);
         grow.i = dgx_ui_add(&grow.ui, 0, &grow.w);
@@ -323,7 +323,7 @@ int main(void)
     {
         static tree_t t;
         make(&t, lines(0, 12), 0, 11, 0, 4 * line, false);
-        t.w.on = on_swap;
+        t.w.on_event = on_swap;
         dgx_ui_screen(&t.ui, PANEL_W, PANEL_H, 0);
         dgx_ui_layout(&t.ui);
         const dgx_ui_node_t *tn = dgx_ui_node(&t.ui, t.i);

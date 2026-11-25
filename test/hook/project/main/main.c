@@ -49,7 +49,7 @@ static bool same(const dgx_ui_t *a, const dgx_ui_t *b)
         const dgx_ui_widget_t *x = dgx_ui_node(a, i)->widget, *y = dgx_ui_node(b, i)->widget;
         if (dgx_ui_node(a, i)->parent != dgx_ui_node(b, i)->parent || x->kind != y->kind || x->flags != y->flags || x->pad != y->pad ||
             x->gap != y->gap || x->want_w != y->want_w || x->want_h != y->want_h || x->min != y->min || x->max != y->max || x->step != y->step ||
-            x->value != y->value || x->look != y->look || x->on != y->on || x->ctx != y->ctx || !x->text != !y->text)
+            x->value != y->value || x->look != y->look || x->on_event != y->on_event || x->ctx != y->ctx || !x->text != !y->text)
             return false;
         if (x->text && (strcmp(x->text->buf, y->text->buf) != 0 || x->text->size != y->text->size || x->text->style != y->text->style)) return false;
     }
@@ -76,7 +76,7 @@ void app_main(void)
     printf("hook: the tree \"%s\", %d widgets, made and loaded the same\n", need.name, made.count);
     dgx_ui_free(&made);
     dgx_ui_init(&made, made_nodes, 16, 1);
-    if (other_add(&made, -1) != 0 || dgx_ui_node(&made, 0)->widget->on != on_saved) fail("b.json's tree not as made");
+    if (other_add(&made, -1) != 0 || dgx_ui_node(&made, 0)->widget->on_event != on_saved) fail("b.json's tree not as made");
     if (second_count() != 2) fail("the second component's tree not as made");
     if (third_count() != 3) fail("the third component's tree not as made");
     /* on the second component's appearance: the made tree against the loader on the tables made with it */

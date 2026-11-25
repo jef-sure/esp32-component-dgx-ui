@@ -1,5 +1,5 @@
 /*
- * dgx_ui_changed.c
+ * dgx_ui_paint_changes.c
  *
  *  What changed, told and not drawn: the pass dgx_ui_paint() makes, over the same marks, with a teller lent to the
  *  paint in place of its strips. The painter offers every part of a widget it would draw to the strips first; the
@@ -19,7 +19,7 @@
 /* lent to the paint for the call: the strips' hook first, so the paint's pointer to its strips is the teller */
 typedef struct {
     dgx_ui_strips_t   hook;
-    dgx_ui_changed_fn tell;
+    dgx_ui_paint_changes_t tell;
     void             *ctx;
     dgx_ui_rect_t     last; /* the rectangle told last: one inside it is composed with it */
 } teller_t;
@@ -55,7 +55,7 @@ static bool tell_part(dgx_ui_paint_t *paint, const dgx_ui_look_t *look, dgx_ui_t
     return true;
 }
 
-bool dgx_ui_changed(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_changed_fn tell, void *ctx)
+bool dgx_ui_paint_changes(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms, dgx_ui_paint_changes_t tell, void *ctx)
 {
     teller_t       teller  = {.hook = {.draw = tell_part}, .tell = tell, .ctx = ctx};
     const uint32_t last_ms = paint->now_ms;

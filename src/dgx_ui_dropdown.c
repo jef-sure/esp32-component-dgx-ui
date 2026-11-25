@@ -16,7 +16,7 @@
 /* the list's row chosen: the dropdown's value, told when it changed; the list closed either way */
 static void on_list(dgx_ui_t *tree, int li, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_ACTIVATED) return; /* a pick moved by the keys or a finger: nothing of the dropdown yet */
+    if (what != DGX_UI_EVENT_ACTIVATED) return; /* a pick moved by the keys or a finger: nothing of the dropdown yet */
     dgx_ui_dropdown_t *dd = ctx;
     dgx_ui_t          *ui = dd->ui;
     const int          i = dd->i, value = dgx_ui_value_of(node);
@@ -26,7 +26,7 @@ static void on_list(dgx_ui_t *tree, int li, const dgx_ui_node_t *node, int what,
     /* gone, or another widget in its place (removed while its list was open), or the option it had: nothing told */
     if (!n || !n->widget || n->widget->kind != DGX_UI_DROPDOWN || n->widget->text != dd->list.text || dgx_ui_value_of(n) == value) return;
     dgx_ui_set_value(ui, i, value);
-    if (n->widget->on) n->widget->on(ui, i, n, DGX_UI_CHANGED, n->widget->ctx); /* the user chose */
+    if (n->widget->on_event) n->widget->on_event(ui, i, n, DGX_UI_EVENT_CHANGED, n->widget->ctx); /* the user chose */
 }
 
 /* the text of a widget of ui set: the lists in the popups over it that show the same box (a dropdown's open list)
@@ -84,7 +84,7 @@ bool dgx_ui_dropdown_open(dgx_ui_t *ui, int i, dgx_ui_dropdown_t *dd, const dgx_
                                   .value = &dd->pick,
                                   .text  = w->text,
                                   .look  = list_look ? list_look : &dgx_ui_look_list,
-                                  .on    = on_list,
+                                  .on_event    = on_list,
                                   .ctx   = dd};
     dgx_ui_init(&dd->tree, dd->nodes, 2, u);
     dgx_ui_add(&dd->tree, -1, &dd->frame);

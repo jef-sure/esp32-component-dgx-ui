@@ -2,4 +2,4 @@
   {"kind": "label", "text": "Sound", "id": "title", "text_size": 24},
   {"kind": "slider", "value": "volume", "max": 100, "step": 5, "want": [0, 12], "editor": {"dgx-ui": {"note": "0.5 dB a step", "guide": 12.5}}},
   {"kind": "switch", "value": "muted", "text": "Mute", "look": "checkbox"},
-  {"kind": "button", "text": "Back", "on": "back"}]}}
+  {"kind": "button", "text": "Back", "on_event": "back"}]}}

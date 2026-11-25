@@ -50,7 +50,7 @@ def library_draws():
     for name in ("dgx_ui_params.c", "dgx_ui_scroll.c"):  # the scrolling box's description beside its behaviour
         with open(os.path.join(ROOT, "src", name), encoding="utf-8") as source:
             text += source.read()
-    draws = re.findall(r"^const dgx_ui_params_t dgx_ui_params_(\w+)\s*=\s*(?:DGX_UI_PARAMS(?:_BEHAVING)?\((\w+),|\{)", text, re.M)
+    draws = re.findall(r"^const dgx_ui_params_t dgx_ui_params_(\w+)\s*=\s*(?:DGX_UI_PARAMS(?:_WITH_BEHAVIOR)?\((\w+),|\{)", text, re.M)
     lines = [f"DRAW({word}, {kind})\n" for word, kind in draws if word not in ("text_style", "font_variant")]
     lines += [f"COUNT({kind}, {member}, {count})\n" for kind, member, count in re.findall(r"DGX_UI_BANDS_FIELD\((\w+), (\w+), (\w+)\)", text)]
     if len(lines) < 19:

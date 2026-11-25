@@ -33,7 +33,7 @@ described = json.loads(subprocess.run([dump], capture_output=True, text=True, ch
 DRAWS = sorted(described["draws"])
 COLOR, UNDER, NUMBER, BOOL, WORD, FLAGS, BIT, BANDS, FONT, HAND, VARIANTS, PICTURE = range(12)
 codes = {"DGX_UI_LOAD_" + word: k for k, word in enumerate(["OK", "SYNTAX", "VERSION", "KEY", "KIND", "FIELD", "RANGE", "NAME_BAD", "UNKNOWN", "NO_LOOK",
-                                                           "NO_STYLE", "DEPTH_MAX", "MEMORY", "NODES", "ID", "MISSING"])}
+                                                           "NO_STYLE", "TOO_DEEP", "MEMORY", "NODES", "ID", "MISSING"])}
 
 NAMES = "".join(f"draw {word}\n" for word in DRAWS) + """draw dial draw_dial
 font small TerminusTTFMedium12

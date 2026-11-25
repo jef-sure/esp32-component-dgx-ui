@@ -41,7 +41,7 @@ static void make_styles(void)
     two[0]   = (dgx_ui_font_variant_t){.font = &DejaVuSansBook32};
     two[1]   = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
     st_small = (dgx_ui_text_style_t){.fonts = small, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
-    st_two   = (dgx_ui_text_style_t){.fonts = two, .count = 2, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_TEXT_MIDDLE};
+    st_two   = (dgx_ui_text_style_t){.fonts = two, .count = 2, .align = DGX_FONT_ALIGN_LEFT, .flags = DGX_UI_STYLE_MIDDLE};
     style_small = &st_small, style_two = &st_two;
 }
 

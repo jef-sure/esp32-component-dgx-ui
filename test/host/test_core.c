@@ -14,7 +14,7 @@
 #include "dgx_ui.h"
 #include "dgx_ui_text.h"
 
-/* what on() was told, in order */
+/* what on_event() was told, in order */
 static int told[64][2], told_count, told_value, told_node_ok;
 
 static void on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
@@ -194,15 +194,15 @@ static void test_text_height(void)
 }
 
 /* a panel of a column: a button, a slider, a switch, a list of 4 rows, a disabled button, a hidden one */
-static const dgx_ui_widget_t p_button = {.kind = DGX_UI_BUTTON, .want_h = 20, .on = on};
+static const dgx_ui_widget_t p_button = {.kind = DGX_UI_BUTTON, .want_h = 20, .on_event = on};
 static int32_t p_slider_place; /* its value */
-static const dgx_ui_widget_t p_slider = {.kind = DGX_UI_SLIDER, .value = &p_slider_place, .want_h = 20, .max = 100, .step = 1, .on = on};
+static const dgx_ui_widget_t p_slider = {.kind = DGX_UI_SLIDER, .value = &p_slider_place, .want_h = 20, .max = 100, .step = 1, .on_event = on};
 static int32_t p_switch_place; /* its value */
-static const dgx_ui_widget_t p_switch = {.kind = DGX_UI_SWITCH, .value = &p_switch_place, .want_h = 20, .max = 1, .on = on};
+static const dgx_ui_widget_t p_switch = {.kind = DGX_UI_SWITCH, .value = &p_switch_place, .want_h = 20, .max = 1, .on_event = on};
 static int32_t p_list_place; /* its value */
-static const dgx_ui_widget_t p_list   = {.kind = DGX_UI_LIST, .value = &p_list_place, .want_h = 40, .max = 3, .on = on};
-static const dgx_ui_widget_t p_off    = {.kind = DGX_UI_BUTTON, .want_h = 20, .on = on, .state = {.bits = DGX_UI_DISABLED}};
-static const dgx_ui_widget_t p_hidden = {.kind = DGX_UI_BUTTON, .want_h = 20, .on = on, .state = {.bits = DGX_UI_HIDDEN}};
+static const dgx_ui_widget_t p_list   = {.kind = DGX_UI_LIST, .value = &p_list_place, .want_h = 40, .max = 3, .on_event = on};
+static const dgx_ui_widget_t p_off    = {.kind = DGX_UI_BUTTON, .want_h = 20, .on_event = on, .state = {.bits = DGX_UI_DISABLED}};
+static const dgx_ui_widget_t p_hidden = {.kind = DGX_UI_BUTTON, .want_h = 20, .on_event = on, .state = {.bits = DGX_UI_HIDDEN}};
 static dgx_ui_node_t         pw[8];
 static dgx_ui_t              pui;
 static int                   bt, sl, sw, li;
@@ -230,78 +230,78 @@ static void test_pointer(void)
        button: it was meant, the slider was smudged */
     CHECK(dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .down = true, .pressed = true, .ms = 1000}));
     CHECK(pui.pressed == bt && (b->state.bits & DGX_UI_PRESSED) && (b->state.bits & DGX_UI_FOCUSED));
-    CHECK(told_of(bt, DGX_UI_FOCUS) == 1);
+    CHECK(told_of(bt, DGX_UI_EVENT_FOCUS) == 1);
     CHECK(dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 30, .down = true, .ms = 1050}));
     CHECK(b->state.bits & DGX_UI_PRESSED);
     CHECK(dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 30, .released = true, .ms = 1090}));
-    CHECK(told_of(bt, DGX_UI_ACTIVATED) == 1 && pui.pressed == -1 && !(b->state.bits & DGX_UI_PRESSED));
-    CHECK(told_of(sl, DGX_UI_CHANGED) == 0 && told_of(sl, DGX_UI_ACTIVATED) == 0);
+    CHECK(told_of(bt, DGX_UI_EVENT_ACTIVATED) == 1 && pui.pressed == -1 && !(b->state.bits & DGX_UI_PRESSED));
+    CHECK(told_of(sl, DGX_UI_EVENT_CHANGED) == 0 && told_of(sl, DGX_UI_EVENT_ACTIVATED) == 0);
     /* let go 499 ms after, a click; 500, none: a long press; the clock runs over zero between */
     const uint32_t t0 = 0xFFFFFF00u;
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .down = true, .pressed = true, .ms = t0});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 11, .y = 6, .released = true, .ms = t0 + 499});
-    CHECK(told_of(bt, DGX_UI_ACTIVATED) == 2 && !(b->state.bits & DGX_UI_PRESSED));
+    CHECK(told_of(bt, DGX_UI_EVENT_ACTIVATED) == 2 && !(b->state.bits & DGX_UI_PRESSED));
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .down = true, .pressed = true, .ms = t0});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 11, .y = 6, .released = true, .ms = t0 + 500});
-    CHECK(told_of(bt, DGX_UI_ACTIVATED) == 2 && !(b->state.bits & DGX_UI_PRESSED));
+    CHECK(told_of(bt, DGX_UI_EVENT_ACTIVATED) == 2 && !(b->state.bits & DGX_UI_PRESSED));
     /* a swipe told while it is held (the adapter of DGX-DI tells it once): pressed till let go, no click */
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .down = true, .pressed = true, .ms = 3000});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 60, .y = 5, .down = true, .swipe = true, .ms = 3040});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 70, .y = 5, .down = true, .ms = 3050});
     CHECK(b->state.bits & DGX_UI_PRESSED);
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 70, .y = 5, .released = true, .ms = 3060});
-    CHECK(told_of(bt, DGX_UI_ACTIVATED) == 2 && !(b->state.bits & DGX_UI_PRESSED));
+    CHECK(told_of(bt, DGX_UI_EVENT_ACTIVATED) == 2 && !(b->state.bits & DGX_UI_PRESSED));
     /* the swipe of a finger before is not this one's */
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .down = true, .pressed = true, .ms = 4000});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .released = true, .ms = 4050});
-    CHECK(told_of(bt, DGX_UI_ACTIVATED) == 3);
+    CHECK(told_of(bt, DGX_UI_EVENT_ACTIVATED) == 3);
     /* a swipe told with the press itself */
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .down = true, .pressed = true, .swipe = true, .ms = 5000});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 10, .y = 5, .released = true, .ms = 5050});
-    CHECK(told_of(bt, DGX_UI_ACTIVATED) == 3);
+    CHECK(told_of(bt, DGX_UI_EVENT_ACTIVATED) == 3);
     /* a slider: the knob at the point, then where it is dragged; it owns the finger */
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 51, .y = 25, .down = true, .pressed = true});
-    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, sl)) == 50 && told_of(sl, DGX_UI_CHANGED) == 1);
-    CHECK(told_value == 50 && told_node_ok); /* on() has the node: the value without a call */
+    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, sl)) == 50 && told_of(sl, DGX_UI_EVENT_CHANGED) == 1);
+    CHECK(told_value == 50 && told_node_ok); /* on_event() has the node: the value without a call */
     CHECK(dgx_ui_dragging(&pui));
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 101, .y = 25, .down = true});
-    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, sl)) == 100 && told_of(sl, DGX_UI_CHANGED) == 2);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, sl)) == 100 && told_of(sl, DGX_UI_EVENT_CHANGED) == 2);
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 101, .y = 25, .released = true});
     CHECK(!dgx_ui_dragging(&pui));
     /* a switch: a click flips it, held long it does not */
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 45, .down = true, .pressed = true});
     CHECK(!dgx_ui_dragging(&pui));
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 45, .released = true});
-    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, sw)) == 1 && told_of(sw, DGX_UI_CHANGED) == 1);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, sw)) == 1 && told_of(sw, DGX_UI_EVENT_CHANGED) == 1);
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 45, .down = true, .pressed = true, .ms = 100});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 45, .released = true, .ms = 700});
-    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, sw)) == 1 && told_of(sw, DGX_UI_CHANGED) == 1);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, sw)) == 1 && told_of(sw, DGX_UI_EVENT_CHANGED) == 1);
     /* a list: the row under the finger (rows of 10 pixels from y 60), activated on letting go soon; held long, the
        row taken, not activated */
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 85, .down = true, .pressed = true});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 85, .released = true});
-    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 2 && told_of(li, DGX_UI_ACTIVATED) == 1);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 2 && told_of(li, DGX_UI_EVENT_ACTIVATED) == 1);
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 75, .down = true, .pressed = true, .ms = 100});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 75, .released = true, .ms = 600});
-    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 1 && told_of(li, DGX_UI_ACTIVATED) == 1);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 1 && told_of(li, DGX_UI_EVENT_ACTIVATED) == 1);
     /* the finger moved along the list: the row under it picked, as the bar follows it, a change told for each row;
        past the last row, the last; let go, no click */
-    const int changed_before = told_of(li, DGX_UI_CHANGED);
+    const int changed_before = told_of(li, DGX_UI_EVENT_CHANGED);
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 65, .down = true, .pressed = true, .ms = 1000});
     CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 0);
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 75, .down = true, .ms = 1010});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 85, .down = true, .ms = 1020});
-    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 2 && told_of(li, DGX_UI_CHANGED) == changed_before + 3);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 2 && told_of(li, DGX_UI_EVENT_CHANGED) == changed_before + 3);
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 140, .down = true, .ms = 1030});
     CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 3);
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 140, .released = true, .ms = 1040});
-    CHECK(told_of(li, DGX_UI_ACTIVATED) == 1);
+    CHECK(told_of(li, DGX_UI_EVENT_ACTIVATED) == 1);
     /* back to the row it went down on: still dragged, no click */
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 65, .down = true, .pressed = true, .ms = 2000});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 75, .down = true, .ms = 2010});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 65, .down = true, .ms = 2020});
     dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 65, .released = true, .ms = 2030});
-    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 0 && told_of(li, DGX_UI_ACTIVATED) == 1);
+    CHECK(dgx_ui_value_of(dgx_ui_node(&pui, li)) == 0 && told_of(li, DGX_UI_EVENT_ACTIVATED) == 1);
     /* the disabled and the hidden from the start are not hit; the program's own changes tell nothing */
     CHECK(dgx_ui_hit(&pui, 5, 105) == -1 && dgx_ui_hit(&pui, 5, 125) == -1);
     CHECK(!dgx_ui_pointer(&pui, &(dgx_ui_pointer_t){.x = 5, .y = 105, .down = true, .pressed = true}));
@@ -334,7 +334,7 @@ static void test_keys(void)
     /* a held button: its key at once, again from 500 ms, then every 100 ms; the time runs over zero */
     dgx_ui_focus(&pui, bt);
     const uint32_t t0 = 0xFFFFFF00u;
-    CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_DOWN, t0) && pui.focus == sl);
+    CHECK(dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_DOWN, t0) && pui.focus == sl);
     CHECK(dgx_ui_time(&pui, t0 + 100) && pui.focus == sl); /* the moment of the repeat is past zero, now is not */
     CHECK(dgx_ui_time(&pui, t0 + 499) && pui.focus == sl);
     CHECK(dgx_ui_time(&pui, t0 + 500) && pui.focus == sw);
@@ -350,7 +350,7 @@ static void test_keys(void)
         dgx_ui_add(&other, -1, &(dgx_ui_widget_t){.kind = DGX_UI_BOX});
         dgx_ui_add(&other, 0, &(dgx_ui_widget_t){.kind = DGX_UI_BUTTON, .want_h = 10});
         dgx_ui_focus(&pui, bt);
-        CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_DOWN, 2000) && pui.focus == sl);
+        CHECK(dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_DOWN, 2000) && pui.focus == sl);
         CHECK(!dgx_ui_time(&other, 2500) && other.focus == -1);
         CHECK(dgx_ui_time(&pui, 2500) && pui.focus == sw);
         dgx_ui_buttons(&pui, 0, 2550);
@@ -369,7 +369,7 @@ static void test_keys(void)
         const int first = dgx_ui_add(&popup, 0, &small_w), second = dgx_ui_add(&popup, 0, &small_w);
         dgx_ui_focus(&pui, bt);
         CHECK(dgx_ui_popup_open(&pui, &popup, 0, 0, 50, 30, DGX_UI_POPUP_MODAL));
-        CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_DOWN, 3000) && popup.focus == first && pui.focus == bt);
+        CHECK(dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_DOWN, 3000) && popup.focus == first && pui.focus == bt);
         CHECK(dgx_ui_time(&pui, 3500) && popup.focus == second && pui.focus == bt);
         CHECK(dgx_ui_time(&pui, 3600) && popup.focus == first && pui.focus == bt);
         dgx_ui_buttons(&pui, 0, 3650);
@@ -381,7 +381,7 @@ static void test_keys(void)
         dgx_ui_add(&note, -1, &column_w);
         dgx_ui_add(&note, 0, &note_w);
         CHECK(dgx_ui_popup_open(&pui, &note, 0, 0, 50, 30, 0));
-        CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_DOWN, 4000) && pui.focus == sl);
+        CHECK(dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_DOWN, 4000) && pui.focus == sl);
         CHECK(dgx_ui_time(&pui, 4500) && pui.focus == sw && note.focus == -1);
         dgx_ui_buttons(&pui, 0, 4550);
         dgx_ui_popup_close(&pui);
@@ -390,24 +390,24 @@ static void test_keys(void)
     /* A activates, BACK is nobody's, a button of no key nothing */
     dgx_ui_focus(&pui, bt);
     told_count = 0;
-    dgx_ui_buttons(&pui, DGX_UI_PAD_A, 10);
-    CHECK(told_of(bt, DGX_UI_ACTIVATED) == 1);
+    dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_A, 10);
+    CHECK(told_of(bt, DGX_UI_EVENT_ACTIVATED) == 1);
     dgx_ui_buttons(&pui, 0, 20);
-    CHECK(!dgx_ui_buttons(&pui, DGX_UI_PAD_B, 30));
-    CHECK(!dgx_ui_buttons(&pui, DGX_UI_PAD_B | DGX_UI_PAD_START, 40));
+    CHECK(!dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_B, 30));
+    CHECK(!dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_B | DGX_UI_GAMEPAD_START, 40));
     CHECK(!dgx_ui_time(&pui, 50));
     /* the program's keys of the buttons: left and right move the focus, as in a row; NULL the default again */
     static const uint8_t row_keys[8] = {DGX_UI_KEY_PREV, DGX_UI_KEY_NEXT, DGX_UI_KEY_PREV, DGX_UI_KEY_NEXT, DGX_UI_KEY_ACTIVATE, 0xff, DGX_UI_KEY_BACK, DGX_UI_KEY_BACK};
     dgx_ui_focus(&pui, bt);
     dgx_ui_button_keys(&pui, row_keys);
-    CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_RIGHT, 60) && pui.focus == sl);
+    CHECK(dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_RIGHT, 60) && pui.focus == sl);
     dgx_ui_buttons(&pui, 0, 70);
-    CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_LEFT, 80) && pui.focus == bt);
+    CHECK(dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_LEFT, 80) && pui.focus == bt);
     dgx_ui_buttons(&pui, 0, 90);
     dgx_ui_button_keys(&pui, NULL);
     dgx_ui_focus(&pui, sl);
     const int was = dgx_ui_value_of(dgx_ui_node(&pui, sl));
-    CHECK(dgx_ui_buttons(&pui, DGX_UI_PAD_RIGHT, 100) && pui.focus == sl && dgx_ui_value_of(dgx_ui_node(&pui, sl)) == was + 1);
+    CHECK(dgx_ui_buttons(&pui, DGX_UI_GAMEPAD_RIGHT, 100) && pui.focus == sl && dgx_ui_value_of(dgx_ui_node(&pui, sl)) == was + 1);
     dgx_ui_buttons(&pui, 0, 110);
     dgx_ui_focus(&pui, bt);
     /* disabled while focused: the focus leaves it */
@@ -416,7 +416,7 @@ static void test_keys(void)
     dgx_ui_free(&pui);
 }
 
-/* widgets removed by their own on(), values without a range, and the rest of the edge cases */
+/* widgets removed by their own on_event(), values without a range, and the rest of the edge cases */
 static void on_remove(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
     if (what == (int)(intptr_t)ctx) dgx_ui_remove(ui, i);
@@ -425,25 +425,25 @@ static int32_t icon_w_place; /* its value */
 static const dgx_ui_widget_t icon_w      = {.kind = DGX_UI_ICON, .value = &icon_w_place, .min = 0, .max = 2, .want_h = 10};
 static int32_t no_range_place;
 static const dgx_ui_widget_t no_range    = {.kind = DGX_UI_BUTTON, .value = &no_range_place, .want_h = 10};
-static const dgx_ui_widget_t focus_dies  = {.kind = DGX_UI_BUTTON, .want_h = 20, .on = on_remove, .ctx = (void *)(intptr_t)DGX_UI_FOCUS};
+static const dgx_ui_widget_t focus_dies  = {.kind = DGX_UI_BUTTON, .want_h = 20, .on_event = on_remove, .ctx = (void *)(intptr_t)DGX_UI_EVENT_FOCUS};
 static int32_t change_dies_place; /* its value */
-static const dgx_ui_widget_t change_dies = {.kind = DGX_UI_SLIDER, .value = &change_dies_place, .want_h = 20, .max = 100, .on = on_remove, .ctx = (void *)(intptr_t)DGX_UI_CHANGED};
+static const dgx_ui_widget_t change_dies = {.kind = DGX_UI_SLIDER, .value = &change_dies_place, .want_h = 20, .max = 100, .on_event = on_remove, .ctx = (void *)(intptr_t)DGX_UI_EVENT_CHANGED};
 static const dgx_ui_widget_t tagged_box  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .tag = 5, .want_h = 40};
 /* at a value changed by a finger: its widget removed, or its whole tree freed (a page rebuilt when a setting is
    toggled) */
 static void on_free(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_CHANGED) dgx_ui_free(ui);
+    if (what == DGX_UI_EVENT_CHANGED) dgx_ui_free(ui);
 }
 static int32_t               toggled_place; /* their value */
-static const dgx_ui_widget_t switch_dies  = {.kind = DGX_UI_SWITCH, .max = 1, .want_h = 20, .value = &toggled_place, .on = on_remove,
-                                             .ctx = (void *)(intptr_t)DGX_UI_CHANGED};
-static const dgx_ui_widget_t radio_dies   = {.kind = DGX_UI_RADIO, .step = 3, .want_h = 20, .value = &toggled_place, .on = on_remove,
-                                             .ctx = (void *)(intptr_t)DGX_UI_CHANGED};
-static const dgx_ui_widget_t switch_frees = {.kind = DGX_UI_SWITCH, .max = 1, .want_h = 20, .value = &toggled_place, .on = on_free};
-static const dgx_ui_widget_t radio_frees  = {.kind = DGX_UI_RADIO, .step = 3, .want_h = 20, .value = &toggled_place, .on = on_free};
-static const dgx_ui_widget_t slider_frees = {.kind = DGX_UI_SLIDER, .flags = DGX_UI_SWIPE, .max = 100, .want_h = 20, .value = &toggled_place,
-                                             .on = on_free};
+static const dgx_ui_widget_t switch_dies  = {.kind = DGX_UI_SWITCH, .max = 1, .want_h = 20, .value = &toggled_place, .on_event = on_remove,
+                                             .ctx = (void *)(intptr_t)DGX_UI_EVENT_CHANGED};
+static const dgx_ui_widget_t radio_dies   = {.kind = DGX_UI_RADIO, .step = 3, .want_h = 20, .value = &toggled_place, .on_event = on_remove,
+                                             .ctx = (void *)(intptr_t)DGX_UI_EVENT_CHANGED};
+static const dgx_ui_widget_t switch_frees = {.kind = DGX_UI_SWITCH, .max = 1, .want_h = 20, .value = &toggled_place, .on_event = on_free};
+static const dgx_ui_widget_t radio_frees  = {.kind = DGX_UI_RADIO, .step = 3, .want_h = 20, .value = &toggled_place, .on_event = on_free};
+static const dgx_ui_widget_t slider_frees = {.kind = DGX_UI_SLIDER, .flags = DGX_UI_RELATIVE, .max = 100, .want_h = 20, .value = &toggled_place,
+                                             .on_event = on_free};
 
 static void test_edges(void)
 {
@@ -480,7 +480,7 @@ static void test_edges(void)
     CHECK(!dgx_ui_dragging(&pui));
     dgx_ui_free(&pui);
 
-    /* on() removes the widget it is told of: nothing is written through it, the press ends */
+    /* on_event() removes the widget it is told of: nothing is written through it, the press ends */
     dgx_ui_init(&ui, n, 8, 1);
     dgx_ui_add(&ui, -1, &column);
     const int fd = dgx_ui_add(&ui, 0, &focus_dies);
@@ -502,7 +502,7 @@ static void test_edges(void)
        read of a freed one is caught */
     const dgx_ui_widget_t *changed_dies[] = {&switch_dies, &radio_dies, &switch_frees, &radio_frees, &slider_frees};
     for (size_t k = 0; k < sizeof changed_dies / sizeof *changed_dies; ++k) {
-        const bool frees = changed_dies[k]->on == on_free;
+        const bool frees = changed_dies[k]->on_event == on_free;
         toggled_place    = 0;
         dgx_ui_init(&ui, NULL, 0, 1);
         dgx_ui_set_root(&ui, 0, 0, 100, 100);
@@ -584,10 +584,10 @@ static void test_rest(void)
     dgx_ui_free(&ui);
 }
 
-/* a field: DGX_UI_EDIT on a click and on ACTIVATE while it has the focus; not when the finger goes down, nor on a
+/* a field: DGX_UI_EVENT_EDIT on a click and on ACTIVATE while it has the focus; not when the finger goes down, nor on a
    long hold or a swipe; again on a second click, the focus staying */
-static const dgx_ui_widget_t e_field = {.kind = DGX_UI_INPUT, .text = &text_box, .want_h = 12, .on = on};
-static const dgx_ui_widget_t e_button = {.kind = DGX_UI_BUTTON, .want_h = 12, .on = on};
+static const dgx_ui_widget_t e_field = {.kind = DGX_UI_INPUT, .text = &text_box, .want_h = 12, .on_event = on};
+static const dgx_ui_widget_t e_button = {.kind = DGX_UI_BUTTON, .want_h = 12, .on_event = on};
 
 static void test_edit(void)
 {
@@ -601,27 +601,27 @@ static void test_edit(void)
     told_count = 0;
     /* down: the focus, no edit yet; up soon: the edit */
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .down = true, .pressed = true, .ms = 100});
-    CHECK(told_of(f, DGX_UI_FOCUS) == 1 && told_of(f, DGX_UI_EDIT) == 0);
+    CHECK(told_of(f, DGX_UI_EVENT_FOCUS) == 1 && told_of(f, DGX_UI_EVENT_EDIT) == 0);
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .released = true, .ms = 150});
-    CHECK(told_of(f, DGX_UI_EDIT) == 1 && ui.focus == f);
+    CHECK(told_of(f, DGX_UI_EVENT_EDIT) == 1 && ui.focus == f);
     /* clicked again, the focus on it already: the edit again, no focus told */
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .down = true, .pressed = true, .ms = 200});
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .released = true, .ms = 250});
-    CHECK(told_of(f, DGX_UI_EDIT) == 2 && told_of(f, DGX_UI_FOCUS) == 1);
+    CHECK(told_of(f, DGX_UI_EVENT_EDIT) == 2 && told_of(f, DGX_UI_EVENT_FOCUS) == 1);
     /* held long, or swiped: no edit */
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .down = true, .pressed = true, .ms = 300});
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .released = true, .ms = 900});
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 5, .y = 5, .down = true, .pressed = true, .ms = 1000});
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 40, .y = 5, .down = true, .swipe = true, .ms = 1040});
     dgx_ui_pointer(&ui, &(dgx_ui_pointer_t){.x = 40, .y = 5, .released = true, .ms = 1060});
-    CHECK(told_of(f, DGX_UI_EDIT) == 2);
+    CHECK(told_of(f, DGX_UI_EVENT_EDIT) == 2);
     /* the keys: NEXT past the field opens nothing; ACTIVATE on it, the edit; on the button, its activation */
     dgx_ui_focus(&ui, -1);
     told_count = 0;
-    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && ui.focus == f && told_of(f, DGX_UI_EDIT) == 0);
-    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE) && told_of(f, DGX_UI_EDIT) == 1);
-    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && ui.focus == b && told_of(f, DGX_UI_EDIT) == 1);
-    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE) && told_of(b, DGX_UI_ACTIVATED) == 1 && told_of(b, DGX_UI_EDIT) == 0);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && ui.focus == f && told_of(f, DGX_UI_EVENT_EDIT) == 0);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE) && told_of(f, DGX_UI_EVENT_EDIT) == 1);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_NEXT) && ui.focus == b && told_of(f, DGX_UI_EVENT_EDIT) == 1);
+    CHECK(dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE) && told_of(b, DGX_UI_EVENT_ACTIVATED) == 1 && told_of(b, DGX_UI_EVENT_EDIT) == 0);
     dgx_ui_free(&ui);
 }
 

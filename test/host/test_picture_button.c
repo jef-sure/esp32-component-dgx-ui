@@ -61,7 +61,7 @@ static int32_t on_place, choice = 1, odd_place;
 static int     activated;
 static void    on_button(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    activated += what == DGX_UI_ACTIVATED;
+    activated += what == DGX_UI_EVENT_ACTIVATED;
 }
 
 static const dgx_ui_button_look_t no_focus_params = {.face = 2, .pressed = 3, .focused = DGX_UI_PAPER, .disabled = 0, .text = 1, .text_disabled = 2, .shadow = 0, .depth = 1};
@@ -72,7 +72,7 @@ static const dgx_ui_look_t        flat_look       = {.draw = dgx_ui_draw_picture
 static const dgx_ui_widget_t column_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 2};
 static const dgx_ui_widget_t row_w     = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 12};
 static const dgx_ui_widget_t radios_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 10};
-static const dgx_ui_widget_t button_w  = {.kind = DGX_UI_BUTTON, .picture = &arrow, .text = &go_box, .look = &dgx_ui_look_picture_button, .on = on_button};
+static const dgx_ui_widget_t button_w  = {.kind = DGX_UI_BUTTON, .picture = &arrow, .text = &go_box, .look = &dgx_ui_look_picture_button, .on_event = on_button};
 static const dgx_ui_widget_t toggle_w  = {.kind = DGX_UI_SWITCH, .value = &on_place, .picture = bells, .look = &dgx_ui_look_picture_button};
 static const dgx_ui_widget_t switch_w  = {.kind = DGX_UI_SWITCH, .value = &on_place, .want_w = 14, .want_h = 8, .look = &dgx_ui_look_switch};
 static const dgx_ui_widget_t check_w   = {.kind = DGX_UI_SWITCH, .value = &on_place, .want_w = 10, .want_h = 10, .look = &dgx_ui_look_checkbox};

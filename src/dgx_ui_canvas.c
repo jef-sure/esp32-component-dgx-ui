@@ -29,7 +29,7 @@ typedef struct {
     const dgx_ui_widget_t *widget;
     int16_t                i;
     int16_t                none_w, none_h; /* the size no canvas could be had for: told once for it */
-    bool                   tell;           /* DGX_UI_NO_MEMORY to be told at the end of the next pass */
+    bool                   tell;           /* DGX_UI_EVENT_NO_MEMORY to be told at the end of the next pass */
     dgx_screen_t          *scr;            /* NULL: none to be had */
     void                  *kept;           /* the memory its look keeps, kept_size bytes; NULL none */
     size_t                 kept_size;
@@ -180,7 +180,7 @@ void dgx_ui_canvas_put(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink)
 
 /* after a pass over ui: an entry of a widget no longer drawn by this paint freed, its canvas and its kept memory (its
    tree not in the pass, its slot holding another widget); a canvas of a widget asking for none any more freed; then
-   DGX_UI_NO_MEMORY told */
+   DGX_UI_EVENT_NO_MEMORY told */
 static void end(dgx_ui_paint_t *paint, dgx_ui_t *ui)
 {
     table_t *t    = (table_t *)paint->canvases;
@@ -200,13 +200,13 @@ static void end(dgx_ui_paint_t *paint, dgx_ui_t *ui)
         t->at[kept++] = *e;
     }
     t->count = kept;
-    /* told one by one: an on() may change the tree, and the table with it, so both are looked at again before each */
+    /* told one by one: an on_event() may change the tree, and the table with it, so both are looked at again before each */
     for (int k = 0; paint->canvases && k < ((table_t *)paint->canvases)->count; ++k) {
         entry_t *e = &((table_t *)paint->canvases)->at[k];
         if (!e->tell) continue;
         e->tell                = false;
         const dgx_ui_node_t *n = dgx_ui_node(e->ui, e->i);
-        if (n && n->widget == e->widget && n->widget->on) n->widget->on(e->ui, e->i, n, DGX_UI_NO_MEMORY, n->widget->ctx);
+        if (n && n->widget == e->widget && n->widget->on_event) n->widget->on_event(e->ui, e->i, n, DGX_UI_EVENT_NO_MEMORY, n->widget->ctx);
     }
 }
 

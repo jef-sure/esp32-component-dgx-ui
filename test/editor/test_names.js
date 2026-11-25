@@ -24,7 +24,7 @@ const check = (held, what) => {
     return held;
 };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const TABLE = /^(look|value|picture|style|on|take|ctx|id|draw|font|hand)[ \t]/;
+const TABLE = /^(look|value|picture|style|on_event|take|ctx|id|draw|font|hand)[ \t]/;
 
 (async () => {
     const preview = await DgxUiPreview.create({ log: () => {} });
@@ -33,9 +33,9 @@ const TABLE = /^(look|value|picture|style|on|take|ctx|id|draw|font|hand)[ \t]/;
     const taken = (text) => preview.names(text).code === 0;
 
     /* what a names file may say */
-    check(same(format.tables, ['look', 'value', 'picture', 'style', 'on', 'take', 'ctx', 'id']) && same(format.keys, format.tables) &&
+    check(same(format.tables, ['look', 'value', 'picture', 'style', 'on_event', 'take', 'ctx', 'id']) && same(format.keys, format.tables) &&
           same(format.appearance, ['draw', 'font', 'hand']), 'the tables: ' + JSON.stringify(format.tables));
-    check(same(format.bare.on, ['back', 'page']) && same(format.bare.hand, ['handwriting', 'handwriting_canvas']) &&
+    check(same(format.bare.on_event, ['back', 'page']) && same(format.bare.hand, ['handwriting', 'handwriting_canvas']) &&
           format.bare.look.includes('slider') && format.bare.draw.length === 21, 'the names that go with no expression');
     const api = fs.readFileSync(path.join(ROOT, 'docs/en/api.md'), 'utf8');
     check(format.tables.every((table) => api.includes(`\`${table}\``)), 'every table in the documents');
@@ -72,7 +72,7 @@ const TABLE = /^(look|value|picture|style|on|take|ctx|id|draw|font|hand)[ \t]/;
             ++edited;
         }
         for (const table of format.tables.filter((one) => one !== 'look' && one !== 'id')) {
-            const added = names.addLine(text, [table, `added_${table}`, table === 'picture' || table === 'take' || table === 'on' ? 'added' : '&added']);
+            const added = names.addLine(text, [table, `added_${table}`, table === 'picture' || table === 'take' || table === 'on_event' ? 'added' : '&added']);
             check(taken(added.text) && names.lines(added.text)[added.number - 1].words[1].text === `added_${table}`,
                   `${file}: a ${table} added, taken, at line ${added.number}`);
         }
@@ -133,7 +133,7 @@ const TABLE = /^(look|value|picture|style|on|take|ctx|id|draw|font|hand)[ \t]/;
         check(filed.code === 0 && loaded.code === 0, `${file}: its page on the names missing: ${filed.said} ${loaded.code} "${loaded.name}"`);
         check(!preview.namesMissing(text).length, `${file}: none missing after`);
         for (const entry of missing.filter((one) => !one.bare && !one.offset)) {
-            const rule = { value: `&${entry.name}`, style: `&${entry.name}`, look: `&${entry.name}`, picture: entry.name, take: entry.name, on: entry.name,
+            const rule = { value: `&${entry.name}`, style: `&${entry.name}`, look: `&${entry.name}`, picture: entry.name, take: entry.name, on_event: entry.name,
                            ctx: `&${entry.name}`, id: entry.name }[entry.table];
             check(entry.c === rule, `${file}: ${entry.table} ${entry.name} by the rule ${rule}, not ${entry.c}`);
         }

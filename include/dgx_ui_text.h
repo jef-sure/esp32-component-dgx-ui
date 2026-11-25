@@ -70,8 +70,8 @@ extern const dgx_ui_hand_t dgx_ui_handwriting_canvas;
 
 /** Flags of a style. */
 enum {
-    DGX_UI_TEXT_MIDDLE    = 1u << 0, ///< a text in a smaller variant stands in the middle of the field's height, not on the first one's base line
-    DGX_UI_TEXT_IMPORTANT = 1u << 1, ///< a text too long scrolls, a line up every scroll_ms, rather than being cut
+    DGX_UI_STYLE_MIDDLE    = 1u << 0, ///< a text in a smaller variant stands in the middle of the field's height, not on the first one's base line
+    DGX_UI_STYLE_IMPORTANT = 1u << 1, ///< a text too long scrolls, a line up every scroll_ms, rather than being cut
 };
 
 /** @brief How a text is drawn: its fonts, the best first, and where it stands in its field. */

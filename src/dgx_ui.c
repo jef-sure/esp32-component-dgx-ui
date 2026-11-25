@@ -4,7 +4,7 @@
  *  The core of dgx-ui: the tree in the program's array and in blocks, links as in the DOM, the layout in rows and
  *  columns, the state of the widgets, the pointer, the keys and the focus. It draws nothing and calls no function of
  *  DGX. The pointer, the keys and the focus are those of DGX-GE's widgets, told by number and kept apart from what
- *  the program sets: on() hears what the user did only.
+ *  the program sets: on_event() hears what the user did only.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -380,7 +380,7 @@ static void lay(dgx_ui_t *ui, int i, int narrower)
     const dgx_ui_node_t   *pn = NODE(ui, i);
     const dgx_ui_widget_t *p  = pn->widget;
     if (narrower < 0) {
-        if ((p->flags & DGX_UI_SCROLL) && p->look && p->look->behavior && p->look->behavior->scroll) return p->look->behavior->scroll(ui, i);
+        if ((p->flags & DGX_UI_SCROLL) && p->look && p->look->behavior && p->look->behavior->lay) return p->look->behavior->lay(ui, i);
         narrower = 0;
     }
     const int  u = ui->unit, pad = p->flags & DGX_UI_PERCENT_PAD ? percent_of(pn->w, p->pad) : p->pad * u;
@@ -659,7 +659,7 @@ int dgx_ui_hit(dgx_ui_t *ui, int x, int y)
 static void tell(dgx_ui_t *ui, int i, int what)
 {
     const dgx_ui_widget_t *w = NODE(ui, i)->widget;
-    if (w->on) w->on(ui, i, NODE(ui, i), what, w->ctx);
+    if (w->on_event) w->on_event(ui, i, NODE(ui, i), what, w->ctx);
 }
 
 /* takes the focus: usable, and a widget of the program's own only with DGX_UI_BEHAVIOR_FOCUS */
@@ -687,7 +687,7 @@ void dgx_ui_focus(dgx_ui_t *ui, int i)
         NODE(ui, i)->state.bits |= DGX_UI_FOCUSED;
         dgx_ui_touched(ui, i);
         if (dgx_ui_scroll_follow) dgx_ui_scroll_follow(ui, i); /* in the view of the scrolling boxes above it */
-        tell(ui, i, DGX_UI_FOCUS);
+        tell(ui, i, DGX_UI_EVENT_FOCUS);
     }
 }
 
@@ -696,8 +696,8 @@ void dgx_ui_tell(dgx_ui_t *ui, int i, int what)
     if (live(ui, i)) tell(ui, i, what);
 }
 
-/* a value set by the user: within its bounds, on() told when it changed */
-static void user_value(dgx_ui_t *ui, int i, int value)
+/* a value set by the user: within its bounds, on_event() told when it changed */
+static void set_value_as_user(dgx_ui_t *ui, int i, int value)
 {
     dgx_ui_node_t *n = NODE(ui, i);
     value            = clamp_value(n->widget, value);
@@ -705,7 +705,7 @@ static void user_value(dgx_ui_t *ui, int i, int value)
     *n->widget->value = value;
     dgx_ui_touched(ui, i);
     list_follow(ui, i); /* a list's pick in its window */
-    tell(ui, i, DGX_UI_CHANGED);
+    tell(ui, i, DGX_UI_EVENT_CHANGED);
 }
 
 int32_t dgx_ui_value_of(const dgx_ui_node_t *node)
@@ -718,9 +718,9 @@ int32_t dgx_ui_value_of(const dgx_ui_node_t *node)
     return value < w->min ? w->min : value > w->max ? w->max : value;
 }
 
-void dgx_ui_user_value(dgx_ui_t *ui, int i, int value)
+void dgx_ui_set_value_as_user(dgx_ui_t *ui, int i, int value)
 {
-    if (live(ui, i)) user_value(ui, i, value);
+    if (live(ui, i)) set_value_as_user(ui, i, value);
 }
 
 /* the height of a row of a list; *top the first row shown, *scrolls whether some rows are not */
@@ -747,11 +747,11 @@ static void point_to_value(dgx_ui_t *ui, int i, int lx, int ly)
         const int step = w->step > 0 ? w->step : 1;
         int       v    = span > 0 ? w->min + ((w->max - w->min) * at + span / 2) / span : w->min;
         v              = w->min + (v - w->min + step / 2) / step * step;
-        user_value(ui, i, v);
+        set_value_as_user(ui, i, v);
     } else if (w->kind == DGX_UI_LIST) {
         int       top;
         const int rh = row_height(ui, n, &top, NULL);
-        if (rh > 0) user_value(ui, i, w->min + top + ly / rh); /* the row under the point, from the first shown */
+        if (rh > 0) set_value_as_user(ui, i, w->min + top + ly / rh); /* the row under the point, from the first shown */
     }
 }
 
@@ -766,12 +766,12 @@ static void swipe_to_value(dgx_ui_t *ui, int i, int dx)
     const int     step = w->step > 0 ? w->step : 1;
     if (w->max <= w->min) return;                                   /* no range: nothing a swipe changes */
     const int     v    = ui->press_value + by; /* the value read within the range: no overflow */
-    user_value(ui, i, w->min + (v - w->min + (v >= w->min ? step / 2 : -(step / 2))) / step * step);
+    set_value_as_user(ui, i, w->min + (v - w->min + (v >= w->min ? step / 2 : -(step / 2))) / step * step);
 }
 
 static bool swiped_slider(const dgx_ui_widget_t *w)
 {
-    return w->kind == DGX_UI_SLIDER && (w->flags & DGX_UI_SWIPE);
+    return w->kind == DGX_UI_SLIDER && (w->flags & DGX_UI_RELATIVE);
 }
 
 /* a list under a point (the deepest), -1 none */
@@ -787,11 +787,11 @@ static int list_at(dgx_ui_t *ui, int x, int y)
     return best;
 }
 
-/* a point of a list (its own y) between two of its rows: the top or bottom 1/DGX_UI_ROW_GAP of a row */
+/* a point of a list (its own y) between two of its rows: the top or bottom 1/DGX_UI_LIST_ROW_EDGE of a row */
 static bool between_rows(const dgx_ui_t *ui, const dgx_ui_node_t *n, int ly)
 {
     if (n->widget->kind != DGX_UI_LIST) return false;
-    const int rh = row_height(ui, n, NULL, NULL), m = rh / DGX_UI_ROW_GAP, in = rh > 0 && ly >= 0 ? ly % rh : 0;
+    const int rh = row_height(ui, n, NULL, NULL), m = rh / DGX_UI_LIST_ROW_EDGE, in = rh > 0 && ly >= 0 ? ly % rh : 0;
     return rh > 0 && (in < m || in >= rh - m);
 }
 
@@ -895,7 +895,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
             /* told now, and again from the first repeat's time on by dgx_ui_time(), while held; nothing read after */
             dgx_ui_t *home   = home_of(ui);
             home->repeat_key = DGX_UI_REPEAT_FINGER, home->repeat_at = p->ms + DGX_UI_REPEAT_FIRST_MS, finger_repeat = finger_step;
-            tell(ui, i, DGX_UI_ACTIVATED);
+            tell(ui, i, DGX_UI_EVENT_ACTIVATED);
         }
         return true;
     }
@@ -914,12 +914,12 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         if (b) {
             /* a widget of the program's own: the move its own, taken as a drag when it says so */
             if (b->move && b->move(ui, ui->pressed, p->x - n->x, p->y - n->y)) ui->dragged = true;
-            return true; /* removed by it, or by on(): dgx_ui_remove() let the finger go */
+            return true; /* removed by it, or by on_event(): dgx_ui_remove() let the finger go */
         }
         if (w->kind == DGX_UI_BUTTON && (w->flags & DGX_UI_DRAG)) {
             /* dragged up or down half its width: changed at every move from then on (a scroll bar's knob following) */
             if (!ui->dragged && 2 * ay >= n->w) ui->dragged = true;
-            if (ui->dragged) tell(ui, ui->pressed, DGX_UI_CHANGED);
+            if (ui->dragged) tell(ui, ui->pressed, DGX_UI_EVENT_CHANGED);
             if (!live(ui, ui->pressed)) ui->pressed = -1;
             return true;
         }
@@ -927,7 +927,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
             /* up or down first, half its height: the list under it is swiped instead, from where the pointer went down */
             const int l = list_at(ui, ui->press_x, ui->press_y);
             if (l >= 0) {
-                if (dgx_ui_value_of(n) != ui->press_value) user_value(ui, ui->pressed, ui->press_value);
+                if (dgx_ui_value_of(n) != ui->press_value) set_value_as_user(ui, ui->pressed, ui->press_value);
                 n->state.bits &= (uint8_t)~DGX_UI_PRESSED;
                 dgx_ui_touched(ui, ui->pressed);
                 if (!live(ui, l)) return ui->pressed = -1, true;
@@ -949,7 +949,7 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
                 /* a list that scrolls, as DGX-GE's: up or down half a row's height, then a row along for each row's
                    height the finger went (up: on down the list), from the pick when it went down; the window follows */
                 if (rh > 0 && 2 * ay >= rh) ui->dragged = true;
-                if (rh > 0 && ui->dragged) user_value(ui, i, ui->press_value + (dy <= 0 ? (-dy + rh / 2) / rh : -((dy + rh / 2) / rh)));
+                if (rh > 0 && ui->dragged) set_value_as_user(ui, i, ui->press_value + (dy <= 0 ? (-dy + rh / 2) / rh : -((dy + rh / 2) / rh)));
             } else {
                 /* the row under the finger picked, as a slider's knob follows it (the rows stand, the bar moves);
                    between two rows the pick stays; once it left the row it went down on, it is dragged: no click */
@@ -973,22 +973,22 @@ static bool pointer_in(dgx_ui_t *ui, const dgx_ui_pointer_t *p)
         if (b) {
             /* a widget of the program's own: up() first, a value it sets heard of with the click */
             if (b->up) b->up(ui, i, p->x - n->x, p->y - n->y, click);
-            if (click && live(ui, i) && NODE(ui, i)->widget == w) tell(ui, i, DGX_UI_ACTIVATED); /* not one put in its place */
+            if (click && live(ui, i) && NODE(ui, i)->widget == w) tell(ui, i, DGX_UI_EVENT_ACTIVATED); /* not one put in its place */
             return true;
         }
         if (!click) return true;
         if (swiped_slider(w)) {
-            tell(ui, i, DGX_UI_ACTIVATED); /* a click: nothing moved */
+            tell(ui, i, DGX_UI_EVENT_ACTIVATED); /* a click: nothing moved */
             return true;
         }
-        if (w->kind == DGX_UI_SWITCH) user_value(ui, i, dgx_ui_value_of(n) ? 0 : 1);
-        if (w->kind == DGX_UI_RADIO) user_value(ui, i, w->step); /* its number into the group's place */
+        if (w->kind == DGX_UI_SWITCH) set_value_as_user(ui, i, dgx_ui_value_of(n) ? 0 : 1);
+        if (w->kind == DGX_UI_RADIO) set_value_as_user(ui, i, w->step); /* its number into the group's place */
         if (!live(ui, i) || NODE(ui, i)->widget != w) return true; /* on(CHANGED) removed it, freed the tree, or put another in its place */
         /* a list that scrolls, a click: the row it went down on, picked now */
         if (list_scrolls(ui, n)) point_to_value(ui, i, ui->press_x - n->x, ui->press_y - n->y);
         if (!live(ui, i) || NODE(ui, i)->widget != w) return true; /* the same, by the list's on(CHANGED) */
-        if (w->kind == DGX_UI_INPUT) tell(ui, i, DGX_UI_EDIT); /* a field clicked: to be edited */
-        if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN) tell(ui, i, DGX_UI_ACTIVATED);
+        if (w->kind == DGX_UI_INPUT) tell(ui, i, DGX_UI_EVENT_EDIT); /* a field clicked: to be edited */
+        if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN) tell(ui, i, DGX_UI_EVENT_ACTIVATED);
         return true;
     }
     return true;
@@ -1028,13 +1028,13 @@ bool dgx_ui_popup_back(dgx_ui_t *ui)
     if (!popup) return false;
     const dgx_ui_t *over = popup->popup;
     if (!popup->leaving && live(popup, 0)) {
-        /* while it is open: its widgets may be read; a back for it from that on() closes it, untold again. The mark is
+        /* while it is open: its widgets may be read; a back for it from that on_event() closes it, untold again. The mark is
            the popup's own, as a tree is its task's: a tree of another task is told meanwhile as it should be */
         popup->leaving = true;
-        tell(popup, 0, DGX_UI_BACK);
+        tell(popup, 0, DGX_UI_EVENT_BACK);
         popup->leaving = false;
     }
-    /* closed unless its on() closed it, put another in its place or opened one over it: the program's then */
+    /* closed unless its on_event() closed it, put another in its place or opened one over it: the program's then */
     if (ui->popup == popup && popup->popup == over) dgx_ui_popup_close(ui);
     return true;
 }
@@ -1075,7 +1075,7 @@ static bool key_in(dgx_ui_t *ui, int key)
         /* compared, not added: the value is the program's, any int32_t */
         const int32_t value = w ? dgx_ui_value_of(n) : 0;
         if (w && w->kind == DGX_UI_LIST && (step > 0 ? value >= w->min - 1 && value < w->max : value > w->min && value <= w->max + 1)) {
-            user_value(ui, f, value + step);
+            set_value_as_user(ui, f, value + step);
             return true;
         }
         const int i = next_focus(ui, f, step);
@@ -1089,20 +1089,20 @@ static bool key_in(dgx_ui_t *ui, int key)
         if (w->kind == DGX_UI_SLIDER) {
             /* a step from the value, at most to the end of int32_t: the value is the program's; the range clamps it */
             const int32_t value = dgx_ui_value_of(n), by = w->step > 0 ? w->step : 1;
-            user_value(ui, f, key == DGX_UI_KEY_MORE ? (value > INT32_MAX - by ? INT32_MAX : value + by) : (value < INT32_MIN + by ? INT32_MIN : value - by));
+            set_value_as_user(ui, f, key == DGX_UI_KEY_MORE ? (value > INT32_MAX - by ? INT32_MAX : value + by) : (value < INT32_MIN + by ? INT32_MIN : value - by));
             return true;
         }
         if (w->kind == DGX_UI_SWITCH) {
-            user_value(ui, f, key == DGX_UI_KEY_MORE ? 1 : 0);
+            set_value_as_user(ui, f, key == DGX_UI_KEY_MORE ? 1 : 0);
             return true;
         }
         return false;
     case DGX_UI_KEY_ACTIVATE:
         if (!w) return false;
-        if (w->kind == DGX_UI_SWITCH) user_value(ui, f, dgx_ui_value_of(n) ? 0 : 1);
-        else if (w->kind == DGX_UI_RADIO) user_value(ui, f, w->step);
-        else if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN || behavior_of(w)) tell(ui, f, DGX_UI_ACTIVATED); /* of the program's own: what key() did not take, as a click */
-        else if (w->kind == DGX_UI_INPUT) tell(ui, f, DGX_UI_EDIT);
+        if (w->kind == DGX_UI_SWITCH) set_value_as_user(ui, f, dgx_ui_value_of(n) ? 0 : 1);
+        else if (w->kind == DGX_UI_RADIO) set_value_as_user(ui, f, w->step);
+        else if (w->kind == DGX_UI_BUTTON || w->kind == DGX_UI_LIST || w->kind == DGX_UI_DROPDOWN || behavior_of(w)) tell(ui, f, DGX_UI_EVENT_ACTIVATED); /* of the program's own: what key() did not take, as a click */
+        else if (w->kind == DGX_UI_INPUT) tell(ui, f, DGX_UI_EVENT_EDIT);
         else return false;
         return true;
     default:
@@ -1196,7 +1196,7 @@ static bool finger_step(dgx_ui_t *home, uint32_t now_ms)
     if ((int32_t)(now_ms - home->repeat_at) < 0) return true;
     home->repeat_at += DGX_UI_REPEAT_MS;
     if ((int32_t)(now_ms - home->repeat_at) >= 0) home->repeat_at = now_ms + DGX_UI_REPEAT_MS; /* a long stall: no burst */
-    tell(tree, tree->pressed, DGX_UI_ACTIVATED); /* nothing read after: its on() may remove it, or change the pages */
+    tell(tree, tree->pressed, DGX_UI_EVENT_ACTIVATED); /* nothing read after: its on_event() may remove it, or change the pages */
     return true;
 }
 
@@ -1213,7 +1213,7 @@ bool dgx_ui_time(dgx_ui_t *ui, uint32_t now_ms)
 /*
  * ---- the trees on the screen ----
  * A tree is shown while no popup of DGX_UI_POPUP_SCREEN lies over it, anywhere above it in its chain. Its root is told
- * DGX_UI_SHOWN and DGX_UI_COVERED as that changes, in pairs, by the calls that open and close, once the chain stands;
+ * DGX_UI_EVENT_SHOWN and DGX_UI_EVENT_COVERED as that changes, in pairs, by the calls that open and close, once the chain stands;
  * shown_told keeps what it was told last. Inner closes tell nothing: the call that changed the chain tells.
  */
 enum { CHAIN = DGX_UI_POPUP_DEPTH + 1 }; /* the trees of a chain: home and its popups */
@@ -1241,20 +1241,20 @@ static void veil_chain(dgx_ui_t *home)
 }
 
 /* the trees closed by a call, the top first, told COVERED where they were shown. Each one's bit cleared before its
-   on() is called, and nothing of it read after: that on() may free it */
+   on_event() is called, and nothing of it read after: that on_event() may free it */
 static void tell_closed(dgx_ui_t *const *closed, int count)
 {
     for (int k = 0; k < count; ++k) {
         dgx_ui_t *tree = closed[k];
         if (!tree->shown_told) continue;
         tree->shown_told = false;
-        if (live(tree, 0)) tell(tree, 0, DGX_UI_COVERED);
+        if (live(tree, 0)) tell(tree, 0, DGX_UI_EVENT_COVERED);
     }
 }
 
 /* the chain from home up told as it stands: a tree told shown and covered now, from the top down, told COVERED; else
    one told covered and shown now, from the bottom up, told SHOWN; one tell at a time, the chain read again after each,
-   as an on() may open or close in its turn */
+   as an on_event() may open or close in its turn */
 static void tell_chain(dgx_ui_t *home)
 {
     for (;;) {
@@ -1274,13 +1274,13 @@ static void tell_chain(dgx_ui_t *home)
             shown[k] = !by_screen && !(by_place && k >= lowest);
         }
         dgx_ui_t *told = NULL;
-        int       what = DGX_UI_COVERED;
+        int       what = DGX_UI_EVENT_COVERED;
         for (int k = count - 1; k >= 0 && !told; --k)
             if (trees[k]->shown_told && !shown[k]) told = trees[k];
         for (int k = 0; k < count && !told; ++k)
-            if (!trees[k]->shown_told && shown[k]) told = trees[k], what = DGX_UI_SHOWN;
+            if (!trees[k]->shown_told && shown[k]) told = trees[k], what = DGX_UI_EVENT_SHOWN;
         if (!told) return;
-        told->shown_told = what == DGX_UI_SHOWN;
+        told->shown_told = what == DGX_UI_EVENT_SHOWN;
         if (live(told, 0)) tell(told, 0, what);
     }
 }
@@ -1385,7 +1385,7 @@ void dgx_ui_popup_close(dgx_ui_t *ui)
 
 /* dgx_ui_free() of a tree open as a popup, or with popups over it: it and what lies over it closed, telling nothing;
    the trees closed told COVERED where they were shown, its own root still there; the tree closed again, untold, if an
-   on() opened it meanwhile, so that what is wiped lies in no chain; wiped; then the chain it lay in told, SHOWN to
+   on_event() opened it meanwhile, so that what is wiped lies in no chain; wiped; then the chain it lay in told, SHOWN to
    what came to the screen. A tree freed is told COVERED if it was shown, never SHOWN: home freed with a page over it
    is told nothing */
 static void free_from_chain(dgx_ui_t *ui, void (*wipe_tree)(dgx_ui_t *ui))

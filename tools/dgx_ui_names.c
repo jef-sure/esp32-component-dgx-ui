@@ -38,8 +38,8 @@ const char *const library_hands[2]   = {"handwriting", "handwriting_canvas"};
 
 /* ---- the tables ---- */
 
-const char *const table_words[TABLES]                 = {"look", "value", "picture", "style", "on", "take", "ctx", "id"};
-const char *const table_keys[TABLES]                  = {"look", "value", "picture", "style", "on", "take", "ctx", "id"};
+const char *const table_words[TABLES]                 = {"look", "value", "picture", "style", "on_event", "take", "ctx", "id"};
+const char *const table_keys[TABLES]                  = {"look", "value", "picture", "style", "on_event", "take", "ctx", "id"};
 table_t           tables[TABLES], used[TABLES];
 const char *const appearance_words[APPEARANCE_TABLES] = {"draw", "font", "hand", "picture"};
 table_t           appearance_tables[APPEARANCE_TABLES];
@@ -113,16 +113,16 @@ bool c_name(const char *name, bool members)
 
 char *library_c(int table, const char *word)
 {
-    if (table == T_ON && (strcmp(word, "back") == 0 || strcmp(word, "page") == 0)) return printed("dgx_ui_load_on_%s", word);
+    if (table == T_ON_EVENT && (strcmp(word, "back") == 0 || strcmp(word, "page") == 0)) return printed("dgx_ui_action_%s", word);
     for (int k = 0; table == T_LOOK && k < library_look_count; ++k)
         if (strcmp(library_looks[k], word) == 0) return printed("&dgx_ui_look_%s", word);
     return NULL;
 }
 
-int takes_of(const entry_t *handler)
+int ctx_kind_of(const entry_t *handler)
 {
-    if (handler->c && strcmp(handler->c, "dgx_ui_load_on_page") == 0) return DGX_UI_TAKES_PAGE;
-    return handler->number ? DGX_UI_TAKES_NUMBER : DGX_UI_TAKES_OWN;
+    if (handler->c && strcmp(handler->c, "dgx_ui_action_page") == 0) return DGX_UI_CTX_PAGE;
+    return handler->number ? DGX_UI_CTX_NUMBER : DGX_UI_CTX_OWN;
 }
 
 int library_draw_of(const char *word)
@@ -197,13 +197,13 @@ char *names_read(const char *path, const char *text, size_t length, bool appeara
         if (appearance_alone && !picture) continue;
         int table = 0;
         while (table < TABLES && strcmp(table_words[table], words[0]) != 0) ++table;
-        if (table == TABLES) return printed("%s:%d: no table \"%s\": look, value, picture, style, on, take, ctx, id, draw, font or hand", path, number, words[0]);
+        if (table == TABLES) return printed("%s:%d: no table \"%s\": look, value, picture, style, on_event, take, ctx, id, draw, font or hand", path, number, words[0]);
         table_t *into = appearance_alone ? &appearance_tables[A_PICTURE] : &tables[table];
         if (count < 2) return printed("%s:%d: a %s with no name", path, number, words[0]);
         if (!loader_name(words[1])) return printed("%s:%d: \"%s\" is not a name a description may have", path, number, words[1]);
         if (entry_of(into, words[1])) return printed("%s:%d: the %s \"%s\" twice", path, number, words[0], words[1]);
         if (into->count == 65535) return printed("%s:%d: a %s past the 65535 a table may have", path, number, words[0]);
-        if (table == T_ID && into->count == DGX_UI_LOAD_IDS) return printed("%s:%d: an id past the %d a table may have", path, number, DGX_UI_LOAD_IDS);
+        if (table == T_ID && into->count == DGX_UI_LOAD_MAX_IDS) return printed("%s:%d: an id past the %d a table may have", path, number, DGX_UI_LOAD_MAX_IDS);
         char *library = library_c(table, words[1]);
         if (count == 2 && !library)
             return printed("%s:%d: the %s \"%s\" with no C expression: only a look of the library's and the actions back and page go without one", path,
@@ -221,7 +221,7 @@ char *names_read(const char *path, const char *text, size_t length, bool appeara
             const long pictures = strtol(words[3], &end, 10);
             if (*end || pictures < 1 || pictures > 65535) return printed("%s:%d: \"%s\" is not a count of pictures, 1 to 65535", path, number, words[3]);
             entry->count = (unsigned)pictures;
-        } else if (table == T_ON && strcmp(words[3], "number") == 0) {
+        } else if (table == T_ON_EVENT && strcmp(words[3], "number") == 0) {
             entry->number = true;
         } else if (table == T_CTX && strcmp(words[3], "page") == 0) {
             entry->page = true;
@@ -251,7 +251,7 @@ static void used_add(int table, const char *name, size_t offset)
    loader then refuses */
 static void collect_widget(dgx_ui_json_t *json, int depth)
 {
-    if (depth > DGX_UI_LOAD_DEPTH || dgx_ui_json_peek(json) != '{') return;
+    if (depth > DGX_UI_LOAD_MAX_DEPTH || dgx_ui_json_peek(json) != '{') return;
     ++json->pos;
     if (dgx_ui_json_peek(json) == '}') {
         ++json->pos;
@@ -276,7 +276,7 @@ static void collect_widget(dgx_ui_json_t *json, int depth)
                     collect_widget(json, depth + 1);
                     if (json->error || !dgx_ui_json_next(json, ']', &child)) return;
                 }
-        } else if (!dgx_ui_json_skip(json, 2 * DGX_UI_LOAD_DEPTH)) {
+        } else if (!dgx_ui_json_skip(json, 2 * DGX_UI_LOAD_MAX_DEPTH)) {
             return;
         }
         if (!dgx_ui_json_next(json, '}', &more)) return;
@@ -295,7 +295,7 @@ void names_collect(const char *text, size_t length)
         if (!dgx_ui_json_string(&json, key, 23, &key_length) || !dgx_ui_json_expect(&json, ':')) return;
         key[key_length < 23 ? key_length : 23] = 0;
         if (strcmp(key, "tree") == 0) collect_widget(&json, 1);
-        else if (!dgx_ui_json_skip(&json, 2 * DGX_UI_LOAD_DEPTH + 1)) return; /* as the loader passes a value of the top */
+        else if (!dgx_ui_json_skip(&json, 2 * DGX_UI_LOAD_MAX_DEPTH + 1)) return; /* as the loader passes a value of the top */
         if (json.error || !dgx_ui_json_next(&json, '}', &more)) return;
     }
 }
@@ -317,8 +317,8 @@ void names_rule(bool default_style)
             entry->ruled   = true;
             switch (table) {
             case T_PICTURE: entry->c = copy_of(use->name), entry->count = 65535; break;
-            case T_ON:
-                if ((entry->c = library_c(T_ON, use->name))) entry->ruled = false;
+            case T_ON_EVENT:
+                if ((entry->c = library_c(T_ON_EVENT, use->name))) entry->ruled = false;
                 else entry->c = copy_of(use->name), entry->number = true;
                 break;
             case T_TAKE: entry->c = copy_of(use->name); break;
@@ -353,7 +353,7 @@ bool top_value(dgx_ui_json_t *json, const char *wanted)
     json->pos = 0;
     for (bool first = true; next_member(json, &first, key);) {
         if (strcmp(key, wanted) == 0) return true;
-        if (!dgx_ui_json_skip(json, DGX_UI_LOAD_DEPTH * 2 + 1)) return false;
+        if (!dgx_ui_json_skip(json, DGX_UI_LOAD_MAX_DEPTH * 2 + 1)) return false;
     }
     return false;
 }

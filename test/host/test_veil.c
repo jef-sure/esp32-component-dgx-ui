@@ -1,7 +1,7 @@
 /*
  * The focus under a popup: while a popup of DGX_UI_POPUP_MODAL lies over a tree, anywhere above it, the tree's looks
  * show no focus, and when it closes the mark is back where the focus is then; the focus itself, ui->focus and the bit,
- * stays, and no DGX_UI_FOCUS is told. For each look that shows the focus (a button, a dropdown, a switch, a slider, a
+ * stays, and no DGX_UI_EVENT_FOCUS is told. For each look that shows the focus (a button, a dropdown, a switch, a slider, a
  * radio, a checkbox, a field and a list), in a home of two of them: a modal dialog opened and closed, the focused widget
  * and the dialog's place the only pixels written and the next pass quiet; a popup not modal, under which the mark stays
  * and the widget is not written; the focus moved by the program while covered, writing nothing; a dialog opened and
@@ -53,11 +53,11 @@ static dgx_ui_textbox_t ok_box = DGX_UI_TEXT_CONST("OK", 1, &style), page_box = 
 /* the program's memory */
 static int32_t option, on, level, choice = 1, ticked, month, month2, inner_option;
 
-/* DGX_UI_FOCUS told to any widget */
+/* DGX_UI_EVENT_FOCUS told to any widget */
 static int focus_told;
 static void on_widget(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    focus_told += what == DGX_UI_FOCUS;
+    focus_told += what == DGX_UI_EVENT_FOCUS;
 }
 
 /* each look's widget, twice: the first and the second of home */
@@ -67,41 +67,41 @@ typedef struct look_case_t {
 } look_case_t;
 static const look_case_t cases[] = {
     {"button",
-     {{.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 14, .text = &go_box, .look = &dgx_ui_look_button, .on = on_widget},
-      {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 14, .text = &go2_box, .look = &dgx_ui_look_button, .on = on_widget}}},
+     {{.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 14, .text = &go_box, .look = &dgx_ui_look_button, .on_event = on_widget},
+      {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 14, .text = &go2_box, .look = &dgx_ui_look_button, .on_event = on_widget}}},
     {"dropdown",
-     {{.kind = DGX_UI_DROPDOWN, .value = &option, .max = 1, .want_w = 50, .want_h = 14, .text = &options_box, .look = &dgx_ui_look_dropdown, .on = on_widget},
-      {.kind = DGX_UI_DROPDOWN, .value = &option, .max = 1, .want_w = 50, .want_h = 14, .text = &options2_box, .look = &dgx_ui_look_dropdown, .on = on_widget}}},
+     {{.kind = DGX_UI_DROPDOWN, .value = &option, .max = 1, .want_w = 50, .want_h = 14, .text = &options_box, .look = &dgx_ui_look_dropdown, .on_event = on_widget},
+      {.kind = DGX_UI_DROPDOWN, .value = &option, .max = 1, .want_w = 50, .want_h = 14, .text = &options2_box, .look = &dgx_ui_look_dropdown, .on_event = on_widget}}},
     {"switch",
-     {{.kind = DGX_UI_SWITCH, .value = &on, .want_w = 30, .want_h = 12, .look = &dgx_ui_look_switch, .on = on_widget},
-      {.kind = DGX_UI_SWITCH, .value = &on, .want_w = 30, .want_h = 12, .look = &dgx_ui_look_switch, .on = on_widget}}},
+     {{.kind = DGX_UI_SWITCH, .value = &on, .want_w = 30, .want_h = 12, .look = &dgx_ui_look_switch, .on_event = on_widget},
+      {.kind = DGX_UI_SWITCH, .value = &on, .want_w = 30, .want_h = 12, .look = &dgx_ui_look_switch, .on_event = on_widget}}},
     {"slider",
-     {{.kind = DGX_UI_SLIDER, .value = &level, .max = 10, .want_w = 60, .want_h = 10, .look = &dgx_ui_look_slider, .on = on_widget},
-      {.kind = DGX_UI_SLIDER, .value = &level, .max = 10, .want_w = 60, .want_h = 10, .look = &dgx_ui_look_slider, .on = on_widget}}},
+     {{.kind = DGX_UI_SLIDER, .value = &level, .max = 10, .want_w = 60, .want_h = 10, .look = &dgx_ui_look_slider, .on_event = on_widget},
+      {.kind = DGX_UI_SLIDER, .value = &level, .max = 10, .want_w = 60, .want_h = 10, .look = &dgx_ui_look_slider, .on_event = on_widget}}},
     {"radio",
-     {{.kind = DGX_UI_RADIO, .value = &choice, .step = 1, .want_w = 60, .text = &radio_box, .look = &dgx_ui_look_radio, .on = on_widget},
-      {.kind = DGX_UI_RADIO, .value = &choice, .step = 2, .want_w = 60, .text = &radio2_box, .look = &dgx_ui_look_radio, .on = on_widget}}},
+     {{.kind = DGX_UI_RADIO, .value = &choice, .step = 1, .want_w = 60, .text = &radio_box, .look = &dgx_ui_look_radio, .on_event = on_widget},
+      {.kind = DGX_UI_RADIO, .value = &choice, .step = 2, .want_w = 60, .text = &radio2_box, .look = &dgx_ui_look_radio, .on_event = on_widget}}},
     {"checkbox",
-     {{.kind = DGX_UI_SWITCH, .value = &ticked, .want_w = 60, .text = &tick_box, .look = &dgx_ui_look_checkbox, .on = on_widget},
-      {.kind = DGX_UI_SWITCH, .value = &ticked, .want_w = 60, .text = &tick2_box, .look = &dgx_ui_look_checkbox, .on = on_widget}}},
+     {{.kind = DGX_UI_SWITCH, .value = &ticked, .want_w = 60, .text = &tick_box, .look = &dgx_ui_look_checkbox, .on_event = on_widget},
+      {.kind = DGX_UI_SWITCH, .value = &ticked, .want_w = 60, .text = &tick2_box, .look = &dgx_ui_look_checkbox, .on_event = on_widget}}},
     {"field",
-     {{.kind = DGX_UI_INPUT, .want_w = 50, .want_h = 14, .text = &field_box, .look = &steady_input, .on = on_widget},
-      {.kind = DGX_UI_INPUT, .want_w = 50, .want_h = 14, .text = &field2_box, .look = &steady_input, .on = on_widget}}},
+     {{.kind = DGX_UI_INPUT, .want_w = 50, .want_h = 14, .text = &field_box, .look = &steady_input, .on_event = on_widget},
+      {.kind = DGX_UI_INPUT, .want_w = 50, .want_h = 14, .text = &field2_box, .look = &steady_input, .on_event = on_widget}}},
     {"list",
-     {{.kind = DGX_UI_LIST, .value = &month, .max = 2, .want_w = 50, .want_h = 30, .text = &months_box, .look = &dgx_ui_look_list, .on = on_widget},
-      {.kind = DGX_UI_LIST, .value = &month2, .max = 2, .want_w = 50, .want_h = 30, .text = &months2_box, .look = &dgx_ui_look_list, .on = on_widget}}},
+     {{.kind = DGX_UI_LIST, .value = &month, .max = 2, .want_w = 50, .want_h = 30, .text = &months_box, .look = &dgx_ui_look_list, .on_event = on_widget},
+      {.kind = DGX_UI_LIST, .value = &month2, .max = 2, .want_w = 50, .want_h = 30, .text = &months2_box, .look = &dgx_ui_look_list, .on_event = on_widget}}},
 };
 
 static const dgx_ui_widget_t column_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 2, .gap = 3};
-static const dgx_ui_widget_t ok_w     = {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 14, .text = &ok_box, .look = &dgx_ui_look_button, .on = on_widget};
+static const dgx_ui_widget_t ok_w     = {.kind = DGX_UI_BUTTON, .want_w = 40, .want_h = 14, .text = &ok_box, .look = &dgx_ui_look_button, .on_event = on_widget};
 static const dgx_ui_widget_t frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3};
 
 /* the dialog's root told it is shown: whether home's first widget showed its focus at that moment, as a composing
-   asked from that on() would draw it */
+   asked from that on_event() would draw it */
 static int shown_told, focus_shown_then;
 static void on_dialog_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
-static const dgx_ui_widget_t told_frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .on = on_dialog_root};
-static const dgx_ui_widget_t inner_dd = {.kind = DGX_UI_DROPDOWN, .value = &inner_option, .max = 1, .want_w = 50, .want_h = 14, .text = &options_box, .look = &dgx_ui_look_dropdown, .on = on_widget};
+static const dgx_ui_widget_t told_frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 3, .on_event = on_dialog_root};
+static const dgx_ui_widget_t inner_dd = {.kind = DGX_UI_DROPDOWN, .value = &inner_option, .max = 1, .want_w = 50, .want_h = 14, .text = &options_box, .look = &dgx_ui_look_dropdown, .on_event = on_widget};
 static const dgx_ui_widget_t label_w  = {.kind = DGX_UI_LABEL, .want_h = 14, .text = &page_box};
 
 /* the program's picture under the trees: bands of two colours */
@@ -308,7 +308,7 @@ static void look_under_popups(const look_case_t *lc)
 
 static void on_dialog_root(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_SHOWN) return;
+    if (what != DGX_UI_EVENT_SHOWN) return;
     ++shown_told;
     focus_shown_then = dgx_ui_bits_shown(&home, dgx_ui_node(&home, first)) & DGX_UI_FOCUSED;
 }

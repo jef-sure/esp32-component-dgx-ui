@@ -1,6 +1,6 @@
 /*
  * Two trees worked by two tasks, as two displays are: what one call of the library guards for its tree is the tree's
- * own. The key back closing a page over each tree at once, the second task's page told DGX_UI_BACK while the first
+ * own. The key back closing a page over each tree at once, the second task's page told DGX_UI_EVENT_BACK while the first
  * task's root is being told: each root told once, both pages closed, and the first tree's page told again when it is
  * opened again and closed. A back by a transition on one tree while the other's runs: both pages closed.
  */
@@ -38,19 +38,19 @@ static void wait_for(sem_t *sem)
 
 static void on_first_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_BACK) return;
+    if (what != DGX_UI_EVENT_BACK) return;
     if (++first_told == 1) sem_post(&first_in), wait_for(&second_in); /* the second task told meanwhile */
 }
 static void on_second_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what != DGX_UI_BACK) return;
+    if (what != DGX_UI_EVENT_BACK) return;
     if (++second_told > 1) return;
     sem_post(&second_in), wait_for(&first_out);
-    dgx_ui_popup_back(&second.ui); /* its page closed from its on(), as a page may: told once */
+    dgx_ui_popup_back(&second.ui); /* its page closed from its on_event(), as a page may: told once */
 }
 static const dgx_ui_widget_t root_w        = {.kind = DGX_UI_BOX, .look = &dgx_ui_look_box};
-static const dgx_ui_widget_t first_page_w  = {.kind = DGX_UI_BOX, .look = &dgx_ui_look_box, .on = on_first_page};
-static const dgx_ui_widget_t second_page_w = {.kind = DGX_UI_BOX, .look = &dgx_ui_look_box, .on = on_second_page};
+static const dgx_ui_widget_t first_page_w  = {.kind = DGX_UI_BOX, .look = &dgx_ui_look_box, .on_event = on_first_page};
+static const dgx_ui_widget_t second_page_w = {.kind = DGX_UI_BOX, .look = &dgx_ui_look_box, .on_event = on_second_page};
 
 static void make(pair_t *pair, const dgx_ui_widget_t *page_w)
 {
@@ -81,9 +81,9 @@ static dgx_ui_transition_t  transitions[2];
 static bool                 second_closed;
 static void                 on_first_slid(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_BACK && ++first_told == 1) sem_post(&first_in), wait_for(&second_in);
+    if (what == DGX_UI_EVENT_BACK && ++first_told == 1) sem_post(&first_in), wait_for(&second_in);
 }
-static const dgx_ui_widget_t first_slid_w = {.kind = DGX_UI_BOX, .look = &dgx_ui_look_box, .on = on_first_slid};
+static const dgx_ui_widget_t first_slid_w = {.kind = DGX_UI_BOX, .look = &dgx_ui_look_box, .on_event = on_first_slid};
 static void *first_slide(void *arg)
 {
     dgx_ui_page_back_by(&first.ui, &paints[0], &transitions[0], DGX_UI_SLIDE_RIGHT);
@@ -114,7 +114,7 @@ int main(void)
     /* a back by a transition on each display at once */
     first_told = 0;
     make(&first, &first_slid_w), make(&second, &second_page_w);
-    second_told = 2; /* its on() does nothing more */
+    second_told = 2; /* its on_event() does nothing more */
     for (int k = 0; k < 2; ++k) {
         screens[k]         = dgx_vscreen_init(WIDTH, HEIGHT, 16, DgxScreenRGB);
         pictures[2 * k]     = dgx_vscreen_init(WIDTH, HEIGHT, 16, DgxScreenRGB);

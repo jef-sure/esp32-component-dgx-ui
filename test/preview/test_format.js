@@ -34,7 +34,7 @@ let failures = 0, held = 0;
         const needs  = format.keys.find(entry => entry.key === key)?.kind_flags?.[kind]; /* the flags the key needs in the kind */
         if (needs) widget.flags = needs;
         if (key === 'style' || key === 'lines') widget.text = 'x';
-        if (key === 'ctx' && typeof value === 'number') widget.on = 'go';
+        if (key === 'ctx' && typeof value === 'number') widget.on_event = 'go';
         widget[key] = value;
         return widget;
     };

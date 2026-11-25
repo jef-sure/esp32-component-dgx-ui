@@ -48,7 +48,7 @@ static const dgx_ui_widget_t root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUM
 int main(void)
 {
     variant[0] = (dgx_ui_font_variant_t){.font = &TerminusTTFMedium12};
-    important  = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_TEXT_IMPORTANT, .scroll_ms = 2000};
+    important  = (dgx_ui_text_style_t){.fonts = variant, .count = 1, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 2000};
     plain      = (dgx_ui_text_style_t){.fonts = variant, .count = 1};
     dgx_screen_t *v = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
 
@@ -91,14 +91,14 @@ int main(void)
     CHECK(paint.wake_ms == 30);
     /* a held key: its repeat at 500, then every 100 */
     dgx_ui_focus(&ui, -1);
-    dgx_ui_buttons(&ui, DGX_UI_PAD_DOWN, 5000);
+    dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_DOWN, 5000);
     CHECK(dgx_ui_wake(NULL, &ui, 5000) == 500 && dgx_ui_wake(NULL, &ui, 5200) == 300);
     dgx_ui_time(&ui, 5500);
     CHECK(dgx_ui_wake(NULL, &ui, 5500) == 100);
     dgx_ui_buttons(&ui, 0, 5550);
     CHECK(dgx_ui_wake(NULL, &ui, 5550) == DGX_UI_WAKE_NONE);
     /* the smaller of the paint's and the key's */
-    dgx_ui_buttons(&ui, DGX_UI_PAD_DOWN, 1080); /* the look's letter in 20, the key's repeat in 500 */
+    dgx_ui_buttons(&ui, DGX_UI_GAMEPAD_DOWN, 1080); /* the look's letter in 20, the key's repeat in 500 */
     CHECK(dgx_ui_wake(&paint, &ui, 1080) == 20);
     dgx_ui_buttons(&ui, 0, 1080);
     dgx_ui_free(&ui);
@@ -191,7 +191,7 @@ int main(void)
     }
     /* two trees drawn in turn by one paint, a bar and a page, each its root given, at the same now_ms: the bar's
        letters ask for 40 ms, the page for nothing; after the page, as the loop of the pages asks, the bar's 40 ms, not
-       for ever; the same through dgx_ui_changed(); a page painted at a moment of its own forgets the bar's */
+       for ever; the same through dgx_ui_paint_changes(); a page painted at a moment of its own forgets the bar's */
     {
         static char             bar_buf[40], page_buf[16];
         static dgx_ui_textbox_t bar_box, page_box;
@@ -215,11 +215,11 @@ int main(void)
             const TickType_t wait = ms == DGX_UI_WAKE_NONE ? portMAX_DELAY : pdMS_TO_TICKS(ms) > 0 ? pdMS_TO_TICKS(ms) : 1;
             CHECK(ms != DGX_UI_WAKE_NONE && ms <= 40 && wait != portMAX_DELAY);
         }
-        /* through dgx_ui_changed(), nobody told; and once all the letters came, a moment later, none asked */
-        dgx_ui_changed(&bar, &two, 1120, NULL, NULL), dgx_ui_changed(&page, &two, 1120, NULL, NULL);
+        /* through dgx_ui_paint_changes(), nobody told; and once all the letters came, a moment later, none asked */
+        dgx_ui_paint_changes(&bar, &two, 1120, NULL, NULL), dgx_ui_paint_changes(&page, &two, 1120, NULL, NULL);
         CHECK(dgx_ui_wake(&two, &page, 1120) <= 40);
-        dgx_ui_changed(&bar, &two, 9000, NULL, NULL), dgx_ui_changed(&page, &two, 9000, NULL, NULL);
-        dgx_ui_changed(&bar, &two, 9020, NULL, NULL), dgx_ui_changed(&page, &two, 9020, NULL, NULL);
+        dgx_ui_paint_changes(&bar, &two, 9000, NULL, NULL), dgx_ui_paint_changes(&page, &two, 9000, NULL, NULL);
+        dgx_ui_paint_changes(&bar, &two, 9020, NULL, NULL), dgx_ui_paint_changes(&page, &two, 9020, NULL, NULL);
         CHECK(dgx_ui_wake(&two, &page, 9020) == DGX_UI_WAKE_NONE);
         dgx_ui_text_appear(&bar, 1, 40);
         /* the page at a moment of its own: its moments only */
