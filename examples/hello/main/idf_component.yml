@@ -1,4 +1,6 @@
 dependencies:
-  # the registry's; inside the repository of dgx-ui the checkout takes its place (CMakeLists.txt of the project).
-  # DGX, the display library, comes with it
-  jef-sure/dgx-ui: "*"
+  # from GitHub by its tag until dgx-ui is in the registry; inside the repository the checkout takes its place
+  # (CMakeLists.txt of the project). DGX, the display library, comes with it
+  jef-sure/dgx-ui:
+    git: https://github.com/jef-sure/esp32-component-dgx-ui.git
+    version: "0.0.65"

@@ -37,7 +37,12 @@ page is the tool as the calls run it, and as it is run by hand.
 ```sh
 python3 tools/dgx_ui_c.py <path to DGX> <directory>    # <directory>/dgx_ui_c: the one way it is built
 make -C tools                                          # the same into tools/build, DGX found as the host tests find it
+make -C managed_components/jef-sure__dgx-ui/tools BUILD=$PWD/build/tools   # in a project: DGX found beside it
 ```
+
+In a project the tool is best made outside `managed_components/`, which is the component manager's to replace: an
+update of dgx-ui takes its folder away, and a tool made in it with it. The calls of `project_include.cmake` make it
+in the build by themselves.
 
 The tool is `tools/dgx_ui_c.c`, `tools/dgx_ui_names.c`, which reads a names file, and nine sources of the library,
 compiled against dgx-ui's headers and DGX's `include/` and `host/stubs/`: no source of DGX, no library but C's. The

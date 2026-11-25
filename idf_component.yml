@@ -50,6 +50,7 @@ files:
     - "tools/dgx_ui_names.h"
     - "tools/dgx_ui_c.py"
     - "tools/README.md"
+    - "tools/Makefile"  # dgx_ui_c built by make, as tools/README.md shows
     # the builder served from a terminal, for a browser that gives a page no folder to open
     - "tools/dgx_ui_serve.py"
     - "tools/dgx_ui_mcp.py"

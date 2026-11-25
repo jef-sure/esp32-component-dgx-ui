@@ -56,8 +56,14 @@ all: $(MADE_OUT)
 
 $(OUT)/licenses/LICENSE-DGX: $(DGX_ROOT)/LICENSE
 	mkdir -p $(dir $@) && cp $< $@
-$(OUT)/licenses/FONTS-DGX.md: $(DGX_ROOT)/src/fonts/README.md
-	mkdir -p $(dir $@) && cp $< $@
+# DGX's notice of its fonts, with a line of where it is from; its links, relative in DGX, go to DGX on GitHub at its
+# version, and its licenses/ is the folder this file lies in
+DGX_VERSION = $(shell sed -n 's/^version: *//p' $(DGX_ROOT)/idf_component.yml | tr -d '"')
+DGX_FILES   = https://github.com/jef-sure/esp32-component-dgx/blob/$(DGX_VERSION)
+$(OUT)/licenses/FONTS-DGX.md: $(DGX_ROOT)/src/fonts/README.md $(DGX_ROOT)/idf_component.yml
+	mkdir -p $(dir $@)
+	{ printf '%s\n\n' "Copied from src/fonts/README.md of DGX $(DGX_VERSION), its links turned to DGX's files on GitHub."; \
+	  sed -e 's|](\.\./\.\./|]($(DGX_FILES)/|g' -e 's|](licenses)|](README.md)|g' $<; } > $@
 $(OUT)/licenses/%.txt: $(DGX_ROOT)/src/fonts/licenses/%.txt
 	mkdir -p $(dir $@) && cp $< $@
 $(OUT)/licenses/%.copyright: /usr/share/doc/%/copyright

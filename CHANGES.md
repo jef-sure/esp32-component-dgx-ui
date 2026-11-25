@@ -332,7 +332,7 @@
 - A widget is 56 bytes of flash, was 52; the smallest program about 180 bytes of code more, a program of controls about
   650.
 
-## 0.0.21 - 2026-11-20
+## 0.0.21 - 2026-11-19
 
 - The statistics count a pass of `dgx_ui_changed()` too (`dgx_ui_changed_measured()`), the frames of a transition with
   the rate the eye sees (`dgx_ui_transition_frame_measured()`), and each widget of a tree the program names in an

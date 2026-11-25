@@ -1,6 +1,8 @@
+Copied from src/fonts/README.md of DGX 0.12.3, its links turned to DGX's files on GitHub.
+
 # The fonts of DGX
 
-Every font here is a C file made by [font2c](../../font2c/README.md) from a
+Every font here is a C file made by [font2c](https://github.com/jef-sure/esp32-component-dgx/blob/0.12.3/font2c/README.md) from a
 font file under a free license, or drawn for DGX; `GLCD5x7` was turned by a
 script from the C source of the classic font of the Adafruit GFX Library. The table records what each
 one was made from and under what license; `font2c/dgx_fonts.py` reads it to
@@ -8,7 +10,7 @@ write `fonts-used.txt` of a program and to match `deny` lines of the rules
 against these fonts by family. A font added here gets its row.
 
 The top of each `.c` says the same with the copyright notices of the makers
-of its font and what was changed, and [licenses](licenses) holds the texts
+of its font and what was changed, and [licenses](README.md) holds the texts
 of the licenses that ask to go with the fonts: the SIL Open Font License,
 the Apache License, the license of the DejaVu fonts, that of Cozette and the
 BSD License of the Adafruit GFX Library. The
@@ -18,11 +20,11 @@ as that license allows. `font2c` does not write this comment: a font of
 DGX made again gets it back at its top by hand.
 
 A `<name>.patch.json` here holds glyphs fixed by hand in the
-[font editor](../../font-editor/README.md) for the font of that name: one
+[font editor](https://github.com/jef-sure/esp32-component-dgx/blob/0.12.3/font-editor/README.md) for the font of that name: one
 face at one size. A font of DGX made again is made with its patch (`font2c
 -p`), and a font a program makes at build time from the same face at the same
 size takes the patch too: see "Glyphs fixed by hand" in
-[docs/fonts-en.md](../../docs/fonts-en.md).
+[docs/fonts-en.md](https://github.com/jef-sure/esp32-component-dgx/blob/0.12.3/docs/fonts-en.md).
 
 | Font | Family | Made from | License |
 |------|--------|-----------|---------|
