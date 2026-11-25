@@ -302,8 +302,9 @@ typedef struct appearance_load_t {
     dgx_ui_draw_name_t       *draws;
     dgx_ui_font_name_t       *fonts;
     dgx_ui_hand_name_t       *hands;
-    char                    (*names)[24]; /* the names of its draws, fonts and hands, kept */
-    int                       draw_count, font_count, hand_count;
+    dgx_ui_picture_name_t    *pictures;
+    char                    (*names)[24]; /* the names of its draws, fonts, hands and pictures, kept */
+    int                       draw_count, font_count, hand_count, picture_count;
 } appearance_load_t;
 
 static appearance_load_t appearance_load;
@@ -319,8 +320,8 @@ static void names_free_all(void)
 {
     table_t *every[] = {&tables[0], &tables[1], &tables[2], &tables[3], &tables[4], &tables[5], &tables[6], &tables[7],
                         &used[0], &used[1], &used[2], &used[3], &used[4], &used[5], &used[6], &used[7],
-                        &appearance_tables[0], &appearance_tables[1], &appearance_tables[2]};
-    _Static_assert(TABLES == 8 && APPEARANCE_TABLES == 3, "every table above");
+                        &appearance_tables[0], &appearance_tables[1], &appearance_tables[2], &appearance_tables[3]};
+    _Static_assert(TABLES == 8 && APPEARANCE_TABLES == 4, "every table above");
     for (size_t t = 0; t < sizeof every / sizeof *every; ++t) {
         for (int k = 0; k < every[t]->count; ++k) free(every[t]->entries[k].c), free(every[t]->entries[k].described);
         free(every[t]->entries);
@@ -347,9 +348,9 @@ static bool draw_named(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_
 static void appearance_free(void)
 {
     appearance_load_t *a = &appearance_load;
-    free(a->memory), free(a->draws), free(a->fonts), free(a->hands), free(a->names);
-    a->memory = NULL, a->draws = NULL, a->fonts = NULL, a->hands = NULL, a->names = NULL, a->loaded = false;
-    a->draw_count = a->font_count = a->hand_count = 0;
+    free(a->memory), free(a->draws), free(a->fonts), free(a->hands), free(a->pictures), free(a->names);
+    a->memory = NULL, a->draws = NULL, a->fonts = NULL, a->hands = NULL, a->pictures = NULL, a->names = NULL, a->loaded = false;
+    a->draw_count = a->font_count = a->hand_count = a->picture_count = 0;
 }
 
 /* the appearance loaded on its names, as dgx_ui_c -a reads it: no look or style of the program's after its own */
@@ -373,8 +374,11 @@ static void appearance_read(void)
         names_collect_fonts(a->text, a->length);
     }
     const table_t *draws_of = &appearance_tables[A_DRAW], *fonts_of = &appearance_tables[A_FONT], *hands_of = &appearance_tables[A_HAND];
-    const int      count    = draws_of->count + fonts_of->count + hands_of->count;
+    const table_t *pictures_of = &appearance_tables[A_PICTURE];
+    const int      count    = draws_of->count + fonts_of->count + hands_of->count + pictures_of->count;
     a->names                = zeroed((size_t)count, sizeof *a->names);
+    a->pictures             = zeroed((size_t)pictures_of->count, sizeof *a->pictures);
+    a->picture_count        = pictures_of->count;
     a->draws                = zeroed((size_t)draws_of->count, sizeof *a->draws);
     a->fonts                = zeroed((size_t)fonts_of->count, sizeof *a->fonts);
     a->hands                = zeroed((size_t)hands_of->count, sizeof *a->hands);
@@ -416,8 +420,17 @@ static void appearance_read(void)
         a->hands[k]       = (dgx_ui_hand_name_t){a->names[named], canvas ? &dgx_ui_handwriting_canvas : &dgx_ui_handwriting};
         ++named;
     }
-    const dgx_ui_appearance_names_t names = {.draws = a->draws, .fonts = a->fonts, .hands = a->hands, .draw_count = (uint16_t)draws_of->count,
-                                             .font_count = (uint16_t)fonts_of->count, .hand_count = (uint16_t)hands_of->count};
+    /* a picture: the crossed square stands in, as for a page's, so many as the names give */
+    for (int k = 0; k < pictures_of->count; ++k) {
+        const entry_t *picture = &pictures_of->entries[k];
+        memcpy(a->names[named], picture->name, 24);
+        a->pictures[k] = (dgx_ui_picture_name_t){a->names[named], crossed_picture(), (uint16_t)picture->count};
+        say(&notes, "picture %s: a crossed square of 16 pixels stands in\n", picture->name);
+        ++named;
+    }
+    const dgx_ui_appearance_names_t names = {.draws = a->draws, .fonts = a->fonts, .hands = a->hands, .pictures = a->pictures,
+                                             .draw_count = (uint16_t)draws_of->count, .font_count = (uint16_t)fonts_of->count,
+                                             .hand_count = (uint16_t)hands_of->count, .picture_count = (uint16_t)pictures_of->count};
     names_free_all();
     dgx_ui_load_error_t err;
     if (!dgx_ui_appearance_need(a->text, a->length, &names, &a->need, &err)) {
@@ -835,8 +848,9 @@ const char *preview_tables(void)
 
 /* ---- what an appearance may say, for its forms ---- */
 
-static const char *const field_types[] = {"color", "color_or_under", "number", "bool", "word", "flags", "bit", "bands", "font", "hand", "variants"};
-_Static_assert(sizeof field_types / sizeof *field_types == DGX_UI_FIELD_VARIANTS + 1, "a type for every field");
+static const char *const field_types[] = {"color", "color_or_under", "number", "bool", "word", "flags", "bit", "bands", "font", "hand", "variants",
+                                          "picture"};
+_Static_assert(sizeof field_types / sizeof *field_types == DGX_UI_FIELD_PICTURE + 1, "a type for every field");
 
 /* a member of 1, 2 or 4 bytes as an integer, signed where its bounds go below 0 */
 static int32_t member_read(const void *params, const dgx_ui_field_t *field)
@@ -868,6 +882,7 @@ static void grow_fields(grown_t *to, const dgx_ui_params_t *described, const voi
         grow(to, "%s{\"name\": \"%s\", \"type\": \"%s\"", k ? ", " : "", field->name, field_types[field->kind]);
         if (field->kind == DGX_UI_FIELD_NUMBER || field->kind == DGX_UI_FIELD_VARIANTS)
             grow(to, ", \"min\": %ld, \"max\": %ld", (long)field->low, (long)field->high);
+        if (field->kind == DGX_UI_FIELD_PICTURE) grow(to, ", \"min\": %ld", (long)field->low); /* the pictures it needs */
         if (field->words) grow(to, ", \"words\": "), grow_words(to, field->words);
         grow(to, "}");
     }
@@ -876,7 +891,7 @@ static void grow_fields(grown_t *to, const dgx_ui_params_t *described, const voi
     grow(to, ", \"defaults\": {");
     for (int k = 0; k < described->field_count; ++k) {
         const dgx_ui_field_t *field = &described->fields[k];
-        const int32_t         value = field->kind == DGX_UI_FIELD_BANDS ? 0 : member_read(params, field);
+        const int32_t         value = field->kind == DGX_UI_FIELD_BANDS || field->kind == DGX_UI_FIELD_PICTURE ? 0 : member_read(params, field);
         grow(to, "%s\"%s\": ", k ? ", " : "", field->name);
         switch (field->kind) {
         case DGX_UI_FIELD_COLOR:
@@ -888,6 +903,7 @@ static void grow_fields(grown_t *to, const dgx_ui_params_t *described, const voi
             grow(to, "\"%s\"", word);
             break;
         }
+        case DGX_UI_FIELD_PICTURE: grow(to, "null"); break; /* the library's look names none: the program's to give */
         case DGX_UI_FIELD_BANDS: {
             const dgx_ui_band_t *bands = *(const dgx_ui_band_t *const *)(const void *)((const uint8_t *)params + field->offset);
             const int            count = *((const uint8_t *)params + field->count_offset);
@@ -940,6 +956,9 @@ const char *preview_appearance_format(void)
     for (int k = 0; laid && k < a->font_count; ++k) grow(&said, "%s\"%s\"", k ? ", " : "", a->fonts[k].name);
     grow(&said, "], \"hands\": [");
     for (int k = 0; k < (laid ? a->hand_count : 2); ++k) grow(&said, "%s\"%s\"", k ? ", " : "", laid ? a->hands[k].name : library_hands[k]);
+    grow(&said, "], \"pictures\": [");
+    for (int k = 0; laid && k < a->picture_count; ++k)
+        grow(&said, "%s{\"name\": \"%s\", \"count\": %u}", k ? ", " : "", a->pictures[k].name, a->pictures[k].count > 1 ? a->pictures[k].count : 1u);
     grow(&said, "], \"by_rule\": %s,\n \"style\": ", appearance_named() ? "false" : "true");
     grow_fields(&said, &dgx_ui_params_text_style, NULL);
     grow(&said, ",\n \"variant\": ");
@@ -1312,7 +1331,7 @@ const char *preview_names_format(void)
     grow(&said, "], \"keys\": [");
     for (int t = 0; t < TABLES; ++t) grow(&said, "%s\"%s\"", t ? ", " : "", table_keys[t]);
     grow(&said, "], \"appearance\": [");
-    for (int t = 0; t < APPEARANCE_TABLES; ++t) grow(&said, "%s\"%s\"", t ? ", " : "", appearance_words[t]);
+    for (int t = 0; t < A_PICTURE; ++t) grow(&said, "%s\"%s\"", t ? ", " : "", appearance_words[t]); /* pictures: the page's table's lines */
     grow(&said, "],\n \"words\": {\"picture\": \"count\", \"on\": \"number\", \"ctx\": \"page\", \"font\": \"handwritten\"}, \"pictures\": [1, 65535],\n");
     grow(&said, " \"bare\": {\"look\": [");
     for (int k = 0; k < library_look_count; ++k) grow(&said, "%s\"%s\"", k ? ", " : "", library_looks[k]);

@@ -396,6 +396,9 @@ static void out_head(out_t *o, const char *file_name)
         if (!appearance_tables[A_FONT].from_file)
             out(o, " *\n"), out_paragraph(o, "", "Its fonts made C by the rule of dgx_ui_c, as no names file gave them: dgx_font_<name>. Not checked for want "
                                                 "of the program's tables: which fonts are handwritten, whose variants must name a hand.");
+        if (appearance_tables[A_PICTURE].count && !appearance_tables[A_PICTURE].from_file)
+            out(o, " *\n"), out_paragraph(o, "", "Its pictures made C by the rule of dgx_ui_c, as no names file gave them: <name>. Not checked for want of "
+                                                "the program's tables: how many pictures each is.");
         out(o, " */\n");
         return;
     }
@@ -689,7 +692,7 @@ static void write_tables(const char *directory, const char *const *headers, int 
     if (for_appearance) {
         static const char *const types[]  = {"dgx_ui_draw_name_t", "dgx_ui_font_name_t", "dgx_ui_hand_name_t"};
         static const char *const fields[] = {"draws", "fonts", "hands"};
-        for (int table = 0; table < APPEARANCE_TABLES; ++table) {
+        for (int table = 0; table < A_PICTURE; ++table) {
             const table_t *of = &appearance_tables[table];
             if (!of->count) continue;
             out(&c_file, "\nstatic const %s %s_%s[%d] = {\n", types[table], prefix, fields[table], of->count);
@@ -701,15 +704,18 @@ static void write_tables(const char *directory, const char *const *headers, int 
         /* the file's own looks and styles: after the appearance's of -a in the same arrays */
         const int own_looks = tables[T_LOOK].count - (appearance_path ? appearance_need.looks : 0), own_styles = tables[T_STYLE].count - (appearance_path ? appearance_need.styles : 0);
         out(&c_file, "\nconst dgx_ui_appearance_names_t %s_appearance_names = {\n", prefix);
-        for (int table = 0; table < APPEARANCE_TABLES; ++table)
+        for (int table = 0; table < A_PICTURE; ++table)
             out(&c_file, "    .%s = %s%s%s,\n", fields[table], appearance_tables[table].count ? prefix : "NULL", appearance_tables[table].count ? "_" : "",
                 appearance_tables[table].count ? fields[table] : "");
+        /* its pictures the page's table: one line of the file serves both */
+        if (tables[T_PICTURE].count) out(&c_file, "    .pictures = %s_%s,\n", prefix, table_fields[T_PICTURE]);
+        else out(&c_file, "    .pictures = NULL,\n");
         if (own_looks) out(&c_file, "    .looks = %s_looks + %d,\n", prefix, tables[T_LOOK].count - own_looks);
         else out(&c_file, "    .looks = NULL,\n");
         if (own_styles) out(&c_file, "    .styles = %s_styles + %d,\n", prefix, tables[T_STYLE].count - own_styles);
         else out(&c_file, "    .styles = NULL,\n");
-        out(&c_file, "    .draw_count = %d, .font_count = %d, .hand_count = %d, .look_count = %d, .style_count = %d,\n};\n", appearance_tables[A_DRAW].count,
-            appearance_tables[A_FONT].count, appearance_tables[A_HAND].count, own_looks, own_styles);
+        out(&c_file, "    .draw_count = %d, .font_count = %d, .hand_count = %d, .picture_count = %d, .look_count = %d, .style_count = %d,\n};\n",
+            appearance_tables[A_DRAW].count, appearance_tables[A_FONT].count, appearance_tables[A_HAND].count, tables[T_PICTURE].count, own_looks, own_styles);
     }
     if (fclose(c_file.file) || fclose(h_file.file)) fail_out("%s: %s", c_path, strerror(errno));
 }
@@ -733,6 +739,7 @@ static char *read_all(const char *path, size_t *length)
 /* ---- an appearance, read by its loader on stand-ins ---- */
 
 static uint8_t                  *draw_stand, *hand_stand;
+static dgx_ui_picture_t         *picture_stand; /* the pictures' stand-ins, one a name: which name a look's field took */
 static dgx_font_t               *font_stand;      /* the fonts' stand-ins: a handwritten one by its type, what the loader asks of a font */
 static dgx_ui_look_t            *own_look_stand;  /* the names file's looks, after the appearance's */
 static dgx_ui_text_style_t      *own_style_stand; /* and its styles */
@@ -786,6 +793,11 @@ static void read_appearance(bool names_file, bool with_own)
     }
     refuse_own_params();
     const table_t *draws_of = &appearance_tables[A_DRAW], *fonts_of = &appearance_tables[A_FONT], *hands_of = &appearance_tables[A_HAND];
+    const table_t *pictures_of = &appearance_tables[A_PICTURE];
+    picture_stand           = zeroed(pictures_of->count, sizeof *picture_stand);
+    dgx_ui_picture_name_t *pictures = zeroed(pictures_of->count, sizeof *pictures);
+    for (int k = 0; k < pictures_of->count; ++k)
+        pictures[k] = (dgx_ui_picture_name_t){pictures_of->entries[k].name, &picture_stand[k], (uint16_t)pictures_of->entries[k].count};
     draw_stand              = zeroed(draws_of->count, 1);
     hand_stand              = zeroed(hands_of->count, 1);
     font_stand              = zeroed(fonts_of->count, sizeof *font_stand);
@@ -808,9 +820,10 @@ static void read_appearance(bool names_file, bool with_own)
     for (int k = 0; k < hands_of->count; ++k) hands[k] = (dgx_ui_hand_name_t){hands_of->entries[k].name, (const dgx_ui_hand_t *)&hand_stand[k]};
     for (int k = 0; k < own_looks; ++k) looks[k] = (dgx_ui_look_name_t){tables[T_LOOK].entries[k].name, &own_look_stand[k]};
     for (int k = 0; k < own_styles; ++k) styles[k] = (dgx_ui_style_name_t){tables[T_STYLE].entries[k].name, &own_style_stand[k]};
-    const dgx_ui_appearance_names_t names = {.draws = draws, .fonts = fonts, .hands = hands, .looks = looks, .styles = styles,
+    const dgx_ui_appearance_names_t names = {.draws = draws, .fonts = fonts, .hands = hands, .pictures = pictures, .looks = looks, .styles = styles,
                                              .draw_count = (uint16_t)draws_of->count, .font_count = (uint16_t)fonts_of->count,
-                                             .hand_count = (uint16_t)hands_of->count, .look_count = (uint16_t)own_looks, .style_count = (uint16_t)own_styles};
+                                             .hand_count = (uint16_t)hands_of->count, .picture_count = (uint16_t)pictures_of->count,
+                                             .look_count = (uint16_t)own_looks, .style_count = (uint16_t)own_styles};
     dgx_ui_load_error_t err;
     if (!dgx_ui_appearance_need(appearance_text, appearance_length, &names, &appearance_need, &err)) {
         fprintf(stderr, "dgx_ui_c: %s: byte %d: %s", appearance_path, err.offset, error_words[err.code]);
@@ -952,7 +965,7 @@ static void write_appearance(const char *directory, const char *const *headers, 
         out(&c_file, "static const %s %s_params_%d = {", library_draws[draw->library].type, p, k);
         for (int f = 0; f < described->field_count; ++f) {
             const dgx_ui_field_t *field = &described->fields[f];
-            const int32_t         value = field->kind == DGX_UI_FIELD_BANDS ? 0 : field_number(base, field);
+            const int32_t         value = field->kind == DGX_UI_FIELD_BANDS || field->kind == DGX_UI_FIELD_PICTURE ? 0 : field_number(base, field);
             out(&c_file, "%s.%s = ", f ? ", " : "", field->name);
             switch (field->kind) {
             case DGX_UI_FIELD_COLOR:
@@ -968,6 +981,13 @@ static void write_appearance(const char *directory, const char *const *headers, 
                 const int count = base[field->count_offset];
                 if (count) out(&c_file, "%s_bands_%d, .%s = %d", p, k, count_member(library_draws[draw->library].type, field->name), count);
                 else out(&c_file, "NULL, .%s = 0", count_member(library_draws[draw->library].type, field->name));
+                break;
+            }
+            case DGX_UI_FIELD_PICTURE: {
+                /* the names file's expression of the pictures the field took, or its name by the rule */
+                const dgx_ui_picture_t *took;
+                memcpy(&took, base + field->offset, sizeof took);
+                out(&c_file, "%s", appearance_tables[A_PICTURE].entries[took - picture_stand].c);
                 break;
             }
             default: out(&c_file, "%d", (int)value); break;

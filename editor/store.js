@@ -438,6 +438,19 @@ const useDgxUiBuilder = (() => {
                 return [...new Set([...made, ...loaded])];
             },
             // the names of the file no page and no appearance on it names: "table name", a note on their lines
+            // the words of the appearance's refusal at a field of pictures short of its need: "pieces: 9 pictures needed,
+            // the table's "card" has 1"; null for any other verdict
+            appearanceShort() {
+                const verdict = this.verdicts.appearance, at = this.appearanceAt, doc = this.raw.look;
+                if (!verdict || verdict.code !== 6 || !at || at[0] !== 'looks' || !doc) return null;
+                const look = appearance.nodeAt(doc, at), draw = stringOf(valueOf(look, 'draw'));
+                const field = this.raw.lookFormat?.draws.find((one) => one.draw === draw)?.fields.find((one) => one.name === verdict.name);
+                if (!field || field.type !== 'picture') return null;
+                const named = stringOf(valueOf(valueOf(look, 'params'), field.name));
+                const picture = this.raw.lookFormat.pictures.find((one) => one.name === named);
+                return { field: field.name, need: field.min, name: named, count: picture?.count ?? 0 };
+            },
+
             namesUnused() {
                 this.version;
                 return this.namesUsers(null).unused;
@@ -1064,8 +1077,20 @@ const useDgxUiBuilder = (() => {
                 const described = this.raw.lookFormat?.draws.find((one) => one.draw === draw);
                 if (!described) return false;
                 const look = { draw };
-                if (described.fields.length) look.params = { ...(described.defaults ?? {}) };
+                if (described.fields.length) look.params = this.defaultsOf(described);
                 return this.addEntry('looks', name, look);
+            },
+
+            // a draw's library defaults as a look's parameters: a field of pictures, which the library gives none of, the
+            // first of the names' pictures of as many as it needs, else left out for the loader to say so at it
+            defaultsOf(described) {
+                const params = { ...(described.defaults ?? {}) };
+                for (const field of described.fields.filter((one) => one.type === 'picture')) {
+                    const fits = (this.raw.lookFormat?.pictures ?? []).find((picture) => picture.count >= field.min);
+                    if (fits) params[field.name] = fits.name;
+                    else delete params[field.name];
+                }
+                return params;
             },
 
             // a look given another draw: each field of the same name and kind kept, the others the new draw's defaults; a
@@ -1086,8 +1111,8 @@ const useDgxUiBuilder = (() => {
                         const old = before && !before.own && before.fields.find((one) => one.name === field.name && one.type === field.type);
                         const value = old && params && params.t === 'object' ? valueOf(params, field.name) : undefined;
                         if (value !== undefined) kept.entries.push([{ t: 'string', value: field.name }, value]);
-                        else if (after.defaults && field.name in after.defaults)
-                            kept.entries.push([{ t: 'string', value: field.name }, description.plain(after.defaults[field.name])]);
+                        else if (after.defaults && field.name in this.defaultsOf(after))
+                            kept.entries.push([{ t: 'string', value: field.name }, description.plain(this.defaultsOf(after)[field.name])]);
                     }
                     if (kept.entries.length) appearance.setAt(doc, ['looks', name, 'params'], kept);
                     else appearance.removeAt(doc, ['looks', name, 'params']);
@@ -1295,6 +1320,15 @@ const useDgxUiBuilder = (() => {
                         if (draw === null) continue;
                         note('draw', draw);
                         if (table === 'draw' && draw === name) users.push({ path, at: ['looks', key.value, 'draw'] });
+                        // a field of pictures of the draw names a picture of the file, as a page's widget does
+                        const fields = this.raw.lookFormat?.draws.find((one) => one.draw === draw)?.fields ?? [];
+                        const params = valueOf(look, 'params');
+                        for (const field of fields.filter((one) => one.type === 'picture')) {
+                            const picture = params?.t === 'object' ? stringOf(valueOf(params, field.name)) : null;
+                            if (picture === null) continue;
+                            note('picture', picture);
+                            if (table === 'picture' && picture === name) users.push({ path, at: ['looks', key.value, 'params', field.name] });
+                        }
                     }
                     for (const [key, style] of styles?.t === 'object' ? styles.entries : []) {
                         const fonts = valueOf(style, 'fonts');

@@ -7,7 +7,7 @@
  * a button of the appearance drawn as the same button of C constants, pixel by pixel; the whole appearance written as
  * dgx_ui_c is to make it, all constants, the same field by field, and a page of
  * all its looks drawn on its tables as on the loaded ones, pixel by pixel. Each refusal with its code, its
- * byte and its name. Appearances made by chance from the descriptions themselves, every kind of field, their keys
+ * byte and its name; a field of pictures taken by a name of as many as it needs, refused short, unknown or unsaid. Appearances made by chance from the descriptions themselves, every kind of field, their keys
  * shuffled, loaded and compared byte by byte; the same spoiled at one byte: never a fault, an error inside the text.
  */
 #include <stdarg.h>
@@ -25,7 +25,7 @@
 #define DRAW(word) DGX_UI_DRAW_NAME(word)
 static const dgx_ui_draw_name_t draws[] = {DRAW(box),      DRAW(frame),         DRAW(text),  DRAW(lines),  DRAW(hand_lines), DRAW(button),  DRAW(picture_button),
                                            DRAW(input),    DRAW(switch),        DRAW(slider), DRAW(list),  DRAW(dropdown),   DRAW(picture), DRAW(rgb565),
-                                           DRAW(indexed),  DRAW(radio),         DRAW(checkbox), DRAW(level), DRAW(ring)};
+                                           DRAW(indexed),  DRAW(radio),         DRAW(checkbox), DRAW(level), DRAW(ring),     DRAW(nine)};
 enum { DRAW_COUNT = sizeof draws / sizeof *draws };
 static const dgx_ui_font_name_t        fonts[]      = {{"small", &TerminusTTFMedium12}, {"hand", &font0ss}};
 static const dgx_ui_hand_name_t        hands[]      = {DGX_UI_HAND_NAME(handwriting), DGX_UI_HAND_NAME(handwriting_canvas)};
@@ -33,7 +33,12 @@ static const dgx_ui_look_name_t        own_looks[]  = {DGX_UI_LOOK_NAME(slider),
 static const dgx_ui_font_variant_t     plain_variant[1] = {{.font = &TerminusTTFMedium12}};
 static const dgx_ui_text_style_t       plain            = {.fonts = plain_variant, .count = 1};
 static const dgx_ui_style_name_t       own_styles[] = {{"plain", &plain}};
+/* the pictures a look's field may name: one of a single picture, the nine of a frame */
+static const dgx_ui_picture_t          one_piece[1]   = {{0}};
+static const dgx_ui_picture_t          nine_pieces[9] = {{0}};
+static const dgx_ui_picture_name_t     pictures[]     = {{"one", one_piece, 0}, {"card", nine_pieces, 9}};
 static const dgx_ui_appearance_names_t names        = {.draws = draws, .draw_count = DRAW_COUNT, .fonts = fonts, .font_count = 2, .hands = hands, .hand_count = 2,
+                                                       .pictures = pictures, .picture_count = 2,
                                                        .looks = own_looks, .look_count = 2, .styles = own_styles, .style_count = 1};
 
 static bool refused(const char *json, int code, int offset, const char *name)
@@ -170,7 +175,7 @@ static void chance_params(printer_t *p, const dgx_ui_params_t *described, expect
     for (int o = 0; o < described->field_count; ++o) {
         const dgx_ui_field_t *field = &described->fields[order[o]];
         const bool            color = field->kind <= DGX_UI_FIELD_COLOR_OR_UNDER;
-        if (!color && chance(3) == 0) continue; /* not said: 0 */
+        if (!color && field->kind != DGX_UI_FIELD_PICTURE && chance(3) == 0) continue; /* not said: 0; pictures must be */
         print(p, "%s\"%s\": ", first ? "" : ", ", field->name), first = 0;
         int32_t value = 0;
         switch (field->kind) {
@@ -186,6 +191,12 @@ static void chance_params(printer_t *p, const dgx_ui_params_t *described, expect
             for (int k = 0; k < value; ++k) w += strlen(w) + 1;
             print(p, "\"%s\"", w);
             break;
+        }
+        case DGX_UI_FIELD_PICTURE: { /* the frame's nine: its pointer where the field is */
+            const dgx_ui_picture_t *named = nine_pieces;
+            print(p, "\"card\"");
+            memcpy(e->params + field->offset, &named, sizeof named);
+            continue;
         }
         case DGX_UI_FIELD_BANDS: {
             e->band_count = chance(5);
@@ -410,6 +421,26 @@ int main(void)
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [{\"font\": \"small\", \"points\": 1}]}}}", DGX_UI_LOAD_SYNTAX, 159, NULL));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [{\"font\": \"small\", \"hand\": \"pencil\"}]}}}", DGX_UI_LOAD_UNKNOWN, 157, "pencil"));
     CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"styles\": {\"s\": {\"fonts\": [{\"font\": \"small\", \"narrow\": 101}]}}}", DGX_UI_LOAD_RANGE, 159, NULL));
+    {
+        /* a field of pictures: a name of the program's table, of as many as the draw needs; a count of 0 is one */
+        static const char frame[] = "{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"nine\", \"params\": "
+                                    "{\"fill\": \"fill\", \"ink\": \"ink\", \"pieces\": \"card\"}}}}";
+        static uint8_t    room[1024];
+        dgx_ui_appearance_t taken;
+        CHECK(dgx_ui_appearance_need(frame, strlen(frame), &names, &need, &err) && need.bytes <= sizeof room &&
+              dgx_ui_appearance_load(frame, strlen(frame), &names, room, need.bytes, &taken, &err));
+        CHECK(taken.looks[0].look->draw == dgx_ui_draw_nine && ((const dgx_ui_nine_look_t *)taken.looks[0].look->params)->pieces == nine_pieces);
+        char short_of[sizeof frame];
+        strcpy(short_of, frame);
+        memcpy(strstr(short_of, "\"card\""), "\"one\" ", 6);
+        CHECK(refused(short_of, DGX_UI_LOAD_RANGE, (int)(strstr(short_of, "\"one\"") - short_of), "pieces"));
+        CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"nine\", \"params\": {\"fill\": \"fill\", \"pieces\": \"deck\"}}}}",
+                      DGX_UI_LOAD_UNKNOWN, -1, "deck"));
+        CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"nine\", \"params\": {\"fill\": \"fill\", \"pieces\": 9}}}}",
+                      DGX_UI_LOAD_SYNTAX, -1, NULL));
+        CHECK(refused("{\"dgx-ui\": 1, \"colors\": {" FOUR "}, \"looks\": {\"x\": {\"draw\": \"nine\", \"params\": {\"fill\": \"fill\", \"ink\": \"ink\"}}}}",
+                      DGX_UI_LOAD_MISSING, -1, "pieces"));
+    }
     {
         /* 255 colours at most: the fixed four and 251 more */
         static char many[8192];

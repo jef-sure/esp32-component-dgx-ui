@@ -21,6 +21,17 @@
 
 /* the program's objects, as the names file names them */
 int32_t                            volume           = 40;
+/* the nine pictures of a frame, of 1 bit: a corner a square of 3, an edge and the middle of 2, each its own pattern */
+static const uint8_t     card_bits[9][3] = {{0xe0, 0xa0, 0xe0}, {0xc0, 0x00, 0x00}, {0xe0, 0x20, 0xe0}, {0x80, 0x80, 0x00}, {0x40, 0x80, 0x00},
+                                            {0x40, 0x40, 0x00}, {0xe0, 0x80, 0xe0}, {0x00, 0xc0, 0x00}, {0xe0, 0x20, 0xe0}};
+static const dgx_image_t card_images[9] = {
+    {3, 3, 0, 0, DGX_IMAGE_1BPP, card_bits[0]}, {2, 2, 0, 0, DGX_IMAGE_1BPP, card_bits[1]}, {3, 3, 0, 0, DGX_IMAGE_1BPP, card_bits[2]},
+    {2, 2, 0, 0, DGX_IMAGE_1BPP, card_bits[3]}, {2, 2, 0, 0, DGX_IMAGE_1BPP, card_bits[4]}, {2, 2, 0, 0, DGX_IMAGE_1BPP, card_bits[5]},
+    {3, 3, 0, 0, DGX_IMAGE_1BPP, card_bits[6]}, {2, 2, 0, 0, DGX_IMAGE_1BPP, card_bits[7]}, {3, 3, 0, 0, DGX_IMAGE_1BPP, card_bits[8]}};
+const dgx_ui_picture_t card_pieces[9] = {{.image = &card_images[0]}, {.image = &card_images[1]}, {.image = &card_images[2]},
+                                         {.image = &card_images[3]}, {.image = &card_images[4]}, {.image = &card_images[5]},
+                                         {.image = &card_images[6]}, {.image = &card_images[7]}, {.image = &card_images[8]}};
+const dgx_ui_picture_t one_piece[1] = {{.image = &card_images[4]}};
 static const dgx_ui_text_look_t    mine_colours     = {.ink = 1, .paper = 0};
 const dgx_ui_look_t                mine             = {.draw = dgx_ui_draw_text, .params = &mine_colours, .fill = -1};
 static const dgx_ui_font_variant_t plain_variant[1] = {{.font = &TerminusTTFMedium12}};
@@ -105,10 +116,31 @@ static dgx_screen_t *drawn(const dgx_ui_appearance_t *appearance, int own_looks,
                                        .value = valued ? &volume : NULL};
         dgx_ui_add(&ui, root, &widgets[k]);
     }
-    uint32_t colors[256];
-    dgx_screen_t *scr = dgx_vscreen_init(PAGE_W, PAGE_H, 16, DgxScreenRGB);
+    uint32_t       colors[256];
+    static uint8_t buffer[PAGE_W * 8]; /* a frame of nine pictures draws its pieces through it */
+    dgx_screen_t  *scr = dgx_vscreen_init(PAGE_W, PAGE_H, 16, DgxScreenRGB);
     dgx_ui_appearance_pack(appearance, dgx_ui_pack_screen, scr, colors);
-    dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = appearance->color_count};
+    dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = appearance->color_count, .buffer = buffer, .buffer_size = sizeof buffer};
+    dgx_ui_paint(&ui, &paint, 0);
+    dgx_ui_paint_free(&paint);
+    dgx_ui_free(&ui);
+    return scr;
+}
+
+/* a frame of a look alone, its pieces drawn through a buffer: the appearance's "nine" against the program's own look */
+static dgx_screen_t *framed(const dgx_ui_appearance_t *appearance, const dgx_ui_look_t *look)
+{
+    static dgx_ui_node_t   nodes[2];
+    static uint8_t         buffer[64 * 4];
+    dgx_ui_widget_t        frame = {.kind = DGX_UI_FRAME, .want_w = 40, .want_h = 30, .look = look};
+    const dgx_ui_widget_t  root  = {.kind = DGX_UI_BOX, .pad = 3};
+    dgx_ui_t               ui;
+    uint32_t               colors[256];
+    dgx_ui_init(&ui, nodes, 2, 1);
+    dgx_ui_add(&ui, dgx_ui_add(&ui, -1, &root), &frame);
+    dgx_screen_t *scr = dgx_vscreen_init(64, 48, 16, DgxScreenRGB);
+    dgx_ui_appearance_pack(appearance, dgx_ui_pack_screen, scr, colors);
+    dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = appearance->color_count, .buffer = buffer, .buffer_size = sizeof buffer};
     dgx_ui_paint(&ui, &paint, 0);
     dgx_ui_paint_free(&paint);
     dgx_ui_free(&ui);
@@ -118,7 +150,7 @@ static dgx_screen_t *drawn(const dgx_ui_appearance_t *appearance, int own_looks,
 int main(void)
 {
     static uint8_t memory[65536] __attribute__((aligned(16)));
-    int            held = 0;
+    int            held = 0, framed_checked = 0;
     for (size_t c = 0; c < sizeof cases / sizeof *cases; ++c) {
         const appearance_case_t *one = &cases[c];
         const bool               ruled = strcmp(one->name, "ruled") == 0;
@@ -152,7 +184,27 @@ int main(void)
         CHECK(off == 0);
         dgx_screen_destroy(&a), dgx_screen_destroy(&b);
         held += same && !off;
+        /* an appearance sets "nine" whole: its look "card", made C and loaded, draws the pixels of the program's own look
+           of dgx_ui_draw_nine on the same pieces, the fill 2 and the ink 1 */
+        for (int k = 0; ruled && k < need.looks; ++k) {
+            if (strcmp(made->looks[k].name, "card") != 0) continue;
+            static const dgx_ui_nine_look_t own_params = {.pieces = card_pieces, .fill = 2, .ink = 1};
+            const dgx_ui_look_t             own        = {.draw = dgx_ui_draw_nine, .params = &own_params, .fill = -1};
+            dgx_screen_t *of_made = framed(made, made->looks[k].look), *of_loaded = framed(&loaded, loaded.looks[k].look), *of_own = framed(made, &own);
+            int apart = 0, inked = 0;
+            for (int y = 0; y < 48; ++y)
+                for (int x = 0; x < 64; ++x) {
+                    const uint32_t pixel = dgx_get_pixel(of_own, x, y);
+                    apart += dgx_get_pixel(of_made, x, y) != pixel || dgx_get_pixel(of_loaded, x, y) != pixel;
+                    inked += pixel == 0xffff;
+                }
+            if (apart) fprintf(stderr, "  the appearance's nine: %d pixels apart from the program's own look\n", apart);
+            CHECK(apart == 0 && inked > 20 && ((const dgx_ui_nine_look_t *)made->looks[k].look->params)->pieces == card_pieces);
+            dgx_screen_destroy(&of_made), dgx_screen_destroy(&of_loaded), dgx_screen_destroy(&of_own);
+            ++framed_checked;
+        }
     }
+    CHECK(framed_checked == 1);
     CHECK(held == (int)(sizeof cases / sizeof *cases));
 
     /* the spoiled: the loader's verdict on the names file's tables */

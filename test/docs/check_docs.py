@@ -200,8 +200,9 @@ for kind, rel in pages:
     # 5. the API page names everything public
     if kind == 'api':
         public = cmake_calls | set(re.findall(r'^(?:[a-z_0-9 ]+[ \*])?(dgx_ui_[a-z0-9_]+)\(', headers, re.M)) | set(re.findall(r'\b(DGX_UI_[A-Z0-9_]+)\b', headers)) \
-                 | set(re.findall(r'\}\s*(dgx_ui_[a-z0-9_]+_t);', headers)) | set(re.findall(r'extern const dgx_ui_look_t ([^;]+);', headers) and
-                   [n.strip() for group in re.findall(r'extern const dgx_ui_look_t ([^;]+);', headers) for n in group.split(',')])
+                 | set(re.findall(r'\}\s*(dgx_ui_[a-z0-9_]+_t);', headers)) \
+                 | {n.strip() for group in re.findall(r'extern\s+const\s+[a-z_0-9]+\s+([^;(]+);', headers) for n in group.split(',')
+                    if n.strip().startswith('dgx_ui_')}  # every constant, a list of them too
         missing = sorted(n for n in public - used if n not in ('DGX_UI_STATIC_ASSERT', 'DGX_UI_DI_ASSERT') and not n.endswith('_'))
         print(f'{"ok  " if not missing else "FAIL"} {rel}: {len(public)} public names' + (f'; missing: {", ".join(missing)}' if missing else ''))
         ok &= not missing

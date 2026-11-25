@@ -14,3 +14,9 @@ bool                             draw_dial(const dgx_ui_look_t *look, dgx_ui_pai
    DGX's dgx_fonts.h names a font it bundles for a need */
 #define dgx_font_small TerminusTTFMedium12
 #define dgx_font_hand  font0ss
+
+/* the pictures of a frame of nine, by the names file's `picture card card_pieces 9`; by the rule a picture is <name> */
+extern const dgx_ui_picture_t card_pieces[9];
+#define card card_pieces
+/* and one picture, `picture one one_piece`, a name another C than card's: a field written from the wrong line is seen */
+extern const dgx_ui_picture_t one_piece[1];

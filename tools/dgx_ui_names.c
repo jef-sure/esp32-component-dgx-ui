@@ -41,7 +41,7 @@ const char *const library_hands[2]   = {"handwriting", "handwriting_canvas"};
 const char *const table_words[TABLES]                 = {"look", "value", "picture", "style", "on", "take", "ctx", "id"};
 const char *const table_keys[TABLES]                  = {"look", "value", "picture", "style", "on", "take", "ctx", "id"};
 table_t           tables[TABLES], used[TABLES];
-const char *const appearance_words[APPEARANCE_TABLES] = {"draw", "font", "hand"};
+const char *const appearance_words[APPEARANCE_TABLES] = {"draw", "font", "hand", "picture"};
 table_t           appearance_tables[APPEARANCE_TABLES];
 const char        DEFAULT_STYLE[] = "the default";
 
@@ -185,29 +185,33 @@ char *names_read(const char *path, const char *text, size_t length, bool appeara
         for (char *word = strtok(line, " \t\r\n"); word && count < 5; word = strtok(NULL, " \t\r\n")) words[count++] = word;
         if (count == 0) continue;
         int kind = 0;
-        while (kind < APPEARANCE_TABLES && strcmp(appearance_words[kind], words[0]) != 0) ++kind;
-        if (kind < APPEARANCE_TABLES) {
+        while (kind < A_PICTURE && strcmp(appearance_words[kind], words[0]) != 0) ++kind;
+        if (kind < A_PICTURE) {
             char *said = appearance_line(path, number, kind, words, count);
             if (said) return said;
             continue;
         }
-        if (appearance_alone) continue;
+        /* of an appearance's names alone, its pictures are read too, into its own table; else into the page's, and
+           given to the appearance's after the file */
+        const bool picture = strcmp(words[0], table_words[T_PICTURE]) == 0;
+        if (appearance_alone && !picture) continue;
         int table = 0;
         while (table < TABLES && strcmp(table_words[table], words[0]) != 0) ++table;
         if (table == TABLES) return printed("%s:%d: no table \"%s\": look, value, picture, style, on, take, ctx, id, draw, font or hand", path, number, words[0]);
+        table_t *into = appearance_alone ? &appearance_tables[A_PICTURE] : &tables[table];
         if (count < 2) return printed("%s:%d: a %s with no name", path, number, words[0]);
         if (!loader_name(words[1])) return printed("%s:%d: \"%s\" is not a name a description may have", path, number, words[1]);
-        if (entry_of(&tables[table], words[1])) return printed("%s:%d: the %s \"%s\" twice", path, number, words[0], words[1]);
-        if (tables[table].count == 65535) return printed("%s:%d: a %s past the 65535 a table may have", path, number, words[0]);
-        if (table == T_ID && tables[table].count == DGX_UI_LOAD_IDS) return printed("%s:%d: an id past the %d a table may have", path, number, DGX_UI_LOAD_IDS);
+        if (entry_of(into, words[1])) return printed("%s:%d: the %s \"%s\" twice", path, number, words[0], words[1]);
+        if (into->count == 65535) return printed("%s:%d: a %s past the 65535 a table may have", path, number, words[0]);
+        if (table == T_ID && into->count == DGX_UI_LOAD_IDS) return printed("%s:%d: an id past the %d a table may have", path, number, DGX_UI_LOAD_IDS);
         char *library = library_c(table, words[1]);
         if (count == 2 && !library)
             return printed("%s:%d: the %s \"%s\" with no C expression: only a look of the library's and the actions back and page go without one", path,
                      number, words[0], words[1]);
-        entry_t *entry          = entry_add(&tables[table], words[1]);
-        entry->c                = count == 2 ? library : copy_of(words[2]);
-        entry->count            = 1;
-        tables[table].from_file = true;
+        entry_t *entry  = entry_add(into, words[1]);
+        entry->c        = count == 2 ? library : copy_of(words[2]);
+        entry->count    = 1;
+        into->from_file = true;
         if (count == 2) continue;
         free(library);
         if (count == 3) continue;
@@ -224,6 +228,14 @@ char *names_read(const char *path, const char *text, size_t length, bool appeara
         } else {
             return printed("%s:%d: \"%s\" means nothing for a %s: an expression is written with no spaces", path, number, words[3], words[0]);
         }
+    }
+    /* the page's pictures given to the appearance too: one line of the file serves both */
+    for (int k = 0; !appearance_alone && k < tables[T_PICTURE].count; ++k) {
+        const entry_t *page = &tables[T_PICTURE].entries[k];
+        if (entry_of(&appearance_tables[A_PICTURE], page->name)) continue;
+        entry_t *entry = entry_add(&appearance_tables[A_PICTURE], page->name);
+        entry->c = copy_of(page->c), entry->count = page->count;
+        appearance_tables[A_PICTURE].from_file = true;
     }
     return NULL;
 }
@@ -346,9 +358,67 @@ bool top_value(dgx_ui_json_t *json, const char *wanted)
     return false;
 }
 
-/* of each variant its name, or its object's "font"; stopped at what is not as it should be, which the loader then refuses */
+/* by the rule, the pictures the looks of the library's draws name in their fields of pictures: <name>, of 65535 there, as
+   a page's picture by the rule (names_rule()); stopped at what is not as it should be, which the loader then refuses */
+static void collect_pictures(const char *text, size_t text_length)
+{
+    dgx_ui_json_t json = {.text = text, .len = text_length};
+    char          key[24], name[24], draw[24];
+    size_t        length;
+    if (!top_value(&json, "looks")) return;
+    for (bool look = true; next_member(&json, &look, key);) {
+        if (dgx_ui_json_peek(&json) != '{') {
+            if (!dgx_ui_json_skip(&json, 8)) return;
+            continue;
+        }
+        /* its draw first, wherever it stands in the look; then its parameters again */
+        const size_t start = json.pos;
+        draw[0]            = 0;
+        for (bool field = true; next_member(&json, &field, key);) {
+            if (strcmp(key, "draw") == 0 && dgx_ui_json_peek(&json) == '"') {
+                if (!dgx_ui_json_string(&json, draw, 23, &length)) return;
+                draw[length < 23 ? length : 23] = 0;
+            } else if (!dgx_ui_json_skip(&json, 8)) {
+                return;
+            }
+        }
+        if (json.error) return;
+        const size_t end = json.pos;
+        const int    k   = library_draw_of(draw);
+        if (k < 0 || !library_draws[k].params) continue;
+        const dgx_ui_params_t *described = library_draws[k].params;
+        json.pos                         = start;
+        for (bool field = true; next_member(&json, &field, key);) {
+            if (strcmp(key, "params") != 0 || dgx_ui_json_peek(&json) != '{') {
+                if (!dgx_ui_json_skip(&json, 8)) return;
+                continue;
+            }
+            for (bool param = true; next_member(&json, &param, key);) {
+                const dgx_ui_field_t *of = NULL;
+                for (int f = 0; f < described->field_count; ++f)
+                    if (strcmp(described->fields[f].name, key) == 0) of = &described->fields[f];
+                const size_t at = (dgx_ui_json_peek(&json), json.pos);
+                if (of && of->kind == DGX_UI_FIELD_PICTURE && dgx_ui_json_peek(&json) == '"') {
+                    if (!dgx_ui_json_string(&json, name, 23, &length)) return;
+                    if (length <= 23 && !entry_of(&appearance_tables[A_PICTURE], (name[length] = 0, name))) {
+                        entry_t *picture = entry_add(&appearance_tables[A_PICTURE], name);
+                        picture->offset = (long)at, picture->ruled = true, picture->c = copy_of(name), picture->count = 65535;
+                    }
+                } else if (!dgx_ui_json_skip(&json, 8)) {
+                    return;
+                }
+            }
+            if (json.error) return;
+        }
+        json.pos = end;
+    }
+}
+
+/* of each variant its name, or its object's "font"; stopped at what is not as it should be, which the loader then refuses;
+   and the pictures of the looks */
 void names_collect_fonts(const char *text, size_t text_length)
 {
+    collect_pictures(text, text_length);
     dgx_ui_json_t json = {.text = text, .len = text_length};
     char          key[24], name[24];
     size_t        length;

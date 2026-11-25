@@ -31,7 +31,7 @@ for leftover in os.listdir(work):
 failures = []
 described = json.loads(subprocess.run([dump], capture_output=True, text=True, check=True, timeout=30).stdout)
 DRAWS = sorted(described["draws"])
-COLOR, UNDER, NUMBER, BOOL, WORD, FLAGS, BIT, BANDS, FONT, HAND, VARIANTS = range(11)
+COLOR, UNDER, NUMBER, BOOL, WORD, FLAGS, BIT, BANDS, FONT, HAND, VARIANTS, PICTURE = range(12)
 codes = {"DGX_UI_LOAD_" + word: k for k, word in enumerate(["OK", "SYNTAX", "VERSION", "KEY", "KIND", "FIELD", "RANGE", "NAME_BAD", "UNKNOWN", "NO_LOOK",
                                                            "NO_STYLE", "DEPTH_MAX", "MEMORY", "NODES", "ID", "MISSING"])}
 
@@ -45,6 +45,8 @@ look slider
 look mine &mine
 style plain &plain
 value v &volume
+picture card card_pieces 9
+picture one one_piece
 """
 names_path = os.path.join(work, "names.txt")
 with open(names_path, "w") as out:
@@ -81,13 +83,15 @@ def chance_appearance(rand, name, every=False):
             return f'"{rand.choice(field["words"])}"'
         if kind == BANDS:
             return "[" + ", ".join(f"[{rand.randint(-1000, 1000)}, {a_color(False)}]" for _ in range(rand.randrange(0, 4))) + "]"
+        if kind == PICTURE:
+            return '"card"'  # of 9; "one" of 1 is short of what "nine" needs, which the spoiled cases reach
         raise ValueError(kind)
 
     looks = []
     draws = DRAWS[:] if every else [rand.choice(DRAWS) for _ in range(rand.randrange(0, 6))]
     for k, draw in enumerate(draws):
         fields = described["draws"][draw]["fields"]
-        said = [f for f in fields if f["kind"] in (COLOR, UNDER) or every or rand.random() < 0.6]
+        said = [f for f in fields if f["kind"] in (COLOR, UNDER, PICTURE) or every or rand.random() < 0.6]
         rand.shuffle(said)
         params = ", ".join(f'"{f["name"]}": {field_value(f)}' for f in said)
         parts = [f'"draw": "{draw}"']
@@ -173,7 +177,8 @@ for k in range(40):
     make(f"chance{k}", chance_appearance(rand, f"chance{k}"), "-n", names_path)
 # by the rule: no names file; every draw of the library, both hands, the fonts dgx_font_<name>, the program's own
 make("ruled", '{"dgx-ui": 1, "name": "ruled", "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#101010", "border": "#202020"},'
-              ' "styles": {"body": {"fonts": ["small", {"font": "hand", "hand": "handwriting", "height": 20}]}}, "looks": {"pane": {"draw": "frame", "params": {"border": "ink", "width": 1}}}}')
+              ' "styles": {"body": {"fonts": ["small", {"font": "hand", "hand": "handwriting", "height": 20}]}}, "looks": {"pane": {"draw": "frame", "params": {"border": "ink", "width": 1}},'
+              ' "card": {"draw": "nine", "params": {"fill": "fill", "ink": "ink", "pieces": "card"}}}}')
 # by the rule a font is taken for a bitmap one: a handwritten font with no hand is taken, and the file says it was not checked
 with open(os.path.join(work, "unchecked.json"), "w") as out:
     out.write('{"dgx-ui": 1, "name": "unchecked", "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#101010", "border": "#202020"},'
@@ -193,8 +198,9 @@ if status:
 status, said = run("-n", names_path, "-a", os.path.join(work, "every.json"), "-an", names_path, "-af", "every", "-t", "every_tables")
 if status:
     failures.append(f"-t -a: {said}")
-# a tree on the appearance, by -a: a widget of each of its first looks, a text of its first style and one of the program's
-every = json.loads(cases[0][1])
+# a tree on the appearance, by -a: a widget of each of its first looks, a text of its first style and one of the program's;
+# none when "every" was refused, which is said among the failures already
+every = json.loads(cases[0][1]) if cases and cases[0][0] == "every" else {"looks": {"button_": {}, "frame_": {}}}
 look_names = list(every["looks"])
 page = {"dgx-ui": 1, "name": "page", "tree": {"kind": "box", "flags": ["column"], "children": [
     {"kind": "slider", "value": "v", "want": [0, 8]}, {"kind": "switch", "value": "v", "want": [0, 9]},
@@ -256,6 +262,8 @@ made = [os.path.join(work, f"{name}.c") for name, _ in cases] + [os.path.join(wo
 built = subprocess.run(compile_command + ["-I" + work, "-I" + here, "-o", program] + made, capture_output=True, text=True, timeout=600)
 if built.returncode:
     print(built.stderr[:6000], file=sys.stderr)
+    for failure in failures[:20]:  # a refusal before the build is often why: said first
+        print("  " + failure[:400], file=sys.stderr)
     sys.exit("test_generate_appearance.py: the made files did not compile")
 ran = subprocess.run([program], capture_output=True, text=True, timeout=300)
 sys.stderr.write(ran.stderr[:6000])

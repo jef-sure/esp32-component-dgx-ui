@@ -83,6 +83,7 @@ enum {
     DGX_UI_FIELD_FONT,           ///< a font's name, of the program's fonts
     DGX_UI_FIELD_HAND,           ///< a hand's name, of the program's hands
     DGX_UI_FIELD_VARIANTS,       ///< a list of variants of a font: a pointer, the count the uint8_t at count_offset
+    DGX_UI_FIELD_PICTURE,        ///< a picture's name, of the program's pictures: a pointer to them, at least `low` there
 };
 
 /** A field of a draw's parameters: its name in a description, where it lies and what it holds. */
@@ -124,6 +125,8 @@ typedef struct dgx_ui_params_t {
 #define DGX_UI_BANDS_FIELD(type, member, count_member)                                                                           \
     {.name = #member, .offset = offsetof(type, member), .count_offset = offsetof(type, count_member), .kind = DGX_UI_FIELD_BANDS, \
      .size = sizeof(((type *)0)->member), .low = 0, .high = 255, .words = NULL}
+/** A field of pictures: a name of the program's pictures (dgx_ui_appearance_names_t::pictures) of at least `need` there. */
+#define DGX_UI_PICTURE_FIELD(type, member, need) DGX_UI_FIELD_OF(type, member, DGX_UI_FIELD_PICTURE, need, need, NULL)
 #define DGX_UI_PARAMS(type, widget_kinds, field_table)                                                                       \
     {.size = sizeof(type), .align = __alignof__(type), .kinds = (widget_kinds), .field_count = sizeof(field_table) / sizeof *(field_table), \
      .fields = (field_table)}
@@ -159,13 +162,22 @@ typedef struct dgx_ui_hand_name_t {
 
 /** The program's tables an appearance is read on: what it may name, and the looks and styles that come after its own. */
 typedef struct dgx_ui_appearance_names_t {
-    const dgx_ui_draw_name_t  *draws;
-    const dgx_ui_font_name_t  *fonts;
-    const dgx_ui_hand_name_t  *hands;
-    const dgx_ui_look_name_t  *looks;
-    const dgx_ui_style_name_t *styles;
-    uint16_t draw_count, font_count, hand_count, look_count, style_count;
+    const dgx_ui_draw_name_t    *draws;
+    const dgx_ui_font_name_t    *fonts;
+    const dgx_ui_hand_name_t    *hands;
+    const dgx_ui_picture_name_t *pictures; ///< the pictures a look's field may name, as a page's table has them
+    const dgx_ui_look_name_t    *looks;
+    const dgx_ui_style_name_t   *styles;
+    uint16_t draw_count, font_count, hand_count, picture_count, look_count, style_count;
 } dgx_ui_appearance_names_t;
+
+#if UINTPTR_MAX == 0xFFFFFFFFu
+#ifdef __cplusplus
+static_assert(sizeof(dgx_ui_appearance_names_t) == 36, "the tables an appearance is read on are 36 bytes on a 32-bit chip");
+#else
+_Static_assert(sizeof(dgx_ui_appearance_names_t) == 36, "the tables an appearance is read on are 36 bytes on a 32-bit chip");
+#endif
+#endif
 
 /** What an appearance takes: the bytes of the memory, aligned as a pointer; its own colours, looks and styles; its name. */
 typedef struct dgx_ui_appearance_need_t {

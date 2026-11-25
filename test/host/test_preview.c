@@ -440,7 +440,8 @@ int main(void)
             DRAW(indexed),  DRAW(radio), DRAW(checkbox), DRAW(level),   DRAW(ring),   DRAW(nine),
 #undef DRAW
         };
-        static const char *const types[] = {"color", "color_or_under", "number", "bool", "word", "flags", "bit", "bands", "font", "hand", "variants"};
+        static const char *const types[] = {"color", "color_or_under", "number", "bool", "word", "flags", "bit", "bands", "font", "hand", "variants",
+                                            "picture"};
         static const char *const four[]  = {"\"paper\"", "\"ink\"", "\"fill\"", "\"border\""};
         CHECK(preview_names(NULL, 0)->code == 0 && preview_appearance(NULL, 0)->code == 0);
         const char *format = preview_appearance_format();

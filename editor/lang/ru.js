@@ -187,5 +187,8 @@ DGX_UI_LANGUAGES.ru = {
         'Write to the agent here; it edits in the builder, and you save.': 'Пишите агенту здесь: он правит в построителе, а сохраняете вы.',
         'a message to the agent': 'сообщение агенту',
         'Send': 'Отправить',
+        'fewer than {0}': 'меньше {0}',
+        'a picture of the program\'s, {0} at least': 'картинки программы, не меньше {0}',
+        '{0}: {1} pictures needed, the table\'s "{2}" has {3}': '{0}: нужно картинок: {1}, а в «{2}» таблицы их {3}',
     },
 };

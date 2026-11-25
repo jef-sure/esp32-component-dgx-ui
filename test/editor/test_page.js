@@ -5,7 +5,8 @@
  * a click on the panel selects the widget under it and its outline lies on its box, a property typed, Ctrl+Z, Delete,
  * the arrows of the tree, Ctrl+S and the word the page asks before writing a description in its own form; the
  * appearance by its forms: a colour typed, by a name of DGX's and by the picker, on the panel at once and the time of a
- * pass measured, Ctrl+Z, a look added of a draw, a look renamed in the page that names it; the names file by its forms:
+ * pass measured, Ctrl+Z, a look added of a draw, a frame of nine pictures chosen from the names file and refused in the
+ * words of its need, a look renamed in the page that names it; the names file by its forms:
  * an expression typed, a name the page misses added, a rename carried into the page and Ctrl+Z, a file not on the disk
  * made of the names its page misses and written by the server; the language changed; a screenshot is kept. The page
  * under the server's Content-Security-Policy, a fetch and an image of another host blocked. Then the same project beside
@@ -144,7 +145,8 @@ function devtools(url) {
                                    'dgx_ui_tree(other.json NAMES fresh.txt)\n',
             'main/other.json': '{"dgx-ui": 1, "tree": {"kind": "box", "children": [{"kind": "slider", "value": "level", "max": 5}, ' +
                                '{"kind": "button", "text": "Back", "on": "back"}]}}\n',
-            'main/names.txt': 'look slider\nlook button\nvalue volume &volume\nfont small TerminusTTFMedium12\ndraw text\ndraw slider\ndraw switch\n',
+            'main/names.txt': 'look slider\nlook button\nvalue volume &volume\nfont small TerminusTTFMedium12\ndraw text\ndraw slider\ndraw switch\n' +
+                              'draw nine\npicture one one_piece\npicture card card_pieces 9\n',
             'main/look.json': '{"dgx-ui": 1, "name": "day", "colors": {"paper": "#102030", "ink": "#ffffff", "fill": "#304060", "border": "#8090a0", ' +
                               '"accent": "#f0a03c"}, "styles": {"body": {"fonts": ["small"]}}, "looks": {"caption": {"draw": "text", ' +
                               '"params": {"ink": "ink", "paper": null}}, "slider": {"draw": "slider", "params": {"track": "accent", "fill": "accent", ' +
@@ -351,6 +353,34 @@ function devtools(url) {
         check(await evaluate(`${store}.verdicts.appearance.code === 0 && JSON.parse(${store}.files['main/look.json'].text).looks.toggle.draw === 'switch'`),
               'taken, written');
 
+        /* a look of the frame of nine pictures under the word "button": the names' pictures to choose, the first of nine
+           given; one of fewer refused in the words of the need; the button Go framed by the pieces given */
+        const canvasPlain = await canvasNow();
+        await evaluate(`(() => {
+            const add = [...document.querySelectorAll('.dgx-ui-builder .appearance .add')].find((one) => one.querySelector('select'));
+            const name = add.querySelector('input'); name.value = 'button'; name.dispatchEvent(new Event('input', { bubbles: true }));
+            const draw = add.querySelector('select'); draw.value = 'nine'; draw.dispatchEvent(new Event('change', { bubbles: true }));
+        })()`);
+        await sleep(50);
+        await evaluate(`[...document.querySelectorAll('.dgx-ui-builder .appearance .add')].find((one) => one.querySelector('select')).querySelector('button').click()`);
+        const pieces = `[...document.querySelectorAll('.dgx-ui-builder .appearance .form .field')].find((one) => one.querySelector('.key').textContent.trim() === 'pieces')`;
+        await until(`!!${pieces} && ${pieces}.querySelector('select').value === 'card'`, 'a look of the frame: its pieces the first picture of nine');
+        check(await evaluate(`JSON.stringify([...${pieces}.querySelectorAll('option')].map((one) => one.textContent.trim())) ===
+                              JSON.stringify(['—', 'one (1, fewer than 9)', 'card (9)'])`), 'the names\' pictures to choose, with their counts');
+        await sleep(300);
+        const canvasFramed = await canvasNow();
+        check(canvasFramed !== canvasPlain, 'the button framed by the pieces');
+        await evaluate(`(() => { const select = ${pieces}.querySelector('select'); select.value = 'one'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+        await until(`(document.querySelector('.dgx-ui-builder .appearance .verdict') || {}).textContent === 'pieces: 9 pictures needed, the table\\'s "one" has 1'`,
+                    'one picture for nine: refused in the words of the need');
+        await evaluate(`(() => { const select = ${pieces}.querySelector('select'); select.value = 'card'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+        await until(`${store}.verdicts.appearance.code === 0 && !document.querySelector('.dgx-ui-builder .appearance .verdict')`, 'card again: taken');
+        await sleep(300);
+        check((await canvasNow()) === canvasFramed, 'the panel framed again, the same');
+        await evaluate(`${store}.removeEntry('looks', 'button')`);
+        await sleep(300);
+        check((await canvasNow()) === canvasPlain, 'the look deleted: the panel as it was');
+
         /* a look renamed from its form: the page that names it carried, the panel the same; Ctrl+Z in both */
         await evaluate(`[...document.querySelectorAll('.dgx-ui-builder .appearance .entries .node')].find((one) => one.textContent.trim() === 'caption').click()`);
         await until(`(document.querySelector('.dgx-ui-builder .appearance .form .entry-name') || {}).value === 'caption'`, 'the look picked');
@@ -373,7 +403,7 @@ function devtools(url) {
         /* the names file by its forms: an expression typed, a name the page misses added, a rename carried into the
            page and undone in both */
         await evaluate(`[...document.querySelectorAll('.dgx-ui-builder .tabs button')].find((one) => one.textContent.trim() === 'Names').click()`);
-        await until(`document.querySelectorAll('.dgx-ui-builder .names .name-row').length === 7`, 'the Names tab, its seven lines');
+        await until(`document.querySelectorAll('.dgx-ui-builder .names .name-row').length === 10`, 'the Names tab, its ten lines');
         const nameRow = (name) => `[...document.querySelectorAll('.dgx-ui-builder .names .name-row')].find((row) => row.querySelector('.entry-name').value === '${name}')`;
         await evaluate(`(() => { const input = ${nameRow('volume')}.querySelector('.expr'); input.focus(); input.select(); })()`);
         await send('Input.insertText', { text: '&room_volume' });

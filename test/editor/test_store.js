@@ -20,7 +20,10 @@
  *  - the names file by its forms: an expression typed at its column and folded, one of a space refused; a name renamed in
  *    the file, two pages and the appearance read on it, undone together or refused while stale, the C of a library's
  *    name written; deletes refused where names are used; a line added after its table; a file not on the disk yet made
- *    of the names its page misses and written at a save.
+ *    of the names its page misses and written at a save;
+ *  - pictures in an appearance: one line named by a page's widget and a look's pieces, used by both, renamed in the
+ *    three files in one step, not deleted; a new look of the frame given the first picture of nine, else none and refused
+ *    at its pieces; a picture of fewer refused in the words of the need.
  */
 'use strict';
 const fs = require('fs');
@@ -703,6 +706,71 @@ const boxOf = (store, widgetPath) => {
         check(formats.page.kinds.includes('slider') && formats.names.tables.includes('value') && formats.appearance.draws.length, 'the formats');
         check((await store.agentAnswer('image', {})).error === 'no panel drawn' || typeof document === 'undefined', 'no image with no document');
         check((await store.agentAnswer('edit', { path: 'main/none.json', text: '{}' })).error, 'an edit of no file of the builder refused');
+    }
+
+    /* ---- pictures in an appearance: one line of the names file named by a page's widget and a look's pieces ---- */
+    {
+        const pics = 'picture   one       one_piece\npicture   card      card_pieces 9\ndraw      nine\nfont      small\nlook      picture\n';
+        const look = '{"dgx-ui": 1, "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#202020", "border": "#808080"}, "styles": {"body": {"fonts": ["small"]}}, ' +
+                     '"looks": {"framed": {"draw": "nine", "params": {"fill": "fill", "ink": "ink", "pieces": "card"}}}}\n';
+        const page = '{"dgx-ui": 1, "tree": {"kind": "box", "children": [{"kind": "picture", "picture": "card"}]}}\n';
+        const files = {
+            'main/CMakeLists.txt': bytes('idf_component_register(SRCS "main.c")\ndgx_ui_appearance(look.json NAMES pics.txt)\n' +
+                                         'dgx_ui_tree(p.json NAMES pics.txt APPEARANCE look.json)\n'),
+            'main/pics.txt': bytes(pics), 'main/look.json': bytes(look), 'main/p.json': bytes(page),
+        };
+        const { store } = await storeOf(files, 'names');
+        const text = (where) => store.files[where].text;
+        const saidLast = () => store.said[store.said.length - 1] ?? { text: '', values: [] };
+        const framed = () => JSON.parse(text('main/look.json')).looks;
+        check(store.verdicts.names.code === 0 && store.verdicts.page.code === 0 && store.verdicts.appearance.code === 0,
+              'the page and the appearance taken on the pictures: ' + JSON.stringify(store.verdicts));
+        check(!store.lookFormat.by_rule && same(store.lookFormat.pictures, [{ name: 'one', count: 1 }, { name: 'card', count: 9 }]),
+              'the appearance\'s pictures, the names file\'s: ' + JSON.stringify(store.lookFormat.pictures));
+        store.setTab('names');
+        check(same([...store.namesUnused], ['picture one']), 'card used by both, one by none: ' + JSON.stringify([...store.namesUnused]));
+
+        /* renamed: the line, the page's widget and the look's pieces, one step */
+        check(store.renameName('picture', 'card', 'tiles'), 'a picture renamed');
+        check(text('main/pics.txt').includes('picture   tiles     card_pieces 9\n') && text('main/p.json').includes('"picture": "tiles"') &&
+              framed().framed.params.pieces === 'tiles' && store.verdicts.page.code === 0 && store.verdicts.appearance.code === 0,
+              'in the names file, the page and the look: ' + text('main/look.json'));
+        check(store.undo() && text('main/pics.txt') === pics && text('main/p.json') === page && text('main/look.json') === look, 'undone in all three at once');
+        check(!store.removeName('picture', 'card') && saidLast().values[1].includes('main/look.json') && saidLast().values[1].includes('main/p.json'),
+              'a picture the page and the look name not deleted: ' + JSON.stringify(saidLast()));
+
+        /* a new look of the frame: the first picture of nine or more */
+        store.setTab('appearance');
+        check(store.addLook('card2', 'nine') && framed().card2.params.pieces === 'card' && store.verdicts.appearance.code === 0,
+              'a look of nine pieces given card, not one: ' + JSON.stringify(framed().card2));
+        store.undo();
+
+        /* a picture of fewer than nine: refused at the field, in the words of the need */
+        check(store.setLook(['looks', 'framed', 'params', 'pieces'], 'one') && store.verdicts.appearance.code === 6 &&
+              store.verdicts.appearance.name === 'pieces' && same(store.appearanceAt, ['looks', 'framed']),
+              'one picture for nine: RANGE at pieces: ' + JSON.stringify([store.verdicts.appearance, store.appearanceAt]));
+        check(same(store.appearanceShort, { field: 'pieces', need: 9, name: 'one', count: 1 }), 'the words of the need: ' + JSON.stringify(store.appearanceShort));
+        store.undo();
+        check(store.appearanceShort === null && text('main/look.json') === look, 'given back, no words');
+    }
+
+    /* ---- a look of the frame on a names file of no picture of nine: left without pieces, refused at them ---- */
+    {
+        const look = '{"dgx-ui": 1, "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#202020", "border": "#808080"}, "styles": {"body": {"fonts": ["small"]}}}\n';
+        const files = {
+            'main/CMakeLists.txt': bytes('idf_component_register(SRCS "main.c")\ndgx_ui_appearance(look.json NAMES pics.txt)\n' +
+                                         'dgx_ui_tree(p.json NAMES pics.txt APPEARANCE look.json)\n'),
+            'main/pics.txt': bytes('picture   one       one_piece\ndraw      nine\nfont      small\nlook      picture\n'), 'main/look.json': bytes(look),
+            'main/p.json': bytes('{"dgx-ui": 1, "tree": {"kind": "picture", "picture": "one"}}\n'),
+        };
+        const { store } = await storeOf(files, 'appearance');
+        check(store.verdicts.appearance.code === 0, 'taken: ' + JSON.stringify(store.verdicts.appearance));
+        store.setTab('appearance');
+        check(store.addLook('framed', 'nine'), 'a look of the frame added');
+        const added = JSON.parse(store.files['main/look.json'].text).looks.framed;
+        check(added.params && !('pieces' in added.params) && store.verdicts.appearance.code === 15 && store.verdicts.appearance.name === 'pieces' &&
+              same(store.appearanceAt, ['looks', 'framed']) && store.appearanceShort === null,
+              'no pieces given; MISSING at them: ' + JSON.stringify([added, store.verdicts.appearance, store.appearanceAt]));
     }
 
     if (failures) {

@@ -977,6 +977,10 @@ static const dgx_ui_widget_t    card_w      = {.kind = DGX_UI_FRAME, .flags = DG
   pixel once. Without them it is the fill alone, and the log says so once.
 - `dgx_ui_look_nine`, the library's look, has no pieces of its own: a program that wants a frame of pictures gives
   them, as here. One that names neither carries nothing of it.
+- **In an appearance** the same frame is a look of `"nine"` whose pieces are a name of the program's pictures: the
+  line `picture card nine_pieces 9` in the names file, and in the appearance's looks
+  `"card": {"draw": "nine", "fill": "fill", "params": {"fill": "fill", "ink": "ink", "pieces": "card"}}`. A widget
+  names the look `"card"`; a table of fewer than 9 pictures is refused at `"pieces"`.
 
 ## A picture under the widgets
 

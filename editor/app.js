@@ -374,6 +374,17 @@ const dgxUiBuilderMount = (() => {
                         <input type="checkbox" :checked="Array.isArray(value) && value.includes(word)" @change="flag(word, $event.target.checked)">
                         {{ word }}</label>
                 </span>
+                <span v-else-if="field.type === 'picture'" class="name">
+                    <select v-if="!store.lookFormat?.by_rule" :value="choice" @change="choose($event.target.value)">
+                        <option :value="ABSENT">—</option>
+                        <option v-for="one in store.lookFormat?.pictures ?? []" :key="one.name" :value="one.name">
+                            {{ one.name }} ({{ one.count }}{{ one.count < field.min ? ', ' + t('fewer than {0}', field.min) : '' }})</option>
+                        <option v-if="typeof value === 'string' && !(store.lookFormat?.pictures ?? []).some((one) => one.name === value)" :value="value">
+                            {{ value }}</option>
+                    </select>
+                    <input v-else type="text" :value="typeof value === 'string' ? value : ''" :placeholder="t('a picture of the program\\'s, {0} at least', field.min)"
+                           @input="store.setLook(path, $event.target.value === '' ? undefined : $event.target.value, fold())">
+                </span>
                 <span v-else-if="field.type === 'font'" class="name">
                     <input type="text" :value="typeof value === 'string' ? value : ''" list="dgx-ui-builder-fonts"
                            @input="store.setLook(path, $event.target.value === '' ? undefined : $event.target.value, fold())">
@@ -410,7 +421,11 @@ const dgxUiBuilderMount = (() => {
             const appearance = window.DgxUiAppearance, describe = window.DgxUiDescription;
             const colorNames = window.DgxUiPreview.colorNames();
             const made = computed(() => store.project?.appearances.find((one) => one.path === store.page?.appearance)?.from ?? null);
-            const verdict = computed(() => words.verdictText(store.verdicts.appearance));
+            const verdict = computed(() => {
+                const short = store.appearanceShort;
+                if (short) return words.t('{0}: {1} pictures needed, the table\'s "{2}" has {3}', short.field, short.need, short.name, short.count);
+                return words.verdictText(store.verdicts.appearance);
+            });
             const entriesOf = (section) => {
                 const object = store.look ? describe.valueOf(store.look, section) : null;
                 return object && object.t === 'object' ? object.entries : [];

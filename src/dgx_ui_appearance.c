@@ -307,6 +307,16 @@ static bool field_value(appearance_load_t *A, const dgx_ui_field_t *field, uint8
         if (base) memcpy(base + field->offset, &laid, sizeof laid);
         return true;
     }
+    case DGX_UI_FIELD_PICTURE: {
+        /* a name of the program's pictures, of at least `low` there: a count of 0 or 1 is one picture */
+        const size_t at    = (dgx_ui_json_peek(json), json->pos);
+        const int    entry = dgx_ui_read_find(&A->read, A->names->pictures, A->names->picture_count, sizeof *A->names->pictures);
+        if (entry < 0) return false;
+        const dgx_ui_picture_name_t *named = &A->names->pictures[entry];
+        if ((named->count > 1 ? named->count : 1) < field->low) return fail(A, DGX_UI_LOAD_RANGE, at, field->name);
+        if (base) memcpy(base + field->offset, &named->picture, sizeof named->picture);
+        return true;
+    }
     default: /* bands and variants */
         return list_of(A, field, base);
     }
@@ -320,8 +330,9 @@ static bool fields_said(appearance_load_t *A, const dgx_ui_params_t *described, 
     const int count = described ? described->field_count : 0;
     for (int k = 0; k < count; ++k) {
         const dgx_ui_field_t *field = &described->fields[k];
-        /* a colour, a font and a style's variants must be said: one forgotten would draw nothing, with no word */
-        if (!(said & 1u << k) && (field->kind <= DGX_UI_FIELD_COLOR_OR_UNDER || field->kind == DGX_UI_FIELD_FONT || field->kind == DGX_UI_FIELD_VARIANTS))
+        /* a colour, a font, a style's variants and pictures must be said: one forgotten would draw nothing, with no word */
+        if (!(said & 1u << k) && (field->kind <= DGX_UI_FIELD_COLOR_OR_UNDER || field->kind == DGX_UI_FIELD_FONT || field->kind == DGX_UI_FIELD_VARIANTS ||
+                                  field->kind == DGX_UI_FIELD_PICTURE))
             return fail(A, DGX_UI_LOAD_MISSING, object, field->name);
         if (field->kind == DGX_UI_FIELD_BIT && base) put_number(base, field, number_at(base, field) | (bits & field->high));
     }

@@ -1720,22 +1720,25 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 | `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"level"` | `bar`; `rest`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
 | `"ring"` | `on`; `off`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
-| `"nine"` | `fill`; `ink` |
+| `"nine"` | `fill`; `ink`; `pieces`: имя картинок программы, которых в таблице не меньше 9 |
 
 **Чего не сказано.** `"fill"` облика — `null`, то, что лежит под ним. Число, слово и список флагов равны 0, как
 пропущенный член структуры C, а `"joined"`, `"soft"`, `"points"` и `"secret"` — ложь. Цвет в параметрах облика должен быть
 сказан, `null` — там, где он допустим: облик, который цвет пропустил, отвергается с `DGX_UI_LOAD_MISSING` и именем
 поля, чтобы забытый цвет не стал бумагой по бумаге. Так же обязательны `"fonts"` стиля, `"font"` варианта и
-`"hand"` рукописного шрифта: без почерка подбор шрифта молча пропустил бы вариант. Картинки `"nine"` во внешнем
-виде не задаются: такая рамка — одна заливка, пока картинки не даст облик программы.
+`"hand"` рукописного шрифта: без почерка подбор шрифта молча пропустил бы вариант. Так же обязательны
+`"pieces"` у `"nine"`: имя картинок программы, как страница называет картинку, и в таблице их должно быть не
+меньше 9; если меньше — `DGX_UI_LOAD_RANGE` с именем поля.
 
-**Таблицы программы**, `dgx_ui_appearance_names_t`: что внешний вид может назвать и что идёт после его собственного.
+**Таблицы программы**, `dgx_ui_appearance_names_t`, 36 байт<!-- sizeof dgx_ui_appearance_names_t --> на
+32-битном чипе: что внешний вид может назвать и что идёт после его собственного.
 
 | Член | Что в нём перечислено |
 | ---- | --------------------- |
 | `draws`, `draw_count` | `dgx_ui_draw_name_t`: функция рисования по её слову и описание её параметров. `DGX_UI_DRAW_NAME(slider)` — это `{"slider", dgx_ui_draw_slider, &dgx_ui_params_slider}`; программа несёт только те функции, которые перечислила |
 | `fonts`, `font_count` | `dgx_ui_font_name_t`: шрифт DGX по имени, `{"body", &dgx_font_body}`; все заявки из `dgx_fonts.h` проекта разом: `#define FONT(need) {#need, &dgx_font_##need},` и `{DGX_FONT_NEEDS(FONT)}` |
 | `hands`, `hand_count` | `dgx_ui_hand_name_t`: `DGX_UI_HAND_NAME(handwriting)`, `DGX_UI_HAND_NAME(handwriting_canvas)` |
+| `pictures`, `picture_count` | `dgx_ui_picture_name_t`, как в таблице страницы: картинки, которые может назвать поле облика, `{"card", card_pieces, 9}`. Одна таблица может служить и страницам, и внешнему виду |
 | `looks`, `look_count`, `styles`, `style_count` | собственные облики и стили программы, написанные на C; в таблицах, которые кладёт загрузка, они стоят после обликов и стилей внешнего вида |
 
 **Чьё имя.** Облики и стили внешнего вида стоят в таблицах первыми, собственные облики и стили программы — после
@@ -1791,16 +1794,17 @@ static const dgx_ui_params_t dial_described = DGX_UI_PARAMS(dial_params_t, 1u <<
 предлагает построитель, загрузка их не проверяет), и поля; `dgx_ui_field_t` — поле: его имя в описании, то же, что у
 члена структуры, где оно лежит и что в нём. Поле по члену структуры пишут макросы: `DGX_UI_COLOR_FIELD`,
 `DGX_UI_COLOR_OR_UNDER_FIELD`, `DGX_UI_NUMBER_FIELD` с пределами, `DGX_UI_BOOL_FIELD`, `DGX_UI_WORD_FIELD` со
-словами, каждое кончается нулём, `DGX_UI_BANDS_FIELD` с членом, в котором лежит число полос, — все поверх
+словами, каждое кончается нулём, `DGX_UI_BANDS_FIELD` с членом, в котором лежит число полос,
+`DGX_UI_PICTURE_FIELD` с числом нужных картинок — все поверх
 `DGX_UI_FIELD_OF`; `DGX_UI_PARAMS` пишет описание целиком. Что бывает в поле: `DGX_UI_FIELD_COLOR`,
 `DGX_UI_FIELD_COLOR_OR_UNDER`, `DGX_UI_FIELD_NUMBER`, `DGX_UI_FIELD_BOOL`, `DGX_UI_FIELD_WORD`, `DGX_UI_FIELD_FLAGS`,
-`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, а у стиля и варианта шрифта — `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND`
-и `DGX_UI_FIELD_VARIANTS`. Описания самой библиотеки: `dgx_ui_params_box`, `dgx_ui_params_frame`,
+`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, `DGX_UI_FIELD_PICTURE` — указатель на картинки программы, а у стиля и
+варианта шрифта — `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND` и `DGX_UI_FIELD_VARIANTS`. Описания самой библиотеки: `dgx_ui_params_box`, `dgx_ui_params_frame`,
 `dgx_ui_params_text`, `dgx_ui_params_lines`, `dgx_ui_params_hand_lines`, `dgx_ui_params_button`,
 `dgx_ui_params_picture_button`, `dgx_ui_params_input`, `dgx_ui_params_switch`, `dgx_ui_params_slider`,
 `dgx_ui_params_list`, `dgx_ui_params_dropdown`, `dgx_ui_params_picture`, `dgx_ui_params_rgb565`,
 `dgx_ui_params_indexed`, `dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`,
-`dgx_ui_params_ring`, а для стиля и варианта шрифта — `dgx_ui_params_text_style` и `dgx_ui_params_font_variant`.
+`dgx_ui_params_ring`, `dgx_ui_params_nine`, а для стиля и варианта шрифта — `dgx_ui_params_text_style` и `dgx_ui_params_font_variant`.
 
 **Чего внешний вид не может.** Он называет только то, что перечислила программа: функции рисования, шрифты и
 почерки — из её таблиц; параметры функции кладутся по её описанию; каждый цвет — индекс меньше числа цветов,
@@ -1866,6 +1870,9 @@ id        title      title_index          # целое программы
 принимает свой ctx как число; строка контекста — словом `page`, если это дерево страницы: только такой контекст
 принимает действие `page`. Выражение id — целое программы, в которое сделанная функция записывает индекс
 виджета; остальные выражения — константные. В таблице не больше 65535 имён, в таблице id — `DGX_UI_LOAD_IDS`.
+Для `dgx_ui_appearance()` тот же файл говорит, что может назвать внешний вид: его строки `picture`, те же, что у
+страницы, так что одна строка служит обоим, и строки функций рисования, шрифтов и почерков, которые перечислены на
+странице инструмента.
 
 С файлом имён описание называет только то, что в нём перечислено, как с таблицами `dgx_ui_load()`: имя, которого
 в файле нет, отвергается, таблица, которой он не называет, пуста, а id, которого в нём нет, пропускается. Поэтому

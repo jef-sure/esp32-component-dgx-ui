@@ -57,8 +57,9 @@ typedef struct table_t {
 /* the tables of the names, and the names the description uses */
 extern table_t tables[TABLES], used[TABLES];
 
-/* the tables of an appearance's names: its draws, its fonts, its hands */
-enum { A_DRAW, A_FONT, A_HAND, APPEARANCE_TABLES };
+/* the tables of an appearance's names: its draws, its fonts, its hands, of lines of their own words; and its pictures, of
+   the names file's picture lines, which a page's table takes too */
+enum { A_DRAW, A_FONT, A_HAND, A_PICTURE, APPEARANCE_TABLES };
 extern const char *const appearance_words[APPEARANCE_TABLES];
 extern table_t           appearance_tables[APPEARANCE_TABLES];
 extern const char        DEFAULT_STYLE[]; /* a space: no description names it */
@@ -96,5 +97,6 @@ void names_rule(bool default_style);
 bool next_member(dgx_ui_json_t *json, bool *first, char key[24]);
 /* a key of the top of an appearance: the reader at its value, or false */
 bool top_value(dgx_ui_json_t *json, const char *wanted);
-/* by the rule, the fonts an appearance's styles name, into appearance_tables[A_FONT] */
+/* by the rule, the fonts an appearance's styles name, into appearance_tables[A_FONT], and the pictures its looks of the
+   library's draws name, into appearance_tables[A_PICTURE]: a picture <name> of 65535 there, as a page's by the rule */
 void names_collect_fonts(const char *text, size_t text_length);

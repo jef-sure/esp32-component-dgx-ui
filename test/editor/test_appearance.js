@@ -41,14 +41,17 @@ const docOf = (text) => description.read(text).doc;
     /* what the module says, held to its loader */
     check(format.draws.length === 20 && format.by_rule, 'the library\'s twenty draws by the rule: ' + format.draws.length);
     for (const draw of format.draws) {
-        const look = draw.fields.length ? { draw: draw.draw, params: { ...draw.defaults } } : { draw: draw.draw };
+        // a field of pictures has no default of the library's: a picture by the rule, "card", of 65535 there
+        const defaults = Object.fromEntries(Object.entries(draw.defaults ?? {}).map(([name, value]) =>
+            [name, value === null && draw.fields.find((field) => field.name === name)?.type === 'picture' ? 'card' : value]));
+        const look = draw.fields.length ? { draw: draw.draw, params: defaults } : { draw: draw.draw };
         const said = judged(JSON.stringify(withLook(look)));
         check(said.code === OK, `${draw.draw}: its library look's values taken: ${said.code} "${said.name}"`);
         for (const field of draw.fields) {
             const without = { ...look.params };
             delete without[field.name];
             const left = judged(JSON.stringify(withLook({ draw: draw.draw, params: without })));
-            const must = field.type === 'color' || field.type === 'color_or_under';
+            const must = field.type === 'color' || field.type === 'color_or_under' || field.type === 'picture';
             check(must ? left.code === MISSING && left.name === field.name : left.code === OK,
                   `${draw.draw}.${field.name} left out: ${left.code} "${left.name}"`);
             const at = (value) => judged(JSON.stringify(withLook({ draw: draw.draw, params: { ...look.params, [field.name]: value } }))).code;
@@ -65,11 +68,28 @@ const docOf = (text) => description.read(text).doc;
                 check(at(true) === OK && at(false) === OK, `${draw.draw}.${field.name}: true and false`);
             } else if (field.type === 'bands') {
                 check(at([[10, 'ink'], [20, 'accent']]) === OK && at([[10, 'nothing']]) === UNKNOWN, `${draw.draw}.${field.name}: bands`);
+            } else if (field.type === 'picture') {
+                check(at('another') === OK && at(null) !== OK && at(3) !== OK && field.min >= 1, `${draw.draw}.${field.name}: a picture by the rule, never null`);
             }
         }
         const unknown = judged(JSON.stringify(withLook({ ...look, params: { ...look.params, nothing: 1 } })));
         check(unknown.code === KEY || (!draw.fields.length && unknown.code !== OK), `${draw.draw}: a field it has not refused: ${unknown.code}`);
     }
+    /* on a names file: a picture of the file's, of as many as the field needs; one of fewer, RANGE at the field; one not
+       there, UNKNOWN; and the format lists the file's pictures with their counts */
+    const nineLook = (pieces) => JSON.stringify({ ...base(), looks: { card: { draw: 'nine', params: { fill: 'fill', ink: 'ink', pieces } } } });
+    check(preview.appearance(null, 'draw nine\nfont small TerminusTTFMedium12\npicture card card_pieces 9\npicture one card_pieces 8\n').code === 0,
+          'an appearance on its own names file of pictures');
+    const onNames = (pieces) => { const said = { ...preview.appearance(nineLook(pieces), 'draw nine\nfont small TerminusTTFMedium12\npicture card card_pieces 9\npicture one card_pieces 8\n') }; return said; };
+    check(onNames('card').code === OK, 'a picture of nine there taken');
+    const short = onNames('one');
+    check(short.code === RANGE && short.name === 'pieces', 'a picture of eight where nine are needed: RANGE at pieces: ' + JSON.stringify(short));
+    const missing = onNames('nothing');
+    check(missing.code === UNKNOWN && missing.name === 'nothing', 'a picture not there: UNKNOWN: ' + JSON.stringify(missing));
+    const listed = preview.appearanceFormat();
+    check(same(listed.pictures, [{ name: 'card', count: 9 }, { name: 'one', count: 8 }]) &&
+          listed.draws.find((one) => one.draw === 'nine').fields.find((field) => field.name === 'pieces').min === 9, 'the format: the pictures and the need');
+    preview.appearance(null, null);
     const styleSaid = (style) => judged(JSON.stringify({ ...base(), styles: { body: style } })).code;
     for (const field of format.style) {
         if (field.type === 'word') check(field.words.every((word) => styleSaid({ fonts: ['small'], [field.name]: word }) === OK), `style.${field.name}`);

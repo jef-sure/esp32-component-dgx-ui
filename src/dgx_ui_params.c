@@ -53,7 +53,8 @@ static const dgx_ui_field_t ring_fields[]    = {COLOR(dgx_ui_ring_look_t, on),
                                                 DGX_UI_WORD_FIELD(dgx_ui_ring_look_t, bands_by, bands_by),
                                                 DGX_UI_BANDS_FIELD(dgx_ui_ring_look_t, bands, band_count)};
 
-static const dgx_ui_field_t nine_fields[]    = {COLOR(dgx_ui_nine_look_t, fill), COLOR(dgx_ui_nine_look_t, ink)}; /* pieces: the program's */
+static const dgx_ui_field_t nine_fields[]    = {COLOR(dgx_ui_nine_look_t, fill), COLOR(dgx_ui_nine_look_t, ink),
+                                                DGX_UI_PICTURE_FIELD(dgx_ui_nine_look_t, pieces, 9)};
 
 const dgx_ui_params_t dgx_ui_params_box            = {.size = 0, .align = 1, .kinds = 1u << DGX_UI_BOX | 1u << DGX_UI_OWN, .field_count = 0, .fields = NULL};
 const dgx_ui_params_t dgx_ui_params_frame          = DGX_UI_PARAMS(dgx_ui_frame_look_t, 1u << DGX_UI_FRAME | 1u << DGX_UI_BOX, frame_fields);

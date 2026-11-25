@@ -1704,22 +1704,25 @@ may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list o
 | `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"level"` | `bar`; `rest`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
 | `"ring"` | `on`; `off`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
-| `"nine"` | `fill`; `ink` |
+| `"nine"` | `fill`; `ink`; `pieces`: a name of the program's pictures, 9 of them at least |
 
 **What is not said.** `"fill"` of a look is `null`, what lies under it. A number, a word and a list of flags are
 0, as a member of C left out, and `"joined"`, `"soft"`, `"points"` and `"secret"` false. A colour of a look's parameters must be
 said, `null` where it may be: a look that leaves one out is refused with `DGX_UI_LOAD_MISSING` and the field's name,
 so that no colour is forgotten into paper on paper. So must a style's `"fonts"`, a variant's `"font"`, and the
-`"hand"` of a handwritten font, which the fit would pass over with none. The pieces of `"nine"` are not said in an
-appearance: its frame is its fill until a look of the program's gives them.
+`"hand"` of a handwritten font, which the fit would pass over with none. So must the `"pieces"` of `"nine"`: a
+name of the program's pictures, as a page names a picture, which a table holds 9 of at least; fewer is
+`DGX_UI_LOAD_RANGE` with the field's name.
 
-**The program's tables**, `dgx_ui_appearance_names_t`: what an appearance may name, and what comes after its own.
+**The program's tables**, `dgx_ui_appearance_names_t`, 36 bytes<!-- sizeof dgx_ui_appearance_names_t --> on a
+32-bit chip: what an appearance may name, and what comes after its own.
 
 | Member | What it lists |
 | ------ | ------------- |
 | `draws`, `draw_count` | `dgx_ui_draw_name_t`: a draw by its word with its parameters described. `DGX_UI_DRAW_NAME(slider)` is `{"slider", dgx_ui_draw_slider, &dgx_ui_params_slider}`; a program carries only the draws it lists |
 | `fonts`, `font_count` | `dgx_ui_font_name_t`: a font of DGX by a name, `{"body", &dgx_font_body}`; every need of the project's `dgx_fonts.h` at once by `#define FONT(need) {#need, &dgx_font_##need},` and `{DGX_FONT_NEEDS(FONT)}` |
 | `hands`, `hand_count` | `dgx_ui_hand_name_t`: `DGX_UI_HAND_NAME(handwriting)`, `DGX_UI_HAND_NAME(handwriting_canvas)` |
+| `pictures`, `picture_count` | `dgx_ui_picture_name_t`, as a page's table has them: the pictures a look's field may name, `{"card", card_pieces, 9}`. One table may serve the pages and the appearance |
 | `looks`, `look_count`, `styles`, `style_count` | the program's own looks and styles, of C, which stand after the appearance's in the tables it lays |
 
 **Whose name it is.** The appearance's looks and styles stand first in the tables, the program's own after them,
@@ -1775,15 +1778,16 @@ static const dgx_ui_params_t dial_described = DGX_UI_PARAMS(dial_params_t, 1u <<
 builder offers it by and a load does not check, and the fields; `dgx_ui_field_t` is a field: its name in a
 description, the member's, where it lies and what it holds. The macros write one from the member:
 `DGX_UI_COLOR_FIELD`, `DGX_UI_COLOR_OR_UNDER_FIELD`, `DGX_UI_NUMBER_FIELD` with its bounds, `DGX_UI_BOOL_FIELD`,
-`DGX_UI_WORD_FIELD` with its words, each ended by 0, `DGX_UI_BANDS_FIELD` with the member of the count, over
+`DGX_UI_WORD_FIELD` with its words, each ended by 0, `DGX_UI_BANDS_FIELD` with the member of the count,
+`DGX_UI_PICTURE_FIELD` with the count of pictures it needs, over
 `DGX_UI_FIELD_OF`; `DGX_UI_PARAMS` writes the whole. What a field holds: `DGX_UI_FIELD_COLOR`,
 `DGX_UI_FIELD_COLOR_OR_UNDER`, `DGX_UI_FIELD_NUMBER`, `DGX_UI_FIELD_BOOL`, `DGX_UI_FIELD_WORD`, `DGX_UI_FIELD_FLAGS`,
-`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, and for a style and a variant `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND`
-and `DGX_UI_FIELD_VARIANTS`. The library's own: `dgx_ui_params_box`, `dgx_ui_params_frame`, `dgx_ui_params_text`,
+`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, `DGX_UI_FIELD_PICTURE`, a pointer to the program's pictures, and for a
+style and a variant `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND` and `DGX_UI_FIELD_VARIANTS`. The library's own: `dgx_ui_params_box`, `dgx_ui_params_frame`, `dgx_ui_params_text`,
 `dgx_ui_params_lines`, `dgx_ui_params_hand_lines`, `dgx_ui_params_button`, `dgx_ui_params_picture_button`,
 `dgx_ui_params_input`, `dgx_ui_params_switch`, `dgx_ui_params_slider`, `dgx_ui_params_list`,
 `dgx_ui_params_dropdown`, `dgx_ui_params_picture`, `dgx_ui_params_rgb565`, `dgx_ui_params_indexed`,
-`dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`, `dgx_ui_params_ring`, and
+`dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`, `dgx_ui_params_ring`, `dgx_ui_params_nine`, and
 `dgx_ui_params_text_style` and `dgx_ui_params_font_variant` for a style and a variant of a font.
 
 **What an appearance cannot do.** It may only name what the program listed: its draws, its fonts and its hands are
@@ -1848,7 +1852,9 @@ The tables are `look`, `value`, `picture`, `style`, `on`, `take`, `ctx` and `id`
 with the word `number`, when it takes its ctx for a number; a context's with the word `page`, when it is a page's
 tree, the only context the action `page` takes. The expression of an id is an int of the program's, which
 the made function writes the widget's index to; the others are constant expressions. A table has at most 65535
-names, the ids' `DGX_UI_LOAD_IDS`.
+names, the ids' `DGX_UI_LOAD_IDS`. For `dgx_ui_appearance()` the same file says what an appearance may name: its
+`picture` lines, the same as a page's, so that one line serves both, and lines of draws, fonts and hands, which
+the tool's page lists.
 
 With a names file a description names only what the file lists, as with the tables of `dgx_ui_load()`: a name the
 file has not is refused, a table it does not name is empty, and an id it has not is passed over. So what the tool

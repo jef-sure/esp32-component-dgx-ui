@@ -206,9 +206,11 @@ A colour whose name is not a name of C has no constant: the header lists it in a
 `dgx_ui_appearance_color()` finds it. The tables hold the appearance's looks and styles first, then the looks and
 styles of the names file.
 
-What an appearance may name comes from the names file, by three more tables, or with none from a rule:
+What an appearance may name comes from the names file, by three more tables and its pictures, or with none from a
+rule:
 
 ```
+picture   card       card_pieces 9            # pictures, as a page's: the same line serves both
 draw      slider                              # a draw of the library's, with no function
 draw      dial       draw_dial  &dial_described   # the program's own: its function, and its description for the tables of -t
 font      small      dgx_font_small           # a font of DGX by its constant; with none, dgx_font_<name>
@@ -216,8 +218,9 @@ font      script     dgx_font_script handwritten   # a handwritten font: its var
 hand      handwriting                         # handwriting or handwriting_canvas, the library's
 ```
 
-With no names file every draw of the library and both hands may be named, a font `small` is `dgx_font_small`, and
-every font is taken for a bitmap one: the file made says that the hands of handwritten fonts were not checked. A
+With no names file every draw of the library and both hands may be named, a font `small` is `dgx_font_small`, a
+picture `card` is the array `card` of 65535 pictures, as a page's by the rule, and every font is taken for a bitmap
+one: the file made says that the hands of handwritten fonts were not checked. A
 draw of the program's own may get a look with a fill; a look that gives it `"params"` is refused, in the tool's
 words, since its parameters are described in the program's C, which the tool does not read.
 
@@ -228,7 +231,8 @@ appearance's looks and styles stand before those of the names file or of the rul
 file kept while its appearance changed stops the compile: "day.h is of another appearance than this file was made
 on: make it again". A text that names no style takes the appearance's first. With `-t`, the tables' looks and styles
 begin with the appearance's, and a names file with `draw`, `font` or `hand` lines also gives
-`const dgx_ui_appearance_names_t <prefix>_appearance_names`, the tables an appearance is loaded on.
+`const dgx_ui_appearance_names_t <prefix>_appearance_names`, the tables an appearance is loaded on, its pictures
+the same table as the pages'.
 
 ## Tests
 
