@@ -117,3 +117,14 @@
 .dgx-ui-builder .appearance .bands { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .dgx-ui-builder .appearance .band { display: flex; gap: 3px; }
 .dgx-ui-builder .appearance .band input { width: 5em; }
+.dgx-ui-builder .names .name-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 1px 0; }
+.dgx-ui-builder .names .name-row.refused { outline: 2px solid var(--wrong); outline-offset: -2px; }
+.dgx-ui-builder .names .name-row.here .entry-name { background: var(--mark); }
+.dgx-ui-builder .names .entry-name { width: 8em; flex: none; font-family: ui-monospace, monospace; font-size: 12px; }
+.dgx-ui-builder .names .expr { flex: 1; min-width: 6em; font-family: ui-monospace, monospace; font-size: 12px; }
+.dgx-ui-builder .names .count { width: 4em; }
+.dgx-ui-builder .names .word { font-size: 12px; }
+.dgx-ui-builder .names .comment { flex-basis: 100%; padding-left: 8.5em; }
+.dgx-ui-builder .names .missing code { font-size: 12px; }
+.dgx-ui-builder .names .add { display: flex; gap: 4px; margin: 2px 0 6px; }
+.dgx-ui-builder .names .add input { flex: 1; min-width: 0; }

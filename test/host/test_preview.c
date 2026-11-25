@@ -20,6 +20,7 @@
 #include "dgx_ui_load.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_preview.h"
+#include "dgx_ui_names.h"
 #include "dgx_ui_text.h"
 #include "fonts/TerminusTTFMedium12.h"
 #include "panel.h"
@@ -480,6 +481,68 @@ int main(void)
         /* numbers of the defaults as the members hold them: a signed one below 0 */
         CHECK(strstr(format, "\"width\": 3, \"start\": -135, \"sweep\": 270, \"bands_by\": \"place\", \"bands\": []") != NULL);
         CHECK(strstr(format, "\"disabled\": \"fill\", \"track_h\": 2}") != NULL);
+    }
+
+    /* what a names file may say, and the names a page uses and a file has not, held to the reading dgx_ui_c shares: its
+       tables and their keys, the library's looks, and the C its rule gives each name */
+    {
+        const char *format = preview_names_format();
+        char        said[160];
+        for (int t = 0; t < TABLES; ++t) {
+            snprintf(said, sizeof said, "\"%s\"", table_words[t]);
+            CHECK(strstr(format, said) != NULL);
+        }
+        CHECK(strstr(format, "\"keys\": [\"look\", \"value\", \"picture\", \"style\", \"on\", \"take\", \"ctx\", \"id\"]") != NULL);
+        for (int k = 0; k < library_look_count; ++k) {
+            snprintf(said, sizeof said, "\"%s\"", library_looks[k]);
+            CHECK(strstr(strstr(format, "\"bare\""), said) != NULL);
+        }
+        static const char named[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"id\": \"top\", \"children\": ["
+                                    "{\"kind\": \"slider\", \"value\": \"settings.volume\"}, {\"kind\": \"label\", \"text\": \"x\"},"
+                                    "{\"kind\": \"button\", \"text\": \"Go\", \"style\": \"big\", \"on\": \"go\", \"ctx\": \"settings\", \"picture\": \"icons\"},"
+                                    "{\"kind\": \"button\", \"text\": \"Back\", \"on\": \"back\", \"look\": \"plain\", \"take\": \"take_it\"},"
+                                    "{\"kind\": \"slider\", \"value\": \"not-c\"}]}}";
+        CHECK(preview_names(NULL, 0)->code == 0 && preview_appearance(NULL, 0)->code == 0 && preview_page(named, sizeof named - 1)->code == 0);
+        const char *missing = preview_names_missing("value other &other\n", 19);
+        names_collect(named, sizeof named - 1);
+        names_rule(false);
+        int held = 0;
+        for (int t = 0; t < TABLES; ++t)
+            for (int k = 0; k < tables[t].count; ++k) {
+                const entry_t *entry = &tables[t].entries[k];
+                if (!entry->ruled && !entry_of(&used[t], entry->name)) continue; /* a look of the library's no widget takes */
+                if (t == T_ID || !entry->c || !c_name(entry->name, true)) continue; /* an id's C is of the prefix; not-c none */
+                if (entry->ruled) snprintf(said, sizeof said, "{\"table\": \"%s\", \"name\": \"%s\", \"c\": \"%s\", \"bare\": false", table_words[t], entry->name, entry->c);
+                else snprintf(said, sizeof said, "{\"table\": \"%s\", \"name\": \"%s\", \"c\": null, \"bare\": true", table_words[t], entry->name);
+                if (!strstr(missing, said)) fprintf(stderr, "  not missing as the rule gives it: %s\n", said);
+                CHECK(strstr(missing, said) != NULL);
+                ++held;
+            }
+        CHECK(held >= 7);
+        CHECK(strstr(missing, "\"name\": \"go\", \"c\": \"go\", \"bare\": false, \"number\": true") != NULL);
+        CHECK(strstr(missing, "\"name\": \"settings\", \"c\": \"&settings\", \"bare\": false, \"page\": true") != NULL);
+        CHECK(strstr(missing, "\"name\": \"icons\", \"c\": \"icons\", \"bare\": false, \"count\": 65535") != NULL);
+        CHECK(strstr(missing, "{\"table\": \"look\", \"name\": \"slider\", \"c\": null, \"bare\": true}") != NULL); /* of its kind's word */
+        CHECK(strstr(missing, "{\"table\": \"id\", \"name\": \"top\", \"c\": \"top\"") != NULL);
+        CHECK(strstr(missing, "{\"table\": \"value\", \"name\": \"not-c\", \"c\": null, \"bare\": false}") != NULL); /* no C by the rule */
+        CHECK(strstr(missing, "\"name\": \"other\"") == NULL && strstr(missing, "\"name\": \"body\"") == NULL); /* the file's; a style named */
+        /* a text that names no style, and no style anywhere: "body" wanted; none when the appearance has a style, nor the
+           look of a kind's word the appearance has */
+        static const char unstyled[] = "{\"dgx-ui\": 1, \"tree\": {\"kind\": \"box\", \"children\": [{\"kind\": \"label\", \"text\": \"x\"}, "
+                                       "{\"kind\": \"slider\", \"value\": \"v\"}]}}";
+        static const char styled[]   = "{\"dgx-ui\": 1, \"colors\": {\"paper\": \"#000000\", \"ink\": \"#ffffff\", \"fill\": \"#204060\", "
+                                       "\"border\": \"#808080\"}, \"styles\": {\"plain\": {\"fonts\": [\"small\"]}}, \"looks\": {\"slider\": "
+                                       "{\"draw\": \"slider\", \"params\": {\"track\": \"fill\", \"fill\": \"border\", \"knob\": \"ink\", "
+                                       "\"focused\": \"ink\", \"disabled\": \"fill\"}}}}";
+        CHECK(preview_page(unstyled, sizeof unstyled - 1)->code == 0);
+        missing = preview_names_missing("", 0);
+        CHECK(strstr(missing, "{\"table\": \"style\", \"name\": \"body\", \"c\": \"&body\", \"bare\": false}") != NULL);
+        CHECK(strstr(missing, "{\"table\": \"look\", \"name\": \"slider\", \"c\": null, \"bare\": true}") != NULL);
+        CHECK(preview_appearance(styled, sizeof styled - 1)->code == 0 && preview_page(unstyled, sizeof unstyled - 1)->code == 0);
+        missing = preview_names_missing("", 0);
+        CHECK(strstr(missing, "\"name\": \"body\"") == NULL && strstr(missing, "\"name\": \"slider\"") == NULL &&
+              strstr(missing, "{\"table\": \"value\", \"name\": \"v\", \"c\": \"&v\"") != NULL);
+        preview_appearance(NULL, 0), preview_page(NULL, 0);
     }
 
     /* a look of the program's own and a picture: their stand-ins drawn and said */

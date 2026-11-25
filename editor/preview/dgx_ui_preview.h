@@ -119,6 +119,22 @@ const preview_verdict_t *preview_appearance_on(int how, const char *text, size_t
  * hands by the rule.
  */
 const char *preview_appearance_format(void);
+/**
+ * What a names file may say, for a page that edits it by forms, from the reading dgx_ui_c shares
+ * (tools/dgx_ui_names.c): {"tables": the loader's tables by their words, "keys": the key of a widget that names an
+ * entry of each, in their order, "appearance": ["draw", "font", "hand"], "words": the word a line of a table may end
+ * with ("count" of pictures, from "pictures": [1, 65535]), "bare": the names that go with no expression, of the tables
+ * look, on, draw and hand}.
+ */
+const char *preview_names_format(void);
+/**
+ * The names the page given uses that a names file has not, its text given, the file as dgx_ui_c reads it to its first
+ * wrong line: the look of a kind's word among them for a widget that names none, a style "body" for a text that names
+ * none where the file, the page and the appearance give none, and none the appearance given has: [{"table", "name", "c", "bare", and "number", "page", "count" where they are}], in the order of the
+ * tables and of the page. "c" is the expression the rule would give it, as dgx_ui_c makes a page with no names file,
+ * null for one of the library's ("bare") and for a name the rule cannot make C.
+ */
+const char *preview_names_missing(const char *text, size_t length);
 /** The page: on the appearance's tables first and the names' after; drawn whole at the next paint. Its verdict. NULL, no
     page: no widget, nothing drawn. */
 const preview_verdict_t *preview_page(const char *text, size_t length);

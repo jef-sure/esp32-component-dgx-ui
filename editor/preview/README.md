@@ -69,6 +69,8 @@ A preview is a copy of the module with memory of its own: two of them on a page 
 | `tables()` | The names of the tables the page given is read on, `{look, value, picture, style, on, take, ctx, id}`, the appearance's looks and styles first. |
 | `appearanceFormat()` | What the appearance given may say, for a page that edits it by forms: `{draws, fonts, hands, by_rule, style, variant}`. A draw is `{draw, own, kinds, fields, defaults}`: each field `{name, type}`, with `min` and `max` or `words` where they are said, the types those of `DGX_UI_FIELD_*` (`color`, `color_or_under`, `number`, `bool`, `word`, `flags`, `bit`, `bands`, `font`, `hand`, `variants`); `defaults` the values of the library's look of the draw's word, a colour by its name of the four, `null` for what lies under. A draw of the program's own is `own: true` with no fields: its C is not here. `by_rule`: the appearance is read with no names file. `style` and `variant`: the fields of a style and of a variant. With no appearance given, the library's draws and hands. |
 | `DgxUiPreview.colorNames()` | DGX's colours by their names, in the order of its `dgx_colors.h`: `[['aliceblue', '#f0f8ff'], ...]`. |
+| `namesFormat()` | What a names file may say, for a page that edits it by forms, from the reading `dgx_ui_c` shares: `{tables, keys, appearance, words, pictures, bare}`, the loader's tables by their words, the key of a widget that names an entry of each, the appearance's tables `draw`, `font` and `hand`, the word a line of a table may end with, the range of a count of pictures, and the names that go with no expression. |
+| `namesMissing(text)` | The names the page given uses that the names file `text` has not, the file read as `dgx_ui_c` reads it: `[{table, name, c, bare, number, page, count}]`, in the order of the tables and of the page. `c` is the expression the rule gives it, as `dgx_ui_c` makes a page with no names file; `null` for a name of the library's and for one the rule cannot make C. The look of a kind's word for a widget that names none is among them, and a style `body` for a text that names none where nothing gives one; a name the appearance has is not. |
 | `json(text)` | Whether a text, or bytes, is JSON as the loader's reader reads it: 1, 0, or 2 for one deeper than it goes. |
 
 A verdict is `{code, offset, name, said}`. For a text taken `code` is 0. For a page or an appearance refused it is the
@@ -144,7 +146,7 @@ const results = await preview.fonts(indexText, file => directory.getFileHandle(f
 
 ### What it takes
 
-The file is 473 KB, 191 KB when a server sends it with gzip. A preview takes 0.4 MB and its frame, four bytes a
+The file is 480 KB, 193 KB when a server sends it with gzip. A preview takes 0.4 MB and its frame, four bytes a
 pixel: 0.7 MB at 320x240, 4.3 MB at 1280x800, 64 MB at 4096x4096. A font file takes its own size and some 70 bytes:
 the 16 fonts of a project, 162 KB, took 0.2 MB. Its memory does not shrink: after a large panel a small one holds
 what the large one took, until the preview is let go. Pages and fonts given again and again do not grow it.

@@ -126,13 +126,14 @@ id        title      title_index
 - The expression of an id is an int of the program's, which the add function writes the widget's index to; the
   others are constant expressions, as the widgets are constants.
 - A table has at most 65535 names, the ids' `DGX_UI_LOAD_IDS`, 256.
+- The builder of pages edits a names file a line at a time and keeps every other line as written:
+  [The names file](../editor/README.md#the-names-file).
 
 With a names file every table is the file's, as the program's tables are for the loader. A name the file has not
-is refused; so is an icon's range past its pictures, a number for a ctx its handler does not take, and a context not a page's
-for the action `page`. A table the
-file does not name is empty: a text finds no style, a widget no look, and an id the file has not is passed over, as
-the loader passes it over, with no int made for it. The first style of the file is the one a text takes that names
-none.
+is refused; so is an icon's range past its pictures, a number for a ctx its handler does not take, and a context not
+a page's for the action `page`. A table the file does not name is empty: a text finds no style, a widget no look, and
+an id the file has not is passed over, as the loader passes it over, with no int made for it. The first style of the
+file is the one a text takes that names none.
 
 ### With no names file: the rule
 

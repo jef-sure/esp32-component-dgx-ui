@@ -1,8 +1,8 @@
 // The state of the builder: the project open, the page chosen with its description as a document, the selection, and
 // what the preview's module said of the texts and drew. What the format allows is the loader's word: every text goes to
 // the module, and its verdicts are shown, none of the format's rules written here again. description.js reads, edits
-// and writes a description, appearance.js an appearance; history.js keeps undo, a history a file; a host
-// (host_browser.js) gives the files.
+// and writes a description, appearance.js an appearance, names.js the lines of a names file; history.js keeps undo, a
+// history a file; a host (host_browser.js) gives the files.
 //
 // A project is what its CMakeLists say: main/CMakeLists.txt, components/*/CMakeLists.txt and the top one are read for
 // dgx_ui_tree(), dgx_ui_names() and dgx_ui_appearance(), each page with its names file and appearance as the call
@@ -17,6 +17,7 @@ const useDgxUiBuilder = (() => {
     const { read, write, widgets, widgetAt, indexOf, pathOf, samePath, valueOf, shown, builderOf, unitOfByte, illFormedAt } = description;
     const { History } = window.DgxUiHistory;
     const appearance = window.DgxUiAppearance;
+    const namesFile = window.DgxUiNames;
 
     const PREFERENCES = { zoom: 'dgx-ui-builder.zoom', screen: 'dgx-ui-builder.screen', language: 'dgx-ui-builder.language' }; // localStorage
     // the screens offered: the panels of the boards dgx-ui is tried on
@@ -335,10 +336,12 @@ const useDgxUiBuilder = (() => {
             tables: {}, // the names of the tables the page is read on, as the module gives them
             tab: 'properties', // the pane beside the panel: the properties of the widget selected, or the appearance's forms
             pick: [], // the entry of the appearance in its form: [section, name]
+            namesPick: [], // the line of the names file in its form: [table, name]
+            namesMissing: [], // the names the page uses that its names file has not, as the module gives them
             appearanceError: null, // the appearance's text not read: {at, byte, why}
             appearanceAt: null, // the entry the appearance's verdict stops in: [section, name]
             raw: Vue.markRaw({ preview: null, host: null, doc: null, spans: [], histories: new Map(), links: new Map(), linkCount: 0, format: null,
-                               preferences: null, look: null, lookSpans: [], lookFormat: null }),
+                               preferences: null, look: null, lookSpans: [], lookFormat: null, namesFormat: null }),
         }),
 
         getters: {
@@ -379,7 +382,8 @@ const useDgxUiBuilder = (() => {
             // the file an undo goes to: the text shown, the appearance while its forms are open, else the page
             undoPath() {
                 if (this.view === 'text') return this.textPath;
-                return this.tab === 'appearance' && this.page?.appearance ? this.page.appearance : this.current;
+                if (this.tab === 'appearance' && this.page?.appearance) return this.page.appearance;
+                return this.tab === 'names' && this.page?.names ? this.page.names : this.current;
             },
             canUndo() {
                 this.version;
@@ -403,6 +407,38 @@ const useDgxUiBuilder = (() => {
                 this.version;
                 const made = this.project?.appearances.find((one) => one.path === this.page?.appearance);
                 return made?.prefix ?? stringOf(this.raw.look ? valueOf(this.raw.look, 'name') : null);
+            },
+            // the names file of the page open as lines that name something, its format, the line its verdict stops at
+            namesFormat() {
+                return this.raw.namesFormat;
+            },
+            namesRows() {
+                this.version;
+                const path = this.page?.names;
+                return path && this.files[path] ? namesFile.rows(this.files[path].text, this.raw.namesFormat) : [];
+            },
+            namesAt() {
+                return this.verdicts.names && this.verdicts.names.code !== 0 ? namesFile.lineOfVerdict(this.verdicts.names.said) : null;
+            },
+            // the pages read on the names file of the page open, and the appearances read on it: made with it as their
+            // NAMES, or loaded at run time by a page on it
+            pagesOnNames() {
+                const path = this.page?.names;
+                return path ? this.project.pages.filter((page) => page.names === path).map((page) => page.path) : [];
+            },
+            appearancesOnNames() {
+                const path = this.page?.names;
+                if (!path) return [];
+                const made = this.project.appearances.filter((one) => one.from && one.names === path).map((one) => one.path);
+                const loaded = this.project.pages.filter((page) => page.names === path && page.appearance &&
+                                                               this.project.appearances.some((one) => one.path === page.appearance && !one.from))
+                                                 .map((page) => page.appearance);
+                return [...new Set([...made, ...loaded])];
+            },
+            // the names of the file no page and no appearance on it names: "table name", a note on their lines
+            namesUnused() {
+                this.version;
+                return this.namesUsers(null).unused;
             },
             // the pages drawn on the appearance of the page open
             pagesOn() {
@@ -436,6 +472,7 @@ const useDgxUiBuilder = (() => {
                     const preview = await window.DgxUiPreview.create({ pageText: (name) => this.pageTextOf(name), log: options.log ?? (() => {}) });
                     this.raw.preview = Vue.markRaw(preview);
                     this.raw.format = Vue.markRaw(this.raw.preview.format());
+                    this.raw.namesFormat = Vue.markRaw(this.raw.preview.namesFormat());
                     this.ready = true;
                 } catch (error) {
                     this.failed = String(error && error.message ? error.message : error);
@@ -500,6 +537,7 @@ const useDgxUiBuilder = (() => {
                 const page = this.project?.pages.find((one) => one.path === path);
                 if (!page) return false;
                 if (page.appearance !== this.page?.appearance) this.pick = [];
+                if (page.names !== this.page?.names) this.namesPick = [];
                 this.current = path, this.view = 'page', this.text = 'page', this.cursor = null, this.trying = false, this.events = [];
                 this.loadText();
                 this.selection = [];
@@ -606,6 +644,8 @@ const useDgxUiBuilder = (() => {
                     this.verdicts.page = preview.page(file.text);
                 }
                 this.tables = preview.tables();
+                const names = this.page?.names ? this.files[this.page.names] : null;
+                this.namesMissing = names ? preview.namesMissing(names.missing ? '' : names.text) : [];
                 this.notes = preview.notes();
                 this.shown = preview.shown();
                 this.refusedPath = this.verdicts.page.code > 0 && !file.illFormed ? this.locate(this.verdicts.page) : null;
@@ -835,6 +875,7 @@ const useDgxUiBuilder = (() => {
                 const text = this.files[path].text;
                 if (path === this.current) return { text, selection: [...this.selection] };
                 if (path === this.page?.appearance) return { text, selection: [...this.pick] };
+                if (path === this.page?.names) return { text, selection: [...this.namesPick] };
                 return { text, selection: [] };
             },
 
@@ -884,6 +925,8 @@ const useDgxUiBuilder = (() => {
                     if (path === this.page?.appearance) this.pick = [...state.selection];
                 } else if (this.project.pages.some((page) => page.path === path)) {
                     file.byBuilder = said.ok && write(said.doc).text === state.text;
+                } else if (path === this.page?.names) {
+                    this.namesPick = [...state.selection];
                 }
                 if (give) this.giveAll();
             },
@@ -927,7 +970,7 @@ const useDgxUiBuilder = (() => {
             // ---- the appearance by its forms ----
 
             setTab(tab) {
-                this.tab = tab === 'appearance' ? 'appearance' : 'properties';
+                this.tab = tab === 'appearance' || tab === 'names' ? tab : 'properties';
             },
 
             choosePick(pick) {
@@ -1142,19 +1185,248 @@ const useDgxUiBuilder = (() => {
                 return true;
             },
 
-            // the pages on an appearance among the files a save writes, loaded on it by the module, one pass each: the
-            // appearance where it is refused itself, and the pages it refuses, {path, verdict}; the page open given again
-            // after
+            // ---- the names file by its forms ----
+
+            // an edit of the names file: the change gives its new text and the line to show, null when it changes nothing;
+            // given to the module, the page read on it again. A names file a call names and the disk has not yet is
+            // edited from nothing, and written at a save
+            editNames(change, fold = null) {
+                const path = this.page?.names;
+                if (!path) return false;
+                const file = this.files[path], before = this.snapshot(path);
+                const done = change(file.missing ? '' : file.text);
+                if (!done || done.text === (file.missing ? '' : file.text)) return false;
+                this.historyOf(path).record(before, fold);
+                file.text = done.text, file.missing = false, file.illFormed = null;
+                if (done.pick) this.namesPick = done.pick;
+                this.giveAll();
+                return true;
+            },
+
+            namesFold(table, name, k) {
+                return `${this.page?.names}|${table}.${name}.${k}`;
+            },
+
+            // the words of a line set: a word of white space or '#' waits, as it would split the line
+            setNamesLine(number, words, fold = null) {
+                if (words.some((word) => !word || /[\s#]/.test(word))) return false;
+                return this.editNames((text) => {
+                    const changed = namesFile.setLine(text, number, words);
+                    return changed === null ? null : { text: changed, pick: [words[0], words[1]] };
+                }, fold);
+            },
+
+            // a line added after the last of its table; refused when its table has the name already
+            addNamesLine(words) {
+                if (words.length < 2 || words.some((word) => !word || /[\s#]/.test(word))) return false;
+                if (this.namesRows.some((row) => row.table === words[0] && row.words[1] === words[1])) {
+                    this.say('"{0}": the names file has a {1} of that name already', [words[1], words[0]], true);
+                    return false;
+                }
+                return this.editNames((text) => ({ text: namesFile.addLine(text, words).text, pick: [words[0], words[1]] }));
+            },
+
+            // the line of a name the page uses and the file has not, with the expression the rule gives it
+            missingLine(entry) {
+                const words = [entry.table, entry.name];
+                if (!entry.bare) {
+                    if (!entry.c) return null;
+                    words.push(entry.c);
+                    if (entry.count) words.push(String(entry.count));
+                    if (entry.number) words.push('number');
+                    if (entry.page) words.push('page');
+                }
+                return words;
+            },
+
+            addMissing(entry) {
+                const words = this.missingLine(entry);
+                if (!words) {
+                    this.say('"{0}": the rule makes no C of it; add it with an expression of the program\'s', [entry.name], true);
+                    return false;
+                }
+                return this.addNamesLine(words);
+            },
+
+            // every name missing that the rule makes C of, in one step
+            addAllMissing() {
+                const lines = this.namesMissing.map((entry) => this.missingLine(entry)).filter(Boolean);
+                if (!lines.length) return false;
+                return this.editNames((text) => ({ text: namesFile.addLines(text, lines), pick: [] }));
+            },
+
+            // who names a name of the names file: the widgets of the pages on it by the key of its table, a look of a
+            // kind's word by the widgets of the kind that name none, a draw, a font or a hand by the appearances on it;
+            // with name null, the names of the file no one names ("table name")
+            namesUsers(table, name = null) {
+                const format = this.raw.namesFormat, kinds = this.raw.format?.kinds ?? [];
+                const users = [], seen = new Set();
+                const note = (one, what) => seen.add(`${one} ${what}`);
+                const firstStyle = this.page?.names && this.files[this.page.names]
+                    ? namesFile.rows(this.files[this.page.names].text, format).find((row) => row.table === 'style')?.words[1] ?? null : null;
+                for (const path of this.pagesOnNames) {
+                    const file = this.files[path], said = file && !file.missing && !file.illFormed ? read(file.text) : { ok: false };
+                    if (!said.ok) continue;
+                    // a text that names no style takes the first: the appearance's when it has styles, else the file's
+                    const its = this.project.pages.find((page) => page.path === path)?.appearance;
+                    const look = its && this.files[its] && !this.files[its].missing ? read(this.files[its].text) : { ok: false };
+                    const appearanceStyles = look.ok ? appearance.namesOf(look.doc, 'styles').length : 0;
+                    for (const { path: at, widget } of widgets(said.doc)) {
+                        if ((valueOf(widget, 'text') || valueOf(widget, 'text_size')) && !valueOf(widget, 'style') && !appearanceStyles && firstStyle)
+                            note('style', firstStyle);
+                        format.tables.forEach((one, k) => {
+                            const value = stringOf(valueOf(widget, format.keys[k]));
+                            if (value === null) return;
+                            note(one, value);
+                            if (one === table && value === name) users.push({ path, at, key: format.keys[k] });
+                        });
+                        const kind = kindOf(widget);
+                        if (typeof kind === 'string' && kinds.includes(kind) && !valueOf(widget, 'look')) note('look', kind);
+                    }
+                }
+                for (const path of this.appearancesOnNames) {
+                    const file = this.files[path], said = file && !file.missing && !file.illFormed ? read(file.text) : { ok: false };
+                    if (!said.ok) continue;
+                    const looks = valueOf(said.doc, 'looks'), styles = valueOf(said.doc, 'styles');
+                    for (const [key, look] of looks?.t === 'object' ? looks.entries : []) {
+                        const draw = stringOf(valueOf(look, 'draw'));
+                        if (draw === null) continue;
+                        note('draw', draw);
+                        if (table === 'draw' && draw === name) users.push({ path, at: ['looks', key.value, 'draw'] });
+                    }
+                    for (const [key, style] of styles?.t === 'object' ? styles.entries : []) {
+                        const fonts = valueOf(style, 'fonts');
+                        (fonts?.t === 'array' ? fonts.items : []).forEach((variant, k) => {
+                            const font = variant.t === 'string' ? variant.value : stringOf(valueOf(variant, 'font'));
+                            const hand = variant.t === 'object' ? stringOf(valueOf(variant, 'hand')) : null;
+                            if (font !== null) note('font', font);
+                            if (hand !== null) note('hand', hand);
+                            if (table === 'font' && font === name)
+                                users.push({ path, at: variant.t === 'string' ? ['styles', key.value, 'fonts', k] : ['styles', key.value, 'fonts', k, 'font'] });
+                            if (table === 'hand' && hand === name) users.push({ path, at: ['styles', key.value, 'fonts', k, 'hand'] });
+                        });
+                    }
+                }
+                const unused = new Set();
+                const path = this.page?.names;
+                if (path && this.files[path] && (this.pagesOnNames.length || this.appearancesOnNames.length))
+                    for (const row of namesFile.rows(this.files[path].text, format))
+                        if (row.known && row.words.length > 1 && !seen.has(`${row.table} ${row.words[1]}`)) unused.add(`${row.table} ${row.words[1]}`);
+                return { users, unused };
+            },
+
+            // what a rename of a name would change: the pages and appearances on the file that name it, those that do not
+            // read, the words to say first
+            namesPlan(table, from, to) {
+                const plan = { files: [], refused: [], warnings: [], taken: this.namesRows.some((row) => row.table === table && row.words[1] === to) };
+                const users = this.namesUsers(table, from).users;
+                for (const path of [...this.pagesOnNames, ...this.appearancesOnNames]) {
+                    const file = this.files[path];
+                    if (!file || file.missing || file.illFormed || !read(file.text).ok) plan.refused.push(path);
+                }
+                for (const user of users) {
+                    let one = plan.files.find((each) => each.path === user.path);
+                    if (!one) plan.files.push((one = { path: user.path, places: [] }));
+                    one.places.push(user);
+                }
+                const kinds = this.raw.format.kinds;
+                if (table === 'look' && kinds.includes(from))
+                    plan.warnings.push({ text: '"{0}" is the word of a kind: the widgets of the kind that name no look are refused after it, for want of one', values: [from] });
+                if (table === 'look' && kinds.includes(to))
+                    plan.warnings.push({ text: '"{0}" is the word of a kind: every widget of the kind that names no look takes it', values: [to] });
+                if (['value', 'picture', 'on', 'take', 'ctx', 'id', 'style', 'look', 'font', 'draw'].includes(table))
+                    plan.warnings.push({ text: 'the C expression stays as it is, the program\'s: only the name the pages and appearances use changes', values: [] });
+                return plan;
+            },
+
+            // a name renamed in the names file and in every page and appearance on it that names it, one step of all
+            // those files
+            renameName(table, from, to) {
+                const path = this.page?.names;
+                if (!path || !to || from === to || /[\s#]/.test(to)) return false;
+                const plan = this.namesPlan(table, from, to);
+                if (plan.taken) {
+                    this.say('"{0}": the names file has a {1} of that name already', [to, table], true);
+                    return false;
+                }
+                if (plan.refused.length) {
+                    this.say('"{0}" not renamed: these files on the names file do not read: {1}', [from, plan.refused.join(', ')], true);
+                    return false;
+                }
+                const row = this.namesRows.find((one) => one.table === table && one.words[1] === from);
+                if (!row) return false;
+                const words = this.renamedWords(row.words, to);
+                if (!words) {
+                    this.say('a hand is the library\'s, by its word alone: not renamed', [], true);
+                    return false;
+                }
+                const link = ++this.raw.linkCount, now = Date.now(), file = this.files[path];
+                this.historyOf(path).record(this.snapshot(path), null, now, link);
+                file.text = namesFile.setLine(file.text, row.number, words);
+                this.namesPick = [table, to];
+                for (const one of plan.files) {
+                    const its = this.files[one.path], said = read(its.text);
+                    this.historyOf(one.path).record(this.snapshot(one.path), null, now, link);
+                    const isPage = this.project.pages.some((page) => page.path === one.path);
+                    for (const place of one.places) {
+                        if (isPage) description.setKey(said.doc, place.at, place.key, to);
+                        else appearance.setAt(said.doc, place.at, to);
+                    }
+                    its.text = isPage ? write(said.doc).text : appearance.write(said.doc).text, its.byBuilder = true;
+                    if (one.path === this.current) this.loadText();
+                }
+                this.raw.links.set(link, [path, ...plan.files.map((one) => one.path)]);
+                for (const { text, values } of plan.warnings) this.say(text, values);
+                if (plan.files.length) this.say('renamed in {0} place(s) of {1}', [plan.files.reduce((sum, one) => sum + one.places.length, 0),
+                                                                                  plan.files.map((one) => one.path).join(', ')]);
+                this.giveAll();
+                return true;
+            },
+
+            // the words of a line renamed, its C kept: a name that went with no expression, whose C its name gave, given
+            // that C now, as dgx_ui_c gives it ("look button" is &dgx_ui_look_button, "font small" &dgx_font_small); a
+            // hand, the library's word alone, none
+            renamedWords(words, to) {
+                const [table, from, ...rest] = words;
+                if (table === 'hand') return null;
+                if (table === 'font' && (!rest.length || rest[0] === 'handwritten')) return [table, to, `dgx_font_${from}`, ...rest];
+                if (rest.length) return [table, to, ...rest];
+                if (table === 'look') return [table, to, `&dgx_ui_look_${from}`];
+                if (table === 'on') return [table, to, `dgx_ui_load_on_${from}`];
+                if (table === 'draw') return [table, to, `dgx_ui_draw_${from}`, `&dgx_ui_params_${from}`];
+                return [table, to];
+            },
+
+            // a line deleted: a name a widget or an appearance names is not, and they are said
+            removeName(table, name) {
+                const users = this.namesUsers(table, name).users;
+                if (users.length) {
+                    const said = [...new Set(users.map((user) => user.path))].map((path) =>
+                        `${path}: ${users.filter((user) => user.path === path).map((user) => user.at.join('.') || 'tree').join(', ')}`);
+                    this.say('"{0}" not deleted: these name it: {1}', [name, said.join('; ')], true);
+                    return false;
+                }
+                const row = this.namesRows.find((one) => one.table === table && one.words[1] === name);
+                if (!row) return false;
+                return this.editNames((text) => ({ text: namesFile.removeLine(text, row.number), pick: [] }));
+            },
+
+            // the pages on an appearance or a names file among the files a save writes, loaded on them by the module, one
+            // pass each: the appearance or the names file where it is refused itself, and the pages refused, {path,
+            // verdict}; the page open given again after
             brokenPages(paths) {
                 const looks = new Set(paths.filter((path) => this.project.appearances.some((one) => one.path === path) ||
                                                               this.project.pages.some((page) => page.appearance === path)));
-                if (!looks.size) return [];
+                const vocabularies = new Set(paths.filter((path) => this.project.pages.some((page) => page.names === path)));
+                if (!looks.size && !vocabularies.size) return [];
                 const broken = [], judged = new Set();
-                for (const page of this.project.pages.filter((one) => looks.has(one.appearance))) {
+                for (const page of this.project.pages.filter((one) => looks.has(one.appearance) || vocabularies.has(one.names))) {
                     const said = this.giveFiles(page);
-                    if (!judged.has(page.appearance) && said.appearance && said.appearance.code !== 0)
+                    if (page.names && !judged.has(page.names) && said.names && said.names.code !== 0)
+                        broken.push({ path: page.names, verdict: { ...said.names } });
+                    if (page.appearance && !judged.has(page.appearance) && said.appearance && said.appearance.code !== 0)
                         broken.push({ path: page.appearance, verdict: { ...said.appearance } });
-                    judged.add(page.appearance);
+                    judged.add(page.appearance), judged.add(page.names);
                     const file = this.files[page.path];
                     const verdict = file.illFormed || file.missing ? { code: SYNTAX, offset: file.illFormed?.byte ?? 0, name: '', said: '' }
                                                                    : this.raw.preview.page(file.text);

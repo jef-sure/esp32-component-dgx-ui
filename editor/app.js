@@ -616,8 +616,142 @@ const dgxUiBuilderMount = (() => {
         `,
     };
 
+    // ---- the names file by its forms ----
+
+    // a line of the names file: its name, its expression, and the word its table takes; the parts of its words, and its
+    // words of the parts
+    const partsOf = (row) => {
+        const [table, name, ...rest] = row.words;
+        if (table === 'font') {
+            const handwritten = rest[rest.length - 1] === 'handwritten';
+            const given = handwritten ? rest.slice(0, -1) : rest;
+            return { table, name, expr: given[0] ?? '', extra: handwritten, more: given.slice(1) };
+        }
+        if (table === 'draw') return { table, name, expr: rest[0] ?? '', extra: rest[1] ?? '', more: rest.slice(2) };
+        return { table, name, expr: rest[0] ?? '', extra: rest[1] ?? '', more: rest.slice(2) };
+    };
+    const wordsOf = (parts) => {
+        const words = [parts.table, parts.name];
+        if (parts.table === 'font') {
+            if (parts.expr) words.push(parts.expr);
+            if (parts.extra) words.push('handwritten');
+        } else {
+            if (parts.expr) words.push(parts.expr);
+            if (parts.extra !== '' && parts.extra !== false) words.push(String(parts.extra));
+        }
+        return [...words, ...parts.more];
+    };
+
+    const NamesPane = {
+        setup() {
+            const words = useWords(), store = words.store;
+            const path = computed(() => store.page?.names);
+            const missingFile = computed(() => !!(path.value && store.files[path.value]?.missing));
+            const verdict = computed(() => words.verdictText(store.verdicts.names));
+            const tables = computed(() => [...(store.namesFormat?.tables ?? []), ...(store.namesFormat?.appearance ?? [])]);
+            const rowsOf = (table) => store.namesRows.filter((row) => row.known && row.table === table);
+            const unknown = computed(() => store.namesRows.filter((row) => !row.known));
+            const unused = computed(() => store.namesUnused);
+            const bare = (table, name) => (store.namesFormat?.bare?.[table] ?? []).includes(name);
+            const setPart = (row, part, value, fold = null) => {
+                const parts = { ...partsOf(row), [part]: value };
+                return store.setNamesLine(row.number, wordsOf(parts), fold);
+            };
+            const fresh = ref(0);
+            const plan = ref(null);
+            const rename = (row, to) => {
+                to = to.trim();
+                const from = row.words[1];
+                if (!to || to === from) return void ++fresh.value;
+                const said = store.namesPlan(row.table, from, to);
+                if (!said.taken && !said.refused.length && said.files.length) plan.value = { table: row.table, from, to, ...said };
+                else if (!store.renameName(row.table, from, to)) ++fresh.value;
+            };
+            const confirmRename = () => {
+                const { table, from, to } = plan.value;
+                plan.value = null;
+                if (!store.renameName(table, from, to)) ++fresh.value;
+            };
+            const cancelRename = () => {
+                plan.value = null;
+                ++fresh.value;
+            };
+            const adding = ref({ table: 'value', name: '', expr: '' }); // the line the form adds
+            const add = () => {
+                const { table } = adding.value, name = adding.value.name.trim(), expr = adding.value.expr.trim();
+                if (store.addNamesLine(expr && table !== 'hand' ? [table, name, expr] : [table, name])) adding.value = { table, name: '', expr: '' };
+            };
+            const typed = (part, value) => {
+                adding.value = { ...adding.value, [part]: value };
+            };
+            return { ...words, path, missingFile, verdict, tables, rowsOf, unknown, unused, bare, partsOf, setPart, fresh, plan, rename,
+                     confirmRename, cancelRename, adding, add, typed };
+        },
+        template: `
+            <div class="names">
+                <p class="path">{{ path }}<span v-if="missingFile"> · {{ t('not on the disk yet: written at a save') }}</span></p>
+                <p v-if="verdict" class="wrong verdict" @click="store.showText('names')" :title="t('the cursor to it')">{{ verdict }}</p>
+                <template v-if="store.namesMissing.length">
+                    <div class="heading">{{ t('Named by the page, not in the file') }}</div>
+                    <div v-for="entry in store.namesMissing" :key="entry.table + ' ' + entry.name" class="field missing">
+                        <span class="key">{{ entry.table }}</span><code>{{ entry.name }}</code>
+                        <code class="note">{{ entry.bare ? t('the library\\'s') : entry.c ?? t('no C by the rule: one of the program\\'s') }}</code>
+                        <button @click="store.addMissing(entry)" :disabled="!entry.bare && !entry.c">{{ t('Add') }}</button>
+                    </div>
+                    <p><button @click="store.addAllMissing()">{{ t('Add all') }}</button></p>
+                </template>
+                <template v-for="table in tables.filter((one) => rowsOf(one).length)" :key="table">
+                    <div class="heading">{{ table }}</div>
+                    <div v-for="row in rowsOf(table)" :key="row.number + '/' + fresh" class="name-row"
+                         :class="{ refused: store.namesAt === row.number, here: store.namesPick[0] === table && store.namesPick[1] === row.words[1] }">
+                        <input type="text" class="entry-name" :value="row.words[1]" :title="t('the name: renamed when you leave it')"
+                               @change="rename(row, $event.target.value)">
+                        <input type="text" class="expr" :value="partsOf(row).expr" :aria-label="t('its C expression')"
+                               :placeholder="bare(table, row.words[1]) ? t('the library\\'s') : t('the program\\'s C')"
+                               @input="setPart(row, 'expr', $event.target.value.trim(), store.namesFold(table, row.words[1], 'expr'))">
+                        <input v-if="table === 'picture'" type="text" class="count" :value="partsOf(row).extra" :placeholder="'1'"
+                               :aria-label="t('its count of pictures')"
+                               @input="setPart(row, 'extra', $event.target.value.trim(), store.namesFold(table, row.words[1], 'count'))">
+                        <label v-else-if="table === 'on' || table === 'ctx' || table === 'font'" class="word">
+                            <input type="checkbox" :checked="table === 'font' ? partsOf(row).extra : partsOf(row).extra === store.namesFormat.words[table]"
+                                   @change="setPart(row, 'extra', table === 'font' ? $event.target.checked : $event.target.checked ? store.namesFormat.words[table] : '')">
+                            {{ store.namesFormat.words[table] }}</label>
+                        <input v-else-if="table === 'draw'" type="text" class="expr" :value="partsOf(row).extra" :aria-label="t('its description')"
+                               :placeholder="t('its description')"
+                               @input="setPart(row, 'extra', $event.target.value.trim(), store.namesFold(table, row.words[1], 'described'))">
+                        <button class="remove" :title="t('Delete')" @click="store.removeName(table, row.words[1])">×</button>
+                        <span v-if="row.comment" class="note comment">{{ row.comment }}</span>
+                        <span v-if="unused.has(table + ' ' + row.words[1])" class="note">{{ t('used by no page on this file') }}</span>
+                    </div>
+                </template>
+                <p class="add"><select :value="adding.table" @change="typed('table', $event.target.value)" :aria-label="t('its table')">
+                        <option v-for="table in tables" :key="table" :value="table">{{ table }}</option></select>
+                    <input type="text" :value="adding.name" :placeholder="t('a new name')" @input="typed('name', $event.target.value)">
+                    <input v-if="adding.table !== 'hand'" type="text" :value="adding.expr" :placeholder="t('the program\\'s C')"
+                           @input="typed('expr', $event.target.value)">
+                    <button @click="add()" :disabled="!adding.name.trim()">{{ t('Add') }}</button></p>
+                <template v-if="unknown.length">
+                    <div class="heading">{{ t('Edited as text') }}</div>
+                    <p v-for="row in unknown" :key="row.number" class="note"><code>{{ row.number }}: {{ row.words.join(' ') }}</code></p>
+                    <button @click="store.showText('names')">{{ t('Show the text') }}</button>
+                </template>
+                <p class="note">{{ t('The C expressions are the program\\'s: dgx_ui_c checks them when the program is built.') }}</p>
+                <div v-if="plan" class="asking">
+                    <div class="dialog">
+                        <p>{{ t('Renaming "{0}" to "{1}" changes it in these files on the names file ({2}):', plan.from, plan.to,
+                                plan.files.reduce((sum, one) => sum + one.places.length, 0)) }}</p>
+                        <ul><li v-for="one in plan.files" :key="one.path"><code>{{ one.path }}</code>: {{ one.places.length }}</li></ul>
+                        <p v-for="(one, i) in plan.warnings" :key="i" class="note">{{ t(one.text, ...one.values) }}</p>
+                        <button @click="confirmRename">{{ t('Rename') }}</button>
+                        <button @click="cancelRename">{{ t('Cancel') }}</button>
+                    </div>
+                </div>
+            </div>
+        `,
+    };
+
     const PropertiesPane = {
-        components: { Field, AppearancePane },
+        components: { Field, AppearancePane, NamesPane },
         setup() {
             const words = useWords();
             return { ...words };
@@ -627,8 +761,11 @@ const dgxUiBuilderMount = (() => {
                 <p v-if="store.page" class="tabs">
                     <button :class="{ here: store.tab === 'properties' }" @click="store.setTab('properties')">{{ t('Properties') }}</button>
                     <button :class="{ here: store.tab === 'appearance' }" :disabled="!store.page.appearance"
-                            @click="store.setTab('appearance')">{{ t('Appearance') }}</button></p>
+                            @click="store.setTab('appearance')">{{ t('Appearance') }}</button>
+                    <button :class="{ here: store.tab === 'names' }" :disabled="!store.page.names"
+                            @click="store.setTab('names')">{{ t('Names') }}</button></p>
                 <appearance-pane v-if="store.page && store.tab === 'appearance' && store.page.appearance"></appearance-pane>
+                <names-pane v-else-if="store.page && store.tab === 'names' && store.page.names"></names-pane>
                 <template v-else>
                 <div v-if="store.page" class="files">
                     <div class="heading">{{ t('The page') }}</div>

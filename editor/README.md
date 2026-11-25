@@ -65,10 +65,11 @@ takes a free one and says so, and there the zoom and the language the browser ke
 | The panel | the page drawn by the preview, zoomed 1 to 4 times. "Select": a click selects the widget under it, outlined over the panel. "Try": the finger and the six keys go to the page, as on the board, and the events are listed. |
 | Properties | the keys of the selected widget, as the format has them for its kind: words as boxes to tick, numbers and pairs in their ranges, names to pick of the names file's tables, or a new one. An empty number removes its key. |
 | Appearance | the appearance of the page open, by forms: [its colours, styles and looks](#the-appearance), drawn on the panel as they are set. |
+| Names | the names file of the page open, by forms: [its lines](#the-names-file), and the names the page uses that the file has not. |
 | Texts | the page, its names file and its appearance as text, edited by hand; the loader's verdict in words, and the cursor put at the byte it stops at. |
 
 The keys: Ctrl+Z, and Ctrl+Y or Ctrl+Shift+Z, undo and redo, in the file of the part in use: the appearance in
-Appearance, the text shown in Texts, the page elsewhere; every file keeps a history of its own. Ctrl+S saves; Delete
+Appearance, the names file in Names, the text shown in Texts, the page elsewhere; every file keeps a history of its own. Ctrl+S saves; Delete
 deletes the selected widget; the arrows walk the tree. A refused page is greyed on the panel, and the widget holding the byte the loader stopped at is
 marked in the tree.
 
@@ -106,6 +107,29 @@ a text that names none, comes with a warning.
 **A name deleted**: a look or a style a widget names is not deleted, and the builder lists the widgets; a colour a
 look names is refused by the loader, at that look.
 
+## The names file
+
+The Names part shows the names file a row a line, by its tables: the name, the C expression, and the word its table
+may end with, a count of pictures, `number` of a handler, `page` of a context, `handwritten` of a font, the function
+and description of a draw. A look or an action of the library's goes with no expression. The C is the program's: the
+builder writes it as given, and `dgx_ui_c` checks it when the program is built. An expression with a space or a `#`
+waits: it would split the line.
+
+- **The names the page misses** are listed, each with the C `dgx_ui_c`'s rule gives it, `&volume` for a value
+  `volume`. "Add" puts one into the file, "Add all" all of them, one step: a names file is begun so. A file a call
+  names that is not on the disk yet opens empty, and is written at the save.
+- **The lines stay as written.** A line not edited is written as it was, its spaces and comment too. An edited line
+  keeps each word at its column when the word before it leaves room, and its comment; a new line goes after the
+  last of its table, at its columns. Lines are never moved. A line the reader cannot place is edited as text.
+- A name no page on the file uses is marked so, not deleted.
+
+**A name renamed** is carried, as one step undone together, into every page on the names file and every appearance
+read on it: the widgets that name it by its table's key, a look's draw, a variant's font. The C stays as it was, and
+only the name the pages and appearances use changes; a name of the library's renamed is given the C `dgx_ui_c` gives
+it, `&dgx_ui_look_slider` for `slider`. A hand is the library's word and is not renamed. A name is not renamed to one
+its table has, nor while a file on the names file does not read, and a name a page or an appearance uses is not
+deleted: the builder lists them.
+
 ## Saving
 
 Only the files edited are written; the rest are not touched. A description is written in one form: its keys in one
@@ -116,7 +140,9 @@ first save, after a word.
 
 An appearance is written in one form too: `"dgx-ui"`, `"name"`, `"editor"`, `"colors"`, `"styles"` and `"looks"` in
 that order, an entry a line, broken where it would pass 100 columns. Before an appearance is written, it and every
-page drawn on it are read again; those the loader refuses are listed, and the save waits for a word.
+page drawn on it are read again; those the loader refuses are listed, and the save waits for a word. A names file
+is not put into a form: only the lines edited change, and before it is written the pages on it are read again, as
+for an appearance.
 
 The builder keeps of its own only the screen the page is made for, in the description's `"editor"` under
 `"dgx-ui-builder"`, beside what other tools keep there. The zoom and the language are the browser's, in its local
@@ -146,10 +172,11 @@ and files held in memory; `host_server.js` has the third, the server of a termin
 | `store.js` | the state and what is done to it: the project, the page open, the selection, the history |
 | `description.js`, `history.js` | a description read, changed and written back; undo and redo |
 | `appearance.js` | an appearance changed and written back; a colour by its hex or DGX's name, and as a depth shows it |
+| `names.js` | a names file as its lines: one changed, added or removed, the others kept as they are |
 | `host_browser.js` | the files of a project in a browser |
 | `host_server.js` | the files of a project through the server of a terminal, `tools/dgx_ui_serve.py` |
 | `lang.js`, `lang/ru.js` | the words of the page, English and Russian |
 | `vendor/` | Vue and Pinia, the same files as the editor of [boards](https://github.com/jef-sure/esp32-component-boards) ships, with their licences |
 | `preview/` | the preview the panel draws with |
 
-What it takes: 839 KB on the disk, 304 KB when a server sends it with gzip, of which the preview is 473 KB and 191 KB.
+What it takes: 885 KB on the disk, 315 KB when a server sends it with gzip, of which the preview is 480 KB and 193 KB.

@@ -16,7 +16,11 @@
  *  - the appearance by its forms: a colour typed and drawn at once, typing folded, an undo of its own; a colour renamed
  *    with its looks; a look renamed in two pages at once and undone in all three files or in none; renames and deletes
  *    refused where pages name them or do not read; the words of a kind's word and of the first style; a look of its
- *    draw's defaults and its draw changed; the order kept; a save that lists the pages the appearance refuses.
+ *    draw's defaults and its draw changed; the order kept; a save that lists the pages the appearance refuses;
+ *  - the names file by its forms: an expression typed at its column and folded, one of a space refused; a name renamed in
+ *    the file, two pages and the appearance read on it, undone together or refused while stale, the C of a library's
+ *    name written; deletes refused where names are used; a line added after its table; a file not on the disk yet made
+ *    of the names its page misses and written at a save.
  */
 'use strict';
 const fs = require('fs');
@@ -540,6 +544,146 @@ const boxOf = (store, widgetPath) => {
         store.setText('appearance', handWritten);
         check(store.verdicts.appearance.code === 0 && store.undo() && text('main/look.json') === beforeHand, 'a hand edit undone, the text as it was');
         store.view = 'page';
+    }
+
+    /* ---- the names file by its forms: two pages on one names file, an appearance read on it, a file not there yet ---- */
+    {
+        const vocab = '# table   name      C expression\nlook      slider\nlook      button\nvalue     volume    &room_volume\n' +
+                      'value     spare     &spare_value   # no page names it\nstyle     body      &body_style\non        back\n' +
+                      'font      small     TerminusTTFMedium12\nfont      tiny\nhand      handwriting\ndraw      text\n';
+        const a = '{"dgx-ui": 1, "tree": {"kind": "box", "flags": ["column"], "children": [{"kind": "slider", "value": "volume", "max": 9}, ' +
+                  '{"kind": "label", "text": "A"}, {"kind": "button", "text": "Back", "look": "button", "on": "back"}]}}\n';
+        const b = '{"dgx-ui": 1, "tree": {"kind": "box", "children": [{"kind": "slider", "value": "volume", "max": 5}, {"kind": "label", "text": "B"}]}}\n';
+        const c = '{"dgx-ui": 1, "tree": {"kind": "box", "id": "top", "children": [{"kind": "slider", "value": "level", "max": 5}, ' +
+                  '{"kind": "button", "text": "Go", "on": "go", "ctx": "settings"}, {"kind": "label", "text": "C"}]}}\n';
+        const look = '{"dgx-ui": 1, "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#202020", "border": "#808080"}, ' +
+                     '"styles": {"big": {"fonts": ["small"]}}, "looks": {"plain": {"draw": "text", "params": {"ink": "ink", "paper": null}}}}\n';
+        const files = {
+            'main/CMakeLists.txt': bytes('idf_component_register(SRCS "main.c")\ndgx_ui_appearance(look.json NAMES vocab.txt)\n' +
+                                         'dgx_ui_tree(a.json NAMES vocab.txt APPEARANCE look.json)\ndgx_ui_tree(b.json NAMES vocab.txt)\ndgx_ui_tree(c.json NAMES new.txt)\n'),
+            'main/vocab.txt': bytes(vocab), 'main/a.json': bytes(a), 'main/b.json': bytes(b), 'main/c.json': bytes(c), 'main/look.json': bytes(look),
+        };
+        const { store, written, run } = await storeOf(files, 'names');
+        const text = (where) => store.files[where].text;
+        const saidLast = () => store.said[store.said.length - 1] ?? { text: '', values: [] };
+        check(store.current === 'main/a.json' && store.verdicts.names.code === 0 && store.verdicts.page.code === 0, 'a on its names file');
+        store.setTab('names');
+        check(store.undoPath === 'main/vocab.txt' && same(store.pagesOnNames, ['main/a.json', 'main/b.json']) &&
+              same(store.appearancesOnNames, ['main/look.json']), 'the Names tab: its file, its pages, the appearance read on it');
+        check(store.namesRows.length === 10 && store.namesRows.every((row) => row.known), 'its ten lines');
+        check(!store.namesMissing.length, 'a names nothing missing');
+        check(same([...store.namesUnused], ['value spare', 'font tiny', 'hand handwriting']), 'the names no page on it names, the first style b\'s text takes: ' +
+              JSON.stringify([...store.namesUnused]));
+
+        /* an expression typed: folded, its columns kept, the comment kept; one of white space or '#' waits */
+        const spare = store.namesRows.find((row) => row.words[1] === 'spare');
+        for (const typed of ['&s', '&sp', '&spare_two'])
+            store.setNamesLine(spare.number, ['value', 'spare', typed], store.namesFold('value', 'spare', 'expr'));
+        check(text('main/vocab.txt').split('\n')[spare.number - 1] === 'value     spare     &spare_two     # no page names it',
+              'typed at its column, the comment at its own: ' + text('main/vocab.txt').split('\n')[spare.number - 1]);
+        check(!store.setNamesLine(spare.number, ['value', 'spare', '&a b']) && !store.setNamesLine(spare.number, ['value', 'spare', '&a#b']) &&
+              text('main/vocab.txt').includes('&spare_two'), 'an expression of a space or a # waits');
+        check(store.undo() && text('main/vocab.txt') === vocab, 'the typing undone in one step');
+
+        /* a value renamed in the names file and in both pages, one step; undone from a page; stale refused */
+        const plan = store.namesPlan('value', 'volume', 'loudness');
+        check(same(plan.files.map((one) => [one.path, one.places.length]), [['main/a.json', 1], ['main/b.json', 1]]) && !plan.refused.length &&
+              plan.warnings.some((one) => one.text.includes('C expression stays')), 'the plan: ' + JSON.stringify(plan));
+        check(store.renameName('value', 'volume', 'loudness'), 'a value renamed');
+        check(text('main/vocab.txt').includes('value     loudness  &room_volume\n') && text('main/a.json').includes('"value": "loudness"') &&
+              text('main/b.json').includes('"value": "loudness"') && store.verdicts.page.code === 0, 'in the file at its columns and in both pages');
+        store.setTab('properties');
+        check(store.undo() && text('main/vocab.txt') === vocab && text('main/a.json') === a && text('main/b.json') === b, 'undone from a page in all three');
+        check(store.redo() && text('main/b.json').includes('loudness'), 'done again');
+        store.choose('main/b.json');
+        store.select([]);
+        store.setNumber('pad', '2');
+        store.choose('main/a.json');
+        store.setTab('names');
+        check(!store.undo() && saidLast().wrong && saidLast().values.includes('main/b.json'), 'b edited after it: refused, named');
+        store.choose('main/b.json');
+        store.setTab('properties');
+        store.undo(), store.undo();
+        store.choose('main/a.json');
+        store.setTab('names');
+        check(text('main/vocab.txt') === vocab && text('main/a.json') === a && text('main/b.json') === b, 'then undone from b');
+
+        /* a font of the file renamed into the appearance read on it; its C kept */
+        check(store.renameName('font', 'small', 'smallest') && text('main/vocab.txt').includes('font      smallest  TerminusTTFMedium12\n') &&
+              text('main/look.json').includes('"smallest"') && store.verdicts.appearance.code === 0, 'a font renamed into the appearance\'s style');
+        store.undo();
+        check(store.renameName('draw', 'text', 'words') && text('main/vocab.txt').includes('draw      words     dgx_ui_draw_text &dgx_ui_params_text\n') &&
+              text('main/look.json').includes('"draw": "words"') && store.verdicts.appearance.code === 0, 'a draw of the library renamed: its C written');
+        store.undo();
+        check(store.renameName('look', 'button', 'key') && text('main/vocab.txt').includes('look      key       &dgx_ui_look_button\n') &&
+              text('main/a.json').includes('"look": "key"') && store.verdicts.page.code === 0 && saidLast().text.includes('renamed in'),
+              'a look of the library renamed: its C written, the page carried');
+        store.undo();
+        check(store.namesPlan('look', 'slider', 'track').warnings.some((one) => one.text.includes('are refused after it')), 'a kind\'s word renamed: said');
+        check(!store.renameName('hand', 'handwriting', 'pen') && text('main/vocab.txt') === vocab && saidLast().wrong, 'no hand renamed');
+        check(store.renameName('font', 'tiny', 'tinier') && text('main/vocab.txt').includes('font      tinier    dgx_font_tiny\n') &&
+              store.verdicts.names.code === 0, 'a font of no constant renamed: the constant its name gave written');
+        store.undo();
+        store.choose('main/b.json');
+        store.setText('page', '{"dgx-ui": 1, "tree": ');
+        store.choose('main/a.json');
+        store.setTab('names');
+        check(!store.renameName('value', 'volume', 'loudness') && saidLast().values[1].includes('main/b.json') && text('main/vocab.txt') === vocab,
+              'a page on it that does not read: the rename refused, the page named');
+        store.choose('main/b.json');
+        store.view = 'text', store.text = 'page';
+        store.undo();
+        store.view = 'page';
+        store.choose('main/a.json');
+        store.setTab('names');
+        check(text('main/b.json') === b, 'b given back');
+        check(!store.renameName('value', 'volume', 'spare') && saidLast().wrong, 'a rename to a name there refused');
+
+        /* deleted: not what a page or the appearance names */
+        check(!store.removeName('value', 'volume') && saidLast().values[1].includes('main/a.json') && saidLast().values[1].includes('main/b.json'),
+              'a value pages name not deleted: ' + JSON.stringify(saidLast()));
+        check(!store.removeName('font', 'small') && saidLast().values[1].includes('main/look.json'), 'a font the appearance names not deleted');
+        check(store.removeName('value', 'spare') && !text('main/vocab.txt').includes('spare') && store.verdicts.names.code === 0, 'an unused one deleted');
+        store.undo();
+
+        /* a line added after the last of its table, at its columns */
+        check(store.addNamesLine(['value', 'bass', '&room_bass']) && text('main/vocab.txt').split('\n')[5] === 'value     bass      &room_bass',
+              'a value added after the values: ' + text('main/vocab.txt').split('\n')[5]);
+        check(!store.addNamesLine(['value', 'bass', '&again']) && saidLast().wrong, 'a name twice refused');
+        store.undo();
+
+        /* a save: the pages the names file would refuse listed first */
+        store.setText('names', vocab.replace('value     volume    &room_volume\n', ''));
+        check(store.verdicts.page.code > 0, 'a line the pages need gone: refused');
+        const asked = await store.save(true);
+        check(asked === null && same(store.asking.broken.map((one) => one.path), ['main/a.json', 'main/b.json']), 'both pages listed: ' +
+              JSON.stringify(store.asking.broken));
+        store.cancelSave();
+        store.view = 'text', store.text = 'names';
+        store.undo();
+        store.view = 'page';
+        check(text('main/vocab.txt') === vocab && !Object.keys(written).length, 'given back, nothing written');
+
+        /* a names file a call names, not on the disk yet: the names the page misses, all added, written at a save */
+        store.choose('main/c.json');
+        store.setTab('names');
+        check(store.page.names === 'main/new.txt' && store.files['main/new.txt'].missing && store.undoPath === 'main/new.txt', 'c on a file not there');
+        const missing = store.namesMissing.map((entry) => `${entry.table} ${entry.name}`);
+        check(same(missing, ['look slider', 'look button', 'value level', 'on go', 'ctx settings', 'id top', 'style body']) ||
+              ['look slider', 'value level', 'on go', 'ctx settings', 'id top', 'style body'].every((one) => missing.includes(one)), 'its names missing: ' + missing);
+        check(store.addAllMissing() && store.verdicts.names.code === 0 && store.verdicts.page.code === 0 && !store.namesMissing.length,
+              'all added: c taken: ' + JSON.stringify(store.verdicts.page));
+        const made = run('DgxUiNames').lines(text('main/new.txt')).filter((line) => line.words.length);
+        const words = (k) => made.filter((line) => line.words.length > k).map((line) => line.words[k].col);
+        check(made.length === missing.length && [1, 2, 3].every((k) => new Set(words(k)).size === 1) &&
+              text('main/new.txt').includes('on     go        go         number\n') && text('main/new.txt').includes('&settings  page\n'),
+              'by the rule\'s C, laid in columns: ' + JSON.stringify(text('main/new.txt')));
+        check(store.undo() && store.namesMissing.length === missing.length, 'undone in one step');
+        check(store.addMissing(store.namesMissing.find((entry) => entry.name === 'level')) && text('main/new.txt') === 'value level &level\n', 'one added');
+        store.addAllMissing();
+        const saved = await store.save(true);
+        check(saved && saved.includes('main/new.txt') && written['main/new.txt'] === text('main/new.txt') && !store.files['main/new.txt'].missing,
+              'written at a save: ' + JSON.stringify(saved));
     }
 
     if (failures) {

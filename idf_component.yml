@@ -64,6 +64,7 @@ files:
     - "editor/lang/ru.js"
     - "editor/description.js"
     - "editor/appearance.js"
+    - "editor/names.js"
     - "editor/history.js"
     - "editor/vendor/README.md"
     - "editor/vendor/vue.global.prod.js"

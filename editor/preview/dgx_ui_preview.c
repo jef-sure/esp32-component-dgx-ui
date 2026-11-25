@@ -1287,3 +1287,164 @@ const char *preview_notes(void)
     static char out[SAID_ROOM];
     return said_read(&notes, out);
 }
+
+/* ---- the names file, for a page that edits it by forms ---- */
+
+/* a string of JSON of a name or an expression of a names file: no '"', '\\' nor control there, as the reader splits
+   them, but each is written escaped all the same */
+static void grow_string(grown_t *to, const char *text)
+{
+    grow(to, "\"");
+    for (const unsigned char *at = (const unsigned char *)text; *at; ++at) {
+        if (*at == '"' || *at == '\\') grow(to, "\\%c", *at);
+        else if (*at < 0x20) grow(to, "\\u%04x", *at);
+        else grow(to, "%c", *at);
+    }
+    grow(to, "\"");
+}
+
+const char *preview_names_format(void)
+{
+    static grown_t said;
+    if (said.text) return said.text;
+    grow(&said, "{\"tables\": [");
+    for (int t = 0; t < TABLES; ++t) grow(&said, "%s\"%s\"", t ? ", " : "", table_words[t]);
+    grow(&said, "], \"keys\": [");
+    for (int t = 0; t < TABLES; ++t) grow(&said, "%s\"%s\"", t ? ", " : "", table_keys[t]);
+    grow(&said, "], \"appearance\": [");
+    for (int t = 0; t < APPEARANCE_TABLES; ++t) grow(&said, "%s\"%s\"", t ? ", " : "", appearance_words[t]);
+    grow(&said, "],\n \"words\": {\"picture\": \"count\", \"on\": \"number\", \"ctx\": \"page\", \"font\": \"handwritten\"}, \"pictures\": [1, 65535],\n");
+    grow(&said, " \"bare\": {\"look\": [");
+    for (int k = 0; k < library_look_count; ++k) grow(&said, "%s\"%s\"", k ? ", " : "", library_looks[k]);
+    grow(&said, "], \"on\": [");
+    static const char *const actions[] = {"back", "page"};
+    for (int k = 0, first = 1; k < 2; ++k) {
+        char *c = library_c(T_ON, actions[k]);
+        if (c) grow(&said, "%s\"%s\"", first ? "" : ", ", actions[k]), first = 0;
+        free(c);
+    }
+    grow(&said, "], \"draw\": [");
+    for (int k = 0; k < library_draw_count; ++k) grow(&said, "%s\"%s\"", k ? ", " : "", library_draws[k].word);
+    grow(&said, "], \"hand\": [\"%s\", \"%s\"]}}", library_hands[0], library_hands[1]);
+    return said.text;
+}
+
+/* the looks a page's widgets take by their kind's word, naming none: a widget's object, then its children's; stopped at
+   what is not as it should be, which the loader then refuses */
+static void collect_kind_looks(dgx_ui_json_t *json, int depth, table_t *out, bool *unstyled)
+{
+    if (depth > DGX_UI_LOAD_DEPTH || dgx_ui_json_peek(json) != '{') return;
+    ++json->pos;
+    int  kind = -1;
+    bool named = false, texted = false, styled = false;
+    if (dgx_ui_json_peek(json) == '}') {
+        ++json->pos;
+        return;
+    }
+    for (bool more = true; more;) {
+        char   key[24], word[24];
+        size_t length;
+        if (!dgx_ui_json_string(json, key, 23, &length) || !dgx_ui_json_expect(json, ':')) return;
+        key[length < 23 ? length : 23] = 0;
+        if (strcmp(key, "kind") == 0 && dgx_ui_json_peek(json) == '"') {
+            if (!dgx_ui_json_string(json, word, 23, &length)) return;
+            word[length < 23 ? length : 23] = 0;
+            for (int k = 0; k < KIND_COUNT; ++k)
+                if (strcmp(kinds[k], word) == 0) kind = k;
+        } else if (strcmp(key, "children") == 0 && dgx_ui_json_peek(json) == '[') {
+            ++json->pos;
+            if (dgx_ui_json_peek(json) == ']') ++json->pos;
+            else
+                for (bool child = true; child;) {
+                    collect_kind_looks(json, depth + 1, out, unstyled);
+                    if (json->error || !dgx_ui_json_next(json, ']', &child)) return;
+                }
+        } else {
+            named |= strcmp(key, "look") == 0, styled |= strcmp(key, "style") == 0;
+            texted |= strcmp(key, "text") == 0 || strcmp(key, "text_size") == 0;
+            if (!dgx_ui_json_skip(json, 2 * DGX_UI_LOAD_DEPTH)) return;
+        }
+        if (!dgx_ui_json_next(json, '}', &more)) return;
+    }
+    if (kind >= 0 && !named && !(OWN_LOOKS & 1u << kind) && !entry_of(out, kinds[kind])) entry_add(out, kinds[kind]);
+    *unstyled |= texted && !styled;
+}
+
+static void collect_page_kind_looks(const char *text, size_t length, table_t *out, bool *unstyled)
+{
+    dgx_ui_json_t json = {.text = text, .len = length};
+    if (dgx_ui_json_peek(&json) != '{') return;
+    ++json.pos;
+    if (dgx_ui_json_peek(&json) == '}') return;
+    for (bool more = true; more;) {
+        char   key[24];
+        size_t key_length;
+        if (!dgx_ui_json_string(&json, key, 23, &key_length) || !dgx_ui_json_expect(&json, ':')) return;
+        key[key_length < 23 ? key_length : 23] = 0;
+        if (strcmp(key, "tree") == 0) collect_kind_looks(&json, 1, out, unstyled);
+        else if (!dgx_ui_json_skip(&json, 2 * DGX_UI_LOAD_DEPTH + 1)) return;
+        if (json.error || !dgx_ui_json_next(&json, '}', &more)) return;
+    }
+}
+
+const char *preview_names_missing(const char *text, size_t length)
+{
+    static grown_t said;
+    said.used = 0;
+    grow(&said, "[");
+    names_free_all();
+    free(names_read("names", text ? text : "", text ? length : 0, false));
+    if (page_given && page_text) names_collect(page_text, page_length);
+    /* a widget that names no look takes the one of its kind's word: wanted of the file as a look the page names */
+    table_t by_kind  = {0};
+    bool    unstyled = false;
+    if (page_given && page_text) collect_page_kind_looks(page_text, page_length, &by_kind, &unstyled);
+    for (int k = 0; k < by_kind.count; ++k)
+        if (!entry_of(&used[T_LOOK], by_kind.entries[k].name)) entry_add(&used[T_LOOK], by_kind.entries[k].name)->offset = -1;
+    free(by_kind.entries);
+    /* the appearance's looks and styles stand first in the page's tables: none of them is wanted of the file */
+    const dgx_ui_appearance_t *shown = appearance_load.loaded ? &appearance_load.appearance : NULL;
+    /* a text that names no style takes the first: with none of the file's nor the appearance's, and the page naming
+       none, one is wanted, "body" as the documents name it */
+    if (unstyled && !tables[T_STYLE].count && !used[T_STYLE].count && !(shown && shown->style_count)) entry_add(&used[T_STYLE], "body")->offset = -1;
+    int first = 1;
+    for (int t = 0; t < TABLES; ++t)
+        for (int k = 0; k < used[t].count; ++k) {
+            const entry_t *use = &used[t].entries[k];
+            if (strcmp(use->name, DEFAULT_STYLE) == 0 || entry_of(&tables[t], use->name)) continue;
+            bool of_appearance = false;
+            for (int a = 0; shown && t == T_LOOK && a < shown->look_count; ++a) of_appearance |= strcmp(shown->looks[a].name, use->name) == 0;
+            for (int a = 0; shown && t == T_STYLE && a < shown->style_count; ++a) of_appearance |= strcmp(shown->styles[a].name, use->name) == 0;
+            if (of_appearance) continue;
+            /* the C the rule gives it, as names_rule() does; none for a name the rule cannot make C */
+            char *library = library_c(t, use->name), *c = NULL;
+            bool  number = false, page = false;
+            unsigned pictures = 0;
+            if (library) {
+                c = NULL;
+            } else if (c_name(use->name, t != T_ID)) {
+                switch (t) {
+                case T_PICTURE: c = copy_of(use->name), pictures = 65535; break;
+                case T_ON: c = copy_of(use->name), number = true; break;
+                case T_TAKE: c = copy_of(use->name); break;
+                case T_CTX: c = printed("&%s", use->name), page = true; break;
+                case T_ID: c = copy_of(use->name); break;
+                default: c = printed("&%s", use->name); break;
+                }
+            }
+            grow(&said, "%s\n {\"table\": \"%s\", \"name\": ", first ? "" : ",", table_words[t]), first = 0;
+            grow_string(&said, use->name);
+            grow(&said, ", \"c\": ");
+            if (c) grow_string(&said, c);
+            else grow(&said, "null");
+            grow(&said, ", \"bare\": %s", library ? "true" : "false");
+            if (number) grow(&said, ", \"number\": true");
+            if (page) grow(&said, ", \"page\": true");
+            if (pictures) grow(&said, ", \"count\": %u", pictures);
+            grow(&said, "}");
+            free(library), free(c);
+        }
+    grow(&said, "]");
+    names_free_all();
+    return said.text;
+}

@@ -153,6 +153,19 @@ class DgxUiPreview {
         return JSON.parse(this.cString(this.call(() => this.exports.preview_appearance_format())));
     }
 
+    /** What a names file may say, as preview_names_format() says: {tables, keys, appearance, words, pictures, bare}. */
+    namesFormat() {
+        return JSON.parse(this.cString(this.call(() => this.exports.preview_names_format())));
+    }
+
+    /**
+     * The names the page given uses that a names file, its text given, has not, each with the C the rule gives it:
+     * [{table, name, c, bare, and number, page, count}], as preview_names_missing() says.
+     */
+    namesMissing(text) {
+        return JSON.parse(this.cString(this.withText(text ?? '', (at, length) => this.call(() => this.exports.preview_names_missing(at, length)))));
+    }
+
     /** DGX's colours by their names, as its dgx_colors.h has them: [['aliceblue', '#f0f8ff'], ...]. */
     static colorNames() {
         return DGX_UI_COLOR_NAMES;

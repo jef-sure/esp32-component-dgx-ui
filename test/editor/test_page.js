@@ -5,8 +5,9 @@
  * a click on the panel selects the widget under it and its outline lies on its box, a property typed, Ctrl+Z, Delete,
  * the arrows of the tree, Ctrl+S and the word the page asks before writing a description in its own form; the
  * appearance by its forms: a colour typed, by a name of DGX's and by the picker, on the panel at once and the time of a
- * pass measured, Ctrl+Z, a look added of a draw, a look renamed in the page that names it; the language changed; a
- * screenshot is kept. Then the same project on the disk through tools/dgx_ui_serve.py, by the link it prints:
+ * pass measured, Ctrl+Z, a look added of a draw, a look renamed in the page that names it; the names file by its forms:
+ * an expression typed, a name the page misses added, a rename carried into the page and Ctrl+Z, a file not on the disk
+ * made of the names its page misses and written by the server; the language changed; a screenshot is kept. Then the same project on the disk through tools/dgx_ui_serve.py, by the link it prints:
  * opened at once, a description saved into its file, a CMakeLists.txt refused. No error may reach the console.
  *
  * Chrome is CHROME, else google-chrome, chromium or chromium-browser on the PATH. With none, the test fails, saying so,
@@ -136,7 +137,10 @@ function devtools(url) {
         /* a project in memory, as a host gives one with no File System Access */
         const files = {
             'CMakeLists.txt': 'project(demo)\n',
-            'main/CMakeLists.txt': 'dgx_ui_appearance(look.json NAMES names.txt)\ndgx_ui_tree(home.json NAMES names.txt APPEARANCE look.json)\n',
+            'main/CMakeLists.txt': 'dgx_ui_appearance(look.json NAMES names.txt)\ndgx_ui_tree(home.json NAMES names.txt APPEARANCE look.json)\n' +
+                                   'dgx_ui_tree(other.json NAMES fresh.txt)\n',
+            'main/other.json': '{"dgx-ui": 1, "tree": {"kind": "box", "children": [{"kind": "slider", "value": "level", "max": 5}, ' +
+                               '{"kind": "button", "text": "Back", "on": "back"}]}}\n',
             'main/names.txt': 'look slider\nlook button\nvalue volume &volume\nfont small TerminusTTFMedium12\ndraw text\ndraw slider\ndraw switch\n',
             'main/look.json': '{"dgx-ui": 1, "name": "day", "colors": {"paper": "#102030", "ink": "#ffffff", "fill": "#304060", "border": "#8090a0", ' +
                               '"accent": "#f0a03c"}, "styles": {"body": {"fonts": ["small"]}}, "looks": {"caption": {"draw": "text", ' +
@@ -363,6 +367,34 @@ function devtools(url) {
                     'Ctrl+Z gives both back');
         await evaluate(`${store}.setTab('properties')`);
 
+        /* the names file by its forms: an expression typed, a name the page misses added, a rename carried into the
+           page and undone in both */
+        await evaluate(`[...document.querySelectorAll('.dgx-ui-builder .tabs button')].find((one) => one.textContent.trim() === 'Names').click()`);
+        await until(`document.querySelectorAll('.dgx-ui-builder .names .name-row').length === 7`, 'the Names tab, its seven lines');
+        const nameRow = (name) => `[...document.querySelectorAll('.dgx-ui-builder .names .name-row')].find((row) => row.querySelector('.entry-name').value === '${name}')`;
+        await evaluate(`(() => { const input = ${nameRow('volume')}.querySelector('.expr'); input.focus(); input.select(); })()`);
+        await send('Input.insertText', { text: '&room_volume' });
+        await until(`${store}.files['main/names.txt'].text.includes('value volume &room_volume\\n') && ${store}.verdicts.names.code === 0`,
+                    'an expression typed reaches the names file');
+        await evaluate('document.activeElement.blur()');
+        await evaluate(`(${store}.setTab('properties'), ${store}.select([1]), ${store}.setKey('value', 'bass'), ${store}.setTab('names'))`);
+        await until(`${store}.verdicts.page.code > 0 && !!document.querySelector('.dgx-ui-builder .names .missing')`, 'a value the file has not: missing, listed');
+        await evaluate(`document.querySelector('.dgx-ui-builder .names .missing button').click()`);
+        await until(`/^value +bass +&bass$/m.test(${store}.files['main/names.txt'].text) && ${store}.verdicts.page.code === 0 &&
+                     !document.querySelector('.dgx-ui-builder .names .missing')`, 'added from the list: the page taken');
+        const homeNow = await evaluate(`${store}.files['main/home.json'].text`), namesNow = await evaluate(`${store}.files['main/names.txt'].text`);
+        await evaluate(`(() => { const name = ${nameRow('bass')}.querySelector('.entry-name'); name.value = 'low';
+                                 name.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+        await until(`!!document.querySelector('.dgx-ui-builder .names .asking')`, 'the rename says first what it changes');
+        await evaluate(`document.querySelector('.dgx-ui-builder .names .asking button').click()`);
+        await until(`${store}.files['main/home.json'].text.includes('"value": "low"') && /^value +low +&bass$/m.test(${store}.files['main/names.txt'].text)`,
+                    'renamed in the file and the page, its C kept');
+        await evaluate('document.activeElement.blur()');
+        await Promise.all(key('z', 'KeyZ', 90, 2));
+        await until(`${store}.files['main/home.json'].text === ${JSON.stringify(homeNow)} && ${store}.files['main/names.txt'].text === ${JSON.stringify(namesNow)}`,
+                    'Ctrl+Z gives both back');
+        await evaluate(`${store}.setTab('properties')`);
+
         /* the language */
         await evaluate(`${store}.setLanguage('ru')`);
         await until(`document.querySelector('.dgx-ui-builder h1').textContent === 'Построитель dgx-ui'`, 'the page in Russian');
@@ -414,6 +446,17 @@ function devtools(url) {
         check(fs.readFileSync(path.join(project, 'main', 'look.json'), 'utf8') === await evaluate(`${store}.files['main/look.json'].text`) &&
               fs.readFileSync(path.join(project, 'main', 'look.json'), 'utf8').includes('"accent": "#123456"'), 'the appearance saved with it, in its form');
         check(await evaluate(`!${store}.dirty.length && ${store}.raw.host.inPlace`), 'nothing edited after, written in place');
+        /* a names file a call names, not on the disk yet: made of the names its page misses, written by the server */
+        await evaluate(`(${store}.choose('main/other.json'), ${store}.setTab('names'))`);
+        await until(`${store}.files['main/fresh.txt']?.missing && document.querySelectorAll('.dgx-ui-builder .names .missing').length >= 3`,
+                    'the Names tab on a file not there, the names its page misses listed');
+        await evaluate(`[...document.querySelectorAll('.dgx-ui-builder .names button')].find((one) => one.textContent.trim() === 'Add all').click()`);
+        await until(`${store}.verdicts.page.code === 0 && ${store}.verdicts.names.code === 0`, 'all added: the page taken');
+        await evaluate(`${store}.save(true)`);
+        const fresh = path.join(project, 'main', 'fresh.txt');
+        for (const end = Date.now() + 10000; Date.now() < end && !fs.existsSync(fresh); await sleep(100));
+        check(fs.existsSync(fresh) && fs.readFileSync(fresh, 'utf8') === await evaluate(`${store}.files['main/fresh.txt'].text`) &&
+              fs.readFileSync(fresh, 'utf8').includes('value') && fs.readFileSync(fresh, 'utf8').includes('level'), 'the names file written on the disk');
         const errorsBefore = errors.length;
         const refusal = await evaluate(`${store}.raw.host.write('main/CMakeLists.txt', 'spoiled').then(() => 'written', (error) => error.message)`);
         await sleep(200);
