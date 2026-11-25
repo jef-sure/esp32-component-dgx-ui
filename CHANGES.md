@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.56 - 2026-11-25
+
+- A handler and a context of the names tables say their kind: the library's page action takes only a page's tree;
+  `takes` in place of `takes_number`, `page` on a context, `ctx <name> <expr> page` in a names file.
+- The loader refuses more than 32,767 widgets before it adds any.
+- dgx_ui_c makes trees on a 32-bit computer too.
+- Docs: the kinds of a context in the API page and the tool's, and the word `page` of a names file.
+
 ## 0.0.55 - 2026-11-25
 
 - The text style's list of fonts is named `fonts`, as the appearance's JSON names it; `variants` is gone.
