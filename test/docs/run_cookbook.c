@@ -54,7 +54,9 @@ static int air_mode_told = -1, air_calls, beep_told = -1, beep_calls;
 void       air_mode_set(int mode) { air_mode_told = mode, ++air_calls; }
 void       beep_enable(bool on) { beep_told = on, ++beep_calls; }
 void wifi_connect(const char *password) { (void)password; }
-const uint16_t logo_pixels[64 * 32];
+/* the logo of the recipe of a picture from flash: rows of RGB565, high byte first, written for a computer of the low
+   byte first (0x7f4c is the bytes 4c 7f); a band of sky, one of sand and one of grass */
+const uint16_t logo_pixels[64 * 32] = {[0 ... 64 * 12 - 1] = 0x7f4c, [64 * 12 ... 64 * 22 - 1] = 0x8ef6, [64 * 22 ... 64 * 32 - 1] = 0x2445};
 const uint16_t map_pixels[320 * 240]  = {[0 ... 320 * 240 - 1] = 0x1084}; /* two maps of one colour each */
 const uint16_t rain_pixels[320 * 240] = {[0 ... 320 * 240 - 1] = 0x1f00};
 int64_t    esp_timer_get_time(void) { return 0; }
@@ -190,6 +192,8 @@ static void ring_pictures(const char *dir)
         printf("ring: widget %d at %d,%d %dx%d\n", i, n->x, n->y, n->w, n->h);
     }
 }
+
+#include "recipe_pictures.c" /* the pictures of the recipes, by their own code */
 
 int main(int argc, char **argv)
 {
@@ -1794,6 +1798,7 @@ int main(int argc, char **argv)
             dgx_ui_free(&face_ui);
         }
     }
+    recipe_pictures(argc > 1 ? argv[1] : NULL);
     puts("cookbook: ran to the end");
     return 0;
 }

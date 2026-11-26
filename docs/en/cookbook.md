@@ -118,6 +118,8 @@ static void styles_init(void)
 
 ## A row and a column that fit any screen
 
+![A page of a title, a content that takes the rest and a row of buttons at the bottom; the box of every widget in dashes](../images/rows.png)
+
 A child with the flag `DGX_UI_REST` takes what its row or column has left after the others. No width is counted by
 hand, and the same tree fits a screen of another width, another unit or a turned screen.
 
@@ -142,6 +144,8 @@ static const dgx_ui_widget_t bottom_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_RO
 - In a box that is neither a column nor a row the flag does nothing.
 
 ## A line between rows
+
+![Three rows of a name and a value, a line across between them and a line down in the last](../images/line.png)
 
 A frame one point high in a column is a line across it, and one point wide in a row, a line down it. Its look
 fills the whole box in one colour: the frame's draw with a border of no width, the line's colour as its fill.
@@ -170,6 +174,8 @@ static const dgx_ui_widget_t down_w   = {.kind = DGX_UI_FRAME, .want_w = 1, .loo
   `look line &line_look` of the names file gives the look of C above.
 
 ## One tree on every board
+
+![The face on a screen of 320x240: the time over half of it, two values in frames, a status line](../images/face.png)
 
 A program for several boards describes its widgets once. The board gives one number when the program is built, its
 scale: how many pixels a point is. DGX makes the fonts of points for that scale, and the tree takes it as its unit;
@@ -403,6 +409,8 @@ static void captions_language(dgx_ui_t *ui, const int widgets[CAPTIONS], int lan
 
 ## A slider and a switch
 
+![The backlight's slider at 70 and the Wi-Fi switch on](../images/slider.png)
+
 The value of a control lives in a variable of the program's, an `int32_t` the widget names: `.value = &backlight_percent`.
 The user's finger writes it there, and so may the program; the painter looks at it at every pass and draws the widget
 when it holds another value than was drawn. `on_event()` is told `DGX_UI_EVENT_CHANGED` when the user changed it: a slider at
@@ -449,6 +457,8 @@ static void backlight_show(int percent)
 - With the keys, more and less move a slider by its step and set a switch.
 
 ## A stepper: minus, a value, plus
+
+![A timer of 15 minutes between a minus and a plus](../images/stepper.png)
 
 A value set by small steps and exactly: minutes, a threshold. Two buttons and a label over one variable. The buttons
 are of `DGX_UI_REPEAT`: a tap is a step, and a finger held goes on stepping.
@@ -646,6 +656,8 @@ static int fan_add(dgx_ui_t *ui, int parent)
 
 ## One of several, and a tick
 
+![Three radio buttons, Day chosen, and the checkbox Beep ticked](../images/radio.png)
+
 Radio buttons choose one of several. A group of them is no widget and no object: it is a variable of the program's,
 which every button of the group names. A checkbox is a switch drawn as a square with a tick.
 
@@ -713,6 +725,8 @@ static void air_add(dgx_ui_t *ui, int parent)
 
 ## A level bar
 
+![A battery's bar at 35 in the colour of its middle band, and a tank filled from the bottom, the top above 160 litres in another colour](../images/level.png)
+
 A value shown as the filled part of a box: a battery, a signal, a tank. It is the library's look
 `dgx_ui_look_level` on a widget of `DGX_UI_OWN` that names the place of its value. With no parameters of its own,
 `.look = &dgx_ui_look_level`, it is filled from the left in colour 3 over colour 2. Here two bars in colours of the
@@ -756,6 +770,8 @@ static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, 
 
 ## An icon that shows a state
 
+![The signal's icon at three bars beside its caption](../images/icon.png)
+
 An icon is a widget of one size whose picture is picked by its value. A value outside `min..max` shows no picture, and
 the widget keeps its place, so nothing around it moves when the icon comes and goes.
 
@@ -772,7 +788,8 @@ static const dgx_image_t  signal_im[4] = {
     {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = bars4},
 };
 static const dgx_ui_picture_t signal_pic[4] = {
-    {.image = &signal_im[0]}, {.image = &signal_im[1]}, {.image = &signal_im[2]}, {.image = &signal_im[3]}};
+    {.image = &signal_im[0], .scale = 1}, {.image = &signal_im[1], .scale = 1},
+    {.image = &signal_im[2], .scale = 1}, {.image = &signal_im[3], .scale = 1}};
 
 enum { MSG_SIGNAL = 12 };
 typedef struct {
@@ -794,10 +811,13 @@ static const dgx_ui_widget_t signal_w = {
     .kind = DGX_UI_ICON, .picture = signal_pic, .min = 1, .max = 4, .value = &signal_bars, .look = &dgx_ui_look_picture, .take = signal_take};
 ```
 
-The size of the widget is the size of the first picture. The picture is drawn opaque: its ink and its paper are both
+The size of the widget is the size of the first picture; with `.scale = 1` a pixel of it is a point, so on a screen
+of a larger unit the icon keeps its size beside the text. The picture is drawn opaque: its ink and its paper are both
 written, so an icon drawn again over itself does not blink.
 
 ## A button of a picture
+
+![Buttons of pictures: back, the sound on, and two tabs, the first chosen](../images/picture-button.png)
 
 "Back", "sound", tabs: on a small screen a button is often a picture. The look `dgx_ui_look_picture_button` draws a
 picture of 1 bit on the face of a button: it is pressed onto its shadow and framed by the focus as a button with a
@@ -817,9 +837,9 @@ static const dgx_image_t icon_im[5] = {
     {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_tab_bits},
     {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_tab_here_bits},
 };
-static const dgx_ui_picture_t icon_back[1]  = {{.image = &icon_im[0]}};
-static const dgx_ui_picture_t icon_sound[2] = {{.image = &icon_im[1]}, {.image = &icon_im[2]}}; /* off, on */
-static const dgx_ui_picture_t icon_tab[2]   = {{.image = &icon_im[3]}, {.image = &icon_im[4]}}; /* not chosen, chosen */
+static const dgx_ui_picture_t icon_back[1]  = {{.image = &icon_im[0], .scale = 1}};
+static const dgx_ui_picture_t icon_sound[2] = {{.image = &icon_im[1], .scale = 1}, {.image = &icon_im[2], .scale = 1}}; /* off, on */
+static const dgx_ui_picture_t icon_tab[2]   = {{.image = &icon_im[3], .scale = 1}, {.image = &icon_im[4], .scale = 1}}; /* not chosen, chosen */
 
 static int32_t icon_sound_on, icon_tab_shown = 1; /* the toggle's place; the tabs' place: the number of the tab shown */
 
@@ -859,6 +879,8 @@ static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int wha
 
 ## A picture from flash
 
+![A logo of RGB565 in three bands, and the battery of 4 bits charged](../images/picture.png)
+
 A picture of 1 bit is a `dgx_image_t` of DGX with the look `dgx_ui_look_picture`, as the icon above; its ink is a
 colour of the table. A picture of colours is rows of RGB565 with the look `dgx_ui_look_rgb565`:
 
@@ -894,7 +916,8 @@ static const dgx_image_t battery_im = {.width = 12, .height = 6, .format = DGX_I
 /* the colours of the values 1, 2, 3: the case, the charge, the rest; the same data with another map when it is low */
 static const uint8_t          battery_ok[15]  = {INK, ACCENT, FILL};
 static const uint8_t          battery_low[15] = {INK, ACCENT_DOWN, FILL};
-static const dgx_ui_picture_t battery_pics[2] = {{.image = &battery_im, .map = battery_ok}, {.image = &battery_im, .map = battery_low}};
+static const dgx_ui_picture_t battery_pics[2] = {
+    {.image = &battery_im, .map = battery_ok, .scale = 1}, {.image = &battery_im, .map = battery_low, .scale = 1}};
 static int32_t                battery_low_now; /* 0: charged, the first map; 1: low, the second */
 static const dgx_ui_widget_t  battery_w = {
     .kind = DGX_UI_ICON, .picture = battery_pics, .min = 0, .max = 1, .want_w = 14, .want_h = 8, .value = &battery_low_now, .look = &dgx_ui_look_indexed};
@@ -1119,6 +1142,8 @@ static void talk_key(dgx_ui_t *ui, int text_i)
 
 ## A log of the last lines
 
+![The last five of eight lines added to the log](../images/log.png)
+
 A log shows the last lines that came: a new line is added at the bottom, and when there is no room the oldest go.
 The look of lines draws the window; the program keeps the lines, in the buffer of the text box itself.
 
@@ -1217,6 +1242,8 @@ static int long_page_add(dgx_ui_t *ui, int parent)
 
 ## A font that fits
 
+![Two labels of one height in frames: a short name in the large font, a long one in the small](../images/font.png)
+
 A style lists the fonts a text may be drawn in, the best first. The painter takes the first the text goes into whole,
 else the one that shows the most letters. The name of a city goes in the large font when it is short and in the
 small one when it is long.
@@ -1240,6 +1267,8 @@ static void city_style_init(void)
   is written at any height: the next recipe.
 
 ## Letters with soft edges
+
+![A heading in the large soft font, and its first letters three times as large, the shades at their edges seen](../images/soft.png)
 
 The fonts of the recipes are of 4 bits a pixel. A font of 4 or 2 bits a pixel of DGX keeps how much of each pixel a
 letter covers, so its letters have no steps. The looks draw it as any font: the program gives it to a variant, and
@@ -1294,6 +1323,8 @@ rules the program gives, so the program builds wherever one of them is installed
   fontconfig. A program with no need asks for none of it.
 
 ## A handwritten text
+
+![A greeting written narrowed to go in, a signature by a soft pen, and a note of two lines](../images/hand.png)
 
 DGX has handwritten fonts: their letters are strokes, written by a pen at any height. A variant of such a font names
 the library's handwriting, `&dgx_ui_handwriting`, and the one-line look of a text writes it. A program that names
@@ -1443,6 +1474,8 @@ What to know of it:
 
 ## Colours of your own, and a night mode
 
+![The same tree in the day's table and in the night's: a blue button, a slider and a switch](../images/night.png)
+
 The looks of the library have parameters: which colour of the table is the face, the text, the shadow. A look in
 other colours is the library's drawing with parameters of its own. It is a constant and lies in flash:
 
@@ -1474,6 +1507,8 @@ learns as it runs, a macro over `dgx_screen_rgb()`, as `examples/hello` does,
 to be of 16 bits, `DGX_BLACK(DGX_RGB_16)`, as in [Getting started](getting-started.md).
 
 ## Showing, hiding, disabling
+
+![Expert off: the box of the gain hidden and Calibrate disabled; expert on: both there](../images/show.png)
 
 ```c
 static void advanced_show(dgx_ui_t *ui, int box, int button, bool expert)
@@ -1640,6 +1675,8 @@ static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = 
 
 ## A bar over the pages
 
+![A bar of a clock and three buttons, and under it the page of Air opened by its tab](../images/bar.png)
+
 A status line with a clock, a "back" button, tabs: one bar for every page, in the first tree, with the pages under
 it. `dgx_ui_page_place()` names the widget of the first tree the pages lie over; the rest of that tree stays on the
 screen and works. Take a bar with a clock, two tabs and "Back":
@@ -1777,6 +1814,8 @@ static void air_message(const dgx_ui_msg_t *msg)
   bytes<!-- sizeof dgx_ui_t -->.
 
 ## Pages that slide
+
+![The settings half way in from the right, the home going out to the left](../images/slide.png)
 
 On a board with memory for two pictures of the screen a page may come by a slide or a crossfade. The module is
 named by the program, `dgx_ui_transition.h`; a program that does not name it carries none of it. It stands on the
@@ -2231,6 +2270,8 @@ What to know of it:
 
 ## A field and a keyboard
 
+![A field with a password typed and its caret](../images/field.png)
+
 A field is a `DGX_UI_INPUT` with the look `dgx_ui_look_input`. What is typed goes to the field that has the focus.
 
 ```c
@@ -2248,6 +2289,12 @@ static void pass_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
 }
 
 static const dgx_ui_widget_t pass_w = {.kind = DGX_UI_INPUT, .text = &pass_box, .want_h = 14, .look = &dgx_ui_look_input, .on_event = pass_on};
+
+static int pass_add(dgx_ui_t *ui, int parent)
+{
+    dgx_ui_textbox_init(&pass_box, pass_buf, sizeof pass_buf, 1, &st_left); /* the field edits this buffer */
+    return dgx_ui_add(ui, parent, &pass_w);
+}
 
 /* in the loop, after the pointer was read and before the tree gets the finger: the keyboard of DGX-DI takes its
    fingers first and types into the focused field */
@@ -2794,6 +2841,8 @@ Only by value. The call lies in IRAM, so an interrupt that runs with the cache o
 
 ## A look of your own
 
+![A bar of a look of the program's own at 60](../images/own-look.png)
+
 A look is a function that draws a widget, parameters of its own type, and the colour it leaves under the widget's
 children. Here a level bar: the value of the widget as a filled part of its box. The library has such a look of its
 own, [A level bar](#a-level-bar); this one is the lesson, written out.
@@ -2849,6 +2898,8 @@ The rules a look keeps:
   with no paper of their own: no field of a text, no `DGX_FONT_FILL`, no `DGX_IMAGE_OPAQUE`.
 
 ## A widget of your own that the finger and the keys work
+
+![The pad of two axes with its knob hollow, as it has the focus, and the bar that is tapped](../images/own-widget.png)
 
 A widget of `DGX_UI_OWN` is drawn by its look, and that is all: `dgx_ui_hit()` passes it, a finger on it goes to
 nobody, the keys walk past it. A look that names a **behaviour** makes it a control. The core does what is common
@@ -2976,6 +3027,8 @@ static const dgx_ui_widget_t   tap_w        = {.kind = DGX_UI_OWN, .min = 0, .ma
 
 ## A picture that stays between passes
 
+![A graph of 120 columns of CO2 kept in the widget's canvas](../images/canvas.png)
+
 A look draws its widget anew at every change. A widget with the flag `DGX_UI_CANVAS` has a canvas instead: a screen
 of DGX of 8 bits, as large as its box, which the painter keeps from pass to pass. The look draws in it only what is
 new and puts it on the display. Take a graph of the last values of CO2, a column for each:
@@ -3041,6 +3094,8 @@ static void history_add(int ppm)
   take a paint of their own.
 
 ## A graph that sweeps
+
+![A graph of 120 columns of CO2, drawn a column at a time](../images/graph.png)
 
 The graph of the recipe above goes to the display whole at every value, and its canvas takes a byte of RAM a pixel.
 A graph that only grows needs neither: its look writes the one new column. Take the same graph of CO2:
@@ -3636,6 +3691,8 @@ What to keep to:
   nothing for one that does not.
 
 ## Turning the screen
+
+![The same tree on a screen lying, 320x240, and standing, 240x320](../images/turn.png)
 
 ```c
 static void screen_turn(dgx_screen_t *scr, bool landscape)

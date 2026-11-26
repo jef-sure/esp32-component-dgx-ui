@@ -44,21 +44,28 @@ FreeType, `pkg-config` and fontconfig, and one of the families of `fonts.rules`.
 
 `run_cookbook.c` runs the recipes of the cookbook with the program's own functions stubbed, the made files of that
 recipe and the fonts compiled in: the tree its function adds is held against the one loaded of the same file. Given a directory,
-it also draws there the pictures of the ring scale, `ring.ppm` and `ring-layout.ppm`, by the very code of the page.
+it also draws there the pictures of the ring scale, `ring.ppm` and `ring-layout.ppm`, and those of
+`recipe_pictures.c`, a part of it: a picture for each recipe of a thing seen, made of the recipe's own widgets and
+functions on a screen of 320x240 at 2 pixels a point, in the colours of the other pictures. What a scene adds of its
+own, a caption beside a widget, it says where it adds it.
 
 ```sh
 make -C test/host -f ../docs/run.mk run-cookbook            # the checker, then the recipes run
-make -C test/host -f ../docs/run.mk run-cookbook OUT=/tmp   # and the pictures of the ring drawn there
+make -C test/host -f ../docs/run.mk run-cookbook OUT=/tmp   # and the pictures of the recipes drawn there
 ```
 
-The pictures but the ring's and the strip's are drawn by `pictures.c`, as PPM, and made PNG of the same pixels, a
-palette of 256 colours holding every level of the soft edges. `getting-started.png` is drawn by `picture_start.c`, the
+The pictures of `pictures.c` and of the run of the recipes are PPM, made PNG of the same pixels, a palette of 256
+colours holding every level of the soft edges. `getting-started.png` is drawn by `picture_start.c`, the
 getting-started page's program, in the fonts DGX makes of `start.needs` as that program's CMakeLists asks for them:
 
 ```sh
 make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # first, getting-started, settings, popup, lines, list, dropdown, background, states, nine, scroll
 python3 -c "from PIL import Image; import sys; [Image.open(f'/tmp/pictures/{n}.ppm').convert('P', palette=Image.ADAPTIVE, colors=256).save(f'docs/images/{n}.png', optimize=True) for n in sys.argv[1:]]" list dropdown
 ```
+
+The run of the recipes draws `ring`, `ring-layout`, `rows`, `line`, `face`, `slider`, `stepper`, `radio`, `level`,
+`icon`, `picture-button`, `picture`, `log`, `font`, `soft`, `hand`, `night`, `show`, `bar`, `slide`, `field`,
+`own-look`, `own-widget`, `canvas`, `graph` and `turn`; the same line, given its directory, makes them PNG.
 
 `docs/images/strip.png` is the example `examples/controls` itself, built for the computer and stopped while the PIN is
 typed:

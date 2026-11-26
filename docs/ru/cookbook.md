@@ -119,6 +119,8 @@ static void styles_init(void)
 
 ## Строка и столбец под любой экран
 
+![Страница: заголовок, содержимое, которое берёт остаток, и строка кнопок внизу; рамка каждого виджета пунктиром](../images/rows.png)
+
 Ребёнок с флагом `DGX_UI_REST` занимает то, что осталось в его строке или столбце после остальных. Ширину не надо
 считать руками, и то же дерево подходит экрану другой ширины, другому `unit` и повёрнутому экрану.
 
@@ -143,6 +145,8 @@ static const dgx_ui_widget_t bottom_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_RO
 - В контейнере, который не столбец и не строка, флаг ничего не делает.
 
 ## Линия между строками
+
+![Три строки из имени и значения, между ними линия поперёк, в последней — линия вниз](../images/line.png)
 
 Рамка высотой в одну точку в столбце — это горизонтальная линия во всю его ширину, а рамка шириной в точку в
 строке — вертикальная линия на всю её высоту. Её облик закрашивает весь прямоугольник одним цветом: рисование
@@ -172,6 +176,8 @@ static const dgx_ui_widget_t down_w   = {.kind = DGX_UI_FRAME, .want_w = 1, .loo
   выше даёт строка файла имён `look line &line_look`.
 
 ## Одно дерево на всех платах
+
+![Циферблат на экране 320x240: время на половину высоты, два значения в рамках, строка состояния](../images/face.png)
 
 Программа для нескольких плат описывает виджеты один раз. Плата при сборке программы даёт одно число, масштаб:
 сколько пикселей в точке. DGX делает шрифты в пунктах под этот масштаб, а дерево берёт его как свой `unit`; то, что
@@ -406,6 +412,8 @@ static void captions_language(dgx_ui_t *ui, const int widgets[CAPTIONS], int lan
 
 ## Ползунок и переключатель
 
+![Ползунок подсветки на 70 и включённый переключатель Wi-Fi](../images/slider.png)
+
 Значение элемента управления живёт в переменной программы, `int32_t`, которую называет виджет:
 `.value = &backlight_percent`. Туда его пишет палец пользователя, туда же может писать программа; отрисовка смотрит на
 неё при каждом проходе и рисует виджет, если в переменной не то значение, что нарисовано. Функции `on_event()` сообщается
@@ -453,6 +461,8 @@ static void backlight_show(int percent)
 - Клавиши «больше» и «меньше» двигают ползунок на его шаг и ставят переключатель.
 
 ## Степпер: минус, значение, плюс
+
+![Таймер на 15 минут между минусом и плюсом](../images/stepper.png)
 
 Значение, которое выставляют мелкими шагами и точно: минуты, порог. Две кнопки и надпись над одной переменной. Кнопки
 имеют флаг `DGX_UI_REPEAT`: короткое нажатие — один шаг, а пока палец держит кнопку, шаги идут дальше.
@@ -651,6 +661,8 @@ static int fan_add(dgx_ui_t *ui, int parent)
 
 ## Одно из нескольких и галочка
 
+![Три радиокнопки, выбрана Day, и отмеченный флажок Beep](../images/radio.png)
+
 Радиокнопки выбирают одно из нескольких. Их группа — не виджет и не объект: это переменная программы, которую
 называет каждая кнопка группы. Флажок — это переключатель, нарисованный квадратом с галочкой.
 
@@ -720,6 +732,8 @@ static void air_add(dgx_ui_t *ui, int parent)
 
 ## Полоса уровня
 
+![Полоса батареи на 35 в цвете средней зоны и бак, заполненный снизу вверх; то, что выше 160 литров, — другим цветом](../images/level.png)
+
 Значение, показанное закрашенной частью прямоугольника: заряд батареи, сигнал, уровень в баке. Это облик библиотеки
 `dgx_ui_look_level` на виджете вида `DGX_UI_OWN`, который называет место своего значения. Без своих параметров,
 `.look = &dgx_ui_look_level`, полоса закрашивается слева цветом 3 поверх цвета 2. Здесь две полосы в цветах
@@ -765,6 +779,8 @@ static const dgx_ui_widget_t     tank_w      = {.kind = DGX_UI_OWN, .max = 200, 
 
 ## Значок, который показывает состояние
 
+![Значок сигнала на трёх делениях рядом с подписью](../images/icon.png)
+
 Значок — виджет постоянного размера, картинку которого выбирает значение. При значении вне `min..max` картинки нет,
 а место за виджетом остаётся, поэтому вокруг ничего не сдвигается, когда значок появляется и исчезает.
 
@@ -781,7 +797,8 @@ static const dgx_image_t  signal_im[4] = {
     {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = bars4},
 };
 static const dgx_ui_picture_t signal_pic[4] = {
-    {.image = &signal_im[0]}, {.image = &signal_im[1]}, {.image = &signal_im[2]}, {.image = &signal_im[3]}};
+    {.image = &signal_im[0], .scale = 1}, {.image = &signal_im[1], .scale = 1},
+    {.image = &signal_im[2], .scale = 1}, {.image = &signal_im[3], .scale = 1}};
 
 enum { MSG_SIGNAL = 12 };
 typedef struct {
@@ -803,10 +820,13 @@ static const dgx_ui_widget_t signal_w = {
     .kind = DGX_UI_ICON, .picture = signal_pic, .min = 1, .max = 4, .value = &signal_bars, .look = &dgx_ui_look_picture, .take = signal_take};
 ```
 
-Размер виджета — размер первой картинки. Картинка рисуется непрозрачной: пишутся и её чернила, и её бумага, поэтому
+Размер виджета — размер первой картинки; с `.scale = 1` её пиксель — точка, и на экране, где `unit` больше, значок
+сохраняет свой размер рядом с текстом. Картинка рисуется непрозрачной: пишутся и её чернила, и её бумага, поэтому
 значок, нарисованный поверх себя, не мигает.
 
 ## Кнопка с картинкой
+
+![Кнопки с картинками: назад, звук включён и две вкладки, выбрана первая](../images/picture-button.png)
 
 «Назад», «звук», вкладки — на маленьком экране кнопка часто бывает картинкой. Облик `dgx_ui_look_picture_button`
 рисует картинку в 1 бит на лицевой стороне кнопки: она так же вдавливается на свою тень и получает рамку фокуса, как
@@ -826,9 +846,9 @@ static const dgx_image_t icon_im[5] = {
     {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_tab_bits},
     {.width = 8, .height = 8, .format = DGX_IMAGE_1BPP, .data = icon_tab_here_bits},
 };
-static const dgx_ui_picture_t icon_back[1]  = {{.image = &icon_im[0]}};
-static const dgx_ui_picture_t icon_sound[2] = {{.image = &icon_im[1]}, {.image = &icon_im[2]}}; /* off, on */
-static const dgx_ui_picture_t icon_tab[2]   = {{.image = &icon_im[3]}, {.image = &icon_im[4]}}; /* not chosen, chosen */
+static const dgx_ui_picture_t icon_back[1]  = {{.image = &icon_im[0], .scale = 1}};
+static const dgx_ui_picture_t icon_sound[2] = {{.image = &icon_im[1], .scale = 1}, {.image = &icon_im[2], .scale = 1}}; /* off, on */
+static const dgx_ui_picture_t icon_tab[2]   = {{.image = &icon_im[3], .scale = 1}, {.image = &icon_im[4], .scale = 1}}; /* not chosen, chosen */
 
 static int32_t icon_sound_on, icon_tab_shown = 1; /* the toggle's place; the tabs' place: the number of the tab shown */
 
@@ -869,6 +889,8 @@ static void on_icon_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int wha
 
 ## Картинка из флеша
 
+![Логотип в RGB565 из трёх полос и заряженная батарея в 4 бита](../images/picture.png)
+
 Картинка в 1 бит — это `dgx_image_t` из DGX с обликом `dgx_ui_look_picture`, как значок выше; её чернила — цвет из
 таблицы. Цветная картинка — строки RGB565 с обликом `dgx_ui_look_rgb565`:
 
@@ -903,7 +925,8 @@ static const dgx_image_t battery_im = {.width = 12, .height = 6, .format = DGX_I
 /* the colours of the values 1, 2, 3: the case, the charge, the rest; the same data with another map when it is low */
 static const uint8_t          battery_ok[15]  = {INK, ACCENT, FILL};
 static const uint8_t          battery_low[15] = {INK, ACCENT_DOWN, FILL};
-static const dgx_ui_picture_t battery_pics[2] = {{.image = &battery_im, .map = battery_ok}, {.image = &battery_im, .map = battery_low}};
+static const dgx_ui_picture_t battery_pics[2] = {
+    {.image = &battery_im, .map = battery_ok, .scale = 1}, {.image = &battery_im, .map = battery_low, .scale = 1}};
 static int32_t                battery_low_now; /* 0: charged, the first map; 1: low, the second */
 static const dgx_ui_widget_t  battery_w = {
     .kind = DGX_UI_ICON, .picture = battery_pics, .min = 0, .max = 1, .want_w = 14, .want_h = 8, .value = &battery_low_now, .look = &dgx_ui_look_indexed};
@@ -1131,6 +1154,8 @@ static void talk_key(dgx_ui_t *ui, int text_i)
 
 ## Журнал последних строк
 
+![Последние пять из восьми строк, добавленных в журнал](../images/log.png)
+
 Журнал показывает последние пришедшие строки: новая добавляется снизу, а когда места нет, самые старые уходят.
 Окно рисует облик строк, сами строки хранит программа — прямо в буфере текстового поля.
 
@@ -1229,6 +1254,8 @@ static int long_page_add(dgx_ui_t *ui, int parent)
 
 ## Шрифт по размеру текста
 
+![Две надписи одной высоты в рамках: короткое имя крупным шрифтом, длинное — мелким](../images/font.png)
+
 Стиль перечисляет шрифты, которыми можно нарисовать текст, начиная с лучшего. Отрисовка берёт первый, в который
 текст помещается целиком, а иначе тот, что показывает больше букв. Короткое название города встаёт крупным шрифтом,
 длинное — мелким.
@@ -1251,6 +1278,8 @@ static void city_style_init(void)
   шрифт пишется на любой высоте: следующий рецепт.
 
 ## Сглаженные буквы
+
+![Заголовок крупным сглаженным шрифтом и его первые буквы, увеличенные втрое: видны оттенки по краям](../images/soft.png)
 
 Шрифты рецептов — в 4 бита на пиксель. Шрифт DGX в 4 или 2 бита на пиксель хранит, какую долю каждого пикселя
 закрывает буква, поэтому у его букв нет ступенек. Облики рисуют его как любой шрифт: программа даёт его варианту, и
@@ -1306,6 +1335,8 @@ static int heading_add(dgx_ui_t *ui, int parent)
   Программе без заявок ничего из этого не нужно.
 
 ## Рукописный текст
+
+![Приветствие, суженное, чтобы поместиться, подпись мягким пером и записка в две строки](../images/hand.png)
 
 В DGX есть рукописные шрифты: их буквы — штрихи, которые перо пишет на любой высоте. Вариант такого шрифта называет
 рукописный текст библиотеки, `&dgx_ui_handwriting`, и однострочный облик текста его пишет. Программа, которая его не
@@ -1457,6 +1488,8 @@ static const dgx_ui_widget_t note_w = {.kind = DGX_UI_LABEL, .text = &note_box, 
 
 ## Свои цвета и ночной режим
 
+![Одно дерево в дневной таблице цветов и в ночной: синяя кнопка, ползунок и переключатель](../images/night.png)
+
 У обликов библиотеки есть параметры: какой цвет таблицы у лицевой стороны, у текста, у тени. Облик в других
 цветах — это рисование библиотеки со своими параметрами. Он константа и лежит во флеше:
 
@@ -1488,6 +1521,8 @@ static void colors_set(dgx_ui_t *ui, dgx_ui_paint_t *paint, const uint32_t *tabl
 16-битный — `DGX_BLACK(DGX_RGB_16)`, как в [Начале работы](getting-started.md).
 
 ## Показать, скрыть, отключить
+
+![Expert выключен: контейнер с усилением скрыт, Calibrate отключена; включён — оба на месте](../images/show.png)
 
 ```c
 static void advanced_show(dgx_ui_t *ui, int box, int button, bool expert)
@@ -1656,6 +1691,8 @@ static const dgx_ui_widget_t about_root_w     = {.kind = DGX_UI_FRAME, .flags = 
 
 ## Полоса над страницами
 
+![Полоса с часами и тремя кнопками, под ней страница Air, открытая своей вкладкой](../images/bar.png)
+
 Строка состояния с часами, кнопка «назад», вкладки — одна полоса на все страницы, в первом дереве, а страницы под
 ней. `dgx_ui_page_place()` называет виджет первого дерева, над которым лежат страницы; остальное дерево остаётся на
 экране и работает. Возьмём полосу с часами, двумя вкладками и кнопкой «Back»:
@@ -1797,6 +1834,8 @@ static void air_message(const dgx_ui_msg_t *msg)
   занимает 100 байт<!-- sizeof dgx_ui_t -->.
 
 ## Страницы, которые сдвигаются
+
+![Настройки въехали справа наполовину, главная уходит влево](../images/slide.png)
 
 На плате, где хватает памяти на две картинки экрана, страница может приходить сдвигом или кроссфейдом. Модуль
 программа называет сама, это `dgx_ui_transition.h`; программа, которая его не называет, ничего из него не несёт.
@@ -2255,6 +2294,8 @@ static void touch_sleep_when_up(dgx_ui_t *ui, const dgx_di_pointer_t *pointer, c
 
 ## Поле ввода и клавиатура
 
+![Поле с набранным паролем и курсором](../images/field.png)
+
 Поле ввода — это `DGX_UI_INPUT` с обликом `dgx_ui_look_input`. Набранное идёт в поле, на котором фокус.
 
 ```c
@@ -2272,6 +2313,12 @@ static void pass_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
 }
 
 static const dgx_ui_widget_t pass_w = {.kind = DGX_UI_INPUT, .text = &pass_box, .want_h = 14, .look = &dgx_ui_look_input, .on_event = pass_on};
+
+static int pass_add(dgx_ui_t *ui, int parent)
+{
+    dgx_ui_textbox_init(&pass_box, pass_buf, sizeof pass_buf, 1, &st_left); /* the field edits this buffer */
+    return dgx_ui_add(ui, parent, &pass_w);
+}
 
 /* in the loop, after the pointer was read and before the tree gets the finger: the keyboard of DGX-DI takes its
    fingers first and types into the focused field */
@@ -2821,6 +2868,8 @@ static void IRAM_ATTR knob_isr(void *arg)
 
 ## Свой облик
 
+![Полоса своего облика программы на 60](../images/own-look.png)
+
 Облик — это функция, которая рисует виджет, параметры своего типа и цвет, который она оставляет под детьми виджета.
 Здесь — полоса уровня: значение виджета в виде закрашенной части его прямоугольника. У библиотеки есть такой облик,
 [Полоса уровня](#полоса-уровня); здесь он разобран как урок.
@@ -2877,6 +2926,8 @@ static const dgx_ui_widget_t level_w      = {.kind = DGX_UI_OWN, .min = 0, .max 
   поля текста, без `DGX_FONT_FILL` и без `DGX_IMAGE_OPAQUE`.
 
 ## Свой виджет, которым управляют палец и клавиши
+
+![Площадка на две оси с полым бегунком (у неё фокус) и полоса, на которую нажимают](../images/own-widget.png)
 
 Виджет вида `DGX_UI_OWN` рисуется своим обликом, и только: `dgx_ui_hit()` его не находит, нажатие на него никому
 не достаётся, клавиши его обходят. Если облик называет **поведение**, виджет становится элементом управления.
@@ -3005,6 +3056,8 @@ static const dgx_ui_widget_t   tap_w        = {.kind = DGX_UI_OWN, .min = 0, .ma
 
 ## Картинка, которая живёт между проходами
 
+![График из 120 столбцов CO2, хранящийся в холсте виджета](../images/canvas.png)
+
 Облик рисует свой виджет заново при каждом изменении. У виджета с флагом `DGX_UI_CANVAS` вместо этого есть холст:
 экран DGX в 8 бит размером с его прямоугольник, который отрисовка хранит от прохода к проходу. Облик дорисовывает в нём
 только новое и кладёт его на дисплей. Возьмём график последних значений CO2, по столбику на каждое:
@@ -3071,6 +3124,8 @@ static void history_add(int ppm)
   рисуется. Двум деревьям, которые по очереди рисуются на одном экране, нужно по своей структуре отрисовки.
 
 ## График-развёртка
+
+![График из 120 столбцов CO2, который рисуется по столбцу](../images/graph.png)
 
 График из рецепта выше при каждом значении уходит на дисплей целиком, а его холст занимает байт ОЗУ на пиксель.
 Графику, который только растёт, не нужно ни то ни другое: его облик пишет один новый столбик. Возьмём тот же
@@ -3678,6 +3733,8 @@ static bool layer_show(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)
   той, что не вызывает, — ничего.
 
 ## Поворот экрана
+
+![Одно дерево на лежащем экране 320x240 и на стоящем 240x320](../images/turn.png)
 
 ```c
 static void screen_turn(dgx_screen_t *scr, bool landscape)
