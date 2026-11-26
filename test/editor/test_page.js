@@ -541,7 +541,7 @@ const { chrome, devtools } = require('./chrome');
         protocol?.close();
         browser.kill('SIGKILL');
         await new Promise((done) => (browser.exitCode !== null ? done() : browser.once('exit', done)));
-        fs.rmSync(profile, { recursive: true, force: true });
+        fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); /* Chrome's helpers may still write it */
     }
     if (failures) {
         console.error(`test_page.js: ${failures} of ${checks} checks failed`);

@@ -224,7 +224,7 @@ async function run(binary) {
         protocol?.close();
         browser.kill('SIGKILL');
         await sleep(200);
-        fs.rmSync(profile, { recursive: true, force: true });
+        fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); /* Chrome's helpers may still write it */
     }
     return shots;
 }
