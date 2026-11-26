@@ -91,6 +91,7 @@
 
 #include "dgx_colors.h"
 #include "dgx_draw.h"
+#include "dgx_image_file.h"
 #include "dgx_ui.h"
 #include "dgx_ui_appearance.h"
 #include "dgx_ui_json.h"
@@ -144,6 +145,8 @@ static bool        appearance_mode;   /* -A: an appearance made C */
 static const char *appearance_path;   /* -A's or -a's appearance */
 static const char *appearance_prefix; /* its prefix: -p with -A, -ap with -a, else its name */
 static const char *appearance_files;  /* its files' name: -f with -A, -af with -a, else its prefix */
+static const char *images_dir;        /* -g: the folder of DGX's files of pictures, build/dgx_images */
+static const char *names_given;       /* -n: the names file, whose lines a refusal of a picture of a file names */
 static uint32_t    appearance_stamp;  /* of the names of its looks and styles in their order */
 static dgx_ui_appearance_t      appearance;      /* as the loader laid it on the stand-ins */
 static dgx_ui_appearance_need_t appearance_need; /* and as it told it */
@@ -510,6 +513,117 @@ static void out_appearance_stamp(out_t *o)
         (unsigned)appearance_stamp, appearance_files);
 }
 
+/* ---- the pictures of files of DGX: a names file's lines picture <name> @<asset> ---- */
+
+/* what the file of an asset holds, as the made C keeps it: one a picture's entry of the page's table */
+typedef struct picture_file_t {
+    uint8_t  bits, solid, zero;
+    uint16_t count;
+    int      map_count;      /* 4 and 8 bits with no map= of the program's: map[p - 1] the index of the value p, 15 or 255 of them */
+    uint8_t  map[255];
+} picture_file_t;
+static picture_file_t *picture_files; /* by the index of tables[T_PICTURE] */
+
+/* the file of an asset by DGX's list of its files, build/dgx_images/dgx_images-files.txt: "<name> <file>" a line */
+static char *asset_path(const entry_t *entry)
+{
+    char *list = printed("%s/dgx_images-files.txt", images_dir);
+    FILE *in   = fopen(list, "r");
+    if (!in)
+        fail_out("%s:%d: picture %s: no %s, DGX's list of the files of pictures: dgx_image_need() or dgx_image_needs_file() makes it", names_given, entry->line,
+                 entry->name, list);
+    char line[512], name[256], file[256];
+    while (fgets(line, sizeof line, in))
+        if (sscanf(line, "%255s %255s", name, file) == 2 && strcmp(name, entry->asset) == 0) {
+            fclose(in);
+            return printed("%s/%s", images_dir, file);
+        }
+    fclose(in);
+    fail_out("%s:%d: picture %s: no asset \"%s\" in %s: a need of that name, dgx_image_need(%s PNG ...) or a line of the file of dgx_image_needs_file()",
+             names_given, entry->line, entry->name, entry->asset, list, entry->asset);
+}
+
+/* every picture of a file of the page's table read, as the build made it: its count, and for 4 and 8 bits its map to the
+   appearance's colours, by the nearest; refused in words when dgx-ui draws it not */
+static void read_picture_files(void)
+{
+    picture_files = zeroed(tables[T_PICTURE].count, sizeof *picture_files);
+    for (int k = 0; k < tables[T_PICTURE].count; ++k) {
+        entry_t *entry = &tables[T_PICTURE].entries[k];
+        if (!entry->asset) continue;
+        if (!images_dir)
+            fail_out("%s:%d: picture %s: @%s is a file of DGX's pictures, and the folder of its files is not given: -g <build>/dgx_images, as dgx_ui_tree() "
+                     "and dgx_ui_names() give it", names_given, entry->line, entry->name, entry->asset);
+        char            *path = asset_path(entry);
+        size_t           length;
+        char            *bytes = read_all(path, &length);
+        dgx_image_file_t file;
+        const esp_err_t  opened = dgx_image_file_open(bytes, length, &file);
+        if (opened == ESP_ERR_INVALID_VERSION)
+            fail_out("%s:%d: picture %s: %s is of a later format than the DGX dgx-ui is built with reads: a picture dgx-ui does not draw yet", names_given,
+                     entry->line, entry->name, path);
+        if (opened != ESP_OK) fail_out("%s:%d: picture %s: %s does not read as a file of DGX's pictures", names_given, entry->line, entry->name, path);
+        char *refused = picture_file_refused(entry, &file);
+        if (refused) fail_out("%s:%d: %s", names_given, entry->line, refused);
+        picture_file_t *f = &picture_files[k];
+        f->bits = file.bits, f->count = file.count, entry->count = file.count;
+        if (file.bits == 4 || file.bits == 8) {
+            if (entry->map) {
+                if (file.first == 0) f->solid = 0; /* the program's map holds the values from 1: its 0 is the paper */
+            } else if (!appearance.color_count) {
+                fail_out("%s:%d: picture %s: @%s of %u bits takes the colours of an appearance: APPEARANCE in the call, or map=<array> in the line",
+                         names_given, entry->line, entry->name, entry->asset, (unsigned)file.bits);
+            } else {
+                picture_file_map(&file, appearance.rgb, appearance.color_count, f->map, &f->solid, &f->zero);
+                f->map_count = file.bits == 4 ? 15 : 255; /* the whole of a depth's values from 1, as dgx_image_blit() reads it */
+            }
+        }
+        free(bytes), free(path);
+    }
+}
+
+/* the C of a picture's name: its table's, the made C's own for one of a file, which the made C must hold */
+static bool picture_of_file(int k)
+{
+    return k >= 0 && k < tables[T_PICTURE].count && tables[T_PICTURE].entries[k].asset;
+}
+
+/* the tables of the pictures of files the made C names, the files they are read from and the start that reads them
+   once: used[k] of the page's table's entry k, all with NULL. False: none, nothing written */
+static bool out_picture_files(out_t *o, const bool *used)
+{
+    int named = 0;
+    for (int k = 0; k < tables[T_PICTURE].count; ++k) named += picture_of_file(k) && (!used || used[k]);
+    if (!named) return false;
+    out(o, "\n/* the pictures of files of DGX, read where they lie by pictures_start() */\n");
+    for (int k = 0; k < tables[T_PICTURE].count; ++k) {
+        if (!picture_of_file(k) || (used && !used[k])) continue;
+        const entry_t *entry = &tables[T_PICTURE].entries[k];
+        const picture_file_t *f = &picture_files[k];
+        out(o, "static dgx_ui_picture_t %s[%u];\n", entry->c, (unsigned)f->count);
+        if (f->bits <= 8) out(o, "static dgx_image_t %s_images[%u];\n", entry->c, (unsigned)f->count);
+        if (f->map_count) {
+            out(o, "static const uint8_t %s_map[%d] = {", entry->c, f->map_count);
+            for (int j = 0; j < f->map_count; ++j) out(o, "%s%u", j ? ", " : "", (unsigned)f->map[j]);
+            out(o, "};\n");
+        }
+    }
+    out(o, "static const dgx_ui_picture_file_t picture_files[%d] = {\n", named);
+    for (int k = 0; k < tables[T_PICTURE].count; ++k) {
+        if (!picture_of_file(k) || (used && !used[k])) continue;
+        const entry_t *entry = &tables[T_PICTURE].entries[k];
+        const picture_file_t *f = &picture_files[k];
+        char *map = entry->map ? copy_of(entry->map) : f->map_count ? printed("%s_map", entry->c) : copy_of("NULL");
+        char *images = f->bits <= 8 ? printed("%s_images", entry->c) : copy_of("NULL");
+        out(o, "    {dgx_asset_%s, &dgx_asset_%s_size, \"%s\", %s, %s, %s, %u, %u, %u, %u, %u},\n", entry->asset, entry->asset, entry->asset, entry->c, images,
+            map, (unsigned)f->count, (unsigned)f->bits, entry->scale, (unsigned)f->solid, (unsigned)f->zero);
+        free(map), free(images);
+    }
+    out(o, "};\n\nstatic void pictures_start(void)\n{\n    static bool read;\n    if (read) return;\n    read = true;\n");
+    out(o, "    for (int k = 0; k < %d; ++k) dgx_ui_picture_file_read(&picture_files[k]);\n}\n", named);
+    return true;
+}
+
 static void write_c(const dgx_ui_t *ui, int root, const char *directory, const char *const *headers, int header_count)
 {
     const int count  = ui->count;
@@ -548,10 +662,19 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
 
     /* the C: the text boxes, the widgets, the parents, the add function */
     out_head(&c_file, base_name(c_path));
+    /* the pictures of files its widgets name */
+    bool *picture_used = zeroed(tables[T_PICTURE].count ? tables[T_PICTURE].count : 1, sizeof *picture_used), any_file = false;
+    for (int at = 0; at < laid; ++at) {
+        const dgx_ui_widget_t *w = dgx_ui_node(ui, order[at])->widget;
+        const int              k = w->picture ? (int)(w->picture - picture_stand) : -1;
+        if (picture_of_file(k)) picture_used[k] = any_file = true;
+    }
     out(&c_file, "#include <stdint.h>\n#include <string.h>\n\n#include \"dgx_ui.h\"\n#include \"dgx_ui_load.h\"\n#include \"dgx_ui_paint.h\"\n#include \"dgx_ui_text.h\"\n");
+    if (any_file) out(&c_file, "#include \"dgx_assets.h\"\n#include \"dgx_ui_picture_file.h\"\n");
     for (int k = 0; k < header_count; ++k) out(&c_file, "#include \"%s\"\n", headers[k]);
     out(&c_file, "#include \"%s\"\n", base_name(h_path));
     out_appearance_stamp(&c_file);
+    if (any_file) out_picture_files(&c_file, picture_used);
     out(&c_file, "\n");
     for (int k = 0; k < tables[T_ID].count; ++k)
         if (!tables[T_ID].from_file && id_stand[k] >= 0) out(&c_file, "int %s = -1;\n", tables[T_ID].entries[k].c);
@@ -641,6 +764,7 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
     out(&c_file, "};\nstatic const int16_t %s_parents[%d] = {", prefix, laid);
     for (int at = 0; at < laid; ++at) out(&c_file, "%s%d", at ? ", " : "", parent[at]);
     out(&c_file, "};\n\nint %s_add(dgx_ui_t *ui, int parent)\n{\n", prefix);
+    if (any_file) out(&c_file, "    pictures_start(); /* the pictures of files read, once */\n");
     for (int at = 0; at < laid; ++at) {
         const dgx_ui_textbox_t *box = dgx_ui_node(ui, order[at])->widget->text;
         if (!box || !box->size) continue;
@@ -694,10 +818,14 @@ static void write_tables(const char *directory, const char *const *headers, int 
     out(&h_file, "\n#ifdef __cplusplus\n}\n#endif\n");
 
     out_head(&c_file, base_name(c_path));
+    bool any_file = false;
+    for (int k = 0; k < tables[T_PICTURE].count; ++k) any_file |= picture_of_file(k);
     out(&c_file, "#include <stdbool.h>\n#include <stddef.h>\n\n#include \"dgx_ui_load.h\"\n#include \"dgx_ui_paint.h\"\n%s", for_appearance ? "#include \"dgx_ui_appearance.h\"\n" : "");
+    if (any_file) out(&c_file, "#include \"dgx_assets.h\"\n#include \"dgx_ui_picture_file.h\"\n");
     for (int k = 0; k < header_count; ++k) out(&c_file, "#include \"%s\"\n", headers[k]);
     out(&c_file, "#include \"%s\"\n", base_name(h_path));
     if (appearance_path) out(&c_file, "\n"), out_appearance_stamp(&c_file);
+    if (any_file) out_picture_files(&c_file, NULL);
     for (int table = 0; table < TABLES; ++table) {
         if (!tables[table].count) continue;
         out(&c_file, "\nstatic const %s %s_%s[%d] = {\n", table_types[table], prefix, table_fields[table], tables[table].count);
@@ -718,6 +846,7 @@ static void write_tables(const char *directory, const char *const *headers, int 
         if (tables[table].count) out(&c_file, "    .%s = %s_%s,\n", table_fields[table], prefix, table_fields[table]);
         else out(&c_file, "    .%s = NULL,\n", table_fields[table]);
     for (int table = 0; table < TABLES; ++table) out(&c_file, "    .%s = %d,\n", count_fields[table], tables[table].count);
+    if (any_file) out(&c_file, "    .start = pictures_start,\n");
     out(&c_file, "};\n");
     if (for_appearance) {
         static const char *const types[]  = {"dgx_ui_draw_name_t", "dgx_ui_font_name_t", "dgx_ui_hand_name_t"};
@@ -744,8 +873,9 @@ static void write_tables(const char *directory, const char *const *headers, int 
         else out(&c_file, "    .looks = NULL,\n");
         if (own_styles) out(&c_file, "    .styles = %s_styles + %d,\n", prefix, tables[T_STYLE].count - own_styles);
         else out(&c_file, "    .styles = NULL,\n");
-        out(&c_file, "    .draw_count = %d, .font_count = %d, .hand_count = %d, .picture_count = %d, .look_count = %d, .style_count = %d,\n};\n",
-            appearance_tables[A_DRAW].count, appearance_tables[A_FONT].count, appearance_tables[A_HAND].count, tables[T_PICTURE].count, own_looks, own_styles);
+        out(&c_file, "    .draw_count = %d, .font_count = %d, .hand_count = %d, .picture_count = %d, .look_count = %d, .style_count = %d,\n%s};\n",
+            appearance_tables[A_DRAW].count, appearance_tables[A_FONT].count, appearance_tables[A_HAND].count, tables[T_PICTURE].count, own_looks, own_styles,
+            any_file ? "    .start = pictures_start,\n" : "");
     }
     if (fclose(c_file.file) || fclose(h_file.file)) fail_out("%s: %s", c_path, strerror(errno));
 }
@@ -1022,6 +1152,9 @@ static void write_appearance(const char *directory, const char *const *headers, 
                 /* the names file's expression of the pictures the field took, or its name by the rule */
                 const dgx_ui_picture_t *took;
                 memcpy(&took, base + field->offset, sizeof took);
+                if (appearance_tables[A_PICTURE].entries[took - picture_stand].asset)
+                    fail_out("%s: the picture %s is of a file of DGX (@%s), which an appearance made C does not read yet: the program's C in its names line",
+                             appearance_path, appearance_tables[A_PICTURE].entries[took - picture_stand].name, appearance_tables[A_PICTURE].entries[took - picture_stand].asset);
                 out(&c_file, "%s", appearance_tables[A_PICTURE].entries[took - picture_stand].c);
                 break;
             }
@@ -1140,7 +1273,7 @@ int main(int argc, char **argv)
     int         header_count = 0, arg = 1;
     for (; arg < argc && argv[arg][0] == '-'; arg += 2) {
         if (arg + 1 >= argc) fail_out("%s wants a value", argv[arg]);
-        if (strcmp(argv[arg], "-n") == 0) names_path = argv[arg + 1];
+        if (strcmp(argv[arg], "-n") == 0) names_path = names_given = argv[arg + 1];
         else if (strcmp(argv[arg], "-d") == 0) directory = argv[arg + 1];
         else if (strcmp(argv[arg], "-p") == 0) prefix = argv[arg + 1];
         else if (strcmp(argv[arg], "-t") == 0) tables_prefix = argv[arg + 1];
@@ -1151,9 +1284,10 @@ int main(int argc, char **argv)
         else if (strcmp(argv[arg], "-ap") == 0) appearance_prefix = argv[arg + 1];
         else if (strcmp(argv[arg], "-af") == 0) appearance_files = argv[arg + 1];
         else if (strcmp(argv[arg], "-an") == 0) appearance_names_path = argv[arg + 1];
+        else if (strcmp(argv[arg], "-g") == 0) images_dir = argv[arg + 1];
         else
             fail_out("%s: not an option; -n <names file>, -i <header>, -d <directory>, -p <prefix>, -f <files' name>, -t <prefix>, -A <appearance>, "
-                     "-a <appearance>, -an <its names file>, -ap <its prefix>, -af <its files' name>",
+                     "-a <appearance>, -an <its names file>, -ap <its prefix>, -af <its files' name>, -g <the folder of DGX's files of pictures>",
                      argv[arg]);
     }
     if (appearance_files && !file_name_of_files(appearance_files))
@@ -1194,6 +1328,7 @@ int main(int argc, char **argv)
             if (strcmp(appearance_prefix, prefix) == 0) fail_out("-t \"%s\" is the appearance's prefix too: give one of them another", prefix);
             appearance_first();
         }
+        read_picture_files();
         refuse_others_file(directory, ".c");
         refuse_others_file(directory, ".h");
         write_tables(directory, headers, header_count);
@@ -1221,6 +1356,7 @@ int main(int argc, char **argv)
     }
     names_collect(text, length);
     names_rule(!(appearance_path && appearance_need.styles));
+    read_picture_files();
 
     /* the loader on the stand-ins: its checks, its defaults, its tree */
     dgx_ui_load_names_t names = stand_in_names();

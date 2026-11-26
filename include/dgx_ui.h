@@ -290,6 +290,8 @@ typedef struct dgx_ui_picture_t {
     const uint8_t     *map;    ///< 4 or 8 bits: the colors of its values, indices of the painter's table
     int16_t            width, height; ///< the size of an RGB565 picture; of a dgx_image_t its own is taken
     uint8_t            scale;  ///< 0: a pixel of it a pixel of the screen; 1: a point, unit x unit pixels; more: so many points; 255 pixels at most
+    uint8_t            solid;  ///< 4 or 8 bits: its value 0 is a colour, `zero`, not the paper: a picture whose palette has every value
+    uint8_t            zero;   ///< with `solid`: the index of the painter's table its value 0 takes
 } dgx_ui_picture_t;
 
 /** @brief The size of a picture: its own for a dgx_image_t, the given one for RGB565. */

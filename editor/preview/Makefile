@@ -35,7 +35,7 @@ OBJ     := $(abspath $(BUILD))/obj
 OBJECTS := $(sort $(addprefix $(OBJ)/,$(notdir $(SOURCES:.c=.o))))
 HEADERS := $(sort $(wildcard $(ROOT)/include/*.h $(ROOT)/src/*.h) $(ROOT)/tools/dgx_ui_names.h $(HERE)/dgx_ui_preview.h \
            $(shell find $(DGX_ROOT)/include $(DGX_HOST_DIR)/stubs -name '*.h'))
-EXPORTS := version format tables json screen text names font appearance appearance_on appearance_format names_format names_missing page pointer key buttons value paint wake frame changed shown \
+EXPORTS := version format tables json screen text names font picture appearance appearance_on appearance_format names_format names_missing page pointer key buttons value paint wake frame changed shown \
            count widget widget_at events notes
 comma   := ,
 FLAGS   := --target=wasm32-wasi -Os -flto -std=gnu11 -ffile-prefix-map=$(ROOT)=dgx-ui -ffile-prefix-map=$(DGX_ROOT)=dgx \

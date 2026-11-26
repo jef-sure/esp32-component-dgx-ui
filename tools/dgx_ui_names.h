@@ -46,6 +46,11 @@ typedef struct entry_t {
     char    *described;       /* a draw: the C of its parameters' description; NULL none */
     bool     handwritten;     /* a font: a handwritten one, by the names file's word */
     bool     from_appearance; /* a look or a style of the appearance of -a */
+    char    *asset;           /* a picture of a file of DGX, "@<asset>": the asset's name; NULL none */
+    char    *map;             /* with an asset: the program's map of its values to the table, map=; NULL: the nearest colours */
+    unsigned scale;           /* with an asset: the pictures' scale, scale <n> */
+    bool     count_given;     /* with an asset: the count said in the line, held to the file's */
+    int      line;            /* with an asset: its line in the names file */
 } entry_t;
 
 typedef struct table_t {
@@ -80,6 +85,16 @@ char *library_c(int table, const char *word);
 /* the kind of ctx a handler of the table of handlers takes: DGX_UI_CTX_* */
 int ctx_kind_of(const entry_t *handler);
 int   library_draw_of(const char *word);
+/* the index of the colour of rgb[count] (0xRRGGBB) nearest to r, g, b: the squares of the channels' differences
+   weighed 2, 4 and 3, the lower index of equals; dgx_ui_c's maps of pictures of files and the preview's alike */
+int   nearest_color(const uint32_t *rgb, int count, unsigned r, unsigned g, unsigned b);
+/* a file of pictures, opened (dgx_image_file.h), as dgx-ui draws it for a picture line: NULL; else the words of why
+   not, "picture <name>: @<asset> ...", in memory of its own; the line's count held to the file's */
+struct dgx_image_file_t;
+char *picture_file_refused(const entry_t *entry, const void *file);
+/* the map of an indexed file of 4 or 8 bits to the colours rgb[count] by the nearest: map[p - 1] the index of the value
+   p, all of the depth's 15 or 255; the value 0 of a full palette a colour, *solid and *zero */
+void picture_file_map(const void *file, const uint32_t *rgb, int count, uint8_t map[255], uint8_t *solid, uint8_t *zero);
 bool  library_hand(const char *word);
 
 /**

@@ -48,6 +48,7 @@ function(_dgx_ui_c_rule out)
         foreach(name dgx_ui.c dgx_ui_text.c dgx_ui_rect.c dgx_ui_msg.c dgx_ui_load.c dgx_ui_json.c dgx_ui_read.c dgx_ui_appearance.c dgx_ui_params.c dgx_ui_scroll.c)
             list(APPEND tool_sources "${DGX_UI_COMPONENT_DIR}/src/${name}")
         endforeach()
+        list(APPEND tool_sources "${dgx_dir}/src/vscreen/image_file.c")
         file(GLOB headers "${DGX_UI_COMPONENT_DIR}/include/*.h" "${DGX_UI_COMPONENT_DIR}/src/*.h")
         add_custom_command(OUTPUT "${binary}"
             COMMAND ${python} "${DGX_UI_COMPONENT_DIR}/tools/dgx_ui_c.py" "${dgx_dir}" "${dir}"
@@ -94,6 +95,21 @@ function(_dgx_ui_check_prefix call prefix what)
     endif()
 endfunction()
 
+# the pictures of files of DGX a names file names, picture <name> @<asset>: the files DGX's build makes of them, which the
+# made C reads and waits for; the component asks for the targets of DGX's rules once they are all made (below)
+function(_dgx_ui_pictures_of names_file depends_out)
+    file(STRINGS "${names_file}" lines REGEX "^[ \t]*picture[ \t]+[^ \t#]+[ \t]+@")
+    set(depends "")
+    foreach(line IN LISTS lines)
+        if(line MATCHES "^[ \t]*picture[ \t]+[^ \t#]+[ \t]+@([A-Za-z_][A-Za-z0-9_]*)")
+            list(APPEND depends "${CMAKE_BINARY_DIR}/dgx_images/${CMAKE_MATCH_1}.dgxi")
+        endif()
+    endforeach()
+    set_property(GLOBAL APPEND PROPERTY DGX_UI_PICTURE_USERS "${COMPONENT_LIB}")
+    set_property(GLOBAL APPEND PROPERTY DGX_UI_PICTURE_NAMES "${names_file}")
+    set(${depends_out} "${depends}" PARENT_SCOPE)
+endfunction()
+
 # the rule that makes two files, compiled into the component that asks
 function(_dgx_ui_made call files source args depends headers comment)
     _dgx_ui_c_rule(binary)
@@ -108,9 +124,9 @@ function(_dgx_ui_made call files source args depends headers comment)
         list(APPEND header_args -i "${name}")
         list(APPEND include_dirs "${dir}")
     endforeach()
-    # the options first, the description last
+    # the options first, the description last; the folder of DGX's files of pictures for a names file's @<asset>
     add_custom_command(OUTPUT "${out}/${files}.c" "${out}/${files}.h"
-        COMMAND "${binary}" -d "${out}" -f "${files}" ${header_args} ${args}
+        COMMAND "${binary}" -d "${out}" -f "${files}" -g "${CMAKE_BINARY_DIR}/dgx_images" ${header_args} ${args}
         DEPENDS "${binary}" "${source}" ${depends}
         COMMENT "dgx-ui: ${comment}"
         VERBATIM)
@@ -224,6 +240,8 @@ function(dgx_ui_tree description)
         _dgx_ui_absolute(names "${T_NAMES}")
         list(APPEND args -n "${names}")
         list(APPEND depends "${names}")
+        _dgx_ui_pictures_of("${names}" pictures)
+        list(APPEND depends ${pictures})
     endif()
     if(DEFINED T_APPEARANCE)
         _dgx_ui_appearance_of("${call}" "${T_APPEARANCE}" appearance_args appearance_depends appearance_dir appearance_target)
@@ -256,7 +274,7 @@ function(dgx_ui_names names_file)
     endif()
     _dgx_ui_claim("${call}" "${prefix}" "${prefix}" "${names_file}")
     set(args -n "${source}")
-    set(depends "")
+    _dgx_ui_pictures_of("${source}" depends)
     if(DEFINED N_APPEARANCE)
         _dgx_ui_appearance_of("${call}" "${N_APPEARANCE}" appearance_args depends appearance_dir appearance_target)
         list(APPEND args ${appearance_args})
@@ -267,3 +285,29 @@ function(dgx_ui_names names_file)
         _dgx_ui_on_appearance("${appearance_dir}" "${appearance_target}")
     endif()
 endfunction()
+
+# The components whose made C reads pictures of files wait for DGX's rules that make the files and embed them,
+# dgx_images_made and dgx_assets_made; and a names file of theirs that changes configures the project again, so that a
+# line of an asset added is seen. DGX creates those rules in calls deferred to the end of the configure step, and which
+# of the two files is included first is not to be relied on: this call is deferred once more from within a deferred
+# one, so that it runs after every call deferred meanwhile, DGX's among them.
+function(_dgx_ui_pictures_finish)
+    get_property(users GLOBAL PROPERTY DGX_UI_PICTURE_USERS)
+    get_property(names GLOBAL PROPERTY DGX_UI_PICTURE_NAMES)
+    if(NOT users OR NOT TARGET dgx_images_made) # no picture made of a file in this project: nothing to wait for
+        return()
+    endif()
+    list(REMOVE_DUPLICATES users)
+    foreach(lib IN LISTS users)
+        foreach(rule dgx_images_made dgx_assets_made)
+            if(TARGET ${rule})
+                add_dependencies(${lib} ${rule})
+            endif()
+        endforeach()
+    endforeach()
+    set_property(DIRECTORY "${CMAKE_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${names})
+endfunction()
+function(_dgx_ui_pictures_after_all)
+    cmake_language(DEFER CALL _dgx_ui_pictures_finish)
+endfunction()
+cmake_language(DEFER CALL _dgx_ui_pictures_after_all)

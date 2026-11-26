@@ -214,6 +214,31 @@ class DgxUiPreview {
         return this.verdictAt(this.call(() => this.exports.preview_font(at, data ? at + name.length + 1 : 0, data ? data.length : 0)));
     }
 
+    /**
+     * The file of pictures of DGX, a .dgxi as the build makes it, for the asset's name a names file's line
+     * `picture <name> @<asset>` takes (preview_picture()); null lets that name's file go. {code, offset, name, said}:
+     * code 0, or -4 refused in said's words.
+     */
+    picture(asset, bytes) {
+        if (String(asset).includes('\u0000')) return {code: -4, offset: 0, name: '', said: 'an asset\'s name holding a NUL'};
+        const name = this.encoder.encode(String(asset));
+        const data = bytes === null || bytes === undefined ? null : DgxUiPreview.bytesView(bytes);
+        if (bytes !== null && bytes !== undefined && !data) return {code: -4, offset: 0, name: '', said: `${asset}: no bytes`};
+        const at   = this.call(() => this.exports.preview_text(name.length + 1 + (data ? data.length : 0)));
+        const view = new Uint8Array(this.memory.buffer);
+        view.set(name, at), view[at + name.length] = 0;
+        if (data) view.set(data, at + name.length + 1);
+        return this.verdictAt(this.call(() => this.exports.preview_picture(at, data ? at + name.length + 1 : 0, data ? data.length : 0)));
+    }
+
+    /**
+     * Every file of pictures of an index DGX's build writes, dgx_images-files.txt: a line `<asset> <file>`, the file of
+     * the index's directory, read by read(file) as fonts() reads its files. A Promise of [{name, verdict}], a line each.
+     */
+    async pictures(index, read) {
+        return this.filesOf(index, read, (name, data) => this.picture(name, data), -4);
+    }
+
     /* bytes as a Uint8Array: of one, of an ArrayBuffer or of a view; null for anything else */
     static bytesView(bytes) {
         if (bytes instanceof Uint8Array) return bytes;
@@ -229,8 +254,13 @@ class DgxUiPreview {
      * given twice, a file that is absolute or climbs out by "..", a read that fails or gives no bytes.
      */
     async fonts(index, read) {
+        return this.filesOf(index, read, (name, data) => this.font(name, data), -3);
+    }
+
+    /* the files of an index of DGX's, given one by one by give(name, bytes); a refusal of a line its verdict of code */
+    async filesOf(index, read, give, code) {
         const results = [], seen = new Set();
-        const refuse  = (name, said) => results.push({name, verdict: {code: -3, offset: 0, name: '', said}});
+        const refuse  = (name, said) => results.push({name, verdict: {code, offset: 0, name: '', said}});
         for (const line of String(index).split('\n').map(text => text.trim()).filter(text => text)) {
             const words = line.split(/\s+/);
             if (words.length !== 2) {
@@ -259,7 +289,7 @@ class DgxUiPreview {
                 refuse(name, `${name}: ${file}: no bytes`);
                 continue;
             }
-            results.push({name, verdict: this.font(name, data)});
+            results.push({name, verdict: give(name, data)});
         }
         return results;
     }

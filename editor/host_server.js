@@ -38,7 +38,28 @@ async function dgxUiServerHost(token, base = '') {
             if (!response.ok) throw await refused(response);
             return true;
         },
+        // a picture's PNG, its bytes as they are, beside the file of pictures' needs
+        async writeBinary(path, bytes) {
+            const response = await call(at('binary', path), { method: 'POST', body: bytes, headers: { 'Content-Type': 'image/png' } });
+            if (!response.ok) throw await refused(response);
+            return true;
+        },
+        // a file of DGX made of PNG files by the writer of the project's own DGX: its bytes; refused in its words
+        async image(pngs, options) {
+            const body = JSON.stringify({ ...options, pngs: pngs.map(base64Of) });
+            const response = await call('/project/image', { method: 'POST', body, headers: { 'Content-Type': 'application/json' } });
+            if (!response.ok) throw await refused(response);
+            const said = await response.json();
+            return Uint8Array.from(atob(said.dgxi), (c) => c.charCodeAt(0));
+        },
     };
+}
+
+// bytes as base64, a piece at a time so that no call takes more arguments than an engine allows
+function base64Of(bytes) {
+    let text = '';
+    for (let at = 0; at < bytes.length; at += 0x8000) text += String.fromCharCode.apply(null, bytes.subarray(at, at + 0x8000));
+    return btoa(text);
 }
 
 // the token of the link the server printed: #project=<token>; null on a page opened otherwise

@@ -22,6 +22,7 @@ dgx_ui_appearance() and dgx_ui_names() calls name, read at each write, and pages
 .json or .txt; never a file or folder of a dot, nor one the build reads by its name.
 """
 import argparse
+import base64
 import hashlib
 import http.server
 import json
@@ -30,8 +31,10 @@ import pathlib
 import posixpath
 import re
 import secrets
+import subprocess
 import sys
 import tempfile
+import threading
 import urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent  # the copy of dgx-ui this runs from
@@ -58,7 +61,8 @@ NEVER_UNDER = ("build", "managed_components")
 
 # the calls whose files the builder edits, the CMakeLists it reads them in (components/<name>/ too), the words of
 # theirs that are no file, and the folders whose pages it does not look for
-CALLS = re.compile(r"(?<![A-Za-z0-9_])(dgx_ui_tree|dgx_ui_appearance|dgx_ui_names)[ \t]*\(", re.IGNORECASE)
+CALLS = re.compile(r"(?<![A-Za-z0-9_])(dgx_ui_tree|dgx_ui_appearance|dgx_ui_names|dgx_image_needs_file)[ \t]*\(", re.IGNORECASE)
+NEEDS_CALL = re.compile(r"(?<![A-Za-z0-9_])dgx_image_needs_file[ \t]*\(", re.IGNORECASE)
 CALL_LISTS = ("CMakeLists.txt", "main/CMakeLists.txt")
 CALL_KEYWORDS = ("PREFIX", "NAMES", "APPEARANCE", "HEADERS")
 NOT_SEARCHED = ("node_modules", "managed_components", "dist", "vendor")
@@ -66,6 +70,19 @@ NOT_SEARCHED = ("node_modules", "managed_components", "dist", "vendor")
 # what the builder reads besides what a call names and the pages and appearances there: the preset, the board's entry
 # of jef-sure/boards, the fonts DGX writes; of a build's sdkconfig only the lines of the computer's board's panel
 FONTS_INDEX = "dgx_fonts-files.txt"
+IMAGES_INDEX = "dgx_images-files.txt"
+# a picture: a PNG written beside a file of pictures' needs, and made a file of DGX by the writer of the project's own
+# copy of DGX, of the registry: its words, its time, what it may print
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PICTURE_WORDS = {"bits": (1, 4, 8, 16), "ink": ("dark", "light")}
+WRITER_S = 30
+WRITER_SAID = 4096
+LONGEST_PICTURE = 16 * 1024 * 1024
+# the size a picture may have, read of its PNG's head before the writer runs: DGX's writer takes a picture into memory
+# whole, 4 bytes a pixel, so a small file of one colour may ask for gigabytes
+WIDEST_PICTURE = 4096
+MOST_PIXELS = 4 * 1024 * 1024
+DGX_COPY = "managed_components/jef-sure__dgx"
 BOARD_FILES = (re.compile(r"components/local-boards/boards/[a-z0-9_]+/board\.json"),
                re.compile(r"managed_components/jef-sure__boards/catalog/boards/[a-z0-9_]+/board\.json"))
 SDKCONFIG_SHOWN = re.compile(rb"^CONFIG_BOARD_HOST_(?:WIDTH|HEIGHT|COLOR_BITS)=[0-9]+[ \t\r]*$", re.M)
@@ -198,6 +215,192 @@ def font_listed(root, rel):
         return False
 
 
+def image_listed(root, rel):
+    """Whether a path is a file of the pictures DGX makes: build/dgx_images/ or build/<board>/dgx_images/, its index or
+    a file its index names."""
+    parts = rel.split("/")
+    if not (len(parts) in (3, 4) and parts[0] == "build" and parts[-2] == "dgx_images"):
+        return False
+    if parts[-1] == IMAGES_INDEX:
+        return True
+    try:
+        with open(os.path.join(root, *parts[:-1], IMAGES_INDEX), encoding="utf-8", errors="replace") as index:
+            return any(len(words) >= 2 and words[1] == parts[-1] for words in (line.split() for line in index.read(LONGEST_BODY).splitlines()))
+    except OSError:
+        return False
+
+
+def needs_files(root):
+    """The files of pictures' needs the project's dgx_image_needs_file() calls name, as called_files() finds them."""
+    lists = list(CALL_LISTS)
+    try:
+        lists += [f"components/{name}/CMakeLists.txt" for name in sorted(os.listdir(os.path.join(root, "components")))]
+    except OSError:
+        pass
+    named = set()
+    for rel in lists:
+        try:
+            with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as source:
+                text = without_comments(source.read(LONGEST_BODY))
+        except OSError:
+            continue
+        for call in NEEDS_CALL.finditer(text):
+            for word in call_words(text, call.end()):
+                path = posixpath.normpath(posixpath.join(posixpath.dirname(rel), word))
+                if not word.startswith("/") and path != ".." and not path.startswith("../"):
+                    named.add(path)
+    return named
+
+
+def needed_pngs(root):
+    """The PNG files the lines of the project's files of pictures' needs name: the words after PNG, quoted when they
+    hold a space, from the folder of the file, as DGX reads them."""
+    keywords = {"BITS", "INDEXED", "PIXELS", "REDUCE", "DITHER", "INK", "ALPHA", "BACKGROUND", "ORIGIN"}
+    named = set()
+    for rel in needs_files(root):
+        try:
+            with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as source:
+                lines = source.read(LONGEST_BODY).splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            words = re.findall(r'"[^"]*"|[^\s"]+', line.split("#", 1)[0] if '"' not in line else line)
+            if len(words) < 3 or words[1] != "PNG":
+                continue
+            for word in words[2:]:
+                if word in keywords:
+                    break
+                path = posixpath.normpath(posixpath.join(posixpath.dirname(rel), word.strip('"')))
+                if path != ".." and not path.startswith("../"):
+                    named.add(path)
+    return named
+
+
+def png_problem(root, rel, data):
+    """What is wrong with a write of a picture, or None: a PNG by its signature and its ending, into the folder of a file
+    of pictures' needs or below it, of no dot, out of build/ and managed_components/; a new file, or one a need names. The
+    folder images/ beside the file of needs is made when it is not there."""
+    if not isinstance(rel, str) or "\\" in rel or "\0" in rel or rel.startswith("/") or any(part in ("", ".", "..") for part in rel.split("/")):
+        return "a path within the project, by / and of no empty part, no . and no .."
+    if not rel.casefold().endswith(".png") or not data.startswith(PNG_SIGNATURE):
+        return "the builder writes a picture as a PNG: a file of .png, its bytes those of a PNG"
+    if any(part.startswith(".") for part in rel.split("/")) or rel.split("/")[0].casefold() in NEVER_UNDER:
+        return "nothing of a dot, nor under build/ or managed_components/, is written"
+    real = os.path.realpath(os.path.join(root, rel))
+    if not inside(root, real):
+        return "a path that leads out of the project"
+    folders = {posixpath.dirname(needs) for needs in needs_files(root)}
+    folder = posixpath.dirname(rel)
+    if not any(folder == above or folder.startswith(above + "/") if above else True for above in folders):
+        return "a picture is written beside the file of pictures' needs a dgx_image_needs_file() call names, or below it"
+    if os.path.exists(real) and rel not in needed_pngs(root):
+        return f"{rel} is there and no need names it: a picture is written anew, or over one a need names"
+    if not os.path.isdir(os.path.dirname(real)) and not (posixpath.basename(folder) == "images" and posixpath.dirname(folder) in folders):
+        return "a picture of a folder that is there, or of images/ beside the file of needs"
+    return None
+
+
+def dgx_writer(root):
+    """The writer of the files of pictures of the project's own copy of DGX, the registry's in managed_components, held to
+    its CHECKSUMS.json; else what to say. Never a path a request gives."""
+    copy = os.path.realpath(os.path.join(root, *DGX_COPY.split("/")))
+    if not os.path.isdir(copy) or not inside(os.path.realpath(os.path.join(root, "managed_components")), copy):
+        return None, f"the project has no copy of DGX of the registry in {DGX_COPY}: the picture is not made; take jef-sure/dgx from the registry"
+    tool = os.path.join(copy, "tools", "dgx_images.py")
+    if not os.path.isfile(tool):
+        return None, "the project's DGX makes no files of pictures: the picture is not made; DGX 0.12.10 or a later one"
+    sums = os.path.join(copy, "CHECKSUMS.json")
+    if not os.path.isfile(sums):
+        return None, f"DGX here is not the registry's copy (no CHECKSUMS.json in {DGX_COPY}): the picture is not made; take jef-sure/dgx from the registry"
+    try:
+        with open(sums, encoding="utf-8") as listed:
+            files = {one["path"]: one["hash"] for one in json.load(listed)["files"]}
+        with open(tool, "rb") as data:
+            held = files.get("tools/dgx_images.py") == hashlib.sha256(data.read()).hexdigest()
+    except (OSError, ValueError, KeyError, TypeError):
+        held = False
+    if not held:
+        return None, f"{DGX_COPY}/tools/dgx_images.py is not as its CHECKSUMS.json says: the picture is not made"
+    return tool, None
+
+
+def png_size(data):
+    """The width and the height of a PNG by its head, IHDR, the first part after the signature; None when it is not."""
+    if len(data) < 24 or data[8:16] != b"\0\0\0\x0dIHDR":
+        return None
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def make_picture(root, asked):
+    """A file of DGX of the PNG files given, by the writer of the project's DGX, run apart: the server's own Python with
+    -I, a fresh folder, an environment of PATH alone, a time, what it prints bounded. Its bytes, or the words of what is
+    wrong."""
+    pngs = asked.get("pngs") if isinstance(asked, dict) else None
+    if not isinstance(pngs, list) or not 1 <= len(pngs) <= 64 or not all(isinstance(one, str) for one in pngs):
+        return None, "the PNG files of the picture, 1 to 64, each as base64"
+    try:
+        datas = [base64.b64decode(one, validate=True) for one in pngs]
+    except ValueError:
+        return None, "the PNG files of the picture, each as base64"
+    if not all(data.startswith(PNG_SIGNATURE) for data in datas):
+        return None, "a file given is not a PNG"
+    sizes = [png_size(data) for data in datas]
+    if None in sizes:
+        return None, "a file given is not a PNG: its head, IHDR, is not its first part"
+    limits = f"the builder takes pictures of up to {WIDEST_PICTURE} pixels a side and 4 Mpx in all"
+    for width, height in sizes:
+        if width > WIDEST_PICTURE or height > WIDEST_PICTURE:
+            return None, f"a picture of {width}x{height}: {limits}"
+    if sum(width * height for width, height in sizes) > MOST_PIXELS:
+        return None, f"{len(sizes)} pictures of {sum(width * height for width, height in sizes)} pixels in all: {limits}"
+    bits, ink, background = asked.get("bits"), asked.get("ink"), asked.get("background")
+    if bits not in PICTURE_WORDS["bits"] or (ink is not None and ink not in PICTURE_WORDS["ink"]) or \
+            (background is not None and not (isinstance(background, str) and re.fullmatch(r"[0-9a-fA-F]{6}", background))):
+        return None, "bits 1, 4, 8 or 16; ink dark or light; a background of six hex digits"
+    tool, said = dgx_writer(root)
+    if not tool:
+        return None, said
+    with tempfile.TemporaryDirectory(prefix="dgx-ui-picture-") as folder:
+        names = []
+        for k, data in enumerate(datas):
+            names.append(f"picture{k}.png")
+            with open(os.path.join(folder, names[-1]), "wb") as out:
+                out.write(data)
+        words = ["PNG", *names, "BITS", str(bits)] + (["REDUCE"] if asked.get("reduce") is True else []) + (["DITHER"] if asked.get("dither") is True else [])
+        words += (["INK", ink.upper()] if ink else []) + (["BACKGROUND", background] if background else [])
+        env = {"PATH": os.environ.get("PATH", "")}
+        if os.name == "nt" and "SYSTEMROOT" in os.environ:
+            env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]  # Python itself does not start on Windows without it
+        run = subprocess.Popen([sys.executable, "-I", tool, "make", "made.dgxi", *words], cwd=folder, env=env, stdin=subprocess.DEVNULL,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        kept = bytearray()
+
+        def drain():  # what it prints read as it comes, its first bytes kept, the rest let go: nothing of it on a disk
+            while True:
+                chunk = run.stdout.read(65536)
+                if not chunk:
+                    return
+                kept.extend(chunk[:max(0, WRITER_SAID - len(kept))])
+        reader = threading.Thread(target=drain, daemon=True)
+        reader.start()
+        try:
+            run.wait(timeout=WRITER_S)
+        except subprocess.TimeoutExpired:
+            run.kill()
+            run.wait()
+            return None, f"DGX's writer did not finish in {WRITER_S} s: the picture is not made"
+        finally:
+            reader.join(5)
+            run.stdout.close()
+        if run.returncode != 0:
+            return None, kept.decode("utf-8", errors="replace").strip() or "DGX's writer refused the picture"
+        made = os.path.join(folder, "made.dgxi")
+        if not os.path.isfile(made) or os.path.getsize(made) > LONGEST_PICTURE:
+            return None, f"DGX's writer made no file of at most {LONGEST_PICTURE} bytes"
+        with open(made, "rb") as data:
+            return data.read(), None
+
+
 def reading(root, rel, real):
     """What is wrong with a read of a file, or None, and whether only its lines of the panel are given: the builder reads
     the project's CMakeLists and CMakePresets.json, the files its calls name, the pages and appearances there, the fonts
@@ -218,7 +421,9 @@ def reading(root, rel, real):
     named = called_files(root)
     if written in named and name.endswith(WRITTEN_SUFFIXES):
         return None, False
-    if any(pattern.fullmatch(written) for pattern in BOARD_FILES) or font_listed(root, written):
+    if any(pattern.fullmatch(written) for pattern in BOARD_FILES) or font_listed(root, written) or image_listed(root, written):
+        return None, False
+    if written in needed_pngs(root):
         return None, False
     searched = not any(part.casefold() in NOT_SEARCHED or part.casefold().startswith("build") for part in written.split("/")[:-1])
     if searched and name.endswith(".json") and page_there(real):
@@ -400,7 +605,7 @@ def handler_of(project, token, port, page=None):
             if not self.from_own_page():
                 return self.answer(403, {"error": "a write from another page"})
             address = urllib.parse.urlsplit(self.path)
-            if address.path != "/project/file":
+            if address.path not in ("/project/file", "/project/binary", "/project/image"):
                 return self.answer(404)
             length = self.headers.get("Content-Length", "")
             if not length.isdigit():
@@ -413,6 +618,27 @@ def handler_of(project, token, port, page=None):
                 data = b""
             if len(data) < int(length):
                 return self.answer(400, {"error": "the body ended before its length: nothing written"})
+            if address.path == "/project/image":
+                try:
+                    asked = json.loads(data)
+                except ValueError:
+                    return self.answer(400, {"error": "not JSON"})
+                made, problem = make_picture(root, asked)
+                if problem:
+                    return self.answer(400, {"error": problem})
+                return self.answer(200, {"dgxi": base64.b64encode(made).decode(), "length": len(made)})
+            if address.path == "/project/binary":
+                rel = urllib.parse.parse_qs(address.query).get("path", [""])[0]
+                problem = png_problem(root, rel, data)
+                if problem:
+                    return self.answer(400, {"error": problem})
+                folder = os.path.dirname(os.path.join(root, rel))
+                try:
+                    os.makedirs(folder, exist_ok=True)  # images/ beside the file of needs, png_problem() allowed it
+                    write_file(root, rel, data)
+                except OSError as error:
+                    return self.answer(500, {"error": f"{rel}: {error.strerror or error}"})
+                return self.answer(200)
             rel, problem = self.path_asked(address, writing=True)
             if problem:
                 return self.answer(400, {"error": problem})

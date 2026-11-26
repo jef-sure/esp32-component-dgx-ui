@@ -6,8 +6,8 @@ preview_build.py: the steps of the preview's build (Makefile) that are not the c
         library_looks.h and library_draws.h, the library's looks and draws by their words, as dgx_ui_c.py makes them
     preview_build.py version <DGX> <preview_version.h> <dgx-ui directory> <source>...
         what the module is made of: dgx-ui's version, DGX's with the hash the registry gave its copy, the toolchain's,
-        and a hash of every source and header given; refused, a DGX that is not the registry's copy at the version
-        dgx-ui asks for at least: one of another version, or a checkout
+        and a hash of every source and header given; refused, a DGX that is not the registry's copy of a version dgx-ui
+        takes, its ^x.y.z: one below it or past its range, or a checkout
     preview_build.py js <module.wasm> <preview_class.js> <preview_version.h> <dgx_colors.h> <dgx_ui_preview.js>
         the module's bytes in base64 and the class that calls them, one file a page loads with no server, with the names
         of DGX's colours read from its dgx_colors.h
@@ -85,8 +85,10 @@ def version(dgx, out, dgx_ui, sources, clang):
     if not os.path.exists(hash_file):
         fail(f"{dgx} has no .component_hash: the module is built from the registry's copy of DGX, a project's managed_components/jef-sure__dgx")
     dgx_version, floor = top_version(os.path.join(dgx, "idf_component.yml")), floor_of_dgx(os.path.join(dgx_ui, "idf_component.yml"))
-    if dgx_version != floor:
-        fail(f"DGX {dgx_version}: the module is built on the version dgx-ui asks for at least, {floor}")
+    have, least = [int(part) for part in dgx_version.split(".")], [int(part) for part in floor.split(".")]
+    # ^x.y.z: from it to the next x, or the next y while x is 0, as the component manager reads it
+    if have < least or (have[0] != least[0] if least[0] else have[:2] != least[:2]):
+        fail(f"DGX {dgx_version}: the module is built on a version dgx-ui takes, ^{floor}")
     said = subprocess.run([clang, "--version"], capture_output=True, text=True)
     found = re.search(r"clang version (\S+)", said.stdout)
     if said.returncode or not found:

@@ -96,7 +96,7 @@ bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     const int top = cy + paint->oy > hole.y ? (cy + paint->oy - hole.y) / k : 0;
     const int end = cy + paint->oy + ch < hole.y + hole.h ? (cy + paint->oy + ch - hole.y + k - 1) / k : im->height;
     /* the table exact: one that runs straight from its first colour to its last is not mixed by a panel's hardware */
-    const dgx_image_blit_t how = {.flags = DGX_IMAGE_OPAQUE, .map = pic->map, .bg = drawn ? 0u : (uint32_t)paper_index};
+    const dgx_image_blit_t how = {.flags = DGX_IMAGE_OPAQUE, .map = pic->map, .bg = pic->solid ? pic->zero : drawn ? 0u : (uint32_t)paper_index};
     for (int y0 = top; y0 < end; y0 += rows) { /* y0 a row of the picture, from its own top */
         const int h = end - y0 < rows ? end - y0 : rows;
         dgx_vscreen_array_set(paint->indexed, buffer, im->width, h);

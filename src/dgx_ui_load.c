@@ -334,6 +334,7 @@ static bool walk(load_t *L, int parent, int *index)
 static void begin(load_t *L, const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_error_t *err)
 {
     memset(L, 0, sizeof *L);
+    if (names && names->start) names->start();
     dgx_ui_read_begin(&L->read, json, len, err);
     L->names = names, L->top = -1;
 }

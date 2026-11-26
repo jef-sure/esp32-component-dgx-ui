@@ -22,6 +22,7 @@ things as code, and the [API reference](api.md) lists every call.
 | `dgx_ui_load.h` | a tree made from a description in JSON | no |
 | `dgx_ui_di.h` | the touch of DGX-DI as the pointer of a tree; only when the program has DGX-DI | no |
 | `dgx_ui_appearance.h` | colours, text styles and looks from a description in JSON, one for all the pages | no, but `dgx_ui_pack_screen()`, which packs a colour for a screen |
+| `dgx_ui_picture_file.h` | pictures of a file DGX made of PNG files, read where they lie into the widgets' pictures, for the C `dgx_ui_c` makes | yes, DGX's reader of files of pictures |
 
 The core, the text box and the messages draw nothing, so they are tested on a computer without a display.
 

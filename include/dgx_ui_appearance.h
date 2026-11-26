@@ -182,13 +182,16 @@ typedef struct dgx_ui_appearance_names_t {
     const dgx_ui_look_name_t    *looks;
     const dgx_ui_style_name_t   *styles;
     uint16_t draw_count, font_count, hand_count, picture_count, look_count, style_count;
+    /** Called by dgx_ui_appearance_need() and dgx_ui_appearance_load() before the appearance is read, as
+        dgx_ui_load_names_t::start: the pictures of files of DGX read into their table. NULL: nothing to make ready. */
+    void (*start)(void);
 } dgx_ui_appearance_names_t;
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 #ifdef __cplusplus
-static_assert(sizeof(dgx_ui_appearance_names_t) == 36, "the tables an appearance is read on are 36 bytes on a 32-bit chip");
+static_assert(sizeof(dgx_ui_appearance_names_t) == 40, "the tables an appearance is read on are 40 bytes on a 32-bit chip");
 #else
-_Static_assert(sizeof(dgx_ui_appearance_names_t) == 36, "the tables an appearance is read on are 36 bytes on a 32-bit chip");
+_Static_assert(sizeof(dgx_ui_appearance_names_t) == 40, "the tables an appearance is read on are 40 bytes on a 32-bit chip");
 #endif
 #endif
 

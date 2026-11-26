@@ -137,7 +137,8 @@ bool dgx_ui_draw_nine(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
             if (!w[k] || !h[k] || !dgx_ui_rect_intersect(&cell, &strip, &here)) continue;
             const dgx_image_t     *im     = p->pieces[k].image;
             const bool             corner = k == 0 || k == 2 || k == 6 || k == 8;
-            const dgx_image_blit_t how    = {.flags = DGX_IMAGE_CLIP, .map = p->pieces[k].map, .color = p->ink, .scale = (uint8_t)scale[k],
+            const dgx_image_blit_t how    = {.flags = DGX_IMAGE_CLIP | (p->pieces[k].solid ? DGX_IMAGE_OPAQUE : 0u), .map = p->pieces[k].map, .color = p->ink,
+                                             .bg = p->pieces[k].zero, .scale = (uint8_t)scale[k],
                                              .clip_x = (int16_t)(here.x - strip.x), .clip_y = (int16_t)(here.y - strip.y),
                                              .clip_w = (int16_t)here.w, .clip_h = (int16_t)here.h};
             /* a corner once; an edge and the middle again and again, the tiles in the strip alone */

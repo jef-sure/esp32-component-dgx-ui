@@ -2,7 +2,8 @@
  * hook: the tree of pages/a.json loaded at run time on the tables dgx_ui_names() made of vocab.txt, and the same tree
  * added by the function dgx_ui_tree() made of it: the same widgets, the same id. Then the trees made of b.json and of
  * the second component's description, made on its appearance; then framed.json, made on that appearance in this
- * component, against the loader on the tables made with it. "hook: ok" and 0 when all holds.
+ * component, against the loader on the tables made with it; and pictured.json, a picture of a file DGX made of a PNG,
+ * read where it lies. "hook: ok" and 0 when all holds.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 #include "themed.h"
 #include "dgx_ui_load.h"
 #include "other.h"
+#include "pictured.h"
 #include "headers/program.h"
 #include "second.h"
 #include "third.h"
@@ -91,6 +93,13 @@ void app_main(void)
     if (dgx_ui_node(&made, 0)->widget->look != &theme_look[0] || dgx_ui_node(&made, 1)->widget->look != &theme_look[1] ||
         dgx_ui_node(&made, 2)->widget->text->style != &theme_style[0])
         fail("the tree made on the appearance has not its looks and style");
+    /* a picture of a file: read at the add, of the size of its PNG */
+    dgx_ui_free(&made);
+    dgx_ui_init(&made, made_nodes, 16, 1);
+    if (pictured_add(&made, -1) != 0) fail("the tree of the picture not added");
+    const dgx_ui_picture_t *logo = dgx_ui_node(&made, 1)->widget->picture;
+    if (!logo || !logo->image || logo->map || logo->image->width != 12 || logo->image->height != 8) fail("the picture of the file not read");
+    printf("hook: the picture logo, %d x %d of %d bit\n", logo->image->width, logo->image->height, logo->image->format);
     printf("hook: ok\n");
     exit(0);
 }

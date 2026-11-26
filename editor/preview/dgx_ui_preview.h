@@ -34,7 +34,7 @@ typedef struct preview_verdict_t {
     char    name[24];
     char    said[512];
 } preview_verdict_t;
-enum { PREVIEW_NAMES_REFUSED = -1, PREVIEW_NO_SCREEN = -2, PREVIEW_FONT_REFUSED = -3 };
+enum { PREVIEW_NAMES_REFUSED = -1, PREVIEW_NO_SCREEN = -2, PREVIEW_FONT_REFUSED = -3, PREVIEW_PICTURE_REFUSED = -4 };
 /** The longest name of C preview_font() takes. */
 enum { PREVIEW_FONT_NAME_MOST = 63 };
 
@@ -96,6 +96,16 @@ const preview_verdict_t *preview_names(const char *text, size_t length);
  * order, or not a font, spoiled or cut. A page gives them in the order names, fonts, appearance, page.
  */
 const preview_verdict_t *preview_font(const char *name, const void *bytes, size_t length);
+/**
+ * The file of pictures of DGX, a .dgxi as its build makes it of a need's PNG files, given for the asset's name a names
+ * file's line `picture <name> @<asset>` takes: its pictures read where they lie by the library's own reading
+ * (dgx_ui_picture_file_read()), the map of 4 and 8 bits to the appearance's colours by the nearest, as dgx_ui_c makes it;
+ * the panel draws the very bytes the board reads. The bytes are copied and live as a font's file does; NULL lets the
+ * name's file go. Its verdict: 0; or PREVIEW_PICTURE_REFUSED, the words in said: a name longer than
+ * PREVIEW_FONT_NAME_MOST, a file of a later format, not a file of pictures, spoiled or cut. A picture of a file dgx-ui
+ * does not draw is told in the notes, a crossed square in its place.
+ */
+const preview_verdict_t *preview_picture(const char *name, const void *bytes, size_t length);
 /** The appearance, kept and loaded again with each page, on the names; NULL, none. Its verdict on the names alone. */
 const preview_verdict_t *preview_appearance(const char *text, size_t length);
 /**

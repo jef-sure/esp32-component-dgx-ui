@@ -456,6 +456,7 @@ static bool document(appearance_load_t *A)
 static void begin(appearance_load_t *A, const char *json, size_t len, const dgx_ui_appearance_names_t *names, dgx_ui_load_error_t *err)
 {
     memset(A, 0, sizeof *A);
+    if (names && names->start) names->start();
     dgx_ui_read_begin(&A->read, json, len, err);
     A->names = names;
 }

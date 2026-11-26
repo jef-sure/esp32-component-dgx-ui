@@ -19,9 +19,10 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_load.h`](#dgx_ui_loadh) | a tree made from a description in JSON |
 | [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
+| [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | pictures of a file of DGX, made of PNG files when the program is built, read where they lie into a table of the widgets' pictures |
 | [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.3: the names and
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.4: the names and
 the signatures are fixed since 0.1.0; one that would break a program comes only with 0.2.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -230,13 +231,17 @@ typedef struct dgx_ui_picture_t {
     const uint8_t     *map;
     int16_t            width, height;
     uint8_t            scale;
+    uint8_t            solid;
+    uint8_t            zero;
 } dgx_ui_picture_t;
 ```
 
 A picture of DGX in `image`, drawn by `dgx_ui_look_picture` when it is of 1 bit; or rows of RGB565, high byte first, in
 `rgb565` with their `width` and `height`, drawn by `dgx_ui_look_rgb565`. A picture of 4 or 8 bits in `image` is drawn
 by `dgx_ui_look_indexed`: its values go through `map` to indices of the painter's table, the value 1 the entry
-`map[0]`; without a map the value is the index; a pixel 0 is the paper.
+`map[0]`; without a map the value is the index; a pixel 0 is the paper. With `solid` the value 0 is a colour too, the
+index `zero` of the table: a picture whose palette uses every value of its depth. The C of a picture of a file sets
+both ([dgx_ui_picture_file.h](#dgx_ui_picture_fileh)); a picture written by hand leaves them 0.
 
 `void dgx_ui_picture_size(const dgx_ui_picture_t *p, int *w, int *h)` gives the size of either.
 
@@ -1649,6 +1654,7 @@ typedef struct dgx_ui_load_names_t {
     const dgx_ui_context_name_t *contexts;
     const dgx_ui_id_name_t           *ids;
     uint16_t look_count, value_count, picture_count, style_count, handler_count, take_count, context_count, id_count;
+    void (*start)(void);
 } dgx_ui_load_names_t;
 
 typedef struct dgx_ui_load_need_t  { size_t bytes; int nodes; int depth; char name[24]; } dgx_ui_load_need_t;
@@ -1667,7 +1673,10 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 A picture's entry says how many pictures stand there, 0 or 1 meaning one. A handler's entry says whether it takes
 its ctx for a number. An id's entry is where the index of the widget of that id is written, when the description
 has it and the whole load succeeded; an id the table has not is passed over, so one table serves several pages, and
-at most `DGX_UI_LOAD_MAX_IDS` ids are in a table.
+at most `DGX_UI_LOAD_MAX_IDS` ids are in a table. `start`, when it is not `NULL`, is called by `dgx_ui_load_need()` and
+`dgx_ui_load()` before the description is read, at every load, in the task that owns the tree: the tables
+`dgx_ui_names()` makes of a names file with pictures of files read those pictures into their table at its first call,
+and do nothing at the next.
 
 **The format, version 1**: one object of the keys `"dgx-ui": 1`, `"tree"`, a widget, and two that may be left out,
 `"name"`, the tree's name, and `"editor"`, an object of the tool that edits the description; in any order, each at
@@ -1842,7 +1851,7 @@ so that no colour is forgotten into paper on paper. So must a style's `"fonts"`,
 name of the program's pictures, as a page names a picture, which a table holds 9 of at least; fewer is
 `DGX_UI_LOAD_RANGE` with the field's name.
 
-**The program's tables**, `dgx_ui_appearance_names_t`, 36 bytes<!-- sizeof dgx_ui_appearance_names_t --> on a
+**The program's tables**, `dgx_ui_appearance_names_t`, 40 bytes<!-- sizeof dgx_ui_appearance_names_t --> on a
 32-bit chip: what an appearance may name, and what comes after its own.
 
 | Member | What it lists |
@@ -1852,6 +1861,7 @@ name of the program's pictures, as a page names a picture, which a table holds 9
 | `hands`, `hand_count` | `dgx_ui_hand_name_t`: `DGX_UI_HAND_NAME(handwriting)`, `DGX_UI_HAND_NAME(handwriting_canvas)` |
 | `pictures`, `picture_count` | `dgx_ui_picture_name_t`, as a page's table has them: the pictures a look's field may name, `{"card", card_pieces, 9}`. One table may serve the pages and the appearance |
 | `looks`, `look_count`, `styles`, `style_count` | the program's own looks and styles, of C, which stand after the appearance's in the tables it lays |
+| `start` | called by `dgx_ui_appearance_need()` and `dgx_ui_appearance_load()` before the appearance is read, as the `start` of the pages' tables: the pictures of files read into their table. `NULL`: nothing to make ready |
 
 **Whose name it is.** The appearance's looks and styles stand first in the tables, the program's own after them,
 and a page takes the first of a name. So a look `"slider"` of an appearance restyles every slider that takes its
@@ -1935,13 +1945,57 @@ colour's name; a colour, a draw, a font or a hand no table has is `DGX_UI_LOAD_U
 A program that loads an appearance carries about 5 KB more than one that loads pages, and the description of
 each draw it lists, 24 bytes a field; one that does not, nothing. On an ESP32 a load takes about 1 KB of stack.
 
+## dgx_ui_picture_file.h
+
+Pictures of a file of DGX, `.dgxi`, which DGX makes of PNG files when the program is built and lays in flash
+([DGX's pictures](https://github.com/jef-sure/esp32-component-dgx/blob/main/docs/pictures-en.md)). A names file's line
+`picture <name> @<asset>` names them; the C `dgx_ui_c` makes of it holds this table and fills it, and a program
+writes none of it by hand. A program that names no picture of a file carries none of it.
+
+```c
+typedef struct dgx_ui_picture_file_t {
+    const uint8_t    *bytes;
+    const uint32_t   *length;
+    const char       *name;
+    dgx_ui_picture_t *pictures;
+    dgx_image_t      *images;
+    const uint8_t    *map;
+    uint16_t          count;
+    uint8_t           bits;
+    uint8_t           scale;
+    uint8_t           solid;
+    uint8_t           zero;
+} dgx_ui_picture_file_t;
+```
+
+| Member | Meaning |
+| ------ | ------- |
+| `bytes`, `length` | the file, `dgx_asset_<asset>` of DGX's `dgx_assets.h`, and `&dgx_asset_<asset>_size` |
+| `name` | the asset's name, for the log |
+| `pictures`, `images` | the tables filled, `count` of each, in RAM: the widgets' pictures, and a picture of DGX each for 1, 4 and 8 bits; `images` is `NULL` for 16 |
+| `map` | 4 and 8 bits: `map[p - 1]`, the index of the painter's table of the value `p`, by the nearest colour of the appearance, or the program's own array; `NULL` for 1 and 16 |
+| `count`, `bits` | what the file held when the C was made: so many pictures of 1, 4 or 8 bits indexed, or of 16 of pixels |
+| `scale`, `solid`, `zero` | of every picture, as `dgx_ui_picture_t` has them |
+
+| Call | What it does |
+| ---- | ------------ |
+| `bool dgx_ui_picture_file_read(const dgx_ui_picture_file_t *file)` | The pictures of the file into its table, where they lie: no copy of a pixel. `false`, and the table left zeros, so that its widgets draw paper, when the file does not read or is not what the C was made of, its count, its depth or its kind; the log says which. |
+
+The made C reads its files once, in its `<prefix>_add()` and in the `start` of the tables of `dgx_ui_names()` and of
+the appearance's names. A picture of 1 bit is drawn by `dgx_ui_look_picture` in the ink and the paper of its look; one
+of 4 or 8 bits by `dgx_ui_look_indexed` through its map, with `solid` when its palette uses every value; one of 16 bits
+by `dgx_ui_look_rgb565`. What `dgx_ui_c` refuses when the program is built, in words with the names file's line:
+an asset DGX's list does not name, a file of a later format of DGX or of a kind dgx-ui does not draw, a mask of soft
+edges among them, 16 bits with transparency, a palette with the opacity of its PNG, a count the file does not hold,
+and 4 or 8 bits with neither an appearance nor `map=`.
+
 ## project_include.cmake
 
 Three calls for the `CMakeLists.txt` of a component, the program's `main` among them, after `idf_component_register()`;
 written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
 C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
-the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.3/tools/README.md).
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.4/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])
@@ -1987,6 +2041,21 @@ the made function writes the widget's index to; the others are constant expressi
 names, the ids' `DGX_UI_LOAD_MAX_IDS`. For `dgx_ui_appearance()` the same file says what an appearance may name: its
 `picture` lines, the same as a page's, so that one line serves both, and lines of draws, fonts and hands, which
 the tool's page lists.
+
+**A picture of a file.** `picture <name> @<asset> [<count>] [scale <n>] [map=<array>]` names the pictures of a file
+DGX makes of PNG files when the program is built: the asset is the name of a need of DGX's `dgx_image_need()`, or of
+a line of the file `dgx_image_needs_file()` names, in the same project.
+
+```cmake
+dgx_image_needs_file(images.txt)      # DGX's: a need a line, "sun PNG art/sun.png BITS 4"
+dgx_ui_tree(weather.json NAMES vocab.txt)
+```
+
+The made C keeps the pictures' table and fills it from the file where it lies ([dgx_ui_picture_file.h](#dgx_ui_picture_fileh));
+it waits for DGX's files and is made again when one of them changes, whichever component's CMakeLists is read first.
+A picture of 4 or 8 bits takes, for each colour of its palette, the nearest colour of the appearance given by
+`APPEARANCE`, or the program's own array of indices, `map=<array>`. An appearance made C does not take a picture of a
+file yet.
 
 With a names file a description names only what the file lists, as with the tables of `dgx_ui_load()`: a name the
 file has not is refused, a table it does not name is empty, and an id it has not is passed over. So what the tool

@@ -19,7 +19,7 @@ CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
 # would shift is warned at, braces or members missing
 WARN     := -Wall -Wextra -Wmissing-braces -Wmissing-field-initializers -Wno-unused-parameter -Werror=deprecated-declarations
 
-all: run-test_rect run-test_core run-test_percent run-test_text_state run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_no_vscreen run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_lines_count run-test_hatch run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_points run-test_bounds run-test_picture_scale run-test_picture_scale18 run-test_nine run-test_nine18 run-test_scroll_box run-test_pictures_deep18 run-test_pictures_deep24 run-test_caret run-test_caret18 run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance run-test_preview run-test_preview_module run-test_preview_class run-test_preview_format run-test_description run-test_builder_templates run-test_builder_appearance run-test_builder_names run-test_builder_store run-test_builder_page run-test_serve run-test_mcp check-werror check-format-chip check-lists $(if $(DGX_DI),run-test_di) check-cxx
+all: run-test_rect run-test_core run-test_percent run-test_text_state run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_no_vscreen run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_lines_count run-test_hatch run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_points run-test_bounds run-test_picture_scale run-test_picture_scale18 run-test_nine run-test_nine18 run-test_scroll_box run-test_pictures_deep18 run-test_pictures_deep24 run-test_caret run-test_caret18 run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance run-test_picture_files run-test_order run-test_preview run-test_preview_module run-test_preview_class run-test_preview_format run-test_description run-test_builder_templates run-test_builder_appearance run-test_builder_names run-test_builder_store run-test_builder_page run-test_builder_import run-test_serve run-test_serve_pictures run-test_mcp check-werror check-format-chip check-lists $(if $(DGX_DI),run-test_di) check-cxx
 
 run-%: $(BUILD)/%
 	$<
@@ -44,7 +44,7 @@ $(BUILD)/test_msg: test_msg.c check.h $(CORE) $(wildcard $(ROOT)/include/*.h $(R
 
 # the painter draws with DGX: its sources and its stubs of ESP-IDF, as DGX gives them (host/dgx_host.mk)
 PAINT     := $(CORE) $(ROOT)/src/dgx_ui_paint.c $(ROOT)/src/dgx_ui_looks.c $(ROOT)/src/dgx_ui_text_look.c $(ROOT)/src/dgx_ui_lines_look.c \
-             $(addprefix $(ROOT)/src/, dgx_ui_button_look.c dgx_ui_picture_button_look.c dgx_ui_input_look.c dgx_ui_control_looks.c dgx_ui_check_looks.c dgx_ui_level_look.c dgx_ui_ring_look.c dgx_ui_list_look.c dgx_ui_dropdown_look.c dgx_ui_dropdown.c dgx_ui_picture_look.c dgx_ui_rgb565_look.c dgx_ui_indexed_look.c dgx_ui_nine_look.c dgx_ui_scroll.c dgx_ui_scroll_look.c dgx_ui_strips.c dgx_ui_deep.c dgx_ui_background.c dgx_ui_canvas.c dgx_ui_hand.c dgx_ui_hand_canvas.c dgx_ui_paint_changes.c dgx_ui_page.c dgx_ui_transition.c dgx_ui_hand_lines.c dgx_ui_idle.c dgx_ui_load.c dgx_ui_load_actions.c dgx_ui_json.c dgx_ui_read.c dgx_ui_appearance.c dgx_ui_params.c)
+             $(addprefix $(ROOT)/src/, dgx_ui_button_look.c dgx_ui_picture_button_look.c dgx_ui_input_look.c dgx_ui_control_looks.c dgx_ui_check_looks.c dgx_ui_level_look.c dgx_ui_ring_look.c dgx_ui_list_look.c dgx_ui_dropdown_look.c dgx_ui_dropdown.c dgx_ui_picture_look.c dgx_ui_rgb565_look.c dgx_ui_indexed_look.c dgx_ui_nine_look.c dgx_ui_scroll.c dgx_ui_scroll_look.c dgx_ui_strips.c dgx_ui_deep.c dgx_ui_background.c dgx_ui_canvas.c dgx_ui_hand.c dgx_ui_hand_canvas.c dgx_ui_paint_changes.c dgx_ui_page.c dgx_ui_transition.c dgx_ui_hand_lines.c dgx_ui_idle.c dgx_ui_load.c dgx_ui_load_actions.c dgx_ui_json.c dgx_ui_read.c dgx_ui_appearance.c dgx_ui_params.c dgx_ui_picture_file.c)
 DGX_SRCS  := $(DGX_HOST_SRCS_SCREEN) $(DGX_HOST_SRCS_DRAW) $(DGX_HOST_SRCS_VSCREEN) $(DGX_HOST_SRCS_TEXT) $(DGX_HOST_SRCS_MORPH) \
              $(DGX_HOST_SRCS_FB) $(DGX_ROOT)/src/fonts/TerminusTTFMedium12.c $(DGX_ROOT)/src/fonts/DejaVuSansBook32.c
 DGX_FLAGS := -I$(DGX)/src -Wno-format -Wno-sign-compare
@@ -247,12 +247,22 @@ $(BUILD)/test_idle $(BUILD)/test_idle18: $(BUILD)/test_idle%: test_idle.c check.
 # dgx_ui_c against the loader (test_generate.py): the tool built into this build by tools/dgx_ui_c.py, the one way it
 # is built, as the package's rule builds it; the files it makes compiled with test_generate.c in one go
 $(BUILD)/tools/dgx_ui_c: $(ROOT)/tools/dgx_ui_c.c $(ROOT)/tools/dgx_ui_names.c $(ROOT)/tools/dgx_ui_names.h $(ROOT)/tools/dgx_ui_c.py $(PAINT) $(wildcard $(ROOT)/include/*.h $(ROOT)/src/*.h) $(wildcard $(ROOT)/src/*.h) \
-                         $(DGX)/include/dgx_colors.h
+                         $(DGX)/include/dgx_colors.h $(DGX)/src/vscreen/image_file.c
 	python3 $(ROOT)/tools/dgx_ui_c.py $(abspath $(DGX)) $(abspath $(BUILD))/tools
 
 run-test_generate: $(BUILD)/tools/dgx_ui_c test_generate.c test_generate.py generate_program.h check.h
 	timeout 900 python3 test_generate.py $(BUILD)/tools/dgx_ui_c $(BUILD)/generate $(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) \
 		test_generate.c $(PAINT) $(DGX_SRCS) -lm -Wl,--wrap=calloc
+
+# the order of project_include.cmake's deferred calls against DGX's, on CMake and Ninja alone
+run-test_order: $(ROOT)/test/order/test_order.py $(ROOT)/test/order/CMakeLists.txt $(ROOT)/project_include.cmake
+	timeout 300 python3 $(ROOT)/test/order/test_order.py $(ROOT) $(abspath $(BUILD))/order
+
+# pictures of files of DGX, a names file's @<asset>, made C and drawn (test_picture_files.py): DGX's writer makes the files
+run-test_picture_files: $(BUILD)/tools/dgx_ui_c test_picture_files.c test_picture_files.py check.h $(PAINT) $(ROOT)/editor/preview/dgx_ui_preview.js
+	PREVIEW_JS=$(ROOT)/editor/preview/dgx_ui_preview.js timeout 900 python3 test_picture_files.py $(BUILD)/tools/dgx_ui_c $(DGX_ROOT) $(BUILD)/picture_files \
+		$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) \
+		$(DGX_FLAGS) $(PAINT) $(DGX_SRCS) -lm
 
 # appearances made C by dgx_ui_c against their loader (test_generate_appearance.py): the descriptions given out by a
 # program of the tool's own list of draws, the made files compiled with test_generate_appearance.c in one go
@@ -319,11 +329,17 @@ run-test_builder_appearance: $(ROOT)/test/editor/test_appearance.js $(ROOT)/edit
 # the builder's server from a terminal on a project in a temporary directory: its calls and each refusal
 run-test_serve: test_serve.py $(ROOT)/tools/dgx_ui_serve.py $(ROOT)/editor/index.html
 	timeout 120 python3 test_serve.py
+# the pictures of the builder's server: DGX's writer of the project's copy run apart, PNG files written, files read
+run-test_serve_pictures: test_serve_pictures.py $(ROOT)/tools/dgx_ui_serve.py
+	timeout 300 python3 test_serve_pictures.py $(DGX_ROOT)
+
 # the builder's server with an agent beside the page: its MCP over stdio, the relay to a page, --install, --serve
 run-test_mcp: test_mcp.py $(ROOT)/tools/dgx_ui_mcp.py $(ROOT)/tools/dgx_ui_serve.py $(ROOT)/tools/skills/dgx-ui-builder/SKILL.md
 	timeout 180 python3 test_mcp.py
 run-test_builder_store: $(ROOT)/test/editor/test_store.js $(BUILDER) $(BUILD)/fontfiles/dgx_fonts-files.txt
 	timeout 300 node $(ROOT)/test/editor/test_store.js $(BUILD)/fontfiles
+run-test_builder_import: $(ROOT)/test/editor/test_import.js $(BUILDER)
+	timeout 300 node $(ROOT)/test/editor/test_import.js $(DGX_ROOT)
 run-test_builder_page: $(ROOT)/test/editor/test_page.js $(BUILDER) $(ROOT)/tools/dgx_ui_serve.py $(ROOT)/tools/dgx_ui_mcp.py $(BUILD)/fontfiles/dgx_fonts-files.txt
 	timeout 300 node $(ROOT)/test/editor/test_page.js $(BUILD)/fontfiles $(BUILD)/builder-page.png
 
@@ -331,7 +347,7 @@ run-test_builder_page: $(ROOT)/test/editor/test_page.js $(BUILDER) $(ROOT)/tools
 # `all`: made twice and held equal before anything is written. OUT is given no default of the file's own, which
 # ../docs/run.mk, including this file, would take for its runners' pictures
 builder-shots: $(ROOT)/test/editor/shots.js $(ROOT)/test/editor/chrome.js $(BUILDER) $(BUILD)/fontfiles/dgx_fonts-files.txt
-	timeout 300 node $(ROOT)/test/editor/shots.js $(BUILD)/fontfiles $(or $(OUT),$(ROOT)/docs/images)
+	timeout 300 node $(ROOT)/test/editor/shots.js $(BUILD)/fontfiles $(or $(OUT),$(ROOT)/docs/images) $(DGX_ROOT)
 
 # fonts of DGX as files, each by DGX's font2bin of its C, and their index as DGX writes one: for the module's tests
 FONT_FILES := DejaVuSansBook32 DroidSansRegular9 IBMPlexMonoMedium28 LiberationSansRegular12 NotoMonoRegular28 TerminusTTFMedium12 font0ss

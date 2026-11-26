@@ -111,7 +111,8 @@ def main():
     stubs = os.path.join(dgx, "host", "stubs")
     command = [compiler, "-O2", "-std=gnu11", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Wno-sign-compare", "-DDGX_UI_PARTS_BY_NAME",
                "-I" + os.path.join(ROOT, "include"), "-I" + os.path.join(ROOT, "src"), "-I" + os.path.join(dgx, "include"), "-I" + stubs,
-               "-include", os.path.join(stubs, "esp_log.h"), "-I" + out, "-o", binary + ".new"] + SOURCES
+               "-include", os.path.join(stubs, "esp_log.h"), "-I" + out, "-o", binary + ".new"] + SOURCES + [
+                   os.path.join(dgx, "src", "vscreen", "image_file.c")]  # DGX's reader of its files of pictures, which the made C names
     try:
         run = subprocess.run(command, capture_output=True, text=True, env=env)
     except OSError:

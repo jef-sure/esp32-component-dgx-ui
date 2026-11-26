@@ -1,8 +1,8 @@
 /*
- * node shots.js <font files directory> <directory>: the pictures of the builder for its pages, editor/index.html opened
- * from the disk in a headless Chrome over the DevTools protocol (chrome.js), given the project of test/hook/project in
- * memory under the name "hook", as its host gives one with no File System Access: no path of the disk reaches the page.
- * Six pictures, builder-*.png:
+ * node shots.js <font files directory> <directory> <DGX>: the pictures of the builder for its pages, editor/index.html
+ * opened from the disk in a headless Chrome over the DevTools protocol (chrome.js), given the project of test/hook/project
+ * in memory under the name "hook", as its host gives one with no File System Access: no path of the disk reaches the
+ * page. Seven pictures, builder-*.png:
  *
  *     page        the window: the tree, the panel and Properties, the slider of main/pages/a.json selected
  *     appearance  the Appearance tab of main/framed.json, the look "slider" picked
@@ -10,10 +10,16 @@
  *     texts       the text of a page the loader refuses, the refusal marked
  *     agent       the dialog beside an agent, a message each way, the panel as the agent's message says
  *     rename      the question asked before a look of an appearance is renamed in the pages on it
+ *     import      a PNG of three colours with holes imported on the Names tab of main/pictured.json, its logo in one half of
+ *                 a row and the picture imported in the other: its colours counted, the depth they take, the weight, the
+ *                 picture made drawn in the panel before it is taken
  *
- * Two files are changed in memory, never on the disk, so that a picture has something to show: the names file without
- * the line of volume, and a page with a kind misspelled. The window is 1280 x 800 at one pixel a pixel (960 wide for
- * the agent's picture, so that the panel and the dialog stand close), the builder's zoom 2 (1 for the agent's), with
+ * Files are changed in memory, never on the disk, so that a picture has something to show: the names file without the
+ * line of volume, a page with a kind misspelled, and main/pictured.json a row of its logo and a second picture, "sun",
+ * that the import gives. The import's file is made once before the runs by DGX's own writer, tools/dgx_images.py of the DGX given, as
+ * dgx_ui_serve.py runs it; the host in memory answers the page's call for it with those bytes. The window is 1280 x 800 at one pixel a pixel (960 wide for
+ * the agent's picture, so that the panel and the dialog stand close; 960 high for the names', so that the tab is whole and
+ * scrolled nowhere), the builder's zoom 2 (1 for the agent's), with
  * no transitions, animations or caret; the page shows no clock. Every picture is made twice and the two runs held equal
  * byte for byte, the page's text held free of the machine's paths, user and host, and no error may reach the console;
  * only then are the pictures written. The same machine gives the same pixels; another machine's fonts may draw the
@@ -26,19 +32,21 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
+const zlib = require('zlib');
+const { spawn, execFileSync } = require('child_process');
 const { chrome, devtools } = require('./chrome');
 
 const ROOT = path.join(__dirname, '../..');
 const PROJECT = path.join(ROOT, 'test', 'hook', 'project');
-const [fontDirectory, out] = process.argv.slice(2);
-const WIDTH = 1280, HEIGHT = 800, MARGIN = 8, AGENT_WIDTH = 960;
+const [fontDirectory, out, dgx] = process.argv.slice(2);
+const WIDTH = 1280, HEIGHT = 800, MARGIN = 8, AGENT_WIDTH = 960, NAMES_HEIGHT = 960;
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 const failures = [];
 const check = (held, what) => (held ? true : (failures.push(what), false));
 
-/* the hook project as a host in memory gives it: its files by their paths, the fonts in its build */
-function projectFiles() {
+/* the hook project as a host in memory gives it: its files by their paths, the fonts in its build, and the files of
+   pictures its build makes, the logo of main/images.txt made by DGX's writer */
+function projectFiles(logo) {
     const files = {};
     const walk = (directory) => {
         for (const entry of fs.readdirSync(path.join(PROJECT, directory), { withFileTypes: true })) {
@@ -52,11 +60,47 @@ function projectFiles() {
     };
     walk('');
     for (const name of fs.readdirSync(fontDirectory)) files[`build/dgx_fonts/${name}`] = fs.readFileSync(path.join(fontDirectory, name));
+    files['build/dgx_images/dgx_images-files.txt'] = Buffer.from('logo logo.dgxi\n'), files['build/dgx_images/logo.dgxi'] = logo;
     return Object.fromEntries(Object.entries(files).map(([where, bytes]) => [where, bytes.toString('base64')]));
 }
 
-/* one run: the six pictures as PNG bytes by their names */
-async function run(binary) {
+/* the PNG imported: a sun of 24 x 24, three colours and holes, so a picture of 4 bits */
+function sunPng() {
+    const SIDE = 24, rows = [];
+    for (let y = 0; y < SIDE; ++y) {
+        const row = [0];
+        for (let x = 0; x < SIDE; ++x) {
+            const dx = x - 11.5, dy = y - 11.5, radius = Math.hypot(dx, dy), ray = Math.abs(Math.abs(dx) - Math.abs(dy)) < 1 || Math.abs(dx) < 1 || Math.abs(dy) < 1;
+            row.push(...(radius < 6 ? [255, 204, 0, 255] : radius >= 7 && radius < 8.5 ? [255, 136, 0, 255] : radius >= 9.5 && radius < 12 && ray ? [204, 51, 0, 255] : [0, 0, 0, 0]));
+        }
+        rows.push(Buffer.from(row));
+    }
+    const chunk = (kind, data) => {
+        const length = Buffer.alloc(4), crc = Buffer.alloc(4), body = Buffer.concat([Buffer.from(kind), data]);
+        length.writeUInt32BE(data.length), crc.writeUInt32BE(zlib.crc32(body) >>> 0);
+        return Buffer.concat([length, body, crc]);
+    };
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(SIDE, 0), header.writeUInt32BE(SIDE, 4), header.set([8, 6, 0, 0, 0], 8);
+    return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', header), chunk('IDAT', zlib.deflateSync(Buffer.concat(rows))),
+                          chunk('IEND', Buffer.alloc(0))]);
+}
+
+/* the file DGX's writer makes of the PNG, at the depth the builder picks for it, as dgx_ui_serve.py runs the writer */
+function madeOf(png, bits) {
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), 'dgx-ui-shots-picture-'));
+    try {
+        fs.writeFileSync(path.join(work, 'picture0.png'), png);
+        execFileSync('python3', ['-I', path.join(dgx, 'tools', 'dgx_images.py'), 'make', 'made.dgxi', 'PNG', 'picture0.png', 'BITS', String(bits)],
+                     { cwd: work, stdio: 'pipe', env: { PATH: process.env.PATH } });
+        return fs.readFileSync(path.join(work, 'made.dgxi'));
+    } finally {
+        fs.rmSync(work, { recursive: true, force: true });
+    }
+}
+
+/* one run: the pictures as PNG bytes by their names */
+async function run(binary, sun) {
     const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dgx-ui-builder-shots-'));
     const flags = ['--headless=new', `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--no-first-run', '--no-default-browser-check',
                    '--disable-gpu', '--disable-extensions', `--window-size=${WIDTH},${HEIGHT}`, '--force-device-scale-factor=1',
@@ -117,7 +161,7 @@ async function run(binary) {
             style.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; caret-color: transparent !important; }';
             document.head.appendChild(style); })()`);
         await evaluate(`(async () => {
-            const given = ${JSON.stringify(projectFiles())}, files = {};
+            const given = ${JSON.stringify(projectFiles(sun.logo))}, files = {};
             for (const [where, text] of Object.entries(given)) files[where] = Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
             await ${store}.open(memoryHost('hook', files, () => true));
         })()`);
@@ -148,11 +192,11 @@ async function run(binary) {
                     for (const element of elements) element.scrollIntoView({ block: 'nearest' });
                     const boxes = elements.map((one) => one.getBoundingClientRect());
                     return [Math.min(...boxes.map((r) => r.left)), Math.min(...boxes.map((r) => r.top)),
-                            Math.max(...boxes.map((r) => r.right)), Math.max(...boxes.map((r) => r.bottom)), window.innerWidth]; })()`);
+                            Math.max(...boxes.map((r) => r.right)), Math.max(...boxes.map((r) => r.bottom)), window.innerWidth, window.innerHeight]; })()`);
                 if (!check(box, `${name}: not all of ${selectors.join(', ')} on the page`)) return;
                 await sleep(200);
                 const left = Math.max(0, Math.floor(box[0]) - margin), top = Math.max(0, Math.floor(box[1]) - margin);
-                const right = Math.min(box[4], Math.ceil(box[2]) + margin), bottom = Math.min(HEIGHT, Math.ceil(box[3]) + margin, top + most);
+                const right = Math.min(box[4], Math.ceil(box[2]) + margin), bottom = Math.min(box[5], Math.ceil(box[3]) + margin, top + most);
                 clip = { x: left, y: top, width: right - left, height: bottom - top, scale: 1 };
             }
             const shot = await send('Page.captureScreenshot', { format: 'png', ...(clip ? { clip } : {}) });
@@ -207,8 +251,14 @@ async function run(binary) {
         check(without !== vocab, 'the names file had the line of volume');
         await evaluate(`(${store}.setTab('names'), ${store}.setText('names', ${JSON.stringify(without)}), true)`);
         await until(`document.querySelectorAll('.dgx-ui-builder .names .missing').length > 0`, 'the names the page misses listed');
+        /* in a window taller by the import's part of the pane, so that the pane is whole and scrolled nowhere */
+        await send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: NAMES_HEIGHT, deviceScaleFactor: 1, mobile: false });
+        await evaluate(`(document.querySelector('.dgx-ui-builder .names').closest('.pane').scrollTop = 0, true)`);
         await sleep(300);
-        await shoot('names', ['.dgx-ui-builder .names']);
+        check(await evaluate(`(() => { const pane = document.querySelector('.dgx-ui-builder .names').closest('.pane'); return pane.scrollHeight <= pane.clientHeight; })()`),
+              'the Names tab whole in its pane, scrolled nowhere');
+        await shoot('names', ['.dgx-ui-builder .names'], MARGIN, NAMES_HEIGHT);
+        await send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
         await evaluate(`${store}.setText('names', ${JSON.stringify(vocab)})`);
 
         /* the texts: a kind the loader knows not, its refusal marked, the cursor at it */
@@ -218,6 +268,37 @@ async function run(binary) {
         await evaluate(`${store}.putCursor()`);
         await sleep(300);
         await shoot('texts', ['.dgx-ui-builder .texts'], MARGIN, 300);
+        await evaluate(`(${store}.setText('page', ${JSON.stringify(spoiled.replace('"kind": "slidr"', '"kind": "slider"'))}), true)`);
+
+        /* the import: the host answers DGX's writer with the file made before the runs; the page names the picture the
+           import gives, so the panel draws it */
+        await page('main/pictured.json');
+        const pictured = await textOf('main/pictured.json');
+        check(pictured.includes('{"kind": "picture", "picture": "logo", "look": "picture"}'), 'main/pictured.json has its picture of the logo');
+        const half = (picture, look) => ({ kind: 'picture', picture, look, want: ['50%', '100%'] });
+        const withSun = JSON.stringify({ 'dgx-ui': 1, name: 'pictured', tree: { kind: 'box', flags: ['row'], children: [half('logo', 'picture'), half('sun', 'indexed')] } }) + '\n';
+        const pictures = await textOf('main/pictures.txt');
+        await evaluate(`(async () => {
+            const made = Uint8Array.from(atob(${JSON.stringify(sun.made.toString('base64'))}), (c) => c.charCodeAt(0));
+            ${store}.raw.host.image = async (pngs, options) => {
+                if (options.bits !== ${sun.bits} || options.reduce || options.dither || options.ink || options.background) throw new Error('not made for these options');
+                return made;
+            };
+            ${store}.setText('page', ${JSON.stringify(withSun)});
+            ${store}.setTab('names');
+            ${store}.setText('names', ${JSON.stringify(pictures.trimEnd() + '\nlook indexed\n')});
+            const png = Uint8Array.from(atob(${JSON.stringify(sun.png.toString('base64'))}), (c) => c.charCodeAt(0));
+            return ${store}.importStart([{ name: 'sun.png', bytes: png }]);
+        })()`);
+        await until(`${store}.importing && ${store}.importing.given && !!document.querySelector('.dgx-ui-builder .names .importing')`, 'the picture imported, given the panel');
+        check(await evaluate(`${store}.importing.colors === 3 && ${store}.importing.transparent && ${store}.importing.bits === ${sun.bits}`),
+              'the sun counted: 3 colours, with holes, 4 bits');
+        await settled('the page of the pictures');
+        const verdict = await evaluate(`JSON.stringify({ page: ${store}.verdicts.page, pictures: ${store}.verdicts.pictures, drawn: ${store}.drawn, size: [${store}.width, ${store}.height] })`);
+        check(JSON.parse(verdict).page?.code === 0 && JSON.parse(verdict).pictures.some((one) => one.name === 'logo' && one.verdict.code === 0),
+              'the page of the pictures drawn, the logo of its file: ' + verdict);
+        await evaluate(`document.querySelector('.dgx-ui-builder .tabs').scrollIntoView({ block: 'start' })`);
+        await shoot('import', ['.dgx-ui-builder canvas', '.dgx-ui-builder .tabs', '.dgx-ui-builder .names .importing']);
 
         check(!errors.length, 'no error on the console: ' + errors.join(' | '));
     } finally {
@@ -235,8 +316,9 @@ async function run(binary) {
         console.error('shots.js: no Chrome: CHROME=<its path>');
         process.exit(1);
     }
-    const first = await run(binary), second = await run(binary);
-    const names = ['page', 'appearance', 'names', 'texts', 'agent', 'rename'];
+    const png = sunPng(), sun = { png, bits: 4, made: madeOf(png, 4), logo: madeOf(fs.readFileSync(path.join(PROJECT, 'main', 'art', 'logo.png')), 1) };
+    const first = await run(binary, sun), second = await run(binary, sun);
+    const names = ['page', 'appearance', 'names', 'texts', 'agent', 'rename', 'import'];
     for (const name of names) {
         check(first[name] && second[name], `builder-${name}.png: not made`);
         if (first[name] && second[name]) check(first[name].equals(second[name]), `builder-${name}.png: the two runs differ`);

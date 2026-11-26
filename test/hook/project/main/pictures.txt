@@ -1,0 +1,3 @@
+# the names of the page of a picture of a file
+look picture
+picture logo @logo

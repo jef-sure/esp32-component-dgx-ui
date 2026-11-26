@@ -1,0 +1,2 @@
+# the pictures of the program, DGX makes their files: a need a line, the words of dgx_image_need()
+logo PNG art/logo.png BITS 1

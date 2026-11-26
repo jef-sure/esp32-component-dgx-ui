@@ -562,10 +562,26 @@ static void mono_picture(const char *dir)
     dgx_ui_free(&ui), dgx_ui_paint_free(&paint), dgx_screen_destroy(&scr);
 }
 
+/* A picture from a PNG file: the recipe's page made C on the appearance of the recipe before it, its sun read from the
+   file DGX's writer made of the recipe's PNG, on the appearance's own colours; at 2 pixels a point, under the margin of
+   the other scenes */
+static void imported_picture(const char *dir)
+{
+    static dgx_ui_node_t nodes[6];
+    static uint8_t       imported_buffer[512]; /* a row of the picture at its scale, as the look of 4 bits wants it */
+    dgx_ui_t             ui;
+    dgx_ui_paint_t       paint = {.scr = dgx_vscreen_init(320, 240, 16, DgxScreenRGB), .buffer = imported_buffer, .buffer_size = sizeof imported_buffer};
+    day_take(paint.scr, &paint);
+    dgx_ui_init(&ui, nodes, 6, 2);
+    weather_show(&ui, dgx_ui_add(&ui, -1, &pic_root_w));
+    picture_done(&ui, &paint, dir, "imported.ppm");
+}
+
 static void recipe_pictures(const char *dir)
 {
     nine_picture(dir);
     mono_picture(dir);
+    imported_picture(dir);
     control_pictures(dir);
     text_pictures(dir);
     page_pictures(dir);

@@ -21,6 +21,7 @@
 #include "dgx_font.h"
 #include "dgx_font_file.h"
 #include "dgx_image.h"
+#include "dgx_image_file.h"
 #include "dgx_screen_functions.h"
 #include "dgx_screen_with_bus.h"
 #include "dgx_ui.h"
@@ -30,6 +31,7 @@
 #include "dgx_ui_load_tables.h"
 #include "dgx_ui_names.h"
 #include "dgx_ui_paint.h"
+#include "dgx_ui_picture_file.h"
 #include "dgx_ui_text.h"
 #include "fonts/DejaVuSansBook32.h"
 #include "fonts/DroidSansRegular9.h"
@@ -268,6 +270,27 @@ static const dgx_font_t *font_file_of(const char *c)
     return NULL;
 }
 
+/* ---- the files of pictures of DGX given by their assets' names (preview_picture()) ---- */
+
+typedef struct picture_file_given_t {
+    char     name[PREVIEW_FONT_NAME_MOST + 1];
+    void    *bytes;  /* a copy of the file, aligned as malloc() gives it: read in place, as the board reads its own */
+    uint32_t length;
+} picture_file_given_t;
+
+static picture_file_given_t *picture_files;
+static int                   picture_file_count, picture_file_room;
+
+static const picture_file_given_t *picture_file_of(const char *asset)
+{
+    for (int k = 0; asset && k < picture_file_count; ++k)
+        if (strcmp(picture_files[k].name, asset) == 0) return &picture_files[k];
+    return NULL;
+}
+
+/* the stand-ins' colours of a page of no appearance, as colors_packed() packs them */
+static const uint32_t default_rgb[4] = {0x10141c, 0xe6e6dc, 0x203048, 0x78a0dc};
+
 /* ---- the stand-ins that are the same for every page ---- */
 
 /* a style of the program's own */
@@ -420,12 +443,15 @@ static void appearance_read(void)
         a->hands[k]       = (dgx_ui_hand_name_t){a->names[named], canvas ? &dgx_ui_handwriting_canvas : &dgx_ui_handwriting};
         ++named;
     }
-    /* a picture: the crossed square stands in, as for a page's, so many as the names give */
+    /* a picture: the crossed square stands in, as for a page's, so many as the names give; one of a file too, which an
+       appearance's look takes not */
     for (int k = 0; k < pictures_of->count; ++k) {
         const entry_t *picture = &pictures_of->entries[k];
         memcpy(a->names[named], picture->name, 24);
         a->pictures[k] = (dgx_ui_picture_name_t){a->names[named], crossed_picture(), (uint16_t)picture->count};
-        say(&notes, "picture %s: a crossed square of 16 pixels stands in\n", picture->name);
+        if (picture->asset) say(&notes, "picture %s: @%s, a picture of a file, for the page: in a look of the appearance a crossed square stands in\n",
+                                picture->name, picture->asset);
+        else say(&notes, "picture %s: a crossed square of 16 pixels stands in\n", picture->name);
         ++named;
     }
     const dgx_ui_appearance_names_t names = {.draws = a->draws, .fonts = a->fonts, .hands = a->hands, .pictures = a->pictures,
@@ -462,6 +488,8 @@ typedef struct tree_t {
     int32_t            *values;
     uint8_t            *contexts;
     int                *ids;
+    void              **kept;          /* the tables of its pictures of files, read where their files lie */
+    int                 kept_count;
 } tree_t;
 
 static int           unit = 1;       /* pixels a point, as the board's program gives dgx_ui_init() */
@@ -479,6 +507,8 @@ static void tree_free(tree_t *tree)
     free(tree->nodes), free(tree->memory), free(tree->names_of), free(tree->own_looks), free(tree->values), free(tree->contexts), free(tree->ids);
     free((void *)tree->names.looks), free((void *)tree->names.values), free((void *)tree->names.pictures), free((void *)tree->names.styles);
     free((void *)tree->names.handlers), free((void *)tree->names.takes), free((void *)tree->names.contexts), free((void *)tree->names.ids);
+    for (int k = 0; k < tree->kept_count; ++k) free(tree->kept[k]);
+    free(tree->kept);
     *tree = (tree_t){0};
 }
 
@@ -563,6 +593,47 @@ static void on_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
 
 /* the tables of a page, as dgx_ui_c -a makes them: the appearance's looks and styles first, then the names file's
    or the rule's; each entry its stand-in */
+/* a picture line of an asset: its table read from the file given for the asset by the library's own reading, the map to
+   the appearance's colours by the nearest, as dgx_ui_c makes them; else the crossed square, and why in the notes */
+static bool picture_of_file(tree_t *tree, const entry_t *entry, dgx_ui_picture_name_t *named)
+{
+    const picture_file_given_t *given = picture_file_of(entry->asset);
+    dgx_image_file_t            file;
+    if (!given) {
+        say(&notes, "%spicture %s: @%s, its file not given (the build makes it): a crossed square stands in\n", note_lead, entry->name, entry->asset);
+        return false;
+    }
+    if (dgx_image_file_open(given->bytes, given->length, &file) != ESP_OK) {
+        say(&notes, "%spicture %s: @%s does not read as a file of DGX's pictures: a crossed square stands in\n", note_lead, entry->name, entry->asset);
+        return false;
+    }
+    char *refused = picture_file_refused(entry, &file);
+    if (refused) {
+        say(&notes, "%s%s: a crossed square stands in\n", note_lead, refused);
+        free(refused);
+        return false;
+    }
+    const bool indexed = file.kind == DGX_IMAGE_FILE_INDEXED;
+    uint8_t   *map = NULL, solid = 0, zero = 0;
+    if (indexed && file.bits > 1) {
+        map = zeroed(255, 1);
+        if (appearance_load.loaded) picture_file_map(&file, appearance_load.appearance.rgb, appearance_load.appearance.color_count, map, &solid, &zero);
+        else picture_file_map(&file, default_rgb, 4, map, &solid, &zero);
+        if (entry->map) say(&notes, "%spicture %s: the program's map %s, the nearest of the colours shown here stand in\n", note_lead, entry->name, entry->map);
+    }
+    dgx_ui_picture_t *table  = zeroed(file.count, sizeof *table);
+    dgx_image_t      *images = indexed ? zeroed(file.count, sizeof *images) : NULL;
+    const dgx_ui_picture_file_t read = {.bytes = given->bytes, .length = &given->length, .name = given->name, .pictures = table, .images = images,
+                                        .map = map, .count = file.count, .bits = file.bits, .scale = (uint8_t)entry->scale, .solid = solid, .zero = zero};
+    dgx_ui_picture_file_read(&read);
+    tree->kept = realloc(tree->kept, (size_t)(tree->kept_count + 3) * sizeof *tree->kept);
+    if (!tree->kept) names_no_memory();
+    tree->kept[tree->kept_count++] = table, tree->kept[tree->kept_count++] = images, tree->kept[tree->kept_count++] = map;
+    named->picture = table, named->count = file.count;
+    say(&notes, "%spicture %s: @%s, %u of %u bits, from its file\n", note_lead, entry->name, entry->asset, (unsigned)file.count, (unsigned)file.bits);
+    return true;
+}
+
 static void tree_names(tree_t *tree, const char *text, size_t length)
 {
     names_free_all();
@@ -612,8 +683,13 @@ static void tree_names(tree_t *tree, const char *text, size_t length)
     for (int k = 0; k < tables[T_VALUE].count; ++k) values[k] = (dgx_ui_value_name_t){NAME_OF(T_VALUE, k), &tree->values[k]};
     dgx_ui_picture_name_t *pictures = zeroed((size_t)tables[T_PICTURE].count, sizeof *pictures);
     for (int k = 0; k < tables[T_PICTURE].count; ++k) {
-        pictures[k] = (dgx_ui_picture_name_t){NAME_OF(T_PICTURE, k), crossed_picture(), (uint16_t)tables[T_PICTURE].entries[k].count};
-        say(&notes, "%spicture %s: a crossed square stands in\n", note_lead, pictures[k].name);
+        const entry_t *entry = &tables[T_PICTURE].entries[k];
+        pictures[k]          = (dgx_ui_picture_name_t){NAME_OF(T_PICTURE, k), crossed_picture(), (uint16_t)entry->count};
+        if (!entry->asset) {
+            say(&notes, "%spicture %s: a crossed square stands in\n", note_lead, pictures[k].name);
+            continue;
+        }
+        if (picture_of_file(tree, entry, &pictures[k])) continue;
     }
     dgx_ui_style_name_t *styles = zeroed((size_t)tables[T_STYLE].count, sizeof *styles);
     for (int k = 0, appearance_k = 0; k < tables[T_STYLE].count; ++k) {
@@ -1043,7 +1119,10 @@ static void read_again(void)
     page_verdict = (preview_verdict_t){0};
     if (page_given) tree_load(&home, page_text, page_length, &page_verdict);
     if (panel) {
-        paint = (dgx_ui_paint_t){.scr = &panel->sbus.scr, .colors = colors, .color_count = color_count, .background = 0};
+        /* a buffer of rows, as a board's program gives one, for the looks that draw through it: pictures of 4 and 8 bits */
+        static uint8_t rows[4096 * 3 * 4];
+        paint = (dgx_ui_paint_t){.scr = &panel->sbus.scr, .colors = colors, .color_count = color_count, .background = 0, .buffer = rows,
+                                 .buffer_size = sizeof rows};
         memset(panel->rgba, 0, (size_t)panel->sbus.scr.width * (size_t)panel->sbus.scr.height * 4);
     }
 }
@@ -1098,6 +1177,52 @@ const preview_verdict_t *preview_font(const char *name, const void *bytes, size_
     }
     read_again();
     free(old.bytes), free(old.memory);
+    return &verdict;
+}
+
+const preview_verdict_t *preview_picture(const char *name, const void *bytes, size_t length)
+{
+    static preview_verdict_t verdict;
+    verdict = (preview_verdict_t){0};
+    const size_t name_length = name ? strlen(name) : 0;
+    if (name_length == 0 || name_length > PREVIEW_FONT_NAME_MOST) {
+        verdict.code = PREVIEW_PICTURE_REFUSED;
+        snprintf(verdict.said, sizeof verdict.said, "an asset's name of %zu bytes: 1 to %d are taken", name_length, PREVIEW_FONT_NAME_MOST);
+        return &verdict;
+    }
+    int found = -1;
+    for (int k = 0; k < picture_file_count && found < 0; ++k)
+        if (strcmp(picture_files[k].name, name) == 0) found = k;
+    picture_file_given_t given = {0};
+    if (bytes) {
+        dgx_image_file_t file;
+        given.bytes = zeroed(1, length ? length : 1), given.length = (uint32_t)length;
+        memcpy(given.bytes, bytes, length);
+        const esp_err_t said = length > UINT32_MAX ? ESP_ERR_INVALID_ARG : dgx_image_file_open(given.bytes, given.length, &file);
+        if (said != ESP_OK) {
+            free(given.bytes);
+            verdict.code = PREVIEW_PICTURE_REFUSED;
+            snprintf(verdict.said, sizeof verdict.said, "%s: %s", name,
+                     said == ESP_ERR_INVALID_VERSION ? "ESP_ERR_INVALID_VERSION, a file of a later format" : "ESP_ERR_INVALID_ARG, not a file of pictures, or spoiled or cut");
+            return &verdict;
+        }
+        memcpy(given.name, name, name_length + 1);
+    }
+    picture_file_given_t old = found >= 0 ? picture_files[found] : (picture_file_given_t){0};
+    if (found >= 0 && bytes) {
+        picture_files[found] = given;
+    } else if (found >= 0) {
+        picture_files[found] = picture_files[--picture_file_count];
+    } else if (bytes) {
+        if (picture_file_count == picture_file_room) {
+            picture_file_room = picture_file_room ? 2 * picture_file_room : 8;
+            picture_files     = realloc(picture_files, (size_t)picture_file_room * sizeof *picture_files);
+            if (!picture_files) names_no_memory();
+        }
+        picture_files[picture_file_count++] = given;
+    }
+    read_again();
+    free(old.bytes);
     return &verdict;
 }
 

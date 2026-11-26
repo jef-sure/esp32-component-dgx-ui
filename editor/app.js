@@ -710,8 +710,17 @@ const dgxUiBuilderMount = (() => {
             const typed = (part, value) => {
                 adding.value = { ...adding.value, [part]: value };
             };
+            // PNG files chosen or dropped, given to the import with their bytes
+            const imported = async (list) => {
+                const files = [];
+                for (const file of list) files.push({ name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) });
+                await store.importStart(files);
+            };
+            const chosen = (event) => imported([...event.target.files]).then(() => (event.target.value = ''));
+            const dropped = (event) => imported([...event.dataTransfer.files].filter((file) => /\.png$/i.test(file.name)));
+            const weight = computed(() => (store.importing ? store.importWeight() : null));
             return { ...words, path, missingFile, verdict, tables, rowsOf, unknown, unused, bare, partsOf, setPart, fresh, plan, rename,
-                     confirmRename, cancelRename, adding, add, typed };
+                     confirmRename, cancelRename, adding, add, typed, chosen, dropped, weight };
         },
         template: `
             <div class="names">
@@ -762,6 +771,32 @@ const dgxUiBuilderMount = (() => {
                     <button @click="store.showText('names')">{{ t('Show the text') }}</button>
                 </template>
                 <p class="note">{{ t('The C expressions are the program\\'s: dgx_ui_c checks them when the program is built.') }}</p>
+                <div class="heading">{{ t('A picture of PNG files') }}</div>
+                <p v-if="!store.canImport()" class="note">{{ t('DGX\\'s writer of the project makes a picture: open the project through dgx_ui_serve.py or dgx_ui_mcp.py.') }}</p>
+                <p v-else-if="!store.importing" class="import" @dragover.prevent @drop.prevent="dropped($event)">
+                    <label class="file">{{ t('Choose PNG files, or drop them here') }}
+                        <input type="file" accept="image/png" multiple @change="chosen($event)"></label></p>
+                <div v-else class="importing">
+                    <p>{{ store.importing.files.map((file) => file.name).join(', ') }}: {{ t('{0} colours', store.importing.colors) }}<span
+                       v-if="store.importing.transparent">, {{ t('with holes') }}</span></p>
+                    <p><label>{{ t('Its name') }} <input type="text" :value="store.importing.name"
+                              @change="store.importSet('name', $event.target.value.trim())"></label>
+                       <label>{{ t('Bits a pixel') }} <select :value="store.importing.bits" @change="store.importSet('bits', +$event.target.value)">
+                           <option v-for="bits in [1, 4, 8, 16]" :key="bits" :value="bits">{{ bits }}</option></select></label></p>
+                    <p><label v-if="store.importing.bits === 4 || store.importing.bits === 8"><input type="checkbox" :checked="store.importing.reduce"
+                              @change="store.importSet('reduce', $event.target.checked)"> {{ t('fewer colours where they do not fit') }}</label>
+                       <label><input type="checkbox" :checked="store.importing.dither" @change="store.importSet('dither', $event.target.checked)">
+                           {{ t('dithered') }}</label>
+                       <label v-if="store.importing.bits === 1">{{ t('lit pixels') }} <select :value="store.importing.ink ?? ''"
+                              @change="store.importSet('ink', $event.target.value || null)">
+                           <option value="">{{ t('the light') }}</option><option value="dark">{{ t('the dark') }}</option></select></label>
+                       <label v-if="store.importing.bits === 16 && store.importing.transparent">{{ t('the holes in the colour') }} #<input type="text"
+                              class="hex" :value="store.importing.background" @change="store.importSet('background', $event.target.value.trim())"></label></p>
+                    <p v-if="store.importing.said" class="wrong">{{ store.importing.said }}</p>
+                    <p v-else-if="weight" class="note">{{ t('{0} bytes of flash and {1} of RAM; the panel draws the bytes the board reads', weight.flash, weight.ram) }}</p>
+                    <p><button @click="store.importAccept()" :disabled="!store.importing.made">{{ t('Take it') }}</button>
+                       <button @click="store.importCancel()">{{ t('Cancel') }}</button></p>
+                </div>
                 <div v-if="plan" class="asking">
                     <div class="dialog">
                         <p>{{ t('Renaming "{0}" to "{1}" changes it in these files on the names file ({2}):', plan.from, plan.to,

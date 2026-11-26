@@ -24,6 +24,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [An icon that shows a state](#an-icon-that-shows-a-state)
 - [A button of a picture](#a-button-of-a-picture)
 - [A picture from flash](#a-picture-from-flash)
+- [A picture from a PNG file](#a-picture-from-a-png-file)
 - [A frame of nine pictures](#a-frame-of-nine-pictures)
 - [A picture under the widgets](#a-picture-under-the-widgets)
 - [A text of several lines](#a-text-of-several-lines)
@@ -945,6 +946,74 @@ static void paint_buffer_give(dgx_ui_paint_t *paint)
   `dgx_ui_paint_free(&paint)` gives them back.
 - A picture of 1 bit is drawn by this look as well, so an icon whose pictures are of different depths names it. A
   program that has pictures of 1 bit only names `dgx_ui_look_picture` and carries none of this.
+
+## A picture from a PNG file
+
+![A sun behind a cloud, a picture of 4 bits made of a PNG file when the program was built, beside the temperature](../images/imported.png)
+
+A picture can come from a PNG file of the project. DGX makes a file of pictures of it when the program is built and
+lays it in flash; the names file names it with `@`, and a page made C draws it as any picture. No array of pixels is
+written by hand. Here a sun behind a cloud, a PNG of 24 by 24 in three colours of the appearance of
+[An appearance made C when the program is built](#an-appearance-made-c-when-the-program-is-built), on a page made on
+that appearance:
+
+```cmake
+# main/CMakeLists.txt: DGX makes the pictures images.txt asks for; the page, made C on the appearance, names them
+dgx_image_needs_file(images.txt)
+dgx_ui_tree(weather.json NAMES weather.txt APPEARANCE day.json)
+```
+
+```text
+# images.txt, beside it: a need a line, in DGX's words; art/sun.png has a transparent background
+sun  PNG art/sun.png BITS 4
+```
+
+```text
+# weather.txt: what the page names, the picture by its asset, each pixel of it two points
+look      indexed
+picture   sun        @sun        scale 2
+```
+
+```json
+{"dgx-ui": 1, "name": "weather",
+ "tree": {"kind": "box", "flags": ["row"], "gap": 8, "want": [0, 48],
+          "children": [{"kind": "picture", "picture": "sun", "look": "indexed"},
+                       {"kind": "label", "text": "21 °C", "flags": ["rest"], "want": [0, 48]}]}}
+```
+
+```c
+#include "weather.h" /* made by dgx_ui_tree(): int weather_add(dgx_ui_t *ui, int parent) */
+
+/* the page added as any page made C; its picture is read from flash at the first add, where it lies */
+static int weather_show(dgx_ui_t *ui, int parent)
+{
+    return weather_add(ui, parent);
+}
+```
+
+- **The colours.** DGX keeps the PNG's colours in the file's palette. The made C takes for each of them the nearest
+  colour of the appearance, and the picture's values go through that map, as the battery of
+  [A picture from flash](#a-picture-from-flash) goes through its own. A PNG drawn in the appearance's colours comes out
+  exact: the sun here is `accent`, the cloud `ink` and `border`. A program with no appearance gives its own array of
+  indices, `map=<array>` in the line.
+- **A transparent pixel** is the paper: what lies under the widget.
+- **The depth** is the need's `BITS`. 1 for two colours, drawn in the ink and the paper of the look `picture`; 4 for up
+  to 15 colours and a transparent background, or 16 colours with none; 8 for 255 and 256; 16 for a photograph, by the
+  look `rgb565`, its transparent places painted by `BACKGROUND <rrggbb>` in the need.
+- **The look of 4 and 8 bits** draws through the paint's buffer and needs `CONFIG_DGX_ENABLE_VSCREEN=y`, as in
+  [A picture from flash](#a-picture-from-flash).
+- **Several PNG files in one need**, `arrows PNG art/up.png art/down.png BITS 1`, are as many pictures, the range of an
+  icon: `picture arrows @arrows 2`.
+- **What it costs.** The readers of DGX and of dgx-ui, about 2.2 KB of code, once; each file's head and palette beside
+  its pixels in flash; 40 bytes of RAM a picture of 1, 4 or 8 bits (36 with DGX 0.12.10), 20 of 16. The files are read
+  at the first add: on the CYD two pictures took 0.33 ms more than the same pixels written as arrays of C, and a pass
+  draws them as fast. A program that names no picture of a file carries none of it.
+- **Refused when the program is built**, in words with the line of the names file: an asset DGX made not, a picture of
+  a kind dgx-ui does not draw, 16 bits with transparency. The list is on the tool's page,
+  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.4/tools/README.md#a-picture-of-a-file).
+- **The builder of pages** imports a PNG by itself: it counts its colours, offers the depth, and writes the PNG beside
+  `images.txt`, the need and the line of the names file
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.4/editor/README.md#a-picture-from-a-png-file)).
 
 ## A frame of nine pictures
 
@@ -2692,7 +2761,7 @@ What to know of it:
   `back` and `page` go in the file with no expression. An expression is C written with no spaces.
 - **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
   compiler finds what the program has not. The rule and the tool's own page:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.3/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.4/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,

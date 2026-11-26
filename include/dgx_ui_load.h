@@ -158,6 +158,10 @@ typedef struct dgx_ui_load_names_t {
     const dgx_ui_context_name_t *contexts;
     const dgx_ui_id_name_t           *ids;
     uint16_t look_count, value_count, picture_count, style_count, handler_count, take_count, context_count, id_count;
+    /** Called by dgx_ui_load_need() and dgx_ui_load(), in the task that owns the tree, before the description is read,
+        every load: what the tables hold made ready, the pictures of files of DGX read into theirs (dgx_ui_c makes it). Cheap
+        after its first call. NULL: nothing to make ready. */
+    void (*start)(void);
 } dgx_ui_load_names_t;
 
 /** What a description takes: the bytes of the memory, aligned as a pointer; the nodes of the tree; its depth. And the

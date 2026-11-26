@@ -59,7 +59,9 @@ tools/build/dgx_ui_c [-n <names file>] [-i <header>]... [-d <directory>] [-p <pr
 
 The first makes a tree C, the second the loader's tables of a names file,
 [below](#the-loaders-tables-from-the-names-file), the third an appearance, [below](#an-appearance-made-c) too. A tree
-and the tables are made on an appearance by `-a <appearance>` with the first two.
+and the tables are made on an appearance by `-a <appearance>` with the first two. `-g <folder>` is the folder of the
+files of pictures DGX made, `build/dgx_images` of a project, for a names file with pictures of files,
+[below](#a-picture-of-a-file).
 
 For a description it writes `<prefix>.c` and `<prefix>.h` into the directory (`.` when none is said). The prefix, a
 name of C, begins all the files declare. It is the tree's name, the `"name"` of the description: one that says
@@ -132,6 +134,8 @@ id        title      title_index
 - The expression of an id is an int of the program's, which the add function writes the widget's index to; the
   others are constant expressions, as the widgets are constants.
 - A table has at most 65535 names, the ids' `DGX_UI_LOAD_MAX_IDS`, 256.
+- A picture's line may name a file of pictures DGX made in place of C, `picture sun @sun`,
+  [below](#a-picture-of-a-file).
 - The builder of pages edits a names file a line at a time and keeps every other line as written:
   [The names file](../editor/README.md#the-names-file).
 
@@ -166,6 +170,54 @@ Without the program's tables some of the loader's checks cannot be made, and the
 says which: the pictures' counts, which handlers take a number in their ctx and which contexts are pages, which looks
 the program has, and the
 style a text that names none takes.
+
+### A picture of a file
+
+A PNG becomes a picture of a page in three lines. DGX makes a file of pictures, `.dgxi`, of each need when the
+program is built and lays it in flash; the names file names it with `@` and the need's name:
+
+```cmake
+# main/CMakeLists.txt
+dgx_image_needs_file(images.txt)
+dgx_ui_tree(weather.json NAMES vocab.txt APPEARANCE day.json)
+```
+
+```text
+# images.txt, DGX's: a need a line
+sun   PNG art/sun.png BITS 4
+moon  PNG art/moon.png BITS 1
+```
+
+```text
+# vocab.txt
+picture   sun    @sun
+picture   moon   @moon   scale 2
+```
+
+The line is `picture <name> @<asset> [<count>] [scale <n>] [map=<array>]`. The asset is the name of a need of
+`dgx_image_need()`, or of a line of the file `dgx_image_needs_file()` names; DGX's list of the files it made,
+`dgx_images-files.txt` of the folder `-g` gives, leads to the file. The count, when said, is held to the file's; a
+file of several PNG files holds as many pictures, an icon's range. `scale` is the pictures' own,
+`dgx_ui_picture_t::scale`.
+
+What the made C holds, in RAM: the widgets' pictures, 20 bytes each on a 32-bit chip, and for 1, 4 and 8 bits a picture
+of DGX each, `dgx_image_t`, 20 bytes more (16 with DGX 0.12.10); for 4 and 8 bits a constant map from the file's values
+to the painter's table, each colour of the palette to the nearest colour of the appearance `-a` gives (the squares of
+the channels' differences weighed 2, 4 and 3), or the program's own array of `map=`. A palette that uses every value of
+its depth makes the value 0 a colour too, `solid` and `zero` of the picture. The pictures are read where they lie, at
+the first `<prefix>_add()` and at the first `start` of the tables, `dgx_ui_picture_file_read()` of
+[dgx_ui_picture_file.h](../docs/en/api.md#dgx_ui_picture_fileh): no pixel is copied.
+
+Refused in words, with the names file's line:
+
+- `-g` not given, no `dgx_images-files.txt` there, or an asset it does not name;
+- a file of a later format than the DGX the tool is built with reads, or of a kind dgx-ui does not draw: a mask of soft
+  edges, `MASK`;
+- 16 bits with transparency (`BACKGROUND <rrggbb>` in the need, or 1, 4 or 8 bits), and a palette that keeps the
+  opacity of its PNG, `ALPHA`;
+- a count the file does not hold;
+- 4 or 8 bits with no appearance and no `map=`;
+- in an appearance made C, a picture of a file: the program's C in its names line serves it for now.
 
 ## The loader's tables from the names file
 

@@ -34,7 +34,36 @@ const useDgxUiBuilder = (() => {
     const LOAD_CODES = ['OK', 'SYNTAX', 'VERSION', 'KEY', 'KIND', 'FIELD', 'RANGE', 'NAME_BAD', 'UNKNOWN', 'NO_LOOK', 'NO_STYLE', 'TOO_DEEP',
                         'MEMORY', 'NODES', 'ID', 'MISSING'];
     const SYNTAX = 1, NO_LOOK = 9;
-    const CALLS = { dgx_ui_tree: ['PREFIX', 'NAMES', 'APPEARANCE'], dgx_ui_names: ['PREFIX', 'APPEARANCE'], dgx_ui_appearance: ['PREFIX', 'NAMES'] };
+    const CALLS = { dgx_ui_tree: ['PREFIX', 'NAMES', 'APPEARANCE'], dgx_ui_names: ['PREFIX', 'APPEARANCE'], dgx_ui_appearance: ['PREFIX', 'NAMES'],
+                    dgx_image_needs_file: [] };
+    const IMAGES_INDEX = 'dgx_images-files.txt';
+    // the bytes a picture of a file costs in RAM on a 32-bit chip, as the made C keeps it: its dgx_ui_picture_t, and for a
+    // file of 1, 4 or 8 bits a dgx_image_t of DGX too (include/dgx_ui_picture_file.h)
+    const PICTURE_RAM = 20, IMAGE_RAM = 20;
+
+    // the depth an imported picture takes by its colours: 1 bit for two (one with holes), 4 for 16 (15), 8 for 256 (255),
+    // as DGX's palettes hold them; 16, RGB565, past that
+    function pictureBits(colors, transparent) {
+        const hole = transparent ? 1 : 0;
+        if (colors <= 2 - hole) return 1;
+        if (colors <= 16 - hole) return 4;
+        if (colors <= 256 - hole) return 8;
+        return 16;
+    }
+
+    // the pixels of a PNG as the browser decodes it: {width, height, rgba}, for its colours alone (DGX's writer makes the file)
+    async function pixelsOfPng(bytes) {
+        const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+        const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0);
+        return { width: image.width, height: image.height, rgba: context.getImageData(0, 0, image.width, image.height).data };
+    }
+
+    // a name of C made of a file's name, for an imported picture's asset and its name in the names file
+    function pictureName(file) {
+        const base = String(file).replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9_]/g, '_').replace(/^([0-9])/, '_$1').toLowerCase();
+        return base.startsWith('dgx_') ? 'picture_' + base : base || 'picture';
+    }
     const BLOCKS = /^(if|foreach|while|function|macro|block)$/;
     const BLOCK_ENDS = /^end(if|foreach|while|function|macro|block)$/;
     // what the search for descriptions does not enter
@@ -226,7 +255,7 @@ const useDgxUiBuilder = (() => {
     // calls not understood, the directories of fonts and the board of its preset
     async function readProject(host) {
         const project = { name: host.name, pages: [], namesFiles: [], appearances: [], notUnderstood: [], fontDirs: [], fontDir: null, board: null,
-                          boardScreen: null, notes: [] };
+                          boardScreen: null, notes: [], needsFiles: [], imageDirs: [], imageDir: null };
         const lists = ['CMakeLists.txt', 'main/CMakeLists.txt'];
         for (const entry of (await host.list('components')) ?? []) if (entry.directory) lists.push(`components/${entry.name}/CMakeLists.txt`);
         const calls = [];
@@ -240,6 +269,8 @@ const useDgxUiBuilder = (() => {
             if (!project.appearances.some((one) => one.path === call.file))
                 project.appearances.push({ path: call.file, names: call.names ?? null, from: call.from, prefix: call.prefix ?? null });
         }
+        for (const call of calls.filter((one) => one.call === 'dgx_image_needs_file'))
+            if (!project.needsFiles.includes(call.file)) project.needsFiles.push(call.file);
         for (const call of calls.filter((one) => one.call === 'dgx_ui_names'))
             project.namesFiles.push({ path: call.file, appearance: call.appearance ?? null, from: call.from });
         for (const call of calls.filter((one) => one.call === 'dgx_ui_tree')) {
@@ -266,8 +297,9 @@ const useDgxUiBuilder = (() => {
         for (const entry of (await host.list('build')) ?? []) {
             if (!entry.directory) continue;
             const dir = entry.name === 'dgx_fonts' ? 'build/dgx_fonts' : `build/${entry.name}/dgx_fonts`;
-            if ((await host.read(`${dir}/${FONTS_INDEX}`)) === null) continue;
-            project.fontDirs.push({ dir, board: entry.name === 'dgx_fonts' ? null : entry.name });
+            if ((await host.read(`${dir}/${FONTS_INDEX}`)) !== null) project.fontDirs.push({ dir, board: entry.name === 'dgx_fonts' ? null : entry.name });
+            const images = entry.name === 'dgx_images' ? 'build/dgx_images' : `build/${entry.name}/dgx_images`;
+            if ((await host.read(`${images}/${IMAGES_INDEX}`)) !== null) project.imageDirs.push({ dir: images, board: entry.name === 'dgx_images' ? null : entry.name });
         }
         let preset = null;
         try {
@@ -280,6 +312,10 @@ const useDgxUiBuilder = (() => {
         project.board = typeof preset?.cacheVariables?.BOARD === 'string' ? preset.cacheVariables.BOARD : null;
         const ofPreset = project.fontDirs.find((one) => binaryDir && one.dir === `${binaryDir}/dgx_fonts`);
         project.fontDir = (ofPreset ?? project.fontDirs[0])?.dir ?? null;
+        // the pictures DGX made: of the fonts' build when it made them too, else the preset's, else the first
+        const imagesOf = (dir) => dir && project.imageDirs.find((one) => one.dir === dir.replace(/dgx_fonts$/, 'dgx_images'));
+        project.imageDir = (imagesOf(project.fontDir) ?? project.imageDirs.find((one) => binaryDir && one.dir === `${binaryDir}/dgx_images`) ??
+                            project.imageDirs[0])?.dir ?? null;
         if (project.fontDirs.length > 1 && !ofPreset)
             project.notes.push({ text: 'fonts of several builds: {0} taken, another may be chosen', values: [project.fontDir] });
         if (project.board) project.boardScreen = await boardScreen(host, project.board, binaryDir);
@@ -317,7 +353,10 @@ const useDgxUiBuilder = (() => {
             current: null, // the path of the page open
             version: 0, // a change of the document, which is held raw
             readError: null, // the page's text not read: {at, byte, why}
-            verdicts: { names: null, fonts: [], appearance: null, page: null },
+            verdicts: { names: null, fonts: [], pictures: [], appearance: null, page: null },
+            // a picture being imported: {files: [{name, bytes}], colors, transparent, name, bits, reduce, dither, ink, background,
+            // made: its bytes as DGX made them, or null; said: why not made; given: the preview has it}
+            importing: null,
             refusedPath: null, // the widget the page's verdict stops in
             selection: [],
             shown: null, // the preview's shown(): '' the page, a name a page opened over it, null none
@@ -343,7 +382,8 @@ const useDgxUiBuilder = (() => {
             appearanceError: null, // the appearance's text not read: {at, byte, why}
             appearanceAt: null, // the entry the appearance's verdict stops in: [section, name]
             raw: Vue.markRaw({ preview: null, host: null, doc: null, spans: [], histories: new Map(), links: new Map(), linkCount: 0, format: null,
-                               preferences: null, look: null, lookSpans: [], lookFormat: null, namesFormat: null, agentLink: null }),
+                               preferences: null, look: null, lookSpans: [], lookFormat: null, namesFormat: null, agentLink: null,
+                               pending: {}, pixelsOf: null }),
         }),
 
         getters: {
@@ -518,7 +558,9 @@ const useDgxUiBuilder = (() => {
                 }
                 this.files = files, this.project = project, this.current = null, this.reformatted = {}, this.said = [], this.asking = null;
                 this.raw.histories = new Map(), this.raw.links = new Map(), this.raw.doc = null, this.pick = [], this.version++;
+                this.raw.pending = {}, this.importing = null;
                 await this.giveFonts();
+                await this.givePictures();
                 if (project.pages.length) this.choose(project.pages[0].path);
                 else this.say('no description of a page found: no dgx_ui_tree() in the CMakeLists, no file holding "dgx-ui" and "tree"');
             },
@@ -532,6 +574,144 @@ const useDgxUiBuilder = (() => {
                 const host = this.raw.host;
                 const index = textOf(await host.read(`${dir}/${FONTS_INDEX}`)) ?? '';
                 this.verdicts.fonts = await preview.fonts(index, (file) => host.read(`${dir}/${file}`));
+            },
+
+            // the pictures DGX made by the project's needs, by their index, as the fonts: the panel reads the board's bytes
+            async givePictures() {
+                const preview = this.raw.preview;
+                for (const one of this.verdicts.pictures) if (one.verdict.code === 0) preview.picture(one.name, null);
+                this.verdicts.pictures = [];
+                const dir = this.project?.imageDir;
+                if (!dir) return;
+                const host = this.raw.host;
+                const index = textOf(await host.read(`${dir}/${IMAGES_INDEX}`)) ?? '';
+                this.verdicts.pictures = await preview.pictures(index, (file) => host.read(`${dir}/${file}`));
+            },
+
+            // ---- a picture imported: PNG files made a file of DGX by the project's own DGX, through the server ----
+
+            // the import offered: the server makes the file with DGX's writer of the project; a page opened from the disk
+            // has no writer
+            canImport() {
+                return typeof this.raw.host?.image === 'function';
+            },
+
+            // PNG files chosen or dropped: [{name, bytes}]; their colours counted, the depth they take, the file made
+            async importStart(files) {
+                if (!this.canImport()) {
+                    this.say('DGX\'s writer of the project makes a picture: open the project through dgx_ui_serve.py or dgx_ui_mcp.py.', [], true);
+                    return false;
+                }
+                if (!files.length) return false;
+                this.importCancel();
+                const pixelsOf = this.raw.pixelsOf ?? pixelsOfPng;
+                const colors = new Set();
+                let transparent = false;
+                for (const file of files) {
+                    let pixels;
+                    try {
+                        pixels = await pixelsOf(file.bytes);
+                    } catch (error) {
+                        this.say('{0}: not a picture the browser reads: {1}', [file.name, error.message ?? String(error)], true);
+                        return false;
+                    }
+                    for (let at = 0; at < pixels.rgba.length && colors.size <= 257; at += 4) {
+                        if (pixels.rgba[at + 3] < 128) transparent = true;
+                        else colors.add(pixels.rgba[at] << 16 | pixels.rgba[at + 1] << 8 | pixels.rgba[at + 2]);
+                    }
+                }
+                const taken = new Set(this.namesRows.filter((row) => row.table === 'picture').map((row) => row.words[1]));
+                let name = pictureName(files[0].name);
+                for (let k = 2; taken.has(name); ++k) name = `${pictureName(files[0].name)}_${k}`;
+                const colorsOf = this.raw.look ? valueOf(this.raw.look, 'colors') : null;
+                const paper = colorsOf ? stringOf(valueOf(colorsOf, 'paper')) : null;
+                this.importing = { files, colors: colors.size, transparent, name, bits: pictureBits(colors.size, transparent), reduce: false, dither: false,
+                                   ink: null, background: typeof paper === 'string' && /^#[0-9a-fA-F]{6}$/.test(paper) ? paper.slice(1) : '000000',
+                                   made: null, said: null, given: false };
+                await this.importMake();
+                return true;
+            },
+
+            // the file made again by DGX's writer with the options as they are; the panel given its bytes
+            async importMake() {
+                const one = this.importing;
+                if (!one) return;
+                const background = one.bits === 16 && one.transparent ? one.background : null;
+                try {
+                    const made = await this.raw.host.image(one.files.map((file) => file.bytes),
+                                                           { bits: one.bits, reduce: one.reduce, dither: one.dither, ink: one.bits === 1 ? one.ink : null, background });
+                    if (this.importing !== one) return;
+                    one.made = Vue.markRaw(made), one.said = null;
+                    const verdict = this.raw.preview.picture(one.name, made);
+                    one.given = verdict.code === 0;
+                    if (!one.given) one.said = verdict.said;
+                } catch (error) {
+                    if (this.importing !== one) return;
+                    one.made = null, one.said = error.message ?? String(error);
+                }
+                if (this.current) this.giveAll();
+            },
+
+            async importSet(key, value) {
+                if (!this.importing || !['name', 'bits', 'reduce', 'dither', 'ink', 'background'].includes(key)) return;
+                if (key === 'name' && this.importing.given) this.raw.preview.picture(this.importing.name, null), this.importing.given = false;
+                this.importing[key] = value;
+                await this.importMake();
+            },
+
+            // the weight the picture takes: its file in flash, its tables in RAM
+            importWeight() {
+                const one = this.importing;
+                if (!one?.made) return null;
+                const count = new DataView(one.made.buffer, one.made.byteOffset).getUint16(8, true);
+                return { flash: one.made.length, ram: count * (PICTURE_RAM + (one.made[6] <= 8 ? IMAGE_RAM : 0)), count };
+            },
+
+            // the import taken: the PNG files beside the file of needs, its line there, the names file's line; written at a
+            // save. Refused in words: no file of needs, no names file, a name of no C or taken
+            async importAccept() {
+                const one = this.importing;
+                if (!one?.made) return false;
+                const needs = this.project.needsFiles[0];
+                if (!needs) {
+                    this.say('no file of pictures\' needs: add dgx_image_needs_file(images.txt) to main/CMakeLists.txt, then open the project again', [], true);
+                    return false;
+                }
+                if (!this.page?.names) {
+                    this.say('the page has no names file: its line picture {0} @{0} has nowhere to go', [one.name], true);
+                    return false;
+                }
+                if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(one.name) || one.name.startsWith('dgx_')) {
+                    this.say('"{0}": a picture\'s asset is a name of C, not of dgx_', [one.name], true);
+                    return false;
+                }
+                if (!this.files[needs]) this.files[needs] = fileState(await this.raw.host.read(needs), null);
+                const file = this.files[needs], folder = needs.split('/').slice(0, -1).join('/');
+                const lines = (file.missing ? '' : file.text).split('\n');
+                if (lines.some((line) => line.trim().split(/\s+/)[0] === one.name)) {
+                    this.say('"{0}": the file of needs has a need of that name already', [one.name], true);
+                    return false;
+                }
+                const quote = (path) => (/\s/.test(path) ? `"${path}"` : path);
+                const pngs = one.files.map((_, k) => `images/${one.name}${one.files.length > 1 ? `_${k}` : ''}.png`);
+                const words = [one.name, 'PNG', ...pngs.map(quote), 'BITS', String(one.bits)];
+                if (one.reduce) words.push('REDUCE');
+                if (one.dither) words.push('DITHER');
+                if (one.bits === 1 && one.ink) words.push('INK', one.ink.toUpperCase());
+                if (one.bits === 16 && one.transparent) words.push('BACKGROUND', one.background);
+                if (!this.addNamesLine(['picture', one.name, '@' + one.name])) return false;
+                const before = file.missing ? '' : file.text;
+                file.text = before + (before && !before.endsWith('\n') ? '\n' : '') + words.join(' ') + '\n', file.missing = false;
+                one.files.forEach((png, k) => (this.raw.pending[joinPath(folder, pngs[k])] = png.bytes));
+                this.say('picture {0}: its PNG, its need and its name written at a save', [one.name]);
+                this.importing = null; // the preview keeps its bytes until the next build gives the board's
+                return true;
+            },
+
+            importCancel() {
+                if (this.importing?.given) this.raw.preview.picture(this.importing.name, null);
+                this.importing = null;
+                if (this.current) this.giveAll();
             },
 
             async setFontDir(dir) {
@@ -618,11 +798,16 @@ const useDgxUiBuilder = (() => {
                 this.givePage();
             },
 
-            // the names file and the appearance of a page given to the module; their verdicts
+            // the names file and the appearance of a page given to the module; their verdicts. A picture being imported
+            // is given with the line it takes, picture <name> @<name>, when the file has no picture of the name: the panel
+            // draws it before it is taken; the file itself is not changed
             giveFiles(page) {
                 const preview = this.raw.preview;
                 const textAt = (path) => (path && this.files[path] && !this.files[path].missing ? this.files[path].text : null);
-                const names = page.names ? preview.names(textAt(page.names)) : null;
+                const one = this.importing, namesText = textAt(page.names) ?? (page.names ? '' : null);
+                const pending = one?.given && namesText !== null && /^[A-Za-z_][A-Za-z0-9_]*$/.test(one.name) &&
+                                !namesText.split('\n').some((line) => { const words = line.trim().split(/\s+/); return words[0] === 'picture' && words[1] === one.name; });
+                const names = page.names ? preview.names(pending ? `${namesText.replace(/\n?$/, '\n')}picture ${one.name} @${one.name}\n` : textAt(page.names)) : null;
                 if (!page.names) preview.names(null);
                 const made = this.project.appearances.find((one) => one.path === page.appearance);
                 const itsNames = made && made.from ? (made.names ? textAt(made.names) : null) : undefined;
@@ -1634,9 +1819,9 @@ const useDgxUiBuilder = (() => {
             // the files edited, of the page open (its names file and appearance with it) or all; a description first
             // written in the builder's form waits for a word, once a file
             async save(all = false, confirmed = false) {
-                const own = [this.current, this.page?.names, this.page?.appearance];
+                const own = [this.current, this.page?.names, this.page?.appearance, ...(this.project?.needsFiles ?? [])];
                 const paths = this.dirty.filter((path) => all || own.includes(path));
-                if (!paths.length) return [];
+                if (!paths.length && !Object.keys(this.raw.pending).length) return [];
                 const reformatting = paths.filter((path) => !this.files[path].formed && this.files[path].byBuilder && !this.reformatted[path]);
                 const broken = confirmed ? [] : this.brokenPages(paths);
                 if ((reformatting.length || broken.length) && !confirmed) {
@@ -1646,6 +1831,17 @@ const useDgxUiBuilder = (() => {
                 for (const path of reformatting) this.reformatted[path] = true;
                 this.asking = null;
                 const done = [];
+                // the pictures imported first: a need that names a PNG not yet there would stop the build
+                for (const [path, bytes] of Object.entries(this.raw.pending)) {
+                    try {
+                        await this.raw.host.writeBinary(path, bytes);
+                        delete this.raw.pending[path];
+                        done.push(path);
+                        this.say('saved {0}', [path]);
+                    } catch (error) {
+                        this.say('{0} not saved: {1}', [path, error.message], true);
+                    }
+                }
                 for (const path of paths) {
                     const text = this.files[path].text;
                     try {
@@ -1666,5 +1862,5 @@ const useDgxUiBuilder = (() => {
             },
         },
     });
-    return Object.assign(store, { SCREENS, ZOOMS, DEPTHS, LOAD_CODES, cmakeCalls, readProject, joinPath });
+    return Object.assign(store, { SCREENS, ZOOMS, DEPTHS, LOAD_CODES, cmakeCalls, readProject, joinPath, pictureBits, pictureName });
 })();

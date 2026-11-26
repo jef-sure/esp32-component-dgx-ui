@@ -17,7 +17,9 @@ steps may touch it. On the linux target of ESP-IDF:
 4. the tool's source touched: the tool built again, then every file made again; the same for DGX's dgx_colors.h, whose
    names of colours the tool is built with;
 5. the appearance edited: its files made again and those made on it, in both components, no other, no configure; its
-   accent made DGX's orange, written in look.c by DGX's name;
+   accent made DGX's orange, written in look.c by DGX's name; a picture of a file (pictured.json names @logo, a PNG DGX
+   makes a file of by images.txt): its PNG touched, its file made again; its file deleted, made again before the tree
+   that reads it, which is made again; the program reads the picture, of the size of its PNG;
 6. the configure refusals, each by its words: one file name twice in a component, one prefix in two components, a
    prefix not of C, one of dgx_, a names file whose name is not of C, a description's file name no file may have, one
    that begins with '-', a word not understood, an appearance no dgx_ui_appearance() made;
@@ -43,7 +45,9 @@ TOOL_BUILT = "dgx-ui: dgx_ui_c built for the computer"
 MADE = {"a": "dgx-ui: pages/a.json made C, a.c and a.h", "b": "dgx-ui: b.json made C, other.c and other.h",
         "c": "dgx-ui: c.json made C, c.c and c.h", "d": "dgx-ui: d.json made C, third_page.c and third_page.h",
         "vocab": "dgx-ui: vocab.txt made the loader's tables, vocab.c and vocab.h", "look": "dgx-ui: look.json made C, look.c and look.h",
-        "framed": "dgx-ui: framed.json made C, framed.c and framed.h", "themed": "dgx-ui: vocab.txt made the loader's tables, themed.c and themed.h"}
+        "framed": "dgx-ui: framed.json made C, framed.c and framed.h", "themed": "dgx-ui: vocab.txt made the loader's tables, themed.c and themed.h",
+        "pictured": "dgx-ui: pictured.json made C, pictured.c and pictured.h"}
+PICTURES_MADE = "DGX: the pictures of the program by its needs"
 
 
 def idf(*args, build="build", target="linux", configure=False, env=None, timeout=1800, generator=None):
@@ -128,10 +132,25 @@ if os.path.exists(colors_header):
 # 5. the appearance edited: its files and those made on it
 edit("components/second/look.json", '"accent": "#f0a03c"', '"accent": "#ffa500"')
 status, output = idf("build")
-built_and_ran("5", output, status, {"look", "c", "framed", "themed"}, 0, "noise")
+built_and_ran("5", output, status, {"look", "c", "framed", "themed", "pictured"}, 0, "noise")
 made_look = os.path.join(project, "build", "esp-idf", "second", "dgx_ui_made", "look.c")
 look_text = open(made_look).read() if os.path.exists(made_look) else ""
 check("5: look.c writes the accent DGX_ORANGE(DGX_RGB_24)", "0x44556a, DGX_ORANGE(DGX_RGB_24)};" in look_text, look_text[:2000])
+
+# 5b. a picture of a file: its PNG touched, its file made again by DGX; the file deleted, made again before the tree,
+# which is made again; the program reads the picture
+os.utime(os.path.join(project, "main", "art", "logo.png"))
+status, output = idf("build")
+check("5b: the PNG touched, its file made", status == 0 and output.count(PICTURES_MADE) == 1, output)
+dgxi = os.path.join(project, "build", "dgx_images", "logo.dgxi")
+check("5b: the file of the picture", os.path.exists(dgxi), dgxi)
+if os.path.exists(dgxi):
+    os.remove(dgxi)
+status, output = idf("build")
+built_and_ran("5b deleted", output, status, {"pictured"}, 0, "noise")
+check("5b: the file deleted, made again before the tree", output.count(PICTURES_MADE) == 1 and os.path.exists(dgxi), output)
+ran, said = program()
+check("5b: the program reads the picture", "hook: the picture logo, 12 x 8 of 1 bit" in said, said)
 
 # 6. the configure refusals
 for case, words in [("files_twice", "dgx_ui_tree(more/a.json): a.c and a.h are made of pages/a.json already in this component: give one of them a PREFIX"),
@@ -174,5 +193,5 @@ check(f"10: the build for {chip}", status == 0 and output.count(TOOL_BUILT) == 1
 
 for failure in failures:
     print("  " + failure, file=sys.stderr)
-print(f"test_hook.py: 10 steps held, dgx-ui of {dgx_ui}" if not failures else f"test_hook.py: {len(failures)} failed")
+print(f"test_hook.py: 11 steps held, dgx-ui of {dgx_ui}" if not failures else f"test_hook.py: {len(failures)} failed")
 sys.exit(1 if failures else 0)

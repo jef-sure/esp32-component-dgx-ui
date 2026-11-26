@@ -1,5 +1,13 @@
 # Changes
 
+## 0.1.4 - 2026-11-27
+
+- A picture may come from a PNG file: DGX makes it a file at build time, and a names file names it,
+  `picture <name> @<asset>`, beside `dgx_image_needs_file()`. About 2.2 KB for a program that names one, nothing for one
+  that does not. DGX 0.12.10 or a later 0.12.
+- The builder imports PNG files when it is opened through dgx_ui_serve.py, and draws the picture as the board reads it.
+- The recipe "A picture from a PNG file".
+
 ## 0.1.3 - 2026-11-26
 
 - A dim fill on a display of one bit is hatched, a pixel through a pixel: DGX_UI_HATCH in the table of colours.

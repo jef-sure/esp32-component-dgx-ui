@@ -51,12 +51,14 @@ takes a free one and says so, and there the zoom and the language the browser ke
 - Only this computer reaches it: it listens on 127.0.0.1 alone, and the project's calls carry the token of the link,
   which a browser never sends in an address.
 - It reads only what the builder reads: the project's CMakeLists and `CMakePresets.json`, the files its calls name,
-  the pages and appearances there, the fonts DGX writes under `build/`, and the board's entry; of a build's
-  `sdkconfig` only the panel's lines. Nothing of a dot, no other `sdkconfig*` and no `dependencies.lock`: a file such
+  the pages and appearances there, the PNG files the lines of the file of pictures' needs name, the fonts and the
+  pictures DGX writes under `build/`, and the board's entry; of a build's `sdkconfig` only the panel's lines. Nothing of a dot, no other `sdkconfig*` and no `dependencies.lock`: a file such
   as `main/secrets.h` is not read.
 - It writes only what the project gives the builder: the files its `dgx_ui_tree()`, `dgx_ui_appearance()` and
   `dgx_ui_names()` calls name, read anew at each save, and pages and appearances already there; of `.json` and
-  `.txt`, into folders that are there. Never a file or folder whose name begins with a dot, nor `CMakeLists.txt`,
+  `.txt`, into folders that are there; and a PNG file of a picture the builder imports, beside the file of
+  pictures' needs or below it, never over a PNG no need names
+  ([A picture from a PNG file](#a-picture-from-a-png-file)). Never a file or folder whose name begins with a dot, nor `CMakeLists.txt`,
   `CMakeCache.txt`, `CMake*.json`, `requirements.txt`, `sdkconfig*` or `dependencies.lock`, in any case of letters;
   nothing under `build/`, `managed_components/` or another folder of a build; nothing outside the project, links
   followed. A file it refuses is not saved, and the builder says why.
@@ -70,6 +72,12 @@ takes a free one and says so, and there the zoom and the language the browser ke
   with a `CHECKSUMS.json`, every file matches it. These checks keep out a damaged copy, not a forged one: what holds
   is the browser's sandbox, the policy, and this server's own rules of reading and writing. A copy not taken gets
   the server's own page, and the server says why.
+- It runs one program, and only to make a picture the builder imports: the writer of pictures of the project's own
+  DGX, `managed_components/jef-sure__dgx/tools/dgx_images.py`, when its bytes match the `CHECKSUMS.json` the component
+  manager wrote beside it, and no path a request gives. It runs it by its own Python, isolated (`-I`), in a new empty
+  folder, with no environment but `PATH`, for 30 seconds at most, keeping 4 KB of what it prints. A project whose DGX
+  is not the registry's copy, taken by a path or from git, has no `CHECKSUMS.json`: the picture is not made, and the
+  builder says so.
 - It takes only the standard library of Python, so ESP-IDF's Python runs it.
 
 ## With an agent
@@ -204,6 +212,38 @@ only the name the pages and appearances use changes; a name of the library's ren
 it, `&dgx_ui_look_slider` for `slider`. A hand is the library's word and is not renamed. A name is not renamed to one
 its table has, nor while a file on the names file does not read, and a name a page or an appearance uses is not
 deleted: the builder lists them.
+
+## A picture from a PNG file
+
+Through the server of a terminal alone ([From a terminal](#from-a-terminal)), the builder takes a PNG file as a
+picture of the project: DGX makes it a file of pictures when the program is built, the page names it, and the board
+draws it from flash ([A picture from a PNG file](../docs/en/cookbook.md#a-picture-from-a-png-file)). A page opened
+from the disk does not offer it and says why: the picture is made by DGX's writer, a program of the computer. The
+project names a file of pictures' needs first, a line of its CMakeLists:
+
+```cmake
+dgx_image_needs_file(images.txt)   # main/CMakeLists.txt, after idf_component_register()
+```
+
+![The import of a PNG of a sun: on the panel the page with a logo DGX made at the last build and the sun drawn before it
+is taken; on the right, in the Names tab, "sun.png: 3 colours, with holes", its name, 4 bits a pixel, the flash and RAM
+it takes, "Take it" and "Cancel"](../docs/images/builder-import.png)
+
+- **A PNG chosen or dropped**, or several, the pictures of an icon. The builder counts their colours, and whether
+  some pixels are transparent, and offers the depth DGX would take them at: 1 bit for two colours (one, with a
+  transparent background), 4 for 16 (15), 8 for 256 (255), 16 for more. The depth may be changed; `REDUCE` and
+  `DITHER` take a picture of more colours to fewer, `INK` says which colours of one bit are ink, and a picture of 16
+  bits with transparency takes `BACKGROUND`, the appearance's paper by default.
+- **Made at once.** The server makes the file by the project's DGX, and the preview draws it in the appearance's
+  colours, as the board will. What DGX refuses, a picture of 37 colours at 4 bits, is said in DGX's words.
+- **Taken, written at the save.** The PNG files into `images/` beside the file of needs, `images/<name>.png`; the
+  need at the end of that file, `<name> PNG images/<name>.png BITS <n>`; and the line of the page's names file,
+  `picture <name> @<name>`. Never a CMakeLists. The name is a name of C, not of `dgx_`, and not a need's the file
+  has.
+- **After a build** the panel draws every picture DGX made by the project's needs, from `build/dgx_images/`, or
+  `build/<board>/dgx_images/` of a preset, as it draws the fonts DGX made.
+- Refused in words: a project with no file of needs, a page with no names file, a name taken, and a project whose DGX
+  is not the registry's copy.
 
 ## Saving
 

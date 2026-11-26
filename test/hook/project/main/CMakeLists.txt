@@ -8,6 +8,10 @@ dgx_ui_tree(b.json PREFIX other NAMES vocab.txt HEADERS headers/program.h)    # 
 # on the second component's appearance: a tree, and the tables a page of it is loaded on
 dgx_ui_tree(framed.json NAMES vocab.txt APPEARANCE ../components/second/look.json HEADERS headers/program.h)   # framed.c, framed.h: framed_add()
 dgx_ui_names(vocab.txt PREFIX themed APPEARANCE ../components/second/look.json HEADERS headers/program.h)        # themed.c, themed.h: themed_names
+# a picture of a file: DGX makes art/logo.png a file of bytes by images.txt and embeds it; the page names it @logo,
+# of 1 bit, which needs no virtual screens of DGX
+dgx_image_needs_file(images.txt)
+dgx_ui_tree(pictured.json NAMES pictures.txt APPEARANCE ../components/second/look.json)                          # pictured.c, pictured.h
 
 # the cases test_hook.py configures, each refused
 if(HOOK_CASE STREQUAL "files_twice")

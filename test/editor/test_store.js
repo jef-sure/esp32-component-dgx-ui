@@ -153,15 +153,16 @@ const boxOf = (store, widgetPath) => {
             ['main/pages/a.json', 'main/vocab.txt', null, 'main/CMakeLists.txt:6'],
             ['main/b.json', 'main/vocab.txt', null, 'main/CMakeLists.txt:7'],
             ['main/framed.json', 'main/vocab.txt', 'components/second/look.json', 'main/CMakeLists.txt:9'],
+            ['main/pictured.json', 'main/pictures.txt', 'components/second/look.json', 'main/CMakeLists.txt:14'],
             ['components/second/c.json', 'components/second/words/names.txt', 'components/second/look.json', 'components/second/CMakeLists.txt:3'],
             ['components/third/d.json', null, null, 'components/third/CMakeLists.txt:3'],
             ['main/bad.json', null, null, null], ['main/more/a.json', null, null, null], ['main/odd page.json', null, null, null],
         ]), 'the pages of the hook project: ' + JSON.stringify(pages));
         const lines = store.project.notUnderstood.map((said) => `${said.file}:${said.line}`);
-        check(same(lines, ['main/CMakeLists.txt:14', 'main/CMakeLists.txt:16', 'main/CMakeLists.txt:18', 'main/CMakeLists.txt:20',
-              'main/CMakeLists.txt:22',
-                           'main/CMakeLists.txt:24', 'main/CMakeLists.txt:26', 'main/CMakeLists.txt:28', 'main/CMakeLists.txt:30',
-                           'components/second/CMakeLists.txt:6']), 'the calls within if(): ' + JSON.stringify(lines));
+        check(same(lines, ['main/CMakeLists.txt:18', 'main/CMakeLists.txt:20', 'main/CMakeLists.txt:22', 'main/CMakeLists.txt:24',
+                           'main/CMakeLists.txt:26', 'main/CMakeLists.txt:28', 'main/CMakeLists.txt:30', 'main/CMakeLists.txt:32',
+                           'main/CMakeLists.txt:34', 'components/second/CMakeLists.txt:6']), 'the calls within if(): ' + JSON.stringify(lines));
+        check(same(store.project.needsFiles, ['main/images.txt']), 'the file of pictures\' needs: ' + JSON.stringify(store.project.needsFiles));
         check(store.current === 'main/pages/a.json' && store.verdicts.page.code === 0 && store.verdicts.names.code === 0,
               'the first page open and taken');
         for (const one of store.project.pages) {
@@ -178,8 +179,8 @@ const boxOf = (store, widgetPath) => {
         // names not deleted; a draw its names file has not, and the page on it on its names file refused at a save
         store.choose('main/framed.json');
         store.setTab('appearance');
-        check(store.lookPrefix === 'theme' && same(store.pagesOn, ['main/framed.json', 'components/second/c.json']) &&
-              !store.lookFormat.by_rule && same(store.lookFormat.fonts, ['small']), 'the appearance of two pages, on its own names file');
+        check(store.lookPrefix === 'theme' && same(store.pagesOn, ['main/framed.json', 'main/pictured.json', 'components/second/c.json']) &&
+              !store.lookFormat.by_rule && same(store.lookFormat.fonts, ['small']), 'the appearance of three pages, on its own names file');
         check(!store.removeEntry('looks', 'pane') && store.said[store.said.length - 1].values[1].startsWith('main/framed.json'), 'pane, named, kept');
         check(store.setLook(['looks', 'pane', 'draw'], 'nothing') && store.verdicts.appearance.code > 0 && store.verdicts.page.code > 0,
               'a draw its names file has not: the appearance refused, and the page on its names with it');

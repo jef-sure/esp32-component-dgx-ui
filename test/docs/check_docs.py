@@ -10,7 +10,7 @@ dgx_ui_c itself, built here by tools/dgx_ui_c.py, and what it makes is compiled 
 lists is the header's, member by member; the tables of the headers name every header; the cookbook's list is its
 recipes; a size a page marks is the one the headers assert for a 32-bit chip; a version a page names is the
 manifests'."""
-import os, re, subprocess, sys
+import os, re, struct, subprocess, sys, zlib
 here = os.path.dirname(os.path.abspath(__file__))
 repo = os.path.normpath(os.path.join(here, '..', '..'))
 dgx = sys.argv[1] if len(sys.argv) > 1 else os.path.join(repo, '..', 'esp32-component-dgx')
@@ -52,7 +52,9 @@ CC = ['cc', '-std=gnu11', '-fsyntax-only', '-Wall', '-Wextra', '-Wno-unused-para
       '-DDGX_HOST_WINDOW', f'-I{here}/stubs', f'-I{repo}/include', f'-I{dgx}/include', f'-I{dgx}/host/stubs', f'-I{dgx}/host/window', f'-I{dgx_di}/include', f'-I{fonts}',
       '-include', f'{dgx}/host/stubs/esp_log.h']
 MADE_FILES = {'sound.json': r'^```json\n(\{"dgx-ui": 1, "name": "sound".*?)^```', 'vocab.txt': r'^```text\n(# table.*?)^```',
-              'program.h': r'^```c\n(/\* program\.h: .*?)^```', 'day.json': r'^```json\n(\{"dgx-ui": 1, "name": "day".*?)^```'}
+              'program.h': r'^```c\n(/\* program\.h: .*?)^```', 'day.json': r'^```json\n(\{"dgx-ui": 1, "name": "day".*?)^```',
+              'weather.json': r'^```json\n(\{"dgx-ui": 1, "name": "weather".*?)^```', 'weather.txt': r'^```text\n(# weather\.txt.*?)^```',
+              'images.txt': r'^```text\n(# images\.txt.*?)^```'}
 # what the recipe of an appearance adds to two of them
 MORE = {'vocab.txt': r'^```text\n(# an appearance.*?)^```', 'program.h': r'^```c\n(/\* program\.h, one line more.*?)^```'}
 
@@ -143,6 +145,30 @@ VERSIONS = [  # what a page writes, the version it names, what the manifests ask
 ]
 
 
+def png_of(path, width, height, pixel):
+    """A PNG of 8 bits a channel with opacity, pixel(x, y) an (r, g, b, a) each, as any program writes one."""
+    rows = b"".join(b"\0" + bytes(c for x in range(width) for c in pixel(x, y)) for y in range(height))
+    chunk = lambda kind, body: struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body) & 0xFFFFFFFF)
+    with open(path, "wb") as out:
+        out.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(rows, 9))
+                  + chunk(b"IEND", b""))
+
+
+def sun_pixel(x, y):
+    """The PNG of the recipe "A picture from a PNG file": a sun behind a cloud, 24 by 24, in the colours of the
+    appearance day, accent, ink and border; the rest transparent."""
+    accent, ink, border, hole = (0xf0, 0xa0, 0x3c, 255), (0xe8, 0xe8, 0xde, 255), (0x44, 0x55, 0x6a, 255), (0, 0, 0, 0)
+    cloud = (x - 10.5) ** 2 + (y - 17.5) ** 2 <= 14 or (x - 15.5) ** 2 + (y - 14.5) ** 2 <= 25 or (x - 20) ** 2 + (y - 18) ** 2 <= 9 \
+        or (10 <= x <= 20 and 17 <= y <= 21)
+    if cloud:
+        return border if y >= 20 else ink
+    dx, dy = x - 9, y - 9  # the sun's centre; its rays three pixels along the axes and two along the diagonals
+    if dx * dx + dy * dy <= 20:
+        return accent
+    ray = (dx == 0 and 6 <= abs(dy) <= 8) or (dy == 0 and 6 <= abs(dx) <= 8) or (abs(dx) == abs(dy) and 5 <= abs(dx) <= 6)
+    return accent if ray else hole
+
+
 def made_of(text, rel):
     """The files a cookbook prints for its recipe of a description made C, written into a directory of the page's
     language and made C there by the tool: sound.c and sound.h of the description, vocab.c and vocab.h of the names
@@ -159,6 +185,14 @@ def made_of(text, rel):
         if len(more) != 1:
             return where, [f'the recipe of an appearance made C prints its lines of {name} {len(more)} times, not once']
         open(os.path.join(where, name), 'a').write(more[0])
+    # the recipe of a picture from a PNG file: its PNG, and the files DGX's writer makes of the recipe's images.txt, with
+    # dgx_assets.S and dgx_assets.h, as a build makes them
+    os.makedirs(os.path.join(where, 'art'), exist_ok=True)
+    png_of(os.path.join(where, 'art', 'sun.png'), 24, 24, sun_pixel)
+    pictures = subprocess.run([sys.executable, os.path.join(dgx, 'tools', 'dgx_images.py'), 'build', 'images.txt', 'out'], cwd=where, capture_output=True,
+                              text=True, timeout=120)
+    if pictures.returncode:
+        return where, ['dgx_images.py: ' + line for line in pictures.stderr.splitlines()[:4]]
     tool_dir = os.path.join(build, 'tool')
     built = subprocess.run([sys.executable, os.path.join(repo, 'tools', 'dgx_ui_c.py'), dgx, tool_dir], capture_output=True, text=True)
     if built.returncode:
@@ -171,9 +205,14 @@ def made_of(text, rel):
                       ['-p', 'sound_day', '-f', 'sound_day', '-a', 'day.json', '-an', 'vocab.txt', '-af', 'day', 'sound.json']):
         run = subprocess.run([tool, '-n', 'vocab.txt', '-i', 'program.h', '-d', '.'] + arguments, capture_output=True, text=True, cwd=where)
         said += run.stderr.splitlines()[:4] if run.returncode else []
+    # the page of the picture from a PNG file, on the appearance, as dgx_ui_tree() runs the tool with its NAMES and the
+    # folder of DGX's pictures
+    run = subprocess.run([tool, '-n', 'weather.txt', '-d', '.', '-g', 'out', '-a', 'day.json', '-an', 'vocab.txt', '-af', 'day', 'weather.json'],
+                         capture_output=True, text=True, cwd=where)
+    said += run.stderr.splitlines()[:4] if run.returncode else []
     if not said:
-        for made in ('sound.c', 'vocab.c', 'day.c', 'sound_day.c'):
-            run = subprocess.run(CC + [f'-I{where}', os.path.join(where, made)], capture_output=True, text=True)
+        for made in ('sound.c', 'vocab.c', 'day.c', 'sound_day.c', 'weather.c'):
+            run = subprocess.run(CC + [f'-I{where}', f'-I{os.path.join(where, "out")}', os.path.join(where, made)], capture_output=True, text=True)
             said += [line for line in run.stderr.splitlines() if 'error' in line or 'warning' in line][:4]
     return where, said
 # the constants that are a plain number, DGX_UI_BLOCK = 64; a flag, 1u << 3, is not one

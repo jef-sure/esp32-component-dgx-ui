@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "dgx_image_file.h"
 #include "dgx_ui_load.h"
 #include "dgx_ui_names.h"
 
@@ -167,6 +168,91 @@ static char *appearance_line(const char *path, int number, int table, char **wor
     return NULL;
 }
 
+/* a picture line of an asset: picture <name> @<asset> [<count>] [scale <n>] [map=<C array>] */
+static char *asset_line(const char *path, int number, entry_t *entry, char **words, int count)
+{
+    const char *asset = words[2] + 1;
+    if (!c_name(asset, false))
+        return printed("%s:%d: \"%s\": an asset of DGX is @ and its name, a name of C, as dgx_image_need() gave it", path, number, words[2]);
+    free(entry->c);
+    entry->asset = copy_of(asset), entry->line = number;
+    entry->c     = printed("pictures_of_%s", entry->name); /* the table the made C keeps and fills, one a line */
+    for (char *at = entry->c; *at; ++at)
+        if (*at == '.' || *at == '-') *at = '_'; /* a name of the loader's made one of C */
+    for (int k = 3; k < count; ++k) {
+        char *end;
+        if (strcmp(words[k], "scale") == 0 && k + 1 < count) {
+            const long scale = strtol(words[++k], &end, 10);
+            if (*end || scale < 0 || scale > 255) return printed("%s:%d: \"%s\" is not a scale, 0 to 255", path, number, words[k]);
+            entry->scale = (unsigned)scale;
+        } else if (strncmp(words[k], "map=", 4) == 0) {
+            if (!c_name(words[k] + 4, true)) return printed("%s:%d: \"%s\": map= takes the name of the program's array of C", path, number, words[k]);
+            entry->map = copy_of(words[k] + 4);
+        } else {
+            const long pictures = strtol(words[k], &end, 10);
+            if (*end || pictures < 1 || pictures > 65535 || entry->count_given)
+                return printed("%s:%d: \"%s\" means nothing for a picture of a file: a count, scale <n>, or map=<array>", path, number, words[k]);
+            entry->count = (unsigned)pictures, entry->count_given = true;
+        }
+    }
+    return NULL;
+}
+
+int nearest_color(const uint32_t *rgb, int count, unsigned r, unsigned g, unsigned b)
+{
+    int      best = 0;
+    uint32_t least = UINT32_MAX;
+    for (int k = 0; k < count; ++k) {
+        const int      dr = (int)(rgb[k] >> 16 & 255) - (int)r, dg = (int)(rgb[k] >> 8 & 255) - (int)g, db = (int)(rgb[k] & 255) - (int)b;
+        const uint32_t far = (uint32_t)(2 * dr * dr + 4 * dg * dg + 3 * db * db);
+        if (far < least) least = far, best = k;
+    }
+    return best;
+}
+
+char *picture_file_refused(const entry_t *entry, const void *opened)
+{
+    const dgx_image_file_t *file  = opened;
+    bool                    alpha = false;
+    const unsigned          format = file->bytes[4] | file->bytes[5] << 8u; /* of the header, read as DGX reads it */
+    if (format > 1)
+        return printed("picture %s: @%s is of the format %u of a later DGX: dgx-ui reads the format 1, pictures of 1, 4 and 8 bits indexed and 16 of pixels",
+                       entry->name, entry->asset, format);
+    for (unsigned j = 0; j < file->count; ++j) {
+        dgx_image_file_picture_t one;
+        alpha |= dgx_image_file_picture(file, j, &one) == ESP_OK && one.alpha;
+    }
+    for (unsigned j = 0; file->kind == DGX_IMAGE_FILE_INDEXED && j < file->colors; ++j) alpha |= file->palette[4 * j + 3] != 255;
+    if (file->kind == DGX_IMAGE_FILE_PIXELS && file->bits == 16 && alpha)
+        return printed("picture %s: @%s of 16 bits has transparency, which dgx-ui does not mix: BACKGROUND <rrggbb> in its need, or BITS 1, 4 or 8",
+                       entry->name, entry->asset);
+    if (!(file->kind == DGX_IMAGE_FILE_PIXELS && file->bits == 16) && !(file->kind == DGX_IMAGE_FILE_INDEXED && file->bits <= 8)) {
+        char kind[40];
+        snprintf(kind, sizeof kind, file->kind == DGX_IMAGE_FILE_PIXELS ? "pixels" : file->kind == DGX_IMAGE_FILE_INDEXED ? "an indexed palette"
+                                    : file->kind == 3 /* DGX_IMAGE_FILE_MASK of DGX 0.12.11 */ ? "a mask of soft edges (MASK)" : "kind %u",
+                 (unsigned)file->kind);
+        return printed("picture %s: @%s is of %u bits of %s: dgx-ui draws 1, 4 and 8 bits indexed and 16 of pixels", entry->name, entry->asset,
+                       (unsigned)file->bits, kind);
+    }
+    if (alpha) return printed("picture %s: @%s keeps the opacity of its PNG (ALPHA), which dgx-ui does not mix: its need without ALPHA", entry->name, entry->asset);
+    if (entry->count_given && entry->count != file->count)
+        return printed("picture %s: the line says %u pictures, @%s holds %u", entry->name, entry->count, entry->asset, (unsigned)file->count);
+    return NULL;
+}
+
+void picture_file_map(const void *opened, const uint32_t *rgb, int count, uint8_t map[255], uint8_t *solid, uint8_t *zero)
+{
+    const dgx_image_file_t *file = opened;
+    memset(map, 0, 255);
+    *solid = *zero = 0;
+    for (unsigned j = 0; j < file->colors; ++j) {
+        const uint8_t *c     = file->palette + 4 * j;
+        const int      value = file->first + (int)j, index = nearest_color(rgb, count, c[0], c[1], c[2]);
+        if (value == 0) *solid = 1, *zero = (uint8_t)index;
+        else if (value <= 255) map[value - 1] = (uint8_t)index;
+    }
+}
+
 char *names_read(const char *path, const char *text, size_t length, bool appearance_alone)
 {
     char line[1024];
@@ -180,9 +266,9 @@ char *names_read(const char *path, const char *text, size_t length, bool appeara
         memcpy(line, text + at, taken), line[taken] = 0;
         char *hash = strchr(line, '#');
         if (hash) *hash = 0;
-        char *words[5];
+        char *words[8];
         int   count = 0;
-        for (char *word = strtok(line, " \t\r\n"); word && count < 5; word = strtok(NULL, " \t\r\n")) words[count++] = word;
+        for (char *word = strtok(line, " \t\r\n"); word && count < 8; word = strtok(NULL, " \t\r\n")) words[count++] = word;
         if (count == 0) continue;
         int kind = 0;
         while (kind < A_PICTURE && strcmp(appearance_words[kind], words[0]) != 0) ++kind;
@@ -212,6 +298,12 @@ char *names_read(const char *path, const char *text, size_t length, bool appeara
         entry->c        = count == 2 ? library : copy_of(words[2]);
         entry->count    = 1;
         into->from_file = true;
+        if (table == T_PICTURE && count > 2 && words[2][0] == '@') { /* the pictures of a file of DGX, read where it lies */
+            free(library);
+            char *said = asset_line(path, number, entry, words, count);
+            if (said) return said;
+            continue;
+        }
         if (count == 2) continue;
         free(library);
         if (count == 3) continue;
@@ -235,6 +327,8 @@ char *names_read(const char *path, const char *text, size_t length, bool appeara
         if (entry_of(&appearance_tables[A_PICTURE], page->name)) continue;
         entry_t *entry = entry_add(&appearance_tables[A_PICTURE], page->name);
         entry->c = copy_of(page->c), entry->count = page->count;
+        entry->asset = page->asset ? copy_of(page->asset) : NULL, entry->map = page->map ? copy_of(page->map) : NULL;
+        entry->scale = page->scale, entry->count_given = page->count_given;
         appearance_tables[A_PICTURE].from_file = true;
     }
     return NULL;
