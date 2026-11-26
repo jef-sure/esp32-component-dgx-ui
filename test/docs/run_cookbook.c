@@ -139,6 +139,7 @@ static void shot(dgx_screen_t *scr, const char *dir, const char *name)
     snprintf(path, sizeof path, "%s/%s", dir, name);
     dgx_vscreen_to_argb8888(scr, 0, 0, scr->width, scr->height, NULL, px, scr->width);
     FILE *f = fopen(path, "wb");
+    if (!f) fprintf(stderr, "cannot write %s\n", path), exit(1);
     fprintf(f, "P6\n%d %d\n255\n", scr->width, scr->height);
     for (int i = 0; i < scr->width * scr->height; ++i) fputc(px[i] >> 16 & 255, f), fputc(px[i] >> 8 & 255, f), fputc(px[i] & 255, f);
     fclose(f);
@@ -711,10 +712,10 @@ int main(int argc, char **argv)
         static const dgx_ui_widget_t hand_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
         static dgx_ui_node_t         hand_nodes[4];
         dgx_ui_t                     hand_ui;
-        greeting_init(), signature_init();
+        greeting_init();
         dgx_ui_init(&hand_ui, hand_nodes, 4, 1);
         dgx_ui_add(&hand_ui, -1, &hand_root_w);
-        const int greeting = dgx_ui_add(&hand_ui, 0, &greeting_w), signature = dgx_ui_add(&hand_ui, 0, &signature_w);
+        const int greeting = dgx_ui_add(&hand_ui, 0, &greeting_w);
         static const char *const said[] = {"Hello", "Good afternoon to you", "Good afternoon, dear guests of the house",
                                            "Good afternoon, dear guests of the house on the hill"};
         for (unsigned k = 0; k < sizeof said / sizeof *said; ++k) {
@@ -746,14 +747,12 @@ int main(int argc, char **argv)
         }
         printf("hand: 'Hello' at 60 ms a letter: written in %u ms, %d passes, the look asking for a pass every %d ms; none asked after %d\n", written_ms, passes,
                frame, hand_paint.wake_ms == DGX_UI_WAKE_NONE);
-        /* the signature by a soft pen in its canvas: more shades than ink and paper */
-        dgx_ui_text_set(&hand_ui, signature, "Soft");
-        dgx_ui_paint(&hand_ui, &hand_paint, 4000);
-        const dgx_ui_node_t *signature_node = dgx_ui_node(&hand_ui, signature);
+        /* the greeting written by its soft pen in its canvas: more shades than ink and paper */
+        const dgx_ui_node_t *greeting_node = dgx_ui_node(&hand_ui, greeting);
         int shades = 0, inked = 0;
         uint32_t seen[8];
-        for (int row = signature_node->y; row < signature_node->y + signature_node->h; ++row)
-            for (int column = signature_node->x; column < signature_node->x + signature_node->w; ++column) {
+        for (int row = greeting_node->y; row < greeting_node->y + greeting_node->h; ++row)
+            for (int column = greeting_node->x; column < greeting_node->x + greeting_node->w; ++column) {
                 const uint32_t pixel = dgx_get_pixel(hand_screen, column, row);
                 if (pixel == table[PAPER]) continue;
                 ++inked;
@@ -761,7 +760,8 @@ int main(int argc, char **argv)
                 for (int k = 0; k < shades; ++k) known |= seen[k] == pixel;
                 if (!known && shades < 8) seen[shades++] = pixel;
             }
-        printf("hand: the signature by a soft pen in a canvas %dx%d: %d pixels of ink in %d shades\n", signature_node->w, signature_node->h, inked, shades);
+        printf("hand: 'Hello' by a soft pen in a canvas %dx%d (%d bytes): %d pixels of ink in %d shades\n", greeting_node->w, greeting_node->h,
+               greeting_node->w * greeting_node->h, inked, shades);
         dgx_ui_free(&hand_ui);
         dgx_ui_paint_free(&hand_paint);
         dgx_screen_destroy(&hand_screen);

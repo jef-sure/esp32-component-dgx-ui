@@ -182,11 +182,11 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, hello: a label an
 | a message | 20 bytes<!-- sizeof dgx_ui_msg_t --> |
 | the keys and the focus, when the program gives the tree keys or buttons | about 1.5 KB more |
 | the look of several lines, when a widget names it | about 2.5 KB more |
-| handwriting, when a variant of a font names it | about 1.6 KB more, and 28 KB of DGX with its font |
+| handwriting, when a variant of a font names it | about 1.8 KB more, and 35 KB of DGX and C's mathematics with its font |
 | handwriting in several lines, when a widget names its look | about 3.9 KB more |
 | drawing through the buffer for a display of 18 or 24 bits, when the program names it | about 0.6 KB more, and 5 KB of DGX |
 | a picture for the background, when the program sets one | about 0.5 KB more |
-| a canvas, when a widget has one | about 1.5 KB more, and a byte of RAM a pixel of its box |
+| a canvas, when a widget has one | about 1.7 KB more, a byte of RAM a pixel of its box, and a table of 512 bytes once |
 | `dgx_ui_paint_changes()`, when the program calls it | about 0.6 KB more |
 | transitions between pages, when the program names them | about 2 KB more, and two pictures of the screen in RAM |
 | the statistics of painting, when the program names them | about 1.8 KB more |

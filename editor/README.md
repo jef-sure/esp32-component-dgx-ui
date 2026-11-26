@@ -88,6 +88,17 @@ folder it works in; a folder with no call of dgx-ui and no description gets no t
 the script run: when that copy goes with its project, run `--install` again, or from a clone of dgx-ui.
 `--serve` is the builder with no agent, as `dgx_ui_serve.py`.
 
+With the server comes a skill for the agent,
+[`tools/skills/dgx-ui-builder/SKILL.md`](../tools/skills/dgx-ui-builder/SKILL.md): the order of work with the tools,
+what the agent must not do (write a project's file on the disk, build, flash, run `--install`), where each format is
+told, worked cases and what each refusal of the loader means. When it gives
+the server to Claude Code, `--install` copies the skill into `skills/dgx-ui-builder/` of Claude Code's folder,
+`~/.claude` or `$CLAUDE_CONFIG_DIR`, with a line naming the version of dgx-ui it came with. A copy, not a link: a
+project's copy of dgx-ui may be made again or moved, and the skill stays. `--install` run again writes it afresh,
+and leaves a skill of that name of another's as it is. In `.mcp.json` no skill is written, and the path of the
+package's is printed for a client that reads skills. The server tells the agent the version it runs and where its
+documentation lies (`formats`), so the agent can tell a copy of the skill older than the server.
+
 ![The builder's dialog under the properties: the person asks for the title "Volume", the agent answers that it is
 done, and the panel shows the title so](../docs/images/builder-agent.png)
 

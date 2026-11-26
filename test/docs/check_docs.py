@@ -42,6 +42,11 @@ known |= set(re.findall(r'\bdgx_ui_[a-z0-9_]+\b', cmake))
 cmake_calls = set(re.findall(r'^function\((dgx_ui_[a-z0-9_]+)', cmake, re.M))
 # the programs and scripts of tools/, by their names without the extension
 known |= {os.path.splitext(name)[0] for name in os.listdir(os.path.join(repo, 'tools')) if name.startswith('dgx_ui_')}
+# the fragment of make for a build on the computer, host/dgx_ui_host.mk: its name and the variables it sets
+for name in os.listdir(os.path.join(repo, 'host')):
+    if name.endswith('.mk'):
+        known.add(os.path.splitext(name)[0])
+        known |= set(re.findall(r'^(DGX_UI_[A-Z0-9_]+)\s*:?=', open(os.path.join(repo, 'host', name), encoding='utf-8').read(), re.M))
 CC = ['cc', '-std=gnu11', '-fsyntax-only', '-Wall', '-Wextra', '-Wno-unused-parameter', '-Wno-unused-function', '-Wno-unused-variable',
       '-Wno-unused-but-set-variable', '-Wno-missing-field-initializers', '-Werror=implicit-function-declaration', '-Werror=incompatible-pointer-types',
       '-DDGX_HOST_WINDOW', f'-I{here}/stubs', f'-I{repo}/include', f'-I{dgx}/include', f'-I{dgx}/host/stubs', f'-I{dgx}/host/window', f'-I{dgx_di}/include', f'-I{fonts}',

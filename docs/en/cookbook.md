@@ -1324,11 +1324,13 @@ rules the program gives, so the program builds wherever one of them is installed
 
 ## A handwritten text
 
-![A greeting written narrowed to go in, a signature by a soft pen, and a note of two lines](../images/hand.png)
+![A greeting by a soft pen, narrowed to go in, and a note of two lines by the same pen](../images/hand.png)
 
 DGX has handwritten fonts: their letters are strokes, written by a pen at any height. A variant of such a font names
-the library's handwriting, `&dgx_ui_handwriting`, and the one-line look of a text writes it. A program that names
-none carries none of it.
+the library's handwriting, and the one-line look of a text writes it. Here the pen is soft, `DGX_PEN_SOFT`: its edges
+fade into the paper. It writes into the canvas of the widget, which keeps the amounts of its ink, so the variant
+names `&dgx_ui_handwriting_canvas` and the label has the flag `DGX_UI_CANVAS`. A program that names no handwriting
+carries none of it.
 
 Here, on a tree of a pixel a point, a greeting in DGX's `font0ss`: 32 pixels high when it goes in, narrowed when it nearly does, 20 pixels high when
 it is long, and in a bitmap font when it is longer still.
@@ -1344,15 +1346,18 @@ static dgx_ui_textbox_t      greeting_box;
 
 static void greeting_init(void)
 {
-    /* DGX's handwritten face at two heights, then a bitmap font for a text too long even so */
-    greeting_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .narrow = 70, .joined = true, .pen = 2, .hand = &dgx_ui_handwriting};
-    greeting_fonts[1] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .narrow = 70, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
+    /* DGX's handwritten face at two heights by a soft pen, then a bitmap font for a text too long even so */
+    greeting_fonts[0] = (dgx_ui_font_variant_t){
+        .font = &font0ss, .height = 32, .narrow = 70, .joined = true, .pen = 2 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting_canvas};
+    greeting_fonts[1] = (dgx_ui_font_variant_t){
+        .font = &font0ss, .height = 20, .narrow = 70, .joined = true, .pen = 2 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting_canvas};
     greeting_fonts[2] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     greeting_style    = (dgx_ui_text_style_t){.fonts = greeting_fonts, .count = 3, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&greeting_box, greeting_text, sizeof greeting_text, 1, &greeting_style);
 }
 
-static const dgx_ui_widget_t greeting_w = {.kind = DGX_UI_LABEL, .text = &greeting_box};
+/* the canvas of the label keeps the amounts of ink: a byte of RAM for each of its pixels */
+static const dgx_ui_widget_t greeting_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_CANVAS, .text = &greeting_box};
 
 /* a new text, written by the pen: all of it in as long as its letters at 60 ms each */
 static void greeting_say(dgx_ui_t *ui, int greeting, const char *text)
@@ -1384,44 +1389,31 @@ What the variant says:
   style: on a board of 2 pixels a point the same greeting is 64 pixels high, its pen twice as wide.
 - **`narrow`** is how far across the letters may be narrowed, in percent; 0: never.
 - **`joined`**: the letters joined, as in handwriting.
-- **`pen`** is the width of the pen in points; 0 is a hairline of one pixel at any unit.
+- **`pen`** is the width of the pen in points, with `DGX_PEN_SOFT` for edges that fade; 0 is a hairline of one pixel
+  at any unit.
+- **The canvas** is a byte of RAM for each pixel of the label, made at its first need: 200 by 32 pixels, 6400 bytes,
+  for this one, four times as much at 2 pixels a point. It needs `CONFIG_DGX_ENABLE_VSCREEN=y` and a display of 16
+  bits; with no canvas to be had the pen is the hard pen of its width.
 - **Which looks write it.** The one-line look, that is a label, and `dgx_ui_look_hand_lines` for several lines,
   below. In a button, a field, a list and `dgx_ui_look_lines` a handwritten variant is passed over.
-- **What it costs.** Named by a variant: about 31 KB, of which the font `font0ss` is 17.8 KB, DGX's pen 10 KB and
-  dgx-ui 1.6 KB. Not named: about 100 bytes. A variant is 20 bytes<!-- sizeof dgx_ui_font_variant_t -->, handwritten or not.
-- **The time of a pass.** The pen keeps nothing between passes: each pass goes over the strokes already written
-  without drawing them, then writes the new ones. On an ESP32 at 240 MHz with a display of 320 by 240 on SPI a pass
-  takes 5 to 9 ms while a line of 12 to 30 letters is written at 24 pixels, under 3 ms of it for the strokes gone
-  over. All of the label drawn again would take 23 to 41 ms.
+- **What it costs.** Named by a variant, with the soft pen: about 38 KB, of which the font `font0ss` is 17 KB, DGX's
+  pen 16 KB, dgx-ui 3.9 KB with the canvas, and 1.6 KB of C's mathematics the pen takes; in RAM, the canvases and a
+  table of 512 bytes the paint takes once for all of them. Not named: about 100 bytes. A variant is 20 bytes<!-- sizeof dgx_ui_font_variant_t -->, handwritten or not.
+- **The time of a pass.** A pass writes into the canvas only the strokes that are new since the last one, the canvas
+  keeping the ink written before; then the whole canvas goes to the screen, the label once. On an ESP32 at 240 MHz
+  with a display of 320 by 240 on SPI, built for debugging (`-Og`), a pass while the letters come takes 5.5 to 6 ms
+  for "Hello", 14 to 17 ms for "Good afternoon to you" narrowed, and 18 to 22 ms for the long greeting at 20 pixels,
+  near the frame of 20 ms. The label drawn whole takes 7, 26 and 41 ms.
 
-A soft pen has edges that fade, and needs a place that keeps the amounts of its ink: the canvas of a widget. The
-variant names `&dgx_ui_handwriting_canvas`, and the label has the flag `DGX_UI_CANVAS`:
-
-```c
-static dgx_ui_font_variant_t signature_fonts[1];
-static dgx_ui_text_style_t   signature_style;
-static char                  signature_text[24];
-static dgx_ui_textbox_t      signature_box;
-
-static void signature_init(void)
-{
-    signature_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 32, .pen = 3 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting_canvas};
-    signature_style    = (dgx_ui_text_style_t){.fonts = signature_fonts, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
-    dgx_ui_textbox_init(&signature_box, signature_text, sizeof signature_text, 1, &signature_style);
-}
-
-/* the canvas of the label holds the amounts of ink: a byte of RAM for each of its pixels */
-static const dgx_ui_widget_t signature_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_CANVAS, .text = &signature_box, .want_w = 120};
-```
-
-The canvas needs `CONFIG_DGX_ENABLE_VSCREEN=y` and a display of 16 bits. Written straight, by `&dgx_ui_handwriting`, a
-soft pen is the hard pen of its width, and the log says so once. A program that names only `&dgx_ui_handwriting`
-carries no canvas.
+**Without a canvas** a variant names `&dgx_ui_handwriting` and the label has no flag: the pen is hard, of the same
+width with no fading, and no ink is kept, so no RAM is spent on it. A soft pen named so is drawn as the hard pen of
+its width, and the log says so once. A program that names only `&dgx_ui_handwriting` carries no canvas.
 
 ### In several lines
 
 A text of several lines in handwriting names a look of its own, `dgx_ui_look_hand_lines`. Its variants name the
-handwriting as a label's do.
+handwriting as a label's do, and a soft pen writes into the widget's canvas the same way: 200 by 60 pixels here,
+12,000 bytes.
 
 ```c
 static dgx_ui_font_variant_t note_fonts[2];
@@ -1431,14 +1423,14 @@ static dgx_ui_textbox_t      note_box;
 
 static void note_init(void)
 {
-    /* the hand at 20 pixels, then a bitmap font for a note too long for its lines */
-    note_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .joined = true, .pen = 1, .hand = &dgx_ui_handwriting};
+    /* the hand at 20 pixels by a soft pen, then a bitmap font for a note too long for its lines */
+    note_fonts[0] = (dgx_ui_font_variant_t){.font = &font0ss, .height = 20, .joined = true, .pen = 2 | DGX_PEN_SOFT, .hand = &dgx_ui_handwriting_canvas};
     note_fonts[1] = (dgx_ui_font_variant_t){.font = &dgx_font_body};
     note_style    = (dgx_ui_text_style_t){.fonts = note_fonts, .count = 2, .align = DGX_FONT_ALIGN_LEFT};
     dgx_ui_textbox_init(&note_box, note_text, sizeof note_text, 3, &note_style); /* three lines */
 }
 
-static const dgx_ui_widget_t note_w = {.kind = DGX_UI_LABEL, .text = &note_box, .look = &dgx_ui_look_hand_lines};
+static const dgx_ui_widget_t note_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_CANVAS, .text = &note_box, .look = &dgx_ui_look_hand_lines};
 ```
 
 What happens in a note 200 pixels wide and three lines high:
@@ -1462,12 +1454,13 @@ What to know of it:
   bytes and 8 a line, 36 bytes for three lines. So a pass costs the line being written, whatever the length of the
   text. They are laid again when the text, the width or the variant changes, and freed when the widget goes.
   Without memory for them the lines are laid at every pass, which is slower and no error.
-- **The time of a pass.** On an ESP32 at 240 MHz with a display of 320 by 240 on SPI, at 20 pixels with a pen of 2:
-  a pass while letters come takes 7 to 12 ms for a text of 58 letters in two lines and of 101 letters in three.
-  Laid at every pass, with no memory for the line breaks, it takes 45 and 80 ms, more than the frame of 20 ms. The
-  first pass after a new text, which lays the paper and the lines, takes 40 to 130 ms, and a scroll step, which
-  draws the box whole, about 80 ms. With the code of DGX's handwritten fonts in RAM, `CONFIG_DGX_HW_FONT_IN_IRAM=y`,
-  6 KB of IRAM, a pass takes 5 to 7 ms.
+- **The time of a pass.** On an ESP32 at 240 MHz with a display of 320 by 240 on SPI, built for debugging (`-Og`),
+  at 20 pixels with the soft pen of 2: a pass while letters come takes 10 to 13 ms for a text of 58 letters in two
+  lines and 10 to 17 ms for one of 101 in three. Laid at every pass, with no memory for the line breaks, it takes 30
+  to 37 and 50 to 56 ms, more than the frame of 20 ms. The first pass after a new text, which lays the paper and the
+  lines, takes 62 and 122 ms, and a scroll step 28 ms, 65 with no memory for the breaks. With the code of DGX's
+  handwritten fonts in RAM, `CONFIG_DGX_HW_FONT_IN_IRAM=y`, 6 KB of IRAM, a pass while letters come takes 9 to
+  12 ms.
 - **A soft pen** is as for one line: `&dgx_ui_handwriting_canvas` in the variant and `DGX_UI_CANVAS` on the widget.
 - **What it costs.** About 3.9 KB for the look, with the look of lines, 2.9 KB, and the paint's table, 0.7 KB, over
   what handwriting costs.
@@ -2479,6 +2472,19 @@ static void alarm_set(dgx_ui_t *ui, int parent, const char *text)
 A page of settings is not C here but a text: the JSON a builder writes, kept in a file of the program or sent to
 it. `dgx_ui_load()` makes the widgets from it while the program runs. Everything that is a pointer in C is a name
 in the text, and the program says in tables what each name stands for.
+
+Why a text and not C:
+
+- **The page changes and the program stays.** A description in flash, on a card or sent over the network gives a
+  board another layout, another language or a page for one customer, with the same firmware.
+- **A person who does not write C makes it.** [The builder](../../editor/README.md) edits this same text and draws
+  it as the board will, and the loader's verdict on it is the board's.
+- **It reaches only what the tables name.** A page that came from outside can point at nothing else of the program:
+  a value, a handler or a look it names that is not in the tables is refused.
+
+What it costs: the loader, about 8 KB, and RAM for the widgets it makes. When the page need not change on a board
+that runs, make it C when the program is built, [the next recipe](#a-description-made-c-when-the-program-is-built):
+the builder edits it the same way, and the program carries no loader.
 
 ```c
 #include <stdlib.h>
@@ -3708,8 +3714,15 @@ children [takes the rest](#a-row-and-a-column-that-fit-any-screen).
 
 ## Testing an interface on the computer
 
-The tree, the messages and the state need no display. A test builds the tree, sends what the tasks would send and
-does what the user would do:
+An interface can be tried on the computer in two ways. In a window: the program itself built for the computer, as in
+[Getting started](getting-started.md), to look at it and click it. And with no display at all: a test that drives the
+interface as the tasks and the user would, and checks what came of it. The tree, the messages and the state are plain
+C and draw nothing, so such a test needs no window, no screen of DGX and no ESP-IDF: it builds and runs in a moment,
+on the computer or in a CI at every commit.
+
+Here a test takes the temperature's label of [One message for several widgets](#one-message-for-several-widgets) and
+a button of its own, and checks two things: the label shows the value a message brings, and a tap on the button
+calls its `on_event()`.
 
 ```c
 #include <assert.h>
@@ -3756,13 +3769,47 @@ static void interface_test(void)
 }
 ```
 
-A test moves a control as the user would by `dgx_ui_set_value_as_user(&ui, slider, 7)`: the value is set within its range
-and `on_event()` is told `DGX_UI_EVENT_CHANGED`, which `dgx_ui_set_value()` does not do. `dgx_ui_tell()` tells `on_event()` any event.
+What it does:
 
-`dgx_ui_dump(&ui)` prints the tree a test has built: a line for each widget with its number, kind, place and
-size, value, state and the beginning of its text, then how many nodes are in use and whether a block past the
-program's array was taken.
+1. **It builds the tree** of the same widgets as the program. `dgx_ui_screen()` gives it the size of the screen,
+   which on a board the painter tells it.
+2. **It sends a message** as the sensor's task would: `dgx_ui_take()` offers it to every widget, the label's `take()`
+   writes its text, and the test reads that text in the label's own buffer.
+3. **It taps the button.** `dgx_ui_layout()` lays the tree, so that the button has its place; a finger goes down in
+   its middle and up 100 ms later. The button's `on_event()` is told `DGX_UI_EVENT_ACTIVATED`, and the test counts it.
 
-`dgx_ui.c`, `dgx_ui_text.c`, `dgx_ui_rect.c` and `dgx_ui_msg.c` are plain C and build with any compiler; the stubs of
-the few ESP-IDF headers they include come with DGX, in its `host/stubs`. The tests of the repository,
-`test/host`, are built so.
+Three more calls for a test:
+
+- `dgx_ui_set_value_as_user(&ui, slider, 7)` moves a control as the user would: the value is set within its range
+  and `on_event()` is told `DGX_UI_EVENT_CHANGED`, which `dgx_ui_set_value()` does not do.
+- `dgx_ui_tell()` tells `on_event()` any event.
+- `dgx_ui_dump(&ui)` prints the tree a test has built: a line for each widget with its number, kind, place and size,
+  value, state and the beginning of its text, then how many nodes are in use and whether a block past the program's
+  array was taken.
+
+**Building it.** DGX and dgx-ui each ship a fragment of make for a build on the computer: their sources, and DGX's
+stubs of the few ESP-IDF headers they include. A Makefile beside the test, in the project's folder:
+
+```make
+DGX    := managed_components/jef-sure__dgx
+DGX_UI := managed_components/jef-sure__dgx-ui
+include $(DGX)/host/dgx_host.mk
+include $(DGX_UI)/host/dgx_ui_host.mk
+CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
+CFLAGS   += $(DGX_HOST_CFLAGS)
+LDLIBS   += $(DGX_HOST_LDLIBS)
+
+test_interface: test_interface.c $(DGX_HOST_SRCS) $(DGX_UI_HOST_SRCS)
+```
+
+`make test_interface && ./test_interface` builds it with the computer's compiler and runs it; an `assert` that fails
+stops it and shows the line. Two things differ from the board:
+
+- **The messages** are declared for the test by `DGX_UI_DECODER(climate, MSG_CLIMATE, climate_t)` of
+  `dgx_ui_msg.h`, which gives `msg_decode_climate()` alone. `DGX_UI_MESSAGE` of `dgx_ui_post.h` gives the sending into
+  a queue of FreeRTOS as well, and the computer has none. The test makes its messages by `dgx_ui_msg_value()`, as
+  above.
+- **The fonts** made for the program at build time lie in its build folder. A test may as well take a font DGX
+  ships, `#include "fonts/TerminusTTFMedium12.h"`: the layout reads only the height of a font's line.
+
+The tests of dgx-ui itself, `test/host` of the repository, are built the same way.

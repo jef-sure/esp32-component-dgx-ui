@@ -35,6 +35,7 @@ static void picture_write(dgx_screen_t *scr, const char *dir, const char *name, 
     snprintf(path, sizeof path, "%s/%s", dir, name);
     picture_pixels(scr, rows, pixels);
     FILE *file = fopen(path, "wb");
+    if (!file) fprintf(stderr, "cannot write %s\n", path), exit(1);
     fprintf(file, "P6\n%d %d\n255\n", scr->width, rows);
     for (int k = 0; k < scr->width * rows; ++k) fputc(pixels[k] >> 16 & 255, file), fputc(pixels[k] >> 8 & 255, file), fputc(pixels[k] & 255, file);
     fclose(file);
@@ -204,16 +205,15 @@ static void text_pictures(const char *dir)
     picture_write(paint.scr, dir, "soft.ppm", under->y + 34 * 3 + 6 * ui.unit);
     dgx_ui_free(&ui), dgx_ui_paint_free(&paint), dgx_screen_destroy(&paint.scr);
 
-    /* A handwritten text, on a tree of a pixel a point: the greeting narrowed, the signature by a soft pen in its canvas,
-       the note of several lines; all in a column 200 pixels wide of the scene's own */
+    /* A handwritten text, on a tree of a pixel a point, by the soft pen of the recipe in the widgets' canvases: the
+       greeting narrowed and the note of several lines; both in a column 200 pixels wide of the scene's own */
     static const dgx_ui_widget_t hand_root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 12};
     static const dgx_ui_widget_t hand_place_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_REST, .gap = 8, .want_w = 200};
     picture_screen(&paint);
     dgx_ui_init(&ui, nodes, 24, 1);
     const int place = dgx_ui_add(&ui, dgx_ui_add(&ui, -1, &hand_root_w), &hand_place_w);
-    greeting_init(), signature_init(), note_init();
+    greeting_init(), note_init();
     dgx_ui_text_set(&ui, dgx_ui_add(&ui, place, &greeting_w), "Good afternoon to you");
-    dgx_ui_text_set(&ui, dgx_ui_add(&ui, place, &signature_w), "With thanks");
     dgx_ui_text_set(&ui, dgx_ui_add(&ui, place, &note_w), "The quick brown fox jumps over the lazy dog and runs on and on");
     picture_done(&ui, &paint, dir, "hand.ppm");
 }
@@ -422,6 +422,7 @@ static void layout_pictures(const char *dir)
         char path[600];
         snprintf(path, sizeof path, "%s/turn.ppm", dir);
         FILE *file = fopen(path, "wb");
+        if (!file) fprintf(stderr, "cannot write %s\n", path), exit(1);
         fprintf(file, "P6\n%d %d\n255\n", BOTH_W, 320);
         for (int k = 0; k < BOTH_W * 320; ++k) fputc(both[k] >> 16 & 255, file), fputc(both[k] >> 8 & 255, file), fputc(both[k] & 255, file);
         fclose(file);

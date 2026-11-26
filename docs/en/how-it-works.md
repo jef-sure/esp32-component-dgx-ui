@@ -380,7 +380,7 @@ covers; a dialog or a list leaves the tree under it seen. See
 | the roots told when their trees come to the screen and leave it, when the program opens a popup | about 0.65 KB |
 | the look of several lines, when named | about 2.5 KB |
 | a variant of a font | 20 bytes<!-- sizeof dgx_ui_font_variant_t --> |
-| handwriting, when a variant names it | about 1.6 KB, and 28 KB of DGX with its font |
+| handwriting, when a variant names it | about 1.8 KB, and 35 KB of DGX and C's mathematics with its font |
 | handwriting in several lines, when a widget names its look | about 3.9 KB more, and 12 bytes and 8 a line of RAM a widget |
 | a tree from a description in JSON, when the program loads one | about 8 KB, and in RAM the widgets it describes, 60 bytes<!-- sizeof dgx_ui_widget_t --> each beside their nodes, with their texts |
 | the statistics of painting, when the program names them | about 1.8 KB for the measured pass and its line, and 104 bytes<!-- sizeof dgx_ui_paint_stats_t --> of the program's RAM |
