@@ -1,5 +1,13 @@
 # Changes
 
+## 0.0.73 - 2026-11-26
+
+- The C made of an appearance writes a colour DGX names by its name, DGX_ORANGE(DGX_RGB_24), the first name in DGX's
+  dgx_colors.h; any other stays hex. The numbers are the same.
+- The frame of nine pictures has a clearer picture in the cookbook.
+- The Russian pages and the builder say «вложенный виджет» where they said «ребёнок»; the README's notes on the
+  builder's servers and on what is left to DGX-LVGL are corrected.
+
 ## 0.0.72 - 2026-11-26
 
 - Pictures of the recipes in the cookbook, 24 of them, each drawn by its recipe's own code. The icon, the buttons of
