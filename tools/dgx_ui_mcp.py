@@ -48,7 +48,8 @@ the link. Then loop: wait_for_person, page_state, and say what helps. page_state
 open, the loader's verdict on it, its names file and appearance; page_image shows the panel as the board draws it. Change a
 description, a names file or an appearance with edit_file: the whole text, as the builder holds it, and why. The builder puts
 it in as one step the person may undo, and the loader judges it: read its verdict and mend what it refuses. formats tells what
-the loader takes. You do not save: the person saves, so say what you changed and ask them to. {DATA}"""
+the loader takes. You do not save: the person saves, so say what you changed and ask them to. {DATA} The skill
+dgx-ui-builder, when your client has it, tells the work in full."""
 NOTE = {"type": "string", "description": "why: the person sees it in the builder's dialog"}
 TOOLS = [
     {"name": "page_link", "description": "The link of the builder, for the person to open.", "inputSchema": {"type": "object", "properties": {}}},
@@ -67,7 +68,7 @@ TOOLS = [
      "[] the root, [1, 0] the first child of the second.",
      "inputSchema": {"type": "object", "required": ["path"], "properties": {"path": {"type": "string"}, "widget": {"type": "array", "items": {"type": "integer", "minimum": 0}}}}},
     {"name": "formats", "description": "What the loader takes, as the preview's module describes it: the keys of a description by kind, "
-     "what an appearance may say, what a names file may say.", "inputSchema": {"type": "object", "properties": {}}},
+     "what an appearance may say, what a names file may say; the version of dgx-ui this server runs, and the folder of its documentation.", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "wait_for_person", "description": f"Waits for what the person writes in the builder's dialog; returns the new messages, or none after seconds. {DATA}",
      "inputSchema": {"type": "object", "properties": {"seconds": {"type": "integer", "minimum": 1, "maximum": LONGEST_WAIT_S}}}},
     {"name": "say", "description": "Shows a message to the person in the builder's dialog.",
@@ -191,13 +192,20 @@ def call(desk, link, name, arguments):
     if name == "wait_for_person":
         return {"messages": desk.from_person(min(arguments.get("seconds", LONGEST_WAIT_S), LONGEST_WAIT_S))}
     if not desk.open():
-        return {"error": NOT_OPEN}
+        return {"error": NOT_OPEN, **(own_copy() if name == "formats" else {})}
     if name == "edit_file":
         desk.add("agent", arguments["why"])
     value = desk.ask(ASKED[name], arguments)
     if value is None:
         return {"error": f"The builder did not answer in {ANSWER_S} s: it may be closed. Give the person page_link."}
+    if name == "formats" and isinstance(value, dict):
+        value = {**value, **own_copy()}
     return value
+
+
+def own_copy():
+    """The version of the dgx-ui this server runs and the folder of its documentation, for formats"""
+    return {"version": version(), "docs": str(serve.ROOT / "docs" / "en")}
 
 
 KINDS = {"object": dict, "array": list, "string": str, "integer": int, "number": (int, float)}
@@ -304,18 +312,44 @@ def claude_command():
     return str(max(inside, key=number)) if inside else None
 
 
+SKILL = pathlib.Path(__file__).resolve().parent / "skills" / "dgx-ui-builder" / "SKILL.md"
+SKILL_MARK = "Written by dgx_ui_mcp.py --install of dgx-ui "
+
+
+def install_skill():
+    """The skill dgx-ui-builder copied for Claude Code, into skills/ of its folder of the person, with the version of this
+    copy under its title: a copy, which stays when the project's copy of dgx-ui goes; one of the person's own is not
+    written over. Whether it is there."""
+    folder = pathlib.Path(os.environ.get("CLAUDE_CONFIG_DIR") or pathlib.Path.home() / ".claude") / "skills" / "dgx-ui-builder"
+    target = folder / "SKILL.md"
+    text = re.sub(r"^(# .*\n)", lambda title: f"{title.group(1)}\n{SKILL_MARK}{version()}.\n", SKILL.read_text(encoding="utf-8"), count=1, flags=re.M)
+    old = target.read_text(encoding="utf-8", errors="replace") if target.exists() else None
+    if old is not None and SKILL_MARK not in old:
+        print(f"{target}: a skill dgx-ui-builder of another's is there, left as it is; this one is {SKILL}.")
+        return False
+    if old != text:
+        folder.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+    print(f"{target}: the skill dgx-ui-builder of dgx-ui {version()} is there.")
+    return True
+
+
 def install():
-    """Gives this server to the agent of the person: to Claude Code for every folder when its command is there, otherwise in
-    .mcp.json of the folder it runs in, beside the servers that file names. Full paths, so the folder of the agent does not
-    matter; a copy run from a project's managed_components/ serves as long as that project is there."""
+    """Gives this server to the agent of the person: to Claude Code for every folder when its command is there, with the
+    skill dgx-ui-builder, otherwise in .mcp.json of the folder it runs in, beside the servers that file names. Full paths,
+    so the folder of the agent does not matter; a copy run from a project's managed_components/ serves as long as that
+    project is there. Run again, it writes the skill afresh."""
     server = {"command": sys.executable, "args": [str(pathlib.Path(__file__).resolve())]}
     claude = claude_command()
     if claude:
+        skill = install_skill()
         done = subprocess.run([claude, "mcp", "add", "-s", "user", NAME, "--", server["command"], *server["args"]], capture_output=True, text=True)
         print((done.stdout + done.stderr).strip())
         if done.returncode:
             print(f"To give it again: {claude} mcp remove -s user {NAME}, then this command once more.")
             return done.returncode
+        if not skill:
+            return 1
     else:
         path = pathlib.Path(".mcp.json")
         config = json.loads(path.read_text()) if path.exists() else {}
@@ -323,6 +357,7 @@ def install():
         path.write_text(json.dumps(config, indent=2) + "\n")
         print(f"{path.resolve()}: the server {NAME} is there. A client other than Claude Code may want it in its own settings:")
         print(json.dumps({"mcpServers": {NAME: server}}, indent=2))
+        print(f"A client that reads skills may take {SKILL}.")
     print("Start the agent again in a project of dgx-ui and ask it for help with its pages: it gives the link of the builder.")
     return 0
 

@@ -54,6 +54,7 @@ files:
     # the builder served from a terminal, for a browser that gives a page no folder to open
     - "tools/dgx_ui_serve.py"
     - "tools/dgx_ui_mcp.py"
+    - "tools/skills/dgx-ui-builder/SKILL.md"  # the skill dgx_ui_mcp.py --install copies for Claude Code
     # the builder of pages: its page, opened from the disk, its parts, and Vue and Pinia with their licences
     - "editor/README.md"
     - "editor/index.html"

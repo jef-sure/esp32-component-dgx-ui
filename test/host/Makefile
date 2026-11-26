@@ -312,7 +312,7 @@ run-test_builder_appearance: $(ROOT)/test/editor/test_appearance.js $(ROOT)/edit
 run-test_serve: test_serve.py $(ROOT)/tools/dgx_ui_serve.py $(ROOT)/editor/index.html
 	timeout 120 python3 test_serve.py
 # the builder's server with an agent beside the page: its MCP over stdio, the relay to a page, --install, --serve
-run-test_mcp: test_mcp.py $(ROOT)/tools/dgx_ui_mcp.py $(ROOT)/tools/dgx_ui_serve.py
+run-test_mcp: test_mcp.py $(ROOT)/tools/dgx_ui_mcp.py $(ROOT)/tools/dgx_ui_serve.py $(ROOT)/tools/skills/dgx-ui-builder/SKILL.md
 	timeout 180 python3 test_mcp.py
 run-test_builder_store: $(ROOT)/test/editor/test_store.js $(BUILDER) $(BUILD)/fontfiles/dgx_fonts-files.txt
 	timeout 300 node $(ROOT)/test/editor/test_store.js $(BUILD)/fontfiles

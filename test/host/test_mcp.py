@@ -9,11 +9,18 @@ directory, its MCP over stdio as a client speaks it and its page played by a fak
    page open a tool answers at once, and a page that does not answer is said in time;
  - the page's calls by the token, the Host and, for a POST, the builder's own origin;
  - a folder of no dgx-ui: no tools;
- - --install: to Claude Code by its command, its words checked; with none, into .mcp.json beside the servers there;
+ - --install: to Claude Code by its command, its words checked, with the skill dgx-ui-builder copied beside it, written
+   again the same, under CLAUDE_CONFIG_DIR too, one of the person's own not written over; with none, into .mcp.json
+   beside the servers there, and no skill;
+ - the skill: its frontmatter, its tools the server's both ways and those of the server's instructions among them, the
+   sections of the documentation it names there, no path of a machine in it;
+ - formats: the version of the copy that runs and the folder of its documentation, with a page and with none;
  - --serve: the builder's link printed, as dgx_ui_serve.py prints it;
  - nothing of a project's own copy of dgx-ui ever run.
 """
 import base64
+import importlib.util
+import re
 import http.client
 import json
 import os
@@ -28,6 +35,8 @@ import urllib.parse
 
 HERE = pathlib.Path(__file__).resolve().parent
 SERVER = HERE.parent.parent / "tools" / "dgx_ui_mcp.py"
+SKILL = HERE.parent.parent / "tools" / "skills" / "dgx-ui-builder" / "SKILL.md"
+DOCS = HERE.parent.parent / "docs" / "en"
 failures = checks = 0
 
 
@@ -161,6 +170,9 @@ def main():
         answer = client.tool("edit_file", {"path": "main/home.json", "text": "{}", "why": "a try"})
         check(answer["result"].get("isError") and "not open" in value_of(answer)["error"] and time.monotonic() - began < 2,
               f"no page open: said at once: {answer}")
+        own = {"version": version, "docs": str(DOCS.resolve())}
+        answer = value_of(client.tool("formats"))
+        check("not open" in answer.get("error", "") and {key: answer.get(key) for key in own} == own, f"formats with no page: {answer}")
 
         # the relay, by a page that answers
         png = base64.b64encode(b"\x89PNG\r\n\x1a\n").decode()
@@ -192,7 +204,7 @@ def main():
         check(image[0] == {"type": "image", "data": png, "mimeType": "image/png"} and json.loads(image[1]["text"]) == {"width": 320, "height": 240},
               f"the panel as MCP's image: {image[1]}")
         check(value_of(client.tool("select", {"path": "main/home.json", "widget": [0]})) == {"kind": "select"}, "select")
-        check(value_of(client.tool("formats")) == {"kind": "formats"}, "formats")
+        check(value_of(client.tool("formats")) == {"kind": "formats", **own} and (DOCS / "api.md").is_file(), "formats: the page's, the version and the docs")
         kinds = [one["kind"] for one in page.got if isinstance(one, dict) and "kind" in one]
         check(kinds == ["state", "state", "edit", "image", "select", "formats"] or kinds[-4:] == ["edit", "image", "select", "formats"],
               f"the requests in their order: {kinds}")
@@ -246,9 +258,35 @@ def main():
         (bin_dir / "claude").write_text(f"#!{sys.executable}\nimport json, sys\nopen({str(argv_file)!r}, 'w').write(json.dumps(sys.argv[1:]))\nprint('added')\n")
         (bin_dir / "claude").chmod(0o755)
         environment = {**os.environ, "HOME": str(home), "PATH": f"{bin_dir}{os.pathsep}/usr/bin:/bin"}
+        environment.pop("CLAUDE_CONFIG_DIR", None)
         done = subprocess.run([sys.executable, str(SERVER), "--install"], cwd=work, env=environment, capture_output=True, text=True, timeout=30)
         check(done.returncode == 0 and json.loads(argv_file.read_text()) == ["mcp", "add", "-s", "user", "dgx-ui", "--", sys.executable, str(SERVER.resolve())],
               f"--install by Claude Code's command: {argv_file.read_text() if argv_file.exists() else done.stderr}")
+        # the skill beside it: the package's, the version under its title; again the same; under CLAUDE_CONFIG_DIR; not over another's
+        installed = home / ".claude" / "skills" / "dgx-ui-builder" / "SKILL.md"
+        source = SKILL.read_text(encoding="utf-8")
+        title = re.search(r"^# .*\n", source, re.M)
+        expected = source[:title.end()] + f"\nWritten by dgx_ui_mcp.py --install of dgx-ui {version}.\n" + source[title.end():]
+        check(installed.exists() and installed.read_text(encoding="utf-8") == expected and str(installed) in done.stdout,
+              f"--install: the skill: {done.stdout} {installed.read_text()[:300] if installed.exists() else 'none'}")
+        written = installed.stat().st_mtime_ns if installed.exists() else 0
+        time.sleep(0.05)
+        done = subprocess.run([sys.executable, str(SERVER), "--install"], cwd=work, env=environment, capture_output=True, text=True, timeout=30)
+        check(done.returncode == 0 and installed.exists() and installed.read_text(encoding="utf-8") == expected and installed.stat().st_mtime_ns == written,
+              f"--install again: the skill the same, not written: {done.stdout}")
+        installed.write_text(expected.replace(f"dgx-ui {version}.", "dgx-ui 0.0.1."), encoding="utf-8")
+        done = subprocess.run([sys.executable, str(SERVER), "--install"], cwd=work, env=environment, capture_output=True, text=True, timeout=30)
+        check(done.returncode == 0 and installed.read_text(encoding="utf-8") == expected, f"--install over an older copy: {done.stdout}")
+        config_dir = work / "claude-config"
+        done = subprocess.run([sys.executable, str(SERVER), "--install"], cwd=work, env={**environment, "CLAUDE_CONFIG_DIR": str(config_dir)},
+                              capture_output=True, text=True, timeout=30)
+        check(done.returncode == 0 and (config_dir / "skills" / "dgx-ui-builder" / "SKILL.md").read_text(encoding="utf-8") == expected,
+              f"--install under CLAUDE_CONFIG_DIR: {done.stdout}")
+        own_skill = "---\nname: dgx-ui-builder\ndescription: the person's own\n---\n# Mine\n"
+        installed.write_text(own_skill, encoding="utf-8")
+        done = subprocess.run([sys.executable, str(SERVER), "--install"], cwd=work, env=environment, capture_output=True, text=True, timeout=30)
+        check(done.returncode == 1 and installed.read_text(encoding="utf-8") == own_skill and "left as it is" in done.stdout,
+              f"--install: a skill of the person's own not written over: {done.returncode} {done.stdout}")
         (bin_dir / "claude").unlink()
         folder = work / "agent-folder"
         folder.mkdir()
@@ -258,6 +296,7 @@ def main():
         config = json.loads((folder / ".mcp.json").read_text())
         check(done.returncode == 0 and set(config["mcpServers"]) == {"boards", "dgx-ui"} and
               config["mcpServers"]["dgx-ui"] == {"command": sys.executable, "args": [str(SERVER.resolve())]}, f"--install into .mcp.json: {config}")
+        check(not (folder / ".claude").exists() and str(SKILL.resolve()) in done.stdout, f"--install into .mcp.json: no skill written, its path said: {done.stdout}")
 
         # --serve: the builder's link, as dgx_ui_serve.py prints it
         served = subprocess.Popen([sys.executable, str(SERVER), "--serve", "--project", str(project), "--port", "0"], stdout=subprocess.PIPE, text=True)
@@ -270,11 +309,39 @@ def main():
         check(not marker.exists(), "nothing of the project's own copy ever run")
     finally:
         shutil.rmtree(work, ignore_errors=True)
+    check_skill()
     if failures:
         print(f"test_mcp.py: {failures} of {checks} checks failed", file=sys.stderr)
         return 1
     print(f"test_mcp.py: {checks} of {checks} checks held")
     return 0
+
+
+def check_skill():
+    """The skill: its frontmatter, the server's tools in it both ways, the instructions' among them, the sections it names
+    of the documentation, no path of a machine"""
+    text = SKILL.read_text(encoding="utf-8")
+    front = re.match(r"---\n(.*?)\n---\n", text, re.S)
+    keys = dict(line.split(": ", 1) for line in front.group(1).splitlines()) if front else {}
+    check(set(keys) == {"name", "description"} and keys["name"] == SKILL.parent.name and re.fullmatch(r"[a-z0-9-]{1,64}", keys["name"])
+          and 0 < len(keys["description"]) <= 1024 and "<" not in keys["description"], f"the skill's frontmatter: {keys}")
+    spec = importlib.util.spec_from_file_location("dgx_ui_mcp", SERVER)
+    server = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(server)
+    tools = {tool["name"] for tool in server.TOOLS}
+    # every tool of the server named in the skill; every step of its order of work begins with tools of the server
+    order = text.split("## The order of work", 1)[-1].split("\n## ", 1)[0]
+    steps = re.findall(r"^\d+\. `([a-z_]+)`", order, re.M)
+    check(tools <= set(re.findall(r"`([a-z_]+)`", text)), f"the server's tools not in the skill: {sorted(tools - set(re.findall(r'`([a-z_]+)`', text)))}")
+    check(len(steps) >= 5 and set(steps) <= tools, f"the skill's order of work, by the server's tools: {steps}")
+    check(set(re.findall(r"\b([a-z]+_[a-z_]+)\b", server.INSTRUCTIONS)) <= tools, "the instructions' tools are the server's")
+    headings = {}
+    for page in ("api.md", "cookbook.md"):
+        check((DOCS / page).is_file(), f"the skill's {page} in docs/en")
+        headings[page] = set(re.findall(r"^#+ (.*)$", (DOCS / page).read_text(encoding="utf-8"), re.M)) if (DOCS / page).is_file() else set()
+    for page, section in re.findall(r"`(\w+\.md)`, section \"([^\"]+)\"", text):
+        check(section in headings.get(page, set()), f"the skill's section {page} \"{section}\"")
+    check(not re.search(r"/home/|/Users/|[A-Z]:\\|~/|managed_components/|\.espressif", text), "no path of a machine in the skill")
 
 
 if __name__ == "__main__":
