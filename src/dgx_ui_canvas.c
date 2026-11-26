@@ -4,9 +4,11 @@
  *  The canvases of widgets of DGX_UI_CANVAS: 8-bit virtual screens as large as their boxes, kept by the paint in a
  *  table of its own from pass to pass, and put on the paint's screen through a table of its colours. The painter
  *  reaches the table through two pointers it holds, so a program whose looks ask for no canvas carries none of this.
- *  It needs the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN). The same table keeps the memory a look keeps for
- *  a widget (dgx_ui_kept()), freed as a canvas is, which needs no virtual screen; and with each canvas sixteen bytes
- *  of its look's (dgx_ui_canvas_noted()), what it wrote there, zeros with a new canvas.
+ *  It needs the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN): built without them, a chip's program has no
+ *  canvas, says so once, and a widget's box is paper; a soft pen of handwriting is then a hard one. The same table
+ *  keeps the memory a look keeps for a widget (dgx_ui_kept()), freed as a canvas is, which needs no virtual screen;
+ *  and with each canvas sixteen bytes of its look's (dgx_ui_canvas_noted()), what it wrote there, zeros with a new
+ *  canvas.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -20,6 +22,13 @@
 #include "dgx_ui_paint_priv.h"
 #include "dgx_vscreen.h"
 #include "esp_log.h"
+/* DGX built with no virtual screens on a chip: none of their functions to call. The host tests define it to stand for that */
+#ifdef ESP_PLATFORM
+#include "sdkconfig.h"
+#if !CONFIG_DGX_ENABLE_VSCREEN && !defined DGX_UI_NO_VSCREEN
+#define DGX_UI_NO_VSCREEN 1
+#endif
+#endif
 
 static const char *TAG = "dgx_ui";
 
@@ -69,6 +78,12 @@ dgx_screen_t *dgx_ui_canvas_noted(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, bo
     dgx_ui_node_t *n = dgx_ui_node_rw(ui, i);
     *made = false, *note = NULL;
     if (!n || !n->widget || !(n->widget->flags & DGX_UI_CANVAS) || n->w <= 0 || n->h <= 0) return NULL;
+#ifdef DGX_UI_NO_VSCREEN
+    static bool no_vscreen_told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
+    if (!no_vscreen_told) ESP_LOGW(TAG, "widget %d: a canvas needs CONFIG_DGX_ENABLE_VSCREEN: its box is paper", i);
+    no_vscreen_told = true;
+    return NULL;
+#endif
     entry_t *e = entry_of(paint, ui, i, n->widget, true);
     if (!e) {
         static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
@@ -128,12 +143,14 @@ static void paper_around(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dg
     for (int j = 0; j < k; ++j) dgx_ui_lay_paper(paint, DGX_UI_PAPER, parts[j].x, parts[j].y, parts[j].w, parts[j].h);
 }
 
+#ifndef DGX_UI_NO_VSCREEN
 /* a colour of 16 bits as 0xRRGGBB, each channel stretched to 8 bits as the table makes it back */
 static uint32_t rgb888(uint32_t c)
 {
     const uint32_t r = c >> 11 & 31, g = c >> 5 & 63, b = c & 31;
     return (r << 3 | r >> 2) << 16 | (g << 2 | g >> 4) << 8 | (b << 3 | b >> 2);
 }
+#endif
 
 void dgx_ui_canvas_put(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink)
 {
@@ -142,6 +159,10 @@ void dgx_ui_canvas_put(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink)
     dgx_screen_t        *c    = e ? e->scr : NULL;
     const dgx_ui_rect_t  none = dgx_ui_rect(0, 0, 0, 0);
     if (!n) return;
+#ifdef DGX_UI_NO_VSCREEN
+    (void)c, (void)ink;
+    paper_around(paint, n, &none);
+#else
     if (c && paint->scr->color_bits != 16) {
         static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
         if (!told) ESP_LOGW(TAG, "widget %d: a canvas goes to a screen of 16 bits only: its box is paper", i);
@@ -176,6 +197,7 @@ void dgx_ui_canvas_put(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, int ink)
     const int top = cy + paint->oy > n->y ? cy + paint->oy - n->y : 0;
     const int bot = cy + paint->oy + chei < n->y + ch ? cy + paint->oy + chei - n->y : ch;
     if (bot > top) dgx_vscreen8_region_to_screen16(paint->scr, n->x - paint->ox, n->y + top - paint->oy, c, 0, top, cw, bot - top, paint->lut, flags);
+#endif
 }
 
 /* after a pass over ui: an entry of a widget no longer drawn by this paint freed, its canvas and its kept memory (its

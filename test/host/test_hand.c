@@ -8,7 +8,8 @@
  * nothing, a text changed while written begun again, the clock running over, written in parts around a popup, each
  * pass writing only its new strokes. A pen of 0 a hairline; a soft pen straight the hard one of its width. On a widget
  * of a canvas, straight by dgx_ui_handwriting and into the canvas by dgx_ui_handwriting_canvas, by a soft pen, put
- * over the paper as DGX's soft pen and table would. Over a drawn background, in strips on a panel as straight on a
+ * over the paper as DGX's soft pen and table would; on a screen of 24 bits, straight by the hard pen, no canvas taken.
+ * Over a drawn background, in strips on a panel as straight on a
  * screen.
  */
 #include <string.h>
@@ -479,6 +480,31 @@ int main(void)
         dgx_ui_paint_free(&paint);
         dgx_ui_free(&tree.ui);
         variant[0].hand = &dgx_ui_handwriting;
+    }
+
+    /* on a screen of 24 bits, which a canvas does not go to, dgx_ui_handwriting_canvas writes straight by the hard pen,
+       as dgx_ui_handwriting does, and takes no canvas: the letters there, not a box of paper */
+    {
+        dgx_screen_t *straight = dgx_vscreen_init(PANEL_W, PANEL_H, 24, DgxScreenRGB), *wide = dgx_vscreen_init(PANEL_W, PANEL_H, 24, DgxScreenRGB);
+        const int     pen      = variant[0].pen;
+        variant[0].pen         = 2 | DGX_PEN_SOFT;
+        make(&tree, 88, 30, true, "Hello");
+        dgx_ui_paint_t straight_paint = {.scr = straight, .colors = colors, .color_count = 4};
+        dgx_ui_paint(&tree.ui, &straight_paint, 0);
+        dgx_ui_paint_free(&straight_paint);
+        dgx_ui_free(&tree.ui);
+        variant[0].hand = &dgx_ui_handwriting_canvas;
+        make(&tree, 88, 30, true, "Hello");
+        dgx_ui_paint_t wide_paint = {.scr = wide, .colors = colors, .color_count = 4};
+        dgx_ui_paint(&tree.ui, &wide_paint, 0);
+        int ink = 0;
+        for (int row = 0; row < PANEL_H; ++row)
+            for (int column = 0; column < PANEL_W; ++column) ink += dgx_get_pixel(wide, column, row) == colors[1];
+        CHECK(ink > 0 && differ(straight, wide) == 0 && wide_paint.canvases == NULL);
+        dgx_ui_paint_free(&wide_paint);
+        dgx_ui_free(&tree.ui);
+        variant[0].hand = &dgx_ui_handwriting, variant[0].pen = pen;
+        dgx_screen_destroy(&straight), dgx_screen_destroy(&wide);
     }
 
     /* over a drawn background, its letters coming: in strips on a panel that cannot be read as straight on a screen,
