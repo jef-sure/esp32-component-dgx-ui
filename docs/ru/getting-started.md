@@ -55,11 +55,11 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 
 ## 1. Подключите компонент
 
-Версия 0.1.1 dgx-ui и драйвер датчика лежат в реестре компонентов ESP. В `main/idf_component.yml` проекта:
+Версия 0.1.2 dgx-ui и драйвер датчика лежат в реестре компонентов ESP. В `main/idf_component.yml` проекта:
 
 ```yaml
 dependencies:
-  jef-sure/dgx-ui: "^0.1.1"
+  jef-sure/dgx-ui: "^0.1.2"
   jef-sure/scd4x: "^0.3.0"
 ```
 
@@ -171,7 +171,8 @@ DGX_UI_MESSAGE(air, MSG_AIR, air_t)
 
 Дуга идёт от `min` до `max`: от 400 до 2000 ppm. Углы заданы в градусах по часовой стрелке от верха: начало -135 —
 это «половина восьмого», размах 270 кончается на «половине пятого». Диапазоны красят каждую часть дуги цветом тех
-значений, которым она соответствует: до 800 ppm зелёным, до 1200 жёлтым, дальше красным. Цвета — индексы таблицы
+значений, которым она соответствует: до 800 ppm зелёным, до 1200 жёлтым, дальше красным. `.soft` делает края кольца
+мягкими: пиксель на краю смешивает цвета по обе стороны от него, и у круга нет ступенек. Цвета — индексы таблицы
 отрисовки, той же, что у текстов:
 
 ```c
@@ -180,11 +181,11 @@ enum { PAPER = 0, INK, RING_OFF, RING_LOW, RING_MID, RING_HIGH };
 static int32_t ring_ppm; /* the ring's value: written by take(), read by every pass */
 
 /* up to 800 ppm in one colour, up to 1200 in another, from there in a third, each part of the arc by its own place;
-   14 points wide, from half past seven round to half past four */
+   14 points wide, from half past seven round to half past four, its edges soft */
 static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID}};
 static const dgx_ui_ring_look_t ring_params  = {
     .fill = RING_HIGH, .track = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
-    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
+    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands, .soft = &dgx_ui_ring_soft};
 static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = DGX_UI_PAPER};
 ```
 

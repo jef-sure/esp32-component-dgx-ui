@@ -40,7 +40,7 @@ static dgx_ui_text_style_t      st_big, st_centre, st_left, st_right;
 static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID}};
 static const dgx_ui_ring_look_t ring_params  = {
     .fill = RING_HIGH, .track = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
-    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
+    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands, .soft = &dgx_ui_ring_soft};
 static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = DGX_UI_PAPER};
 
 static bool ring_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)

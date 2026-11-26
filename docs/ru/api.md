@@ -22,7 +22,7 @@
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | цвета, стили текста и облики из описания в JSON, одного на все страницы |
 | [`project_include.cmake`](#project_includecmake) | три вызова CMake: описания, файлы имён и внешний вид, переведённые на C при сборке программы |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.1:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.2:
 имена и сигнатуры зафиксированы с 0.1.0; то, что сломало бы программу, придёт только с 0.2.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -1179,6 +1179,7 @@ typedef struct dgx_ui_ring_look_t {
     uint8_t              band_count; /* how many bands; 0: `fill` alone */
     uint8_t              bands_by;   /* DGX_UI_BANDS_BY_VALUE (0) or DGX_UI_BANDS_BY_PLACE */
     const dgx_ui_band_t *bands;      /* the colours of the arc, the lowest band first */
+    const struct dgx_ui_ring_soft_t *soft; /* NULL, hard edges; &dgx_ui_ring_soft, soft ones */
 } dgx_ui_ring_look_t;
 
 typedef struct dgx_ui_nine_look_t {
@@ -1347,6 +1348,16 @@ static const dgx_ui_look_t        look_touch_switch = {.draw = dgx_ui_draw_switc
 или передвинули, кольцо рисуется целиком вместе с вложенными. Облик программы с `dgx_ui_draw_ring`, у которого `paper` —
 номер цвета, ставит тот же номер в свой `fill`, чтобы бумага вложенных в него виджетов была бумагой кольца. Рецепт:
 [Шкала по кругу с виджетами внутри](cookbook.md#шкала-по-кругу-с-виджетами-внутри).
+
+**Мягкие края**, `.soft = &dgx_ui_ring_soft`, из `extern const dgx_ui_ring_soft_t dgx_ui_ring_soft`. Пиксель, через
+который проходит внешний или внутренний круг, конец размаха, луч значения или граница полосы по месту, берётся в 4 на 4
+точках и получает среднее их цветов по каналам — на экране в 16, 18, 24 или 32 бита; на экране в 1 бит или с палитрой —
+цвет, которого больше. Остальные пиксели — как у жёсткого кольца, а нарисованный заново пиксель тот же. Снаружи кольца
+цвет смешивается с `paper`, а при `DGX_UI_PAPER` — с бумагой под виджетом. Над нарисованным фоном на экране, который
+читается, — виртуальном или в полосах, — под такой пиксель сначала кладётся фон, потом он читается и смешивается: это
+единственный случай, когда пиксель пишется дважды. На экране, который не читается, края к фону остаются жёсткими, а
+края между цветами самого кольца — мягкими. Счёт идёт в целых числах и одинаков на всех чипах. `NULL`, по умолчанию, —
+жёсткое кольцо; мягкие края стоят около 1,7 КБ, и в программу, которая ими не пользуется, они не попадают.
 
 Рамка из девяти картинок — контейнер или рамка, облик которых рисует `dgx_ui_draw_nine` со своими картинками,
 `dgx_ui_nine_look_t`, 8 байт<!-- sizeof dgx_ui_nine_look_t --> на 32-битном чипе. Девять картинок построчно: левый
@@ -1830,12 +1841,13 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 | `"radio"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"level"` | `fill`; `track`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
-| `"ring"` | `fill`; `track`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
+| `"ring"` | `fill`; `track`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands`; `soft` |
 | `"nine"` | `fill`; `ink`; `pieces`: имя картинок программы, которых в таблице не меньше 9 |
 | `"scroll"` | `track`; `knob`; `focused`°; `arrows`°; `width` 0…32 |
 
 **Чего не сказано.** `"fill"` облика — `null`, то, что лежит под ним. Число, слово и список флагов равны 0, как
-пропущенный член структуры C, а `"joined"`, `"soft"`, `"points"` и `"secret"` — ложь. Цвет в параметрах облика должен быть
+пропущенный член структуры C, а `"joined"`, `"soft"`, `"points"` и `"secret"` — ложь; `"soft"` у кольца — его
+мягкие края, истина или ложь. Цвет в параметрах облика должен быть
 сказан, `null` — там, где он допустим: облик, который цвет пропустил, отвергается с `DGX_UI_LOAD_MISSING` и именем
 поля, чтобы забытый цвет не стал бумагой по бумаге. Так же обязательны `"fonts"` стиля, `"font"` варианта и
 `"hand"` рукописного шрифта: без почерка подбор шрифта молча пропустил бы вариант. Так же обязательны
@@ -1908,11 +1920,13 @@ static const dgx_ui_params_t dial_described = DGX_UI_PARAMS(dial_params_t, 1u <<
 члена структуры, где оно лежит и что в нём. Поле по члену структуры пишут макросы: `DGX_UI_COLOR_FIELD`,
 `DGX_UI_COLOR_OR_UNDER_FIELD`, `DGX_UI_NUMBER_FIELD` с пределами, `DGX_UI_BOOL_FIELD`, `DGX_UI_WORD_FIELD` со
 словами, каждое кончается нулём, `DGX_UI_BANDS_FIELD` с членом, в котором лежит число полос,
-`DGX_UI_PICTURE_FIELD` с числом нужных картинок — все поверх
+`DGX_UI_PICTURE_FIELD` с числом нужных картинок, `DGX_UI_PART_FIELD` с частью библиотеки, на которую указывает
+истина, — все поверх
 `DGX_UI_FIELD_OF`; `DGX_UI_PARAMS` пишет описание целиком, а `DGX_UI_PARAMS_WITH_BEHAVIOR` — описание функции, у обликов
 которой есть поведение. Что бывает в поле: `DGX_UI_FIELD_COLOR`,
 `DGX_UI_FIELD_COLOR_OR_UNDER`, `DGX_UI_FIELD_NUMBER`, `DGX_UI_FIELD_BOOL`, `DGX_UI_FIELD_WORD`, `DGX_UI_FIELD_FLAGS`,
-`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, `DGX_UI_FIELD_PICTURE` — указатель на картинки программы, а у стиля и
+`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, `DGX_UI_FIELD_PICTURE` — указатель на картинки программы,
+`DGX_UI_FIELD_PART` — истина или ложь: указатель на часть библиотеки или `NULL` (мягкие края кольца), а у стиля и
 варианта шрифта — `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND` и `DGX_UI_FIELD_VARIANTS`. Описания самой библиотеки: `dgx_ui_params_box`, `dgx_ui_params_frame`,
 `dgx_ui_params_text`, `dgx_ui_params_lines`, `dgx_ui_params_hand_lines`, `dgx_ui_params_button`,
 `dgx_ui_params_picture_button`, `dgx_ui_params_input`, `dgx_ui_params_switch`, `dgx_ui_params_slider`,
@@ -1941,7 +1955,7 @@ static const dgx_ui_params_t dial_described = DGX_UI_PARAMS(dial_params_t, 1u <<
 на C при сборке программы — это делает `dgx_ui_c`, инструмент компонента, который работает на компьютере. Рецепт:
 [Описание, переведённое на C при сборке](cookbook.md#описание-переведённое-на-c-при-сборке);
 страница самого инструмента:
-[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/tools/README.md).
+[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])

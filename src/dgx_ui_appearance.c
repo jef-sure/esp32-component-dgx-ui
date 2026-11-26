@@ -317,6 +317,13 @@ static bool field_value(appearance_load_t *A, const dgx_ui_field_t *field, uint8
         if (base) memcpy(base + field->offset, &named->picture, sizeof named->picture);
         return true;
     }
+    case DGX_UI_FIELD_PART: {
+        const bool  on    = dgx_ui_json_peek(json) == 't';
+        const void *named = on ? field->part : NULL;
+        if (!dgx_ui_json_word(json, on ? "true" : "false")) return false;
+        if (base) memcpy(base + field->offset, &named, sizeof named);
+        return true;
+    }
     default: /* bands and variants */
         return list_of(A, field, base);
     }

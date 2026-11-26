@@ -1000,7 +1000,7 @@ static void write_appearance(const char *directory, const char *const *headers, 
         out(&c_file, "static const %s %s_params_%d = {", library_draws[draw->library].type, p, k);
         for (int f = 0; f < described->field_count; ++f) {
             const dgx_ui_field_t *field = &described->fields[f];
-            const int32_t         value = field->kind == DGX_UI_FIELD_BANDS || field->kind == DGX_UI_FIELD_PICTURE ? 0 : field_number(base, field);
+            const int32_t         value = field->kind == DGX_UI_FIELD_BANDS || field->kind == DGX_UI_FIELD_PICTURE || field->kind == DGX_UI_FIELD_PART ? 0 : field_number(base, field);
             out(&c_file, "%s.%s = ", f ? ", " : "", field->name);
             switch (field->kind) {
             case DGX_UI_FIELD_COLOR:
@@ -1023,6 +1023,14 @@ static void write_appearance(const char *directory, const char *const *headers, 
                 const dgx_ui_picture_t *took;
                 memcpy(&took, base + field->offset, sizeof took);
                 out(&c_file, "%s", appearance_tables[A_PICTURE].entries[took - picture_stand].c);
+                break;
+            }
+            case DGX_UI_FIELD_PART: {
+                /* the part's name, which the parameters built for the tool hold (DGX_UI_PARTS_BY_NAME) */
+                const void *part;
+                memcpy(&part, base + field->offset, sizeof part);
+                if (part) out(&c_file, "&%s", (const char *)part);
+                else out(&c_file, "NULL");
                 break;
             }
             default: out(&c_file, "%d", (int)value); break;

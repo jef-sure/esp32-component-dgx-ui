@@ -10,8 +10,12 @@
  * middle of a disc, the one pixel the oracle cannot say, the arc's at its start. Children inside, one lying over the ring:
  * every pixel of the box written once by the ring and its children together; a child hidden and shown. Its second users:
  * two rings of one place and a slider of it; a part under a popup and under the keyboard's band while the value
- * changes, the cover gone in the same pass; a composing between two passes; a drawn background. On a panel behind a bus,
- * 16 bits straight or 18 through the strips (PANEL_BITS, by the Makefile).
+ * changes, the cover gone in the same pass; a composing between two passes; a drawn background. Soft edges
+ * (dgx_ui_ring_soft): every value up and down, no pixel twice and the panel as drawn whole, every pixel farther than a
+ * pixel and a half from an edge of the oracle's class, the mixed ones within the table's colours; children inside; over
+ * a drawn background on the panel, which cannot be read, edges towards the picture hard, and on a virtual screen mixed
+ * with it; on 1 bit and on a palette only the table's colours. On a panel behind a bus, 16 bits straight or 18 through
+ * the strips (PANEL_BITS, by the Makefile).
  */
 #include <math.h>
 #include <string.h>
@@ -106,6 +110,9 @@ static void done(void)
     dgx_ui_paint_free(&paint), dgx_ui_free(&tree);
 }
 
+/* how near a ray or a circle a pixel's centre is let off: a hundredth of a pixel; a pixel and a half for soft edges */
+static double exact_near = 0.01;
+
 /* the class an exact geometry gives a pixel: -1 too near a ray or a circle to say; else the colour index, or 0xff the
    paper. The angles are the look's, a 64th of a degree as it takes them */
 static int exact_class(const dgx_ui_node_t *n, const dgx_ui_ring_look_t *p, int point, int32_t value, int x, int y)
@@ -113,7 +120,7 @@ static int exact_class(const dgx_ui_node_t *n, const dgx_ui_ring_look_t *p, int 
     const dgx_ui_widget_t *w    = n->widget;
     const double           side = n->w < n->h ? n->w : n->h, outer = side / 2, inner = outer - p->width * point;
     const double           dx = x + 0.5 - (n->x + n->w / 2.0), dy = y + 0.5 - (n->y + n->h / 2.0), far = hypot(dx, dy);
-    const double           near = 0.01;
+    const double           near = exact_near;
     if (fabs(far - outer) < near || (inner > 0 && fabs(far - inner) < near)) return -1;
     if (far > outer || (inner > 0 && far <= inner)) return 0xff;
     int start = p->start, sweep = p->sweep;
@@ -163,9 +170,61 @@ static int off_the_exact(const dgx_ui_node_t *n, const dgx_ui_ring_look_t *p, in
         for (int x = n->x; x < n->x + n->w && x < PANEL_W; ++x) {
             const int cls = exact_class(n, p, point, value, x, y);
             if (cls < 0) continue;
-            off += panel->mem[y][x] != table[cls == 0xff ? 0 : cls];
+            off += panel->mem[y][x] != table[cls == 0xff ? (p->paper == DGX_UI_PAPER ? 0 : p->paper) : cls];
         }
     return off;
+}
+
+/* a colour's channels on the panel: 5, 6, 5 bits at 16, a byte each at 18 */
+static void panel_channels(uint32_t c, int ch[3])
+{
+    if (PANEL_BITS == 16) ch[0] = (int)(c >> 11 & 31), ch[1] = (int)(c >> 5 & 63), ch[2] = (int)(c & 31);
+    else ch[0] = (int)(c >> 16 & 255), ch[1] = (int)(c >> 8 & 255), ch[2] = (int)(c & 255);
+}
+
+/* the ring's pixels of no colour of the table, and those of them whose channels lie outside those of the table's
+   colours: a mean of them lies within */
+static void mixed_counts(const dgx_ui_node_t *n, int *mixed, int *outside)
+{
+    const uint32_t table[4] = {paper_c, ink_c, fill_c, accent_c};
+    int            low[3] = {999, 999, 999}, high[3] = {-1, -1, -1}, ch[3];
+    for (int k = 0; k < 4; ++k) {
+        panel_channels(table[k], ch);
+        for (int m = 0; m < 3; ++m) low[m] = ch[m] < low[m] ? ch[m] : low[m], high[m] = ch[m] > high[m] ? ch[m] : high[m];
+    }
+    for (int y = n->y; y < n->y + n->h; ++y)
+        for (int x = n->x; x < n->x + n->w; ++x) {
+            const uint32_t c = panel->mem[y][x];
+            if (c == table[0] || c == table[1] || c == table[2] || c == table[3]) continue;
+            ++*mixed;
+            panel_channels(c, ch);
+            for (int m = 0; m < 3; ++m)
+                if (ch[m] < low[m] || ch[m] > high[m]) {
+                    ++*outside;
+                    break;
+                }
+        }
+}
+
+/* the pixels of a box of no colour of the table nor of the drawn background under them */
+static int unknown_colours(const dgx_ui_node_t *n)
+{
+    const uint32_t table[4] = {paper_c, ink_c, fill_c, accent_c};
+    int            unknown  = 0, ch[3], low[3], high[3];
+    for (int y = n->y; y < n->y + n->h; ++y)
+        for (int x = n->x; x < n->x + n->w; ++x) {
+            const uint32_t c = panel->mem[y][x];
+            if (c == table[0] || c == table[1] || c == table[2] || c == table[3]) continue;
+            /* mixed of the ring's own colours, the fill and the track, alone */
+            panel_channels(fill_c, low), panel_channels(accent_c, high), panel_channels(c, ch);
+            bool between = true;
+            for (int m = 0; m < 3; ++m) {
+                const int lo = low[m] < high[m] ? low[m] : high[m], hi = low[m] < high[m] ? high[m] : low[m];
+                between &= ch[m] >= lo && ch[m] <= hi;
+            }
+            unknown += !between;
+        }
+    return unknown;
 }
 
 /* every value from min to max by one, up then down: a step writes exactly the pixels whose colour changes, the panel
@@ -436,6 +495,131 @@ int main(void)
         level = 65;
         CHECK(pass(&tree, 80) == 0);
         done();
+    }
+    /* soft edges: looks of the steps above with &dgx_ui_ring_soft, every value up and down: no pixel twice, the
+       panel the value drawn whole, every pixel farther than a pixel and a half from a ray or a circle of the exact
+       class; the pixels nearer mixed within the table's colours, some of them of no colour of the table */
+    {
+        static const dgx_ui_band_t bands[] = {{.below = 30, .color = 1}, {.below = 70, .color = 0}};
+        static dgx_ui_ring_look_t  looks[] = {
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 3, .start = -135, .sweep = 270, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 5, .start = -135, .sweep = 270, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = bands},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 5, .start = -135, .sweep = 270, .band_count = 2, .bands_by = DGX_UI_BANDS_BY_VALUE, .bands = bands},
+            {.fill = 3, .track = 2, .paper = 1, .width = 4, .start = 45, .sweep = -200, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 0, .sweep = 360, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 40, .start = -90, .sweep = 180, .bands_by = DGX_UI_BANDS_BY_PLACE},
+            {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 6, .start = 355, .sweep = 10, .bands_by = DGX_UI_BANDS_BY_PLACE},
+        };
+        exact_near = 1.5, with_map = false;
+        for (size_t k = 0; k < sizeof looks / sizeof *looks; ++k)
+            for (int odd = 0; odd < 2; ++odd) {
+                looks[k].soft                = &dgx_ui_ring_soft;
+                const dgx_ui_look_t   look   = {.draw = dgx_ui_draw_ring, .params = &looks[k], .fill = DGX_UI_PAPER};
+                const dgx_ui_widget_t ring_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .at_x = 10, .at_y = 2, .want_w = (int16_t)(58 + odd), .want_h = (int16_t)(58 + odd), .look = &look};
+                level                        = 0;
+                const int            i       = make_ring(&ring_w, 1);
+                const dgx_ui_node_t *n       = dgx_ui_node(&tree, i);
+                int                  faults = pass(&tree, 0) != 0, mixed = 0, outside = 0;
+                for (int round = 0; round < 2; ++round)
+                    for (int v = 0; v <= 100; v += 1) {
+                        level = round ? 100 - v : v;
+                        faults += pass(&tree, 10 + 10 * (uint32_t)(v + 101 * round)) != 0;
+                        faults += off_the_exact(n, &looks[k], 1, level) != 0;
+                        if (level == 50) mixed_counts(n, &mixed, &outside);
+                    }
+                CHECK(faults == 0 && mixed > 0 && outside == 0);
+                if (faults || !mixed || outside) fprintf(stderr, "  soft look %zu, side %d: %d faults, %d mixed, %d outside\n", k, 58 + odd, faults, mixed, outside);
+                done();
+            }
+        exact_near = 0.01;
+
+        /* children inside, one over the ring; over a drawn background on the panel, which cannot be read: no pixel
+           twice, the edges towards the picture of a colour of the picture or of the table; through the strips, which
+           can be read, the panel as a fresh paint composes it */
+        static const dgx_ui_ring_look_t soft_default = {.fill = 3, .track = 2, .paper = DGX_UI_PAPER, .width = 5, .start = -135, .sweep = 270, .soft = &dgx_ui_ring_soft};
+        static const dgx_ui_look_t      soft_look    = {.draw = dgx_ui_draw_ring, .params = &soft_default, .fill = DGX_UI_PAPER};
+        static const dgx_ui_widget_t    ring_w = {.kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 14, .value = &level, .max = 100, .at_x = 15, .at_y = 2, .want_w = 60, .want_h = 60, .look = &soft_look};
+        static const dgx_ui_widget_t    over_w = {.kind = DGX_UI_BOX, .at_x = 0, .want_w = 8, .want_h = 10, .look = &dgx_ui_look_frame};
+        for (int pictured = 0; pictured < 2; ++pictured) {
+            with_map    = pictured;
+            level       = 30;
+            const int i = make_ring(&ring_w, 1);
+            const int o = dgx_ui_add(&tree, i, &over_w);
+            for (int step = 0; step < 4; ++step) {
+                if (step == 2) dgx_ui_show(&tree, o, false);
+                if (step == 3) dgx_ui_show(&tree, o, true);
+                panel_count_from_now(panel);
+                dgx_ui_paint(&tree, &paint, 10 * (uint32_t)step);
+                const int off = twice_or_off(&tree, 10 * (uint32_t)step);
+                const int twice = panel_twice(panel), unknown = unknown_colours(dgx_ui_node(&tree, i));
+                CHECK(pictured ? twice == 0 && unknown == 0 : off == 0);
+                level += 20;
+            }
+            /* on a screen that can be read, a virtual one: the edges towards the picture mixed with it, passes of
+               values moved the same as the tree composed anew */
+            if (pictured) {
+                dgx_screen_t  *screen = dgx_vscreen_init(PANEL_W, PANEL_H, PANEL_BITS, DgxScreenRGB);
+                dgx_ui_paint_t on     = {.scr = screen, .colors = colors, .color_count = 4};
+                dgx_ui_background_set(&on, draw_map, map);
+                int off = 0, with_picture = 0;
+                dgx_ui_paint_area_to(&tree, &on, screen, NULL, 0, 0, PANEL_W, PANEL_H); /* the tree is drawn: composed */
+                for (int step = 0; step < 4; ++step) {
+                    level += 15;
+                    dgx_ui_paint(&tree, &on, 100 + 10 * (uint32_t)step);
+                    dgx_ui_paint_t fresh = {.scr = memory, .colors = colors, .color_count = 4};
+                    dgx_ui_background_set(&fresh, draw_map, map);
+                    dgx_fill_rectangle(memory, 0, 0, PANEL_W, PANEL_H, colors[3]);
+                    dgx_ui_paint_area_to(&tree, &fresh, memory, NULL, 0, 0, PANEL_W, PANEL_H);
+                    dgx_ui_paint_free(&fresh);
+                    for (int y = 0; y < PANEL_H; ++y)
+                        for (int x = 0; x < PANEL_W; ++x) off += dgx_get_pixel(screen, x, y) != dgx_get_pixel(memory, x, y);
+                }
+                const dgx_ui_node_t *n = dgx_ui_node(&tree, i);
+                for (int y = n->y; y < n->y + n->h; ++y)
+                    for (int x = n->x; x < n->x + n->w; ++x) {
+                        const uint32_t c = dgx_get_pixel(screen, x, y);
+                        with_picture += c != dgx_get_pixel(map, x, y) && c != colors[0] && c != colors[1] && c != colors[2] && c != colors[3] &&
+                                        (dgx_get_pixel(map, x, y) != colors[0] || (x > 0 && dgx_get_pixel(map, x - 1, y) != colors[0])); /* over a square not of the paper's colour */
+                    }
+                CHECK(off == 0 && with_picture > 0);
+                if (off || !with_picture) fprintf(stderr, "  soft over a picture on a virtual screen: %d off, %d mixed with it\n", off, with_picture);
+                dgx_ui_paint_free(&on);
+                dgx_screen_destroy(&screen);
+            }
+            done();
+        }
+        with_map = false;
+
+        /* screens whose pixel is not of channels: of a palette, 8 bits, only the table's indices; of 1 bit, the hard
+           ring's pixel wherever it is farther than a pixel and a half from an edge */
+        static const dgx_ui_widget_t plain_w = {.kind = DGX_UI_OWN, .value = &level, .max = 100, .want_w = 58, .want_h = 58, .look = &soft_look};
+        for (int bits = 1; bits <= 8; bits += 7) {
+            static dgx_ui_node_t one_nodes[2];
+            dgx_ui_t             one;
+            dgx_ui_init(&one, one_nodes, 2, 1);
+            dgx_ui_add(&one, -1, &free_w);
+            const int       i       = dgx_ui_add(&one, 0, &plain_w);
+            dgx_screen_t   *screen  = dgx_vscreen_init(64, 64, (uint8_t)bits, DgxScreenRGB);
+            uint32_t        own[4]  = {0, 1, bits == 1 ? 1 : 2, bits == 1 ? 0 : 3};
+            dgx_ui_paint_t  on      = {.scr = screen, .colors = own, .color_count = 4};
+            int             foreign = 0, off = 0;
+            level                   = 60;
+            dgx_ui_paint(&one, &on, 0);
+            exact_near = 1.5;
+            const dgx_ui_node_t *n = dgx_ui_node(&one, i);
+            for (int y = 0; y < 64; ++y)
+                for (int x = 0; x < 64; ++x) {
+                    const uint32_t c = dgx_get_pixel(screen, x, y);
+                    foreign += c > (bits == 1 ? 1u : 3u);
+                    const int cls = x < n->x + n->w && y < n->y + n->h ? exact_class(n, &soft_default, 1, level, x, y) : -1;
+                    if (cls >= 0) off += c != own[cls == 0xff ? 0 : cls];
+                }
+            exact_near = 0.01;
+            CHECK(foreign == 0 && off == 0);
+            if (foreign || off) fprintf(stderr, "  soft on %d bits: %d pixels of no colour of the table, %d off\n", bits, foreign, off);
+            dgx_ui_paint_free(&on), dgx_ui_free(&one);
+            dgx_screen_destroy(&screen);
+        }
     }
     (void)other;
     CHECK_DONE();

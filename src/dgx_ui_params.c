@@ -44,6 +44,13 @@ static const dgx_ui_field_t check_fields[]   = {COLOR(dgx_ui_check_look_t, mark)
                                                 COLOR(dgx_ui_check_look_t, ink),    COLOR(dgx_ui_check_look_t, ink_disabled), UNDER(dgx_ui_check_look_t, paper)};
 static const dgx_ui_field_t level_fields[]   = {COLOR(dgx_ui_level_look_t, fill), UNDER(dgx_ui_level_look_t, track), DGX_UI_WORD_FIELD(dgx_ui_level_look_t, from, sides),
                                                 DGX_UI_WORD_FIELD(dgx_ui_level_look_t, bands_by, bands_by), DGX_UI_BANDS_FIELD(dgx_ui_level_look_t, bands, band_count)};
+/* a part of the library a field names: the part itself; built with the parameters alone and none of the looks, as the
+   tool dgx_ui_c on the computer is, which writes the C of an appearance, the part's name, which it writes */
+#ifdef DGX_UI_PARTS_BY_NAME
+#define PART(name) ((const void *)#name)
+#else
+#define PART(name) ((const void *)&name)
+#endif
 static const dgx_ui_field_t ring_fields[]    = {COLOR(dgx_ui_ring_look_t, fill),
                                                 COLOR(dgx_ui_ring_look_t, track),
                                                 UNDER(dgx_ui_ring_look_t, paper),
@@ -51,7 +58,8 @@ static const dgx_ui_field_t ring_fields[]    = {COLOR(dgx_ui_ring_look_t, fill),
                                                 DGX_UI_NUMBER_FIELD(dgx_ui_ring_look_t, start, -360, 360),
                                                 DGX_UI_NUMBER_FIELD(dgx_ui_ring_look_t, sweep, -360, 360),
                                                 DGX_UI_WORD_FIELD(dgx_ui_ring_look_t, bands_by, bands_by),
-                                                DGX_UI_BANDS_FIELD(dgx_ui_ring_look_t, bands, band_count)};
+                                                DGX_UI_BANDS_FIELD(dgx_ui_ring_look_t, bands, band_count),
+                                                DGX_UI_PART_FIELD(dgx_ui_ring_look_t, soft, PART(dgx_ui_ring_soft))};
 
 static const dgx_ui_field_t nine_fields[]    = {COLOR(dgx_ui_nine_look_t, fill), COLOR(dgx_ui_nine_look_t, ink),
                                                 DGX_UI_PICTURE_FIELD(dgx_ui_nine_look_t, pieces, 9)};

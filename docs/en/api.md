@@ -21,7 +21,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
 | [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.1: the names and
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.2: the names and
 the signatures are fixed since 0.1.0; one that would break a program comes only with 0.2.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1165,6 +1165,7 @@ typedef struct dgx_ui_ring_look_t {
     uint8_t              band_count; /* how many bands; 0: `fill` alone */
     uint8_t              bands_by;   /* DGX_UI_BANDS_BY_VALUE (0) or DGX_UI_BANDS_BY_PLACE */
     const dgx_ui_band_t *bands;      /* the colours of the arc, the lowest band first */
+    const struct dgx_ui_ring_soft_t *soft; /* NULL, hard edges; &dgx_ui_ring_soft, soft ones */
 } dgx_ui_ring_look_t;
 
 typedef struct dgx_ui_nine_look_t {
@@ -1329,6 +1330,17 @@ pixels, and a value reached by steps is the same picture as that value drawn who
 draws the ring whole with its children. A look of the program's by `dgx_ui_draw_ring` whose `paper` is an index
 names the same index as its `fill`, so that its children's paper is the ring's. The recipe:
 [A ring scale with widgets inside](cookbook.md#a-ring-scale-with-widgets-inside).
+
+**Soft edges**, `.soft = &dgx_ui_ring_soft`, of `extern const dgx_ui_ring_soft_t dgx_ui_ring_soft`. A pixel that the
+outer or the inner circle, an end of the sweep, the value's ray or the edge of a band by place crosses is sampled 4 by 4
+times and takes the mean of the samples' colours, channel by channel, on a screen of 16, 18, 24 or 32 bits; on one of
+1 bit or of a palette, the colour most samples are of. Every other pixel is the hard ring's, and a pixel drawn again is
+the same. Around the ring the colour mixed is `paper`'s, or with `DGX_UI_PAPER` the paper under the widget. Over a
+drawn background, on a screen that can be read, a virtual screen or the strips, the background is laid under such a
+pixel and read back to be mixed: the one case where a pixel is written twice. On a screen that cannot be read the
+edges towards the background stay hard, and those between the ring's own colours are soft. The sums are of integers,
+the same on every chip. `NULL`, the default, is the hard ring; the soft edges cost about 1.7 KB, and a program that
+names them not carries none of it.
 
 A frame of nine pictures is a box or a frame whose look draws by `dgx_ui_draw_nine` with its pieces,
 `dgx_ui_nine_look_t`, 8 bytes<!-- sizeof dgx_ui_nine_look_t --> on a 32-bit chip. The nine, row after row, are the
@@ -1807,12 +1819,13 @@ may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list o
 | `"radio"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"level"` | `fill`; `track`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
-| `"ring"` | `fill`; `track`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands` |
+| `"ring"` | `fill`; `track`; `paper`°; `width` 0…255; `start` -360…360; `sweep` -360…360; `bands_by`: `"value"`, `"place"`; `bands`; `soft` |
 | `"nine"` | `fill`; `ink`; `pieces`: a name of the program's pictures, 9 of them at least |
 | `"scroll"` | `track`; `knob`; `focused`°; `arrows`°; `width` 0…32 |
 
 **What is not said.** `"fill"` of a look is `null`, what lies under it. A number, a word and a list of flags are
-0, as a member of C left out, and `"joined"`, `"soft"`, `"points"` and `"secret"` false. A colour of a look's parameters must be
+0, as a member of C left out, and `"joined"`, `"soft"`, `"points"` and `"secret"` false; `"soft"` of a ring is its
+soft edges, true or false. A colour of a look's parameters must be
 said, `null` where it may be: a look that leaves one out is refused with `DGX_UI_LOAD_MISSING` and the field's name,
 so that no colour is forgotten into paper on paper. So must a style's `"fonts"`, a variant's `"font"`, and the
 `"hand"` of a handwritten font, which the fit would pass over with none. So must the `"pieces"` of `"nine"`: a
@@ -1885,11 +1898,13 @@ a scrolling box's, else `NULL`; `dgx_ui_field_t` is a field: its name in a
 description, the member's, where it lies and what it holds. The macros write one from the member:
 `DGX_UI_COLOR_FIELD`, `DGX_UI_COLOR_OR_UNDER_FIELD`, `DGX_UI_NUMBER_FIELD` with its bounds, `DGX_UI_BOOL_FIELD`,
 `DGX_UI_WORD_FIELD` with its words, each ended by 0, `DGX_UI_BANDS_FIELD` with the member of the count,
-`DGX_UI_PICTURE_FIELD` with the count of pictures it needs, over
+`DGX_UI_PICTURE_FIELD` with the count of pictures it needs, `DGX_UI_PART_FIELD` with the part of the library true
+names, over
 `DGX_UI_FIELD_OF`; `DGX_UI_PARAMS` writes the whole, and `DGX_UI_PARAMS_WITH_BEHAVIOR` the whole of a draw whose looks
 carry a behaviour. What a field holds: `DGX_UI_FIELD_COLOR`,
 `DGX_UI_FIELD_COLOR_OR_UNDER`, `DGX_UI_FIELD_NUMBER`, `DGX_UI_FIELD_BOOL`, `DGX_UI_FIELD_WORD`, `DGX_UI_FIELD_FLAGS`,
-`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, `DGX_UI_FIELD_PICTURE`, a pointer to the program's pictures, and for a
+`DGX_UI_FIELD_BIT`, `DGX_UI_FIELD_BANDS`, `DGX_UI_FIELD_PICTURE`, a pointer to the program's pictures,
+`DGX_UI_FIELD_PART`, true or false for a pointer to a part of the library or `NULL` (a ring's soft edges), and for a
 style and a variant `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND` and `DGX_UI_FIELD_VARIANTS`. The library's own: `dgx_ui_params_box`, `dgx_ui_params_frame`, `dgx_ui_params_text`,
 `dgx_ui_params_lines`, `dgx_ui_params_hand_lines`, `dgx_ui_params_button`, `dgx_ui_params_picture_button`,
 `dgx_ui_params_input`, `dgx_ui_params_switch`, `dgx_ui_params_slider`, `dgx_ui_params_list`,
@@ -1916,7 +1931,7 @@ Three calls for the `CMakeLists.txt` of a component, the program's `main` among 
 written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
 C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
-the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/tools/README.md).
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])

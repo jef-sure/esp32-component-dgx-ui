@@ -1,5 +1,12 @@
 # Changes
 
+## 0.1.2 - 2026-11-26
+
+- A ring scale may have soft edges, `.soft = &dgx_ui_ring_soft`, or `"soft": true` in an appearance: about 1.7 KB for
+  a program that names it, nothing for one that does not.
+- A field of an appearance may name a part of the library, DGX_UI_PART_FIELD: true gives the part, false none.
+- The pages say what a transition costs, measured on an ESP32.
+
 ## 0.1.1 - 2026-11-26
 
 - dgx_ui_lines_count() and dgx_ui_hand_lines_count(): the lines a text takes in a style at a width, laid as

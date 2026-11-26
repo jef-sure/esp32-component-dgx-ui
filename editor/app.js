@@ -367,7 +367,7 @@ const dgxUiBuilderMount = (() => {
                 </select>
                 <input v-else-if="field.type === 'number'" type="text" :value="numberText(node)" :placeholder="field.min + ' … ' + field.max"
                        @input="store.setLookNumber(path, $event.target.value, fold())">
-                <input v-else-if="field.type === 'bool' || field.type === 'bit'" type="checkbox" :checked="value === true"
+                <input v-else-if="field.type === 'bool' || field.type === 'bit' || field.type === 'part'" type="checkbox" :checked="value === true"
                        @change="store.setLook(path, $event.target.checked ? true : undefined)">
                 <select v-else-if="field.type === 'word'" :value="choice" @change="choose($event.target.value)">
                     <option :value="ABSENT">—</option>

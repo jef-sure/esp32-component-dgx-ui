@@ -253,7 +253,7 @@ run-test_generate: $(BUILD)/tools/dgx_ui_c test_generate.c test_generate.py gene
 # appearances made C by dgx_ui_c against their loader (test_generate_appearance.py): the descriptions given out by a
 # program of the tool's own list of draws, the made files compiled with test_generate_appearance.c in one go
 $(BUILD)/appearance_dump: appearance_dump.c $(BUILD)/tools/dgx_ui_c $(ROOT)/src/dgx_ui_params.c $(ROOT)/src/dgx_ui_scroll.c $(CORE) $(wildcard $(ROOT)/include/*.h $(ROOT)/src/*.h)
-	$(CC) -std=gnu11 $(WARN) $(CPPFLAGS) -I$(BUILD)/tools -o $@ appearance_dump.c $(ROOT)/src/dgx_ui_params.c $(ROOT)/src/dgx_ui_scroll.c $(CORE) -lm
+	$(CC) -std=gnu11 $(WARN) $(CPPFLAGS) -DDGX_UI_PARTS_BY_NAME -I$(BUILD)/tools -o $@ appearance_dump.c $(ROOT)/src/dgx_ui_params.c $(ROOT)/src/dgx_ui_scroll.c $(CORE) -lm
 
 run-test_generate_appearance: $(BUILD)/tools/dgx_ui_c $(BUILD)/appearance_dump test_generate_appearance.c test_generate_appearance.py appearance_program.h check.h
 	timeout 900 python3 test_generate_appearance.py $(BUILD)/tools/dgx_ui_c $(BUILD)/appearance_dump $(BUILD)/generate_appearance $(CC) $(CFLAGS) -std=gnu11 \
@@ -342,7 +342,7 @@ $(BUILD)/fontfiles/dgx_fonts-files.txt: $(addprefix $(BUILD)/fontfiles/,$(addsuf
 # the reader of JSON alone: no tree, no DGX
 $(BUILD)/test_params: test_params.c check.h $(ROOT)/src/dgx_ui_params.c $(wildcard $(ROOT)/include/*.h $(ROOT)/src/*.h)
 	mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) -o $@ test_params.c $(ROOT)/src/dgx_ui_params.c
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) -DDGX_UI_PARTS_BY_NAME -o $@ test_params.c $(ROOT)/src/dgx_ui_params.c
 
 $(BUILD)/test_appearance: test_appearance.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/*.h $(ROOT)/src/*.h)
 	mkdir -p $(BUILD)

@@ -64,7 +64,7 @@ const docOf = (text) => description.read(text).doc;
                 check(at(null) === OK && at('accent') === OK && at('nothing') === UNKNOWN, `${draw.draw}.${field.name}: null, a colour`);
             } else if (field.type === 'color') {
                 check(at('accent') === OK && at(null) !== OK && at('nothing') === UNKNOWN, `${draw.draw}.${field.name}: a colour, never null`);
-            } else if (field.type === 'bool' || field.type === 'bit') {
+            } else if (field.type === 'bool' || field.type === 'bit' || field.type === 'part') {
                 check(at(true) === OK && at(false) === OK, `${draw.draw}.${field.name}: true and false`);
             } else if (field.type === 'bands') {
                 check(at([[10, 'ink'], [20, 'accent']]) === OK && at([[10, 'nothing']]) === UNKNOWN, `${draw.draw}.${field.name}: bands`);

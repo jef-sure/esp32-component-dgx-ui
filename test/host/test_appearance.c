@@ -192,6 +192,12 @@ static void chance_params(printer_t *p, const dgx_ui_params_t *described, expect
             print(p, "\"%s\"", w);
             break;
         }
+        case DGX_UI_FIELD_PART: { /* true: the part itself where the field is; false: none */
+            const void *named = chance(2) ? field->part : NULL;
+            print(p, named ? "true" : "false");
+            memcpy(e->params + field->offset, &named, sizeof named);
+            continue;
+        }
         case DGX_UI_FIELD_PICTURE: { /* the frame's nine: its pointer where the field is */
             const dgx_ui_picture_t *named = nine_pieces;
             print(p, "\"card\"");

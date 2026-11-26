@@ -1890,8 +1890,10 @@ What to keep to:
   slide runs at 33 frames a second, 30 ms a frame, and a crossfade at 15.6, 64 ms a frame; the start, both screens
   composed, takes 53 ms. The same screen turned, 1280 by 800, runs a slide at 12 frames a second and a crossfade at
   7.5: a screen turned from the panel's own orientation pays for the turn in every transfer.
-- **What it costs.** About 1.3 KB, with the 0.6 KB of `dgx_ui_paint_changes()` and the 0.2 KB of the pages' calls, and
-  the virtual screens of DGX (`CONFIG_DGX_ENABLE_VSCREEN=y`).
+- **What it costs.** About 2.6 KB of dgx-ui, of which 0.4 KB is `dgx_ui_paint_changes()` and 0.2 KB the pages' calls,
+  and 4.9 KB of DGX's sending of a screen in memory to the display. The virtual screens of DGX
+  (`CONFIG_DGX_ENABLE_VSCREEN=y`) are 21 KB more for a program that has them not yet. Pages themselves, with no
+  transition, are 2.6 KB of their own. Measured on a CYD, an ESP32, from hello with a second page.
 
 ## Settings that stay
 
@@ -2689,7 +2691,7 @@ What to know of it:
   `back` and `page` go in the file with no expression. An expression is C written with no spaces.
 - **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
   compiler finds what the program has not. The rule and the tool's own page:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,
@@ -3169,11 +3171,11 @@ enum { RING_OFF = COLORS, RING_LOW, RING_MID, RING_HIGH, RING_COLORS };
 static uint32_t ring_table[RING_COLORS]; /* the paint's on this screen: .colors = ring_table, .color_count = RING_COLORS */
 
 /* up to 800 ppm in one colour, up to 1200 in another, from there in a third, each part of the arc by its own place;
-   14 points wide, from half past seven round to half past four */
+   14 points wide, from half past seven round to half past four, its edges soft */
 static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID}};
 static const dgx_ui_ring_look_t ring_params  = {
     .fill = RING_HIGH, .track = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
-    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
+    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands, .soft = &dgx_ui_ring_soft};
 static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = DGX_UI_PAPER};
 ```
 
@@ -3255,6 +3257,9 @@ static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
 - **Under a popup** a part of the ring may show beside it. It is the same pixels as without the popup: the colour of
   a pixel depends only on where it lies and on the value.
 - A child hidden or shown makes the ring be drawn whole with its children.
+- **Soft edges**, `.soft = &dgx_ui_ring_soft`: a pixel that a circle, an end, the value's ray or a band's edge
+  crosses is the mean of 16 samples of its colours, so the ring has no steps. They cost about 1.7 KB more; without
+  them the ring is the hard one.
 - **What it takes.** About 3.8 KB of code in a program that names the look. Of the look's own work, the display's
   apart, built as ESP-IDF builds by default (`-Og`): a step of the value on this ring takes 0.3 ms on an ESP32 at
   240 MHz, and the ring whole 5 ms; a ring of 800 pixels on an ESP32-P4 at 400 MHz, 0.5 ms and 20 ms, three quarters

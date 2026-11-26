@@ -18,6 +18,9 @@
  *      Author: Anton Petrusevich
  */
 
+#include <string.h>
+
+#include "dgx_draw.h"
 #include "dgx_ui_paint_priv.h"
 
 /* a quarter of a sine, a degree a step, of 32767 */
@@ -320,6 +323,144 @@ static void arc_box(const ring_t *r, int32_t a0, int32_t a1, int *x0, int *y0, i
     *y0 = (r->cy2 - maxy) / 2 - 2, *y1 = (r->cy2 - miny) / 2 + 3;
 }
 
+/* soft edges (dgx_ui_ring_soft): a pixel whose corners and centre are of one class is that class's, laid in runs as
+   above, the same pixel as the hard ring's; any other is sampled SUB x SUB times at points of a finer grid and is the
+   mean of their colours, channel by channel in the screen's format. A screen whose pixel is not of channels (1 bit,
+   a palette) takes the class most samples are of. What lies around the ring, DGX_UI_PAPER over a drawn background, is
+   laid under the pixel and read back where the screen can be read; where it cannot, a pixel most of whose samples are
+   around is laid as the background, the others mixed of the ring's colours alone. The class at a point dx, dy of
+   1 / (2 * scale) of a pixel from the middle, y down: outside the outer circle or inside the inner, the paper. */
+enum { SUB = 4 };
+struct dgx_ui_ring_soft_t {
+    void (*row)(const ring_t *r, int y, int x0, int x1, const lit_t *now, const lit_t *drawn);
+};
+
+static int class_at(const ring_t *r, int32_t dx, int32_t dy, int32_t outer2, int32_t inner2, const lit_t *lit)
+{
+    const int32_t d2 = dx * dx + dy * dy;
+    if (d2 > outer2 || (!r->disc && d2 <= inner2)) return AROUND;
+    return class_of(r, key_of(r, dx, dy, lit, lit), lit, BEFORE_NOW);
+}
+
+/* the classes of a pixel's samples, its centre cx, cy halves of a pixel from the middle */
+static void samples_of(const ring_t *r, int32_t cx, int32_t cy, const lit_t *lit, int16_t *classes)
+{
+    const int32_t outer = r->outer * SUB, inner = r->disc ? 0 : r->inner * SUB;
+    for (int j = 0, k = 0; j < SUB; ++j)
+        for (int i = 0; i < SUB; ++i, ++k)
+            classes[k] = (int16_t)class_at(r, cx * SUB + 2 * i + 1 - SUB, cy * SUB + 2 * j + 1 - SUB, outer * outer, inner * inner, lit);
+}
+
+/* whether a pixel of the tree's screen lies under a child of the ring, which draws it */
+static bool under_child(const ring_t *r, int x, int y)
+{
+    for (int child = r->n->child; child >= 0; child = dgx_ui_at(r->ui, child)->next) {
+        const dgx_ui_node_t *k = dgx_ui_at(r->ui, child);
+        if (!(k->state.bits & DGX_UI_HIDDEN) && dgx_ui_look_of(k->widget) && x >= k->x && x < k->x + k->w && y >= k->y && y < k->y + k->h)
+            return true;
+    }
+    return false;
+}
+
+/* a colour's channels in the screen's format; false when its pixel is not of channels */
+static bool channels_of(uint8_t bits, uint32_t c, uint32_t ch[3])
+{
+    if (bits == 16) ch[0] = c >> 11 & 31, ch[1] = c >> 5 & 63, ch[2] = c & 31;
+    else if (bits == 18 || bits == 24 || bits == 32) ch[0] = c >> 16 & 255, ch[1] = c >> 8 & 255, ch[2] = c & 255;
+    else return false;
+    return true;
+}
+
+/* a pixel of an edge: the mean of its samples' colours */
+static void put_mixed(const ring_t *r, int x, int y, const int16_t *classes)
+{
+    if (under_child(r, x, y)) return;
+    dgx_ui_paint_t *paint = r->paint;
+    dgx_screen_t   *scr   = paint->scr;
+    const uint8_t   bits  = scr->color_bits, paper = r->p->paper;
+    int             around = 0, count[SUB * SUB] = {0}, most = 0;
+    for (int k = 0; k < SUB * SUB; ++k) {
+        around += classes[k] == AROUND;
+        for (int m = 0; m <= k; ++m)
+            if (classes[m] == classes[k]) {
+                if (++count[m] > count[most]) most = m;
+                break;
+            }
+    }
+    uint32_t   ch[3], sum[3] = {0, 0, 0};
+    const bool mixes = channels_of(bits, 0, ch);
+    uint32_t   around_c = 0;
+    bool       with_around = around > 0;
+    if (dgx_ui_paper_drawn(paint, paper) && around) {
+        if (mixes && dgx_screen_is_readable(scr)) {
+            dgx_ui_lay_paper(paint, paper, x, y, 1, 1); /* the background under it, read back and mixed over */
+            around_c = dgx_get_pixel(scr, x - paint->ox, y - paint->oy);
+        } else if (mixes) {
+            if (around * 2 >= SUB * SUB) {
+                dgx_ui_lay_paper(paint, paper, x, y, 1, 1); /* the background's, hard */
+                return;
+            }
+            with_around = false; /* the ring's colours alone */
+        }
+    } else if (around) around_c = dgx_ui_color(paint, paper == DGX_UI_PAPER ? paint->paper : paper);
+    if (!mixes) {
+        const int cls = classes[most];
+        if (cls == AROUND) dgx_ui_lay_paper(paint, paper, x, y, 1, 1);
+        else dgx_set_pixel(scr, x - paint->ox, y - paint->oy, dgx_ui_color(paint, cls));
+        return;
+    }
+    int n = 0;
+    for (int k = 0; k < SUB * SUB; ++k) {
+        if (classes[k] == AROUND && !with_around) continue;
+        channels_of(bits, classes[k] == AROUND ? around_c : dgx_ui_color(paint, classes[k]), ch);
+        sum[0] += ch[0], sum[1] += ch[1], sum[2] += ch[2], ++n;
+    }
+    for (int c = 0; c < 3; ++c) ch[c] = (sum[c] + (uint32_t)n / 2) / (uint32_t)n;
+    const uint32_t color = bits == 16 ? ch[0] << 11 | ch[1] << 5 | ch[2]
+                         : bits == 18 ? (ch[0] & 0xfcu) << 16 | (ch[1] & 0xfcu) << 8 | (ch[2] & 0xfcu)
+                                      : ch[0] << 16 | ch[1] << 8 | ch[2];
+    dgx_set_pixel(scr, x - paint->ox, y - paint->oy, color);
+}
+
+/* a row of the box from x0 to x1, soft: the paper well outside the outer circle and well inside the inner laid in
+   runs, each pixel between by its corners and centre */
+static void soft_row(const ring_t *r, int y, int x0, int x1, const lit_t *now, const lit_t *drawn)
+{
+    const int32_t dy    = 2 * y + 1 - r->cy2;
+    const int32_t reach = r->outer + 3, hollow = r->disc ? -1 : r->inner - 3; /* a pixel and a half past the circles */
+    int           ax0 = x1, ax1 = x1 - 1, ix0 = x1, ix1 = x1 - 1;
+    if (dy <= reach && dy >= -reach) span(r, root_of(reach * reach - dy * dy), &ax0, &ax1);
+    if (hollow > 0 && dy <= hollow && dy >= -hollow) span(r, root_of(hollow * hollow - dy * dy), &ix0, &ix1);
+    run_t run = {x0, x0, -1};
+    for (int x = x0; x < x1; ++x) {
+        if (x < ax0 || x > ax1 || (x >= ix0 && x <= ix1)) {
+            add_run(r, y, &run, x, x + 1, drawn ? -1 : AROUND); /* the paper never changes with the value */
+            continue;
+        }
+        const int32_t cx = 2 * x + 1 - r->cx2;
+        const lit_t  *lits[2] = {now, drawn};
+        int           cls[2] = {-1, -1};
+        int16_t       classes[2][SUB * SUB];
+        for (int l = 0; l < (drawn ? 2 : 1); ++l) {
+            const int c = class_at(r, cx, dy, r->outer2, r->inner2, lits[l]);
+            bool      pure = true;
+            for (int corner = 0; corner < 4 && pure; ++corner)
+                pure = class_at(r, cx + (corner & 1 ? 1 : -1), dy + (corner & 2 ? 1 : -1), r->outer2, r->inner2, lits[l]) == c;
+            if (pure) cls[l] = c;
+            else samples_of(r, cx, dy, lits[l], classes[l]);
+        }
+        if (cls[0] >= 0) {
+            add_run(r, y, &run, x, x + 1, drawn && cls[1] == cls[0] ? -1 : cls[0]);
+            continue;
+        }
+        add_run(r, y, &run, x, x + 1, -1);
+        if (!drawn || cls[1] >= 0 || memcmp(classes[0], classes[1], sizeof classes[0])) put_mixed(r, x, y, classes[0]); /* else unchanged */
+    }
+    add_run(r, y, &run, x1, x1, -1);
+}
+
+const dgx_ui_ring_soft_t dgx_ui_ring_soft = {.row = soft_row};
+
 bool dgx_ui_draw_ring(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
 {
     const dgx_ui_node_t      *n = dgx_ui_node(ui, i);
@@ -359,7 +500,10 @@ bool dgx_ui_draw_ring(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
     }
     x0 = x0 > n->x ? x0 : n->x, y0 = y0 > n->y ? y0 : n->y;
     x1 = x1 < n->x + n->w ? x1 : n->x + n->w, y1 = y1 < n->y + n->h ? y1 : n->y + n->h;
-    for (int y = y0; y < y1 && x0 < x1; ++y) row(&r, y, x0, x1, &now, moved ? &drawn : NULL);
+    for (int y = y0; y < y1 && x0 < x1; ++y) {
+        if (p->soft) p->soft->row(&r, y, x0, x1, &now, moved ? &drawn : NULL);
+        else row(&r, y, x0, x1, &now, moved ? &drawn : NULL);
+    }
     return false;
 }
 

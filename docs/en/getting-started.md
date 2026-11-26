@@ -57,12 +57,12 @@ there the program makes the measurements up itself, one a second: all of the sca
 
 ## 1. Add the components
 
-Version 0.1.1 of dgx-ui and the driver of the sensor are both in the ESP Component Registry. In
+Version 0.1.2 of dgx-ui and the driver of the sensor are both in the ESP Component Registry. In
 `main/idf_component.yml` of the project:
 
 ```yaml
 dependencies:
-  jef-sure/dgx-ui: "^0.1.1"
+  jef-sure/dgx-ui: "^0.1.2"
   jef-sure/scd4x: "^0.3.0"
 ```
 
@@ -175,8 +175,9 @@ that is one line.
 
 The arc goes from `min` to `max`: from 400 to 2000 ppm. The angles are degrees clockwise from the top: a start of
 -135 is half past seven, and a sweep of 270 ends at half past four. The bands colour each part of the arc with the
-colour of the values it stands for: up to 800 ppm green, up to 1200 yellow, from there red. The colours are indices
-of the painter's table, the same as the texts':
+colour of the values it stands for: up to 800 ppm green, up to 1200 yellow, from there red. `.soft` gives the ring
+soft edges: a pixel on an edge takes the colours on both sides of it, so the circle has no steps. The colours are
+indices of the painter's table, the same as the texts':
 
 ```c
 enum { PAPER = 0, INK, RING_OFF, RING_LOW, RING_MID, RING_HIGH };
@@ -184,11 +185,11 @@ enum { PAPER = 0, INK, RING_OFF, RING_LOW, RING_MID, RING_HIGH };
 static int32_t ring_ppm; /* the ring's value: written by take(), read by every pass */
 
 /* up to 800 ppm in one colour, up to 1200 in another, from there in a third, each part of the arc by its own place;
-   14 points wide, from half past seven round to half past four */
+   14 points wide, from half past seven round to half past four, its edges soft */
 static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID}};
 static const dgx_ui_ring_look_t ring_params  = {
     .fill = RING_HIGH, .track = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
-    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
+    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands, .soft = &dgx_ui_ring_soft};
 static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = DGX_UI_PAPER};
 ```
 

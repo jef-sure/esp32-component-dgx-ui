@@ -50,7 +50,7 @@ dgx_values = sorted(dgx_named)
 
 described = json.loads(subprocess.run([dump], capture_output=True, text=True, check=True, timeout=30).stdout)
 DRAWS = sorted(described["draws"])
-COLOR, UNDER, NUMBER, BOOL, WORD, FLAGS, BIT, BANDS, FONT, HAND, VARIANTS, PICTURE = range(12)
+COLOR, UNDER, NUMBER, BOOL, WORD, FLAGS, BIT, BANDS, FONT, HAND, VARIANTS, PICTURE, PART = range(13)
 codes = {"DGX_UI_LOAD_" + word: k for k, word in enumerate(["OK", "SYNTAX", "VERSION", "KEY", "KIND", "FIELD", "RANGE", "NAME_BAD", "UNKNOWN", "NO_LOOK",
                                                            "NO_STYLE", "TOO_DEEP", "MEMORY", "NODES", "ID", "MISSING"])}
 
@@ -100,7 +100,7 @@ def chance_appearance(rand, name, every=False):
             return a_color(kind == UNDER)
         if kind == NUMBER:
             return str(rand.randint(field["low"], field["high"]))
-        if kind == BOOL:
+        if kind in (BOOL, PART):
             return rand.choice(["true", "false"])
         if kind == WORD:
             return f'"{rand.choice(field["words"])}"'

@@ -25,7 +25,7 @@ static void print_params(const dgx_ui_params_t *described)
         printf("%s{\"name\": \"%s\", \"kind\": %d, \"size\": %d, \"low\": %d, \"high\": %d, \"words\": [", k ? ", " : "", field->name, field->kind, field->size,
                (int)field->low, (int)field->high);
         int place = 0;
-        for (const char *word = field->words; word && *word; word += strlen(word) + 1, ++place) printf("%s\"%s\"", place ? ", " : "", word);
+        for (const char *word = field->kind == DGX_UI_FIELD_PART ? NULL : field->words; word && *word; word += strlen(word) + 1, ++place) printf("%s\"%s\"", place ? ", " : "", word);
         printf("]}");
     }
     printf("]}");

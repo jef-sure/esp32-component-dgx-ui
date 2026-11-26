@@ -457,7 +457,22 @@ typedef struct dgx_ui_ring_look_t {
     uint8_t              band_count;  ///< bands; 0: `fill` alone
     uint8_t              bands_by;    ///< DGX_UI_BANDS_BY_PLACE (the arc by the value of each point) or DGX_UI_BANDS_BY_VALUE
     const dgx_ui_band_t *bands;       ///< the arc's colours, the lowest band first; may lie in flash
+    const struct dgx_ui_ring_soft_t *soft; ///< NULL, hard edges; &dgx_ui_ring_soft, soft ones (below)
 } dgx_ui_ring_look_t;
+
+/**
+ * Soft edges for a ring scale, `.soft = &dgx_ui_ring_soft` in its parameters. A pixel the outer or the inner circle,
+ * an end of the sweep, the value's ray or the edge of a band by place crosses is sampled 4 x 4 times and is the mean of
+ * the samples' colours, channel by channel, on a screen of 16, 18, 24 or 32 bits; on one of 1 bit or of a palette it
+ * is the colour most samples are of. Every other pixel is the hard ring's, and drawn again a pixel is the same. Around
+ * the ring the colour mixed is the paper's: its index, or under DGX_UI_PAPER the paper under the widget. Over a drawn
+ * background, on a screen that can be read (a virtual screen, the strips) the background is laid under such a pixel
+ * and read back to be mixed, the one case where a pixel is written twice; on one that cannot, the edges towards the
+ * background stay hard and those between the ring's colours are soft. Integers alone, the same on every target. A
+ * program that names it not carries none of it.
+ */
+typedef struct dgx_ui_ring_soft_t dgx_ui_ring_soft_t;
+extern const dgx_ui_ring_soft_t dgx_ui_ring_soft;
 
 /**
  * The look of a ring scale, `dgx_ui_look_ring`: of the colours 3 the arc, 2 the rest of the ring, the paper what lies

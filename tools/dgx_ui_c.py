@@ -109,7 +109,7 @@ def main():
         compiler = "gcc" if os.name == "nt" else "cc"
     binary = os.path.join(out, "dgx_ui_c.exe" if os.name == "nt" else "dgx_ui_c")
     stubs = os.path.join(dgx, "host", "stubs")
-    command = [compiler, "-O2", "-std=gnu11", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Wno-sign-compare",
+    command = [compiler, "-O2", "-std=gnu11", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Wno-sign-compare", "-DDGX_UI_PARTS_BY_NAME",
                "-I" + os.path.join(ROOT, "include"), "-I" + os.path.join(ROOT, "src"), "-I" + os.path.join(dgx, "include"), "-I" + stubs,
                "-include", os.path.join(stubs, "esp_log.h"), "-I" + out, "-o", binary + ".new"] + SOURCES
     try:

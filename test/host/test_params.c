@@ -4,6 +4,7 @@
  * hand: a member the description lacks, or one at the wrong place or size, makes them differ. The size and alignment
  * are the struct's. The names of the fields, which are the format, are written here a second time, so that a member
  * renamed in C changes the format only on purpose. A word's place is its constant's value, a flag's bit its constant.
+ * A part a field names is, in a build of the parameters alone as the tool's, the part's name.
  */
 #include <stdio.h>
 #include <string.h>
@@ -20,7 +21,7 @@ static void fill(const dgx_ui_params_t *described, uint8_t *base)
         const dgx_ui_field_t *field = &described->fields[k];
         const int32_t         value = field->kind == DGX_UI_FIELD_BIT ? field->high : field->kind == DGX_UI_FIELD_BOOL ? 1 : 1 + k;
         if (field->kind == DGX_UI_FIELD_BANDS || field->kind == DGX_UI_FIELD_VARIANTS || field->kind == DGX_UI_FIELD_FONT ||
-            field->kind == DGX_UI_FIELD_HAND) {
+            field->kind == DGX_UI_FIELD_HAND || field->kind == DGX_UI_FIELD_PART) {
             const void *pointer = &marker;
             memcpy(base + field->offset, &pointer, sizeof pointer);
             if (field->kind == DGX_UI_FIELD_BANDS || field->kind == DGX_UI_FIELD_VARIANTS) base[field->count_offset] = (uint8_t)(1 + k);
@@ -92,8 +93,9 @@ int main(void)
           {.mark = 1, .focused = 2, .disabled = 3, .sign = 4, .inside = 5, .pressed = 6, .ink = 7, .ink_disabled = 8, .paper = 9});
     HOLDS(dgx_ui_params_level, dgx_ui_level_look_t, "fill track from bands_by bands",
           {.fill = 1, .track = 2, .from = 3, .band_count = 5, .bands_by = 4, .bands = (const dgx_ui_band_t *)m});
-    HOLDS(dgx_ui_params_ring, dgx_ui_ring_look_t, "fill track paper width start sweep bands_by bands",
-          {.fill = 1, .track = 2, .paper = 3, .width = 4, .start = 5, .sweep = 6, .band_count = 8, .bands_by = 7, .bands = (const dgx_ui_band_t *)m});
+    HOLDS(dgx_ui_params_ring, dgx_ui_ring_look_t, "fill track paper width start sweep bands_by bands soft",
+          {.fill = 1, .track = 2, .paper = 3, .width = 4, .start = 5, .sweep = 6, .band_count = 8, .bands_by = 7, .bands = (const dgx_ui_band_t *)m,
+           .soft = (const dgx_ui_ring_soft_t *)m});
     HOLDS(dgx_ui_params_text_style, dgx_ui_text_style_t, "fonts align flags scroll_ms",
           {.fonts = (const dgx_ui_font_variant_t *)m, .count = 1, .flags = 3, .align = (dgx_font_align_t)2, .scroll_ms = 4});
     HOLDS(dgx_ui_params_font_variant, dgx_ui_font_variant_t, "font hand height narrow joined pen soft points",
@@ -109,6 +111,8 @@ int main(void)
     CHECK(place(align->words, "left") == DGX_FONT_ALIGN_LEFT && place(align->words, "center") == DGX_FONT_ALIGN_CENTER && place(align->words, "right") == DGX_FONT_ALIGN_RIGHT);
     CHECK(1 << place(flags->words, "middle") == DGX_UI_STYLE_MIDDLE && 1 << place(flags->words, "important") == DGX_UI_STYLE_IMPORTANT);
     CHECK(dgx_ui_params_font_variant.fields[6].high == (int32_t)DGX_PEN_SOFT);
+    /* a part named: built with the parameters alone (DGX_UI_PARTS_BY_NAME), the part's name, which the tool writes */
+    CHECK(dgx_ui_params_ring.fields[8].kind == DGX_UI_FIELD_PART && strcmp((const char *)dgx_ui_params_ring.fields[8].part, "dgx_ui_ring_soft") == 0);
     /* the kinds a draw draws, as the looks' header says */
     CHECK(dgx_ui_params_button.kinds == (1u << DGX_UI_BUTTON | 1u << DGX_UI_DROPDOWN) && dgx_ui_params_checkbox.kinds == 1u << DGX_UI_SWITCH &&
           dgx_ui_params_picture_button.kinds == (1u << DGX_UI_BUTTON | 1u << DGX_UI_SWITCH | 1u << DGX_UI_RADIO) && dgx_ui_params_ring.kinds == 1u << DGX_UI_OWN);

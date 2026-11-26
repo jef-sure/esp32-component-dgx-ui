@@ -1914,8 +1914,10 @@ static bool slide_show(dgx_ui_t *home, dgx_ui_paint_t *paint, const dgx_ui_point
   скоростью 33 кадра в секунду, 30 мс на кадр, а плавная смена — 15,6 кадра, 64 мс на кадр; начало, когда собираются
   оба экрана, занимает 53 мс. Тот же экран, повёрнутый в 1280 на 800, даёт 12 кадров в секунду на сдвиге и 7,5
   при плавной смене: экран, повёрнутый относительно панели, платит за поворот в каждой пересылке.
-- **Чего это стоит.** Около 1,3 КБ, вместе с 0,6 КБ `dgx_ui_paint_changes()` и 0,2 КБ вызовов страниц, и виртуальные
-  экраны DGX (`CONFIG_DGX_ENABLE_VSCREEN=y`).
+- **Чего это стоит.** Около 2,6 КБ dgx-ui, из них 0,4 КБ `dgx_ui_paint_changes()` и 0,2 КБ вызовов страниц, и 4,9 КБ
+  DGX на пересылку экрана из памяти на дисплей. Виртуальные экраны DGX (`CONFIG_DGX_ENABLE_VSCREEN=y`) — ещё 21 КБ, если
+  их в программе ещё нет. Сами страницы, без перехода, стоят свои 2,6 КБ. Замерено на CYD, ESP32, на hello со второй
+  страницей.
 
 ## Настройки, которые сохраняются
 
@@ -2718,7 +2720,7 @@ static int made_page_load(const char *json, size_t len, void *memory, size_t siz
   и `page` пишутся в файле без выражения. Выражение — это C без пробелов.
 - **Без `NAMES`** имена превращаются в C по правилу, `"settings.volume"` становится `&settings.volume`, а то,
   чего у программы нет, находит компилятор. Правило и страница самого инструмента:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/tools/README.md).
 - **`HEADERS`** — заголовки программы, которые включает сделанный файл: те, что объявляют упомянутое в выражениях.
 - **Сколько это стоит**: только само дерево. На ESP32 программа с этой страницей, переведённой на C, на 7,5 КБ
   меньше той, что её загружает. Виджеты — константы во флеше, по 60 байт<!-- sizeof dgx_ui_widget_t -->; в ОЗУ лежат узлы, как у любого
@@ -3204,11 +3206,11 @@ enum { RING_OFF = COLORS, RING_LOW, RING_MID, RING_HIGH, RING_COLORS };
 static uint32_t ring_table[RING_COLORS]; /* the paint's on this screen: .colors = ring_table, .color_count = RING_COLORS */
 
 /* up to 800 ppm in one colour, up to 1200 in another, from there in a third, each part of the arc by its own place;
-   14 points wide, from half past seven round to half past four */
+   14 points wide, from half past seven round to half past four, its edges soft */
 static const dgx_ui_band_t      ring_bands[] = {{800, RING_LOW}, {1200, RING_MID}};
 static const dgx_ui_ring_look_t ring_params  = {
     .fill = RING_HIGH, .track = RING_OFF, .paper = DGX_UI_PAPER, .width = 14, .start = -135, .sweep = 270,
-    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands};
+    .band_count = 2, .bands_by = DGX_UI_BANDS_BY_PLACE, .bands = ring_bands, .soft = &dgx_ui_ring_soft};
 static const dgx_ui_look_t ring_look = {.draw = dgx_ui_draw_ring, .params = &ring_params, .fill = DGX_UI_PAPER};
 ```
 
@@ -3290,6 +3292,9 @@ static int ring_add(dgx_ui_t *ui, dgx_screen_t *scr)
 - **Под всплывающим окном** часть кольца может быть видна рядом с ним. Это те же пиксели, что и без окна: цвет
   пикселя зависит только от того, где он лежит, и от значения.
 - Если вложенный виджет скрыли или показали, кольцо рисуется целиком вместе со всеми вложенными.
+- **Мягкие края**, `.soft = &dgx_ui_ring_soft`: пиксель, через который проходит круг, конец, луч значения или граница
+  полосы, получает среднее 16 точек своих цветов, и у кольца нет ступенек. Это ещё около 1,7 КБ; без них кольцо
+  жёсткое.
 - **Чего это стоит.** Около 3,8 КБ кода в программе, которая пользуется обликом. Работа самого облика, без дисплея,
   при сборке, которую ESP-IDF делает по умолчанию (`-Og`): шаг значения на этом кольце занимает 0,3 мс на ESP32 при
   240 МГц, кольцо целиком — 5 мс; кольцо в 800 пикселей на ESP32-P4 при 400 МГц — 0,5 мс и 20 мс, из них три

@@ -1,14 +1,14 @@
 # dgx-ui
 
-*[По-русски: README-ru.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/README-ru.md)*
+*[По-русски: README-ru.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/README-ru.md)*
 
 dgx-ui is a light layer of widgets on [DGX](https://github.com/jef-sure/esp32-component-dgx), the display library for
 ESP32. Widgets stand in rows and columns, their values come as messages from other tasks, and the display is written
 only where something changed. It needs no memory for pixels: a widget is 28 bytes<!-- sizeof dgx_ui_node_t --> of RAM and 60 bytes<!-- sizeof dgx_ui_widget_t --> of flash, and it
 draws straight on the display.
 
-![A value in a frame, a clock and a note under it](https://raw.githubusercontent.com/jef-sure/esp32-component-dgx-ui/0.1.1/docs/images/first.png)
-![A settings screen: a slider, two switches, an icon, two buttons](https://raw.githubusercontent.com/jef-sure/esp32-component-dgx-ui/0.1.1/docs/images/settings.png)
+![A value in a frame, a clock and a note under it](https://raw.githubusercontent.com/jef-sure/esp32-component-dgx-ui/0.1.2/docs/images/first.png)
+![A settings screen: a slider, two switches, an icon, two buttons](https://raw.githubusercontent.com/jef-sure/esp32-component-dgx-ui/0.1.2/docs/images/settings.png)
 
 The pictures of these pages are drawn by dgx-ui itself, on a virtual screen of DGX on a computer.
 
@@ -61,7 +61,7 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.1.1, in the [ESP Component Registry](https://components.espressif.com/components/jef-sure/dgx-ui) as
+Version 0.1.2, in the [ESP Component Registry](https://components.espressif.com/components/jef-sure/dgx-ui) as
 `jef-sure/dgx-ui`. Its API is fixed since 0.1.0: one that would break a program is 0.2, and 0.1 only mends
 and adds. What it has is listed under [What is in it](#what-is-in-it), what it leaves to other libraries under
 [What it leaves to others](#what-it-leaves-to-others).
@@ -72,33 +72,33 @@ In `main/idf_component.yml` of the project:
 
 ```yaml
 dependencies:
-  jef-sure/dgx-ui: "^0.1.1"
+  jef-sure/dgx-ui: "^0.1.2"
 ```
 
-or `idf.py add-dependency "jef-sure/dgx-ui^0.1.1"`, which writes that line.
+or `idf.py add-dependency "jef-sure/dgx-ui^0.1.2"`, which writes that line.
 
 It needs ESP-IDF 5.2 or later and DGX 0.12.3 or a later 0.12; DGX comes by itself, from the registry. Start with
-[Getting started](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/getting-started.md): a round CO2 scale fed by an SCD41 sensor from a task of its own,
+[Getting started](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/docs/en/getting-started.md): a round CO2 scale fed by an SCD41 sensor from a task of its own,
 on a board or in a window on the computer.
 
 ## Documentation
 
 | Page | What it holds |
 | ---- | ------------- |
-| [Getting started](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/getting-started.md) | adding the component, the first program piece by piece, building for a chip and for the computer |
-| [How it works](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
-| [Cookbook](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, pictures and a frame of nine of them, texts of several lines, a page that scrolls, a handwritten text, colours of your own, popups and pages, keys and touch, a field and a keyboard, pages and appearances from descriptions, a look and a control of your own, a display of 18 or 24 bits, the tree as a layer in another compositor's strips; most with a picture drawn by the recipe's own code |
-| [API reference](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/api.md) | every type, function and constant, by header |
-| [The builder of pages](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/editor/README.md) | a project's pages edited in a browser, drawn as the board draws them: opening a project, the panel, the properties, the appearance and the names file by forms, saving, an agent beside it, in another page |
-| [The preview](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/editor/preview/README.md) | a description drawn in a browser as the board draws it: the page to try it by hand, the calls for a page that edits descriptions |
+| [Getting started](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/docs/en/getting-started.md) | adding the component, the first program piece by piece, building for a chip and for the computer |
+| [How it works](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
+| [Cookbook](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, pictures and a frame of nine of them, texts of several lines, a page that scrolls, a handwritten text, colours of your own, popups and pages, keys and touch, a field and a keyboard, pages and appearances from descriptions, a look and a control of your own, a display of 18 or 24 bits, the tree as a layer in another compositor's strips; most with a picture drawn by the recipe's own code |
+| [API reference](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/docs/en/api.md) | every type, function and constant, by header |
+| [The builder of pages](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/editor/README.md) | a project's pages edited in a browser, drawn as the board draws them: opening a project, the panel, the properties, the appearance and the names file by forms, saving, an agent beside it, in another page |
+| [The preview](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/editor/preview/README.md) | a description drawn in a browser as the board draws it: the page to try it by hand, the calls for a page that edits descriptions |
 
-Examples, each for a CYD board and for a window on the computer: [hello](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/examples/hello/main/main.c), a text and a
+Examples, each for a CYD board and for a window on the computer: [hello](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/examples/hello/main/main.c), a text and a
 count another task sends once a second, in fonts DGX ships, the one to start a project of your own from;
-[thin_paint](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/examples/thin_paint/main/thin_paint.c), a value sent by a task and a clock;
-[controls](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/examples/controls/main/controls.c), a button with a popup, a switch, a dropdown, a slider and two fields,
+[thin_paint](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/examples/thin_paint/main/thin_paint.c), a value sent by a task and a clock;
+[controls](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/examples/controls/main/controls.c), a button with a popup, a switch, a dropdown, a slider and two fields,
 a code and a PIN shown as stars, each edited in a strip over a keypad of DGX-DI; worked by a finger and by the keys,
 on a board taken from [boards](https://github.com/jef-sure/esp32-component-boards). The list of changes is in
-[CHANGES.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/CHANGES.md).
+[CHANGES.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/CHANGES.md).
 
 The letters of thin_paint and controls have soft edges: DGX makes their fonts at build time, 4 bits a pixel, from a
 face installed on the build machine, the first of DejaVu Sans, Liberation Sans, Noto Sans, FreeSans and Arial that it
@@ -108,7 +108,7 @@ Debian and Ubuntu: `sudo apt install build-essential libfreetype-dev pkg-config 
 window on the computer needs SDL2 as well, `libsdl2-dev`. Without FreeType the build stops and says so; with none of
 the families, with "no face allowed by the rules". A program of your own needs none of this until it asks for a font
 to be made: the fonts DGX ships are ready, and hello is written in two of them. See
-[Letters with soft edges](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/cookbook.md#letters-with-soft-edges).
+[Letters with soft edges](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/docs/en/cookbook.md#letters-with-soft-edges).
 
 ## What is in it
 
@@ -121,10 +121,10 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
 - **The appearance from a description**: the colours by name, the text styles and the looks of all the pages in one
   document of JSON, loaded while the program runs or made C when it is built. A look it names by a kind's word
   restyles every widget of that kind.
-- **A description drawn in a browser**: [the preview](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/editor/preview/README.md) is dgx-ui itself built to
+- **A description drawn in a browser**: [the preview](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/editor/preview/README.md) is dgx-ui itself built to
   WebAssembly, one file a page loads. It draws a page, an appearance and a names file on a panel of the board's
   size as the board draws them, and gives the loader's verdict on each: the drawing part of a builder.
-- **A builder of pages**: [editor/index.html](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/editor/README.md), opened from the disk, opens a project's directory,
+- **A builder of pages**: [editor/index.html](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/editor/README.md), opened from the disk, opens a project's directory,
   draws its pages by the preview at the board's size and edits their widgets: selected on the panel, set by their
   properties, added, moved, wrapped, with undo; their appearance and names file by forms. Only the files edited are
   saved. Served from a terminal by `tools/dgx_ui_serve.py`, it has the project open at once in any browser, VS Code's
@@ -189,7 +189,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, hello: a label an
 | a picture for the background, when the program sets one | about 0.5 KB more |
 | a canvas, when a widget has one | about 1.7 KB more, a byte of RAM a pixel of its box, and a table of 512 bytes once |
 | `dgx_ui_paint_changes()`, when the program calls it | about 0.6 KB more |
-| transitions between pages, when the program names them | about 2 KB more, and two pictures of the screen in RAM |
+| transitions between pages, when the program names them | about 2.6 KB more and 4.9 KB of DGX, two pictures of the screen in RAM, and DGX's virtual screens, 21 KB, if the program has them not yet |
 | the statistics of painting, when the program names them | about 1.8 KB more |
 | a tree from a description in JSON, when the program loads one | about 8 KB more |
 | colours, text styles and looks from a description, when the program loads one | about 5 KB more over the loader of trees |
@@ -197,6 +197,7 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, hello: a label an
 | a button of a picture, when a widget names the look | about 0.8 KB more beside buttons with a text and pictures; 2.8 KB in a program with no picture yet, the drawing of pictures coming with it |
 | a level bar, when a widget names the look | about 0.9 KB more |
 | a ring scale, when a widget names the look | about 3.8 KB more |
+| soft edges of a ring scale, when its look names them | about 1.7 KB more |
 | a checkbox or radio buttons, when a widget names the look | about 1.9 KB more for a checkbox, 1.7 KB for radio buttons; both, 2.1 KB |
 | the frame of the focus, once in a program that names the look of a button, a dropdown, a radio button or a checkbox | about 0.5 KB more |
 | a field's blinking caret, in a program with a field | about 0.4 KB more |
@@ -206,4 +207,4 @@ Measured on an ESP32 with ESP-IDF 5.5.4, the smallest program, hello: a label an
 
 ## License
 
-MIT, see [LICENSE](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/LICENSE).
+MIT, see [LICENSE](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/LICENSE).

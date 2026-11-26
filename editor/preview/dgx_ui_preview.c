@@ -853,8 +853,8 @@ const char *preview_tables(void)
 /* ---- what an appearance may say, for its forms ---- */
 
 static const char *const field_types[] = {"color", "color_or_under", "number", "bool", "word", "flags", "bit", "bands", "font", "hand", "variants",
-                                          "picture"};
-_Static_assert(sizeof field_types / sizeof *field_types == DGX_UI_FIELD_PICTURE + 1, "a type for every field");
+                                          "picture", "part"};
+_Static_assert(sizeof field_types / sizeof *field_types == DGX_UI_FIELD_PART + 1, "a type for every field");
 
 /* a member of 1, 2 or 4 bytes as an integer, signed where its bounds go below 0 */
 static int32_t member_read(const void *params, const dgx_ui_field_t *field)
@@ -887,7 +887,7 @@ static void grow_fields(grown_t *to, const dgx_ui_params_t *described, const voi
         if (field->kind == DGX_UI_FIELD_NUMBER || field->kind == DGX_UI_FIELD_VARIANTS)
             grow(to, ", \"min\": %ld, \"max\": %ld", (long)field->low, (long)field->high);
         if (field->kind == DGX_UI_FIELD_PICTURE) grow(to, ", \"min\": %ld", (long)field->low); /* the pictures it needs */
-        if (field->words) grow(to, ", \"words\": "), grow_words(to, field->words);
+        if (field->kind != DGX_UI_FIELD_PART && field->words) grow(to, ", \"words\": "), grow_words(to, field->words);
         grow(to, "}");
     }
     grow(to, "]");
@@ -895,7 +895,7 @@ static void grow_fields(grown_t *to, const dgx_ui_params_t *described, const voi
     grow(to, ", \"defaults\": {");
     for (int k = 0; k < described->field_count; ++k) {
         const dgx_ui_field_t *field = &described->fields[k];
-        const int32_t         value = field->kind == DGX_UI_FIELD_BANDS || field->kind == DGX_UI_FIELD_PICTURE ? 0 : member_read(params, field);
+        const int32_t         value = field->kind == DGX_UI_FIELD_BANDS || field->kind == DGX_UI_FIELD_PICTURE || field->kind == DGX_UI_FIELD_PART ? 0 : member_read(params, field);
         grow(to, "%s\"%s\": ", k ? ", " : "", field->name);
         switch (field->kind) {
         case DGX_UI_FIELD_COLOR:
@@ -908,6 +908,12 @@ static void grow_fields(grown_t *to, const dgx_ui_params_t *described, const voi
             break;
         }
         case DGX_UI_FIELD_PICTURE: grow(to, "null"); break; /* the library's look names none: the program's to give */
+        case DGX_UI_FIELD_PART: {
+            const void *part;
+            memcpy(&part, (const uint8_t *)params + field->offset, sizeof part);
+            grow(to, "%s", part ? "true" : "false");
+            break;
+        }
         case DGX_UI_FIELD_BANDS: {
             const dgx_ui_band_t *bands = *(const dgx_ui_band_t *const *)(const void *)((const uint8_t *)params + field->offset);
             const int            count = *((const uint8_t *)params + field->count_offset);

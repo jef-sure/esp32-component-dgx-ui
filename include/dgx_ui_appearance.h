@@ -84,6 +84,7 @@ enum {
     DGX_UI_FIELD_HAND,           ///< a hand's name, of the program's hands
     DGX_UI_FIELD_VARIANTS,       ///< a list of variants of a font: a pointer, the count the uint8_t at count_offset
     DGX_UI_FIELD_PICTURE,        ///< a picture's name, of the program's pictures: a pointer to them, at least `low` there
+    DGX_UI_FIELD_PART,           ///< true or false: a pointer to the field's part, or NULL (a ring's soft edges)
 };
 
 /** A field of a draw's parameters: its name in a description, where it lies and what it holds. */
@@ -94,7 +95,10 @@ typedef struct dgx_ui_field_t {
     uint8_t     kind;         ///< DGX_UI_FIELD_*
     uint8_t     size;         ///< of the member, in bytes
     int32_t     low, high;    ///< a number's bounds; the bits of DGX_UI_FIELD_BIT in high
-    const char *words;        ///< a word's or flags' words, each ended by 0, an empty one last
+    union {
+        const char *words; ///< a word's or flags' words, each ended by 0, an empty one last
+        const void *part;  ///< DGX_UI_FIELD_PART: what true names
+    };
 } dgx_ui_field_t;
 
 /** A draw's parameters described: their size and alignment, the kinds of widget it draws, their fields. */
@@ -126,6 +130,10 @@ typedef struct dgx_ui_params_t {
 #define DGX_UI_BANDS_FIELD(type, member, count_member)                                                                           \
     {.name = #member, .offset = offsetof(type, member), .count_offset = offsetof(type, count_member), .kind = DGX_UI_FIELD_BANDS, \
      .size = sizeof(((type *)0)->member), .low = 0, .high = 255, .words = NULL}
+/** A field of true or false that names a part of the library by a pointer: true, `named`; false, NULL. */
+#define DGX_UI_PART_FIELD(type, member, named)                                                                              \
+    {.name = #member, .offset = offsetof(type, member), .count_offset = 0, .kind = DGX_UI_FIELD_PART, .size = sizeof(((type *)0)->member), \
+     .low = 0, .high = 1, .part = (named)}
 /** A field of pictures: a name of the program's pictures (dgx_ui_appearance_names_t::pictures) of at least `need` there. */
 #define DGX_UI_PICTURE_FIELD(type, member, need) DGX_UI_FIELD_OF(type, member, DGX_UI_FIELD_PICTURE, need, need, NULL)
 #define DGX_UI_PARAMS(type, widget_kinds, field_table)                                                                       \
