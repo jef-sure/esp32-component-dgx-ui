@@ -57,19 +57,17 @@ there the program makes the measurements up itself, one a second: all of the sca
 
 ## 1. Add the components
 
-Version 0.0.73 of dgx-ui is a tag of the repository and is not in the ESP Component Registry yet; the driver of the
-sensor is in the registry. In `main/idf_component.yml` of the project:
+Version 0.1.0 of dgx-ui and the driver of the sensor are both in the ESP Component Registry. In
+`main/idf_component.yml` of the project:
 
 ```yaml
 dependencies:
-  dgx-ui:
-    git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.73"
+  jef-sure/dgx-ui: "^0.1.0"
   jef-sure/scd4x: "^0.3.0"
 ```
 
-The component manager takes dgx-ui from GitHub at the next build, and DGX and scd4x from the registry: dgx-ui asks
-for DGX, and our program for scd4x.
+The component manager takes dgx-ui, DGX and scd4x from the registry at the next build: our program asks for dgx-ui
+and scd4x, and dgx-ui for DGX.
 
 DGX builds only the buses and the display drivers the project turns on. For a GC9A01 on SPI, in
 `sdkconfig.defaults`:

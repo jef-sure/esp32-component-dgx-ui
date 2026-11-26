@@ -55,19 +55,16 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 
 ## 1. Подключите компонент
 
-Версия 0.0.73 dgx-ui — это тег в репозитории, в реестре компонентов ESP её пока нет; драйвер датчика, наоборот,
-лежит в реестре. В `main/idf_component.yml` проекта:
+Версия 0.1.0 dgx-ui и драйвер датчика лежат в реестре компонентов ESP. В `main/idf_component.yml` проекта:
 
 ```yaml
 dependencies:
-  dgx-ui:
-    git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.73"
+  jef-sure/dgx-ui: "^0.1.0"
   jef-sure/scd4x: "^0.3.0"
 ```
 
-При следующей сборке менеджер компонентов возьмёт dgx-ui с GitHub, а DGX и scd4x — из реестра: dgx-ui требует DGX,
-scd4x требуется нашей программе.
+При следующей сборке менеджер компонентов возьмёт dgx-ui, DGX и scd4x из реестра: нашей программе нужны dgx-ui и
+scd4x, а dgx-ui нужна DGX.
 
 DGX собирает только те шины и драйверы дисплеев, которые включены в проекте. Для GC9A01 на SPI в
 `sdkconfig.defaults`:

@@ -39,8 +39,8 @@ The builder reads the project's own declarations:
 A server of the component, run in the project's folder, serves the builder and reads and writes the project for it:
 
 ```sh
-python3 managed_components/jef-sure__dgx-ui/tools/dgx_ui_serve.py   # dgx-ui from the registry
-python3 managed_components/dgx-ui/tools/dgx_ui_serve.py             # dgx-ui taken from git, as Getting started does
+python3 managed_components/jef-sure__dgx-ui/tools/dgx_ui_serve.py   # dgx-ui from the registry, as Getting started has it
+python3 managed_components/dgx-ui/tools/dgx_ui_serve.py             # dgx-ui taken from git
 ```
 
 It prints a link, `http://127.0.0.1:8741/editor/#project=...`. Opened in a browser of this computer, in VS Code by
@@ -78,7 +78,7 @@ takes a free one and says so, and there the zoom and the language the browser ke
 person edits and its verdicts, edits it in the builder, and talks with the person in the builder's dialog.
 
 ```sh
-python3 managed_components/dgx-ui/tools/dgx_ui_mcp.py --install   # once: the server given to the agent
+python3 managed_components/jef-sure__dgx-ui/tools/dgx_ui_mcp.py --install   # once: the server given to the agent
 ```
 
 `--install` gives it to Claude Code for every folder, by `claude mcp add -s user dgx-ui`, when Claude Code's command

@@ -4,10 +4,10 @@ The smallest program of [dgx-ui](https://github.com/jef-sure/esp32-component-dgx
 from. A text that never changes, and in a frame a count that another task sends once a second. The task that owns the
 display sleeps on its queue; when a count comes, its field is drawn again and nothing else is.
 
-The project takes dgx-ui from GitHub by its tag, in `main/idf_component.yml`, until dgx-ui is in the ESP Component
-Registry, and [DGX](https://github.com/jef-sure/esp32-component-dgx), the display library, comes with it from the
-registry. Inside the repository of dgx-ui, where it lies as `examples/hello`, it builds with the checkout around it and
-asks the registry for DGX only.
+The project takes dgx-ui from the ESP Component Registry, `jef-sure/dgx-ui: "^0.1.0"` in `main/idf_component.yml`,
+and [DGX](https://github.com/jef-sure/esp32-component-dgx), the display library, comes with it from the registry.
+Inside the repository of dgx-ui, where it lies as `examples/hello`, it builds with the checkout around it and asks the
+registry for DGX only.
 Where dgx-ui is to be had, [Quick start](https://github.com/jef-sure/esp32-component-dgx-ui#quick-start) of its README
 tells. The fonts are two of those DGX ships, so the build needs nothing beside ESP-IDF, 5.2 or later.
 

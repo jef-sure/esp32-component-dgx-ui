@@ -61,8 +61,9 @@ void ui_loop(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t queue)
 
 ## Status
 
-Version 0.0.73: a tag of the repository, not in the ESP Component Registry yet. It is being built, and its API may
-still change. What it has is listed under [What is in it](#what-is-in-it), what it leaves to other libraries under
+Version 0.1.0, in the [ESP Component Registry](https://components.espressif.com/components/jef-sure/dgx-ui) as
+`jef-sure/dgx-ui`. Its API is fixed from this version: one that would break a program is 0.2, and 0.1 only mends
+and adds. What it has is listed under [What is in it](#what-is-in-it), what it leaves to other libraries under
 [What it leaves to others](#what-it-leaves-to-others).
 
 ## Quick start
@@ -71,10 +72,10 @@ In `main/idf_component.yml` of the project:
 
 ```yaml
 dependencies:
-  dgx-ui:
-    git: https://github.com/jef-sure/esp32-component-dgx-ui.git
-    version: "0.0.73"
+  jef-sure/dgx-ui: "^0.1.0"
 ```
+
+or `idf.py add-dependency "jef-sure/dgx-ui^0.1.0"`, which writes that line.
 
 It needs ESP-IDF 5.2 or later and DGX 0.12.3 or a later 0.12; DGX comes by itself, from the registry. Start with
 [Getting started](docs/en/getting-started.md): a round CO2 scale fed by an SCD41 sensor from a task of its own,

@@ -1,5 +1,14 @@
 # Changes
 
+## 0.1.0 - 2026-11-26
+
+- The first version in the ESP Component Registry, as `jef-sure/dgx-ui`; the example hello takes it from there.
+- A soft pen of handwriting on a screen of 18 or 24 bits, or with DGX built without its virtual screens, is the hard
+  pen of its width, said once in the log; before, the first showed a box of paper and the second did not link.
+- dgx_ui_mcp.py comes with a skill for the agent, dgx-ui-builder, which `--install` copies for Claude Code.
+- The handwriting recipe is written by the soft pen throughout, its figures measured again; the testing recipe tells
+  the build on the computer; the Russian pages say «указан» and «пользуется» where they said «называет» and «несёт».
+
 ## 0.0.73 - 2026-11-26
 
 - The C made of an appearance writes a colour DGX names by its name, DGX_ORANGE(DGX_RGB_24), the first name in DGX's
