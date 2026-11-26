@@ -313,6 +313,12 @@ run-test_builder_store: $(ROOT)/test/editor/test_store.js $(BUILDER) $(BUILD)/fo
 run-test_builder_page: $(ROOT)/test/editor/test_page.js $(BUILDER) $(ROOT)/tools/dgx_ui_serve.py $(ROOT)/tools/dgx_ui_mcp.py $(BUILD)/fontfiles/dgx_fonts-files.txt
 	timeout 300 node $(ROOT)/test/editor/test_page.js $(BUILD)/fontfiles $(BUILD)/builder-page.png
 
+# the pictures of the builder for its pages (test/editor/shots.js), into OUT; not a test, not in `all`: made twice and
+# held equal before anything is written
+OUT ?= $(ROOT)/docs/images
+builder-shots: $(ROOT)/test/editor/shots.js $(ROOT)/test/editor/chrome.js $(BUILDER) $(BUILD)/fontfiles/dgx_fonts-files.txt
+	timeout 300 node $(ROOT)/test/editor/shots.js $(BUILD)/fontfiles $(OUT)
+
 # fonts of DGX as files, each by DGX's font2bin of its C, and their index as DGX writes one: for the module's tests
 FONT_FILES := DejaVuSansBook32 DroidSansRegular9 IBMPlexMonoMedium28 LiberationSansRegular12 NotoMonoRegular28 TerminusTTFMedium12 font0ss
 $(BUILD)/fontfiles/%.dgxf: $(DGX_ROOT)/font2c/font2bin.c $(DGX_ROOT)/src/fonts/%.c
@@ -426,5 +432,5 @@ check-docs:
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all clean run-test_generate run-test_generate_appearance run-test_preview_module run-test_preview_class run-test_preview_format run-test_description \
+.PHONY: all clean builder-shots run-test_generate run-test_generate_appearance run-test_preview_module run-test_preview_class run-test_preview_format run-test_description \
         run-test_builder_templates run-test_builder_appearance run-test_builder_names run-test_builder_store run-test_builder_page run-test_serve run-test_mcp check-cxx check-werror check-format-chip check-lists check-docs

@@ -7,6 +7,9 @@ disk, with no server and nothing to build; nothing leaves the page.
 The drawing is [the preview](preview/README.md), dgx-ui itself built to WebAssembly, so what the panel shows is what
 the board shows, and every check of a page is the loader's: the builder repeats no rule of the format.
 
+![The builder: the pages and the widgets of a project at the left, a page drawn at twice its size with its slider
+selected, and the slider's properties at the right](../docs/images/builder-page.png)
+
 ## Opening a project
 
 Open `index.html` in a browser and press "Open a project": in Chrome and Edge, the File System Access API gives the
@@ -85,6 +88,9 @@ folder it works in; a folder with no call of dgx-ui and no description gets no t
 the script run: when that copy goes with its project, run `--install` again, or from a clone of dgx-ui.
 `--serve` is the builder with no agent, as `dgx_ui_serve.py`.
 
+![The builder's dialog under the properties: the person asks for the title "Volume", the agent answers that it is
+done, and the panel shows the title so](../docs/images/builder-agent.png)
+
 | Tool | What it does |
 | --- | --- |
 | `page_link` | the builder's link, for the person to open |
@@ -122,10 +128,16 @@ marked in the tree.
 While a button's action has opened another page on the panel, clicks select nothing: a bar names the page, with
 "Open it", the builder on its description, and "Back".
 
+![Texts: the page as text, with a kind misspelled, "slidr", and the loader's verdict above it: the kind is unknown,
+at byte 250](../docs/images/builder-texts.png)
+
 ## The appearance
 
 The forms show what the format of an appearance has, and the panel draws every change at once; the loader's verdict
 stands at the field it names.
+
+![Appearance: the colours with their swatches and hex, the styles, and the look "slider" open, its draw and the
+colours of its track, fill and knob](../docs/images/builder-appearance.png)
 
 - **Colours**: a name, two swatches, the colour as written and as the panel shows it at the depth of its screen, and
   the hex. The hex is typed, picked in the browser's picker, or given as the name of one of DGX's colours, and is
@@ -150,6 +162,9 @@ edited after it. It is not renamed to a name the appearance has, nor while a pag
 A rename or a delete that gives a look a kind's word or takes it away, or that touches the first style, the style of
 a text that names none, comes with a warning.
 
+![The look "pane" renamed to "panel": the builder lists the page and the widget it changes, and waits for Rename or
+Cancel](../docs/images/builder-rename.png)
+
 **A name deleted**: a look or a style a widget names is not deleted, and the builder lists the widgets; a colour a
 look names is refused by the loader, at that look.
 
@@ -160,6 +175,9 @@ may end with, a count of pictures, `number` of a handler, `page` of a context, `
 and description of a draw. A look or an action of the library's goes with no expression. The C is the program's: the
 builder writes it as given, and `dgx_ui_c` checks it when the program is built. An expression with a space or a `#`
 waits: it would split the line.
+
+![Names: the value "volume" the page names and the file has not, with its C "&volume" and "Add"; under it the file's
+tables, a look no page uses marked so](../docs/images/builder-names.png)
 
 - **The names the page misses** are listed, each with the C `dgx_ui_c`'s rule gives it, `&volume` for a value
   `volume`. "Add" puts one into the file, "Add all" all of them, one step: a names file is begun so. A file a call

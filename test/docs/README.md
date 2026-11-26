@@ -71,3 +71,14 @@ SDL_VIDEODRIVER=offscreen DGX_HOST_SCRIPT=script.txt DGX_HOST_QUIT_MS=4950 DGX_H
 
 `pictures.c` draws the other pictures of `docs/images` (as PPM, to be turned into PNG). Both are built as the tests of `test/host` are, with the sources
 of dgx-ui and of DGX for the computer.
+
+The pictures of the builder, `docs/images/builder-*.png`, are the builder itself, `editor/index.html` in a headless
+Chrome, on the project of `test/hook/project` held in the page's memory; `test/editor/shots.js` says what each shows
+and what it holds them to. They are made, and written only when both of its runs give the same bytes, by
+
+```sh
+make -C test/host builder-shots                     # into docs/images
+make -C test/host builder-shots OUT=/tmp/shots      # elsewhere
+```
+
+Another machine's fonts may draw their letters otherwise, so the target is not one of the tests.
