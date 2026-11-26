@@ -9,7 +9,9 @@ scrolling box's behaviour beside its description),
 compiled against dgx-ui's include/ and src/ and DGX's include/ and host/stubs/, which DGX's package
 carries for its build on a computer: no source of DGX, no library but C's. The words of the library's looks, which a
 description may name with no names file, are read from include/dgx_ui_paint.h into library_looks.h; the library's
-draws and the types of their parameters from src/dgx_ui_params.c and src/dgx_ui_scroll.c into library_draws.h.
+draws and the types of their parameters from src/dgx_ui_params.c and src/dgx_ui_scroll.c into library_draws.h; the
+names of DGX's colours, in their order, from DGX's include/dgx_colors.h into library_colors.h, whose values the tool
+takes from DGX's own macros.
 
 The compiler is the computer's, as DGX's font2c is built: $CC unless it is a chip's, else cc (gcc on Windows), with a
 PATH that does not lead to the chips' tools first. Run by the rule project_include.cmake makes once for a project, and
@@ -58,6 +60,27 @@ def library_draws():
     return "".join(lines)
 
 
+COLOR_LINE = re.compile(r"#define DGX_([A-Z0-9]+)\(rgb_func\) rgb_func\((\d+), (\d+), (\d+)\)\s*$")
+
+
+def library_colors(header_path):
+    """COLOR(NAME) for each colour of DGX's dgx_colors.h, in its order: each line that takes rgb_func is one, of the
+    form the preview reads too; a macro of another kind in the header is no colour and is passed over"""
+    with open(header_path, encoding="utf-8") as header:
+        lines = header.read().splitlines()
+    names = []
+    for number, line in enumerate(lines, 1):
+        if not re.match(r"\s*#\s*define\s+DGX_\w+\s*\(\s*rgb_func\s*\)", line):
+            continue
+        found = COLOR_LINE.match(line)
+        if not found:
+            fail(f"{header_path}:{number}: a colour not of the form #define DGX_<NAME>(rgb_func) rgb_func(r, g, b): {line.strip()}")
+        names.append(found.group(1))
+    if not names:
+        fail(f"no colour by its name found in {header_path}")
+    return "".join(f"COLOR({name})\n" for name in names)
+
+
 def write_if_other(path, text):
     old = None
     if os.path.exists(path):
@@ -78,6 +101,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     write_if_other(os.path.join(out, "library_looks.h"), library_looks())
     write_if_other(os.path.join(out, "library_draws.h"), library_draws())
+    write_if_other(os.path.join(out, "library_colors.h"), library_colors(os.path.join(dgx, "include", "dgx_colors.h")))
     # the computer's compiler with the computer's tools: inside an ESP-IDF build the PATH leads to the chips' tools first
     env = dict(os.environ, PATH=os.pathsep.join(p for p in os.environ.get("PATH", "").split(os.pathsep) if ".espressif" not in p))
     compiler = os.environ.get("CC", "")

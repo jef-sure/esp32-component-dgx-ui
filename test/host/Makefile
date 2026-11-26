@@ -233,7 +233,8 @@ $(BUILD)/test_idle $(BUILD)/test_idle18: $(BUILD)/test_idle%: test_idle.c check.
 
 # dgx_ui_c against the loader (test_generate.py): the tool built into this build by tools/dgx_ui_c.py, the one way it
 # is built, as the package's rule builds it; the files it makes compiled with test_generate.c in one go
-$(BUILD)/tools/dgx_ui_c: $(ROOT)/tools/dgx_ui_c.c $(ROOT)/tools/dgx_ui_names.c $(ROOT)/tools/dgx_ui_names.h $(ROOT)/tools/dgx_ui_c.py $(PAINT) $(wildcard $(ROOT)/include/*.h) $(wildcard $(ROOT)/src/*.h)
+$(BUILD)/tools/dgx_ui_c: $(ROOT)/tools/dgx_ui_c.c $(ROOT)/tools/dgx_ui_names.c $(ROOT)/tools/dgx_ui_names.h $(ROOT)/tools/dgx_ui_c.py $(PAINT) $(wildcard $(ROOT)/include/*.h) $(wildcard $(ROOT)/src/*.h) \
+                         $(DGX)/include/dgx_colors.h
 	python3 $(ROOT)/tools/dgx_ui_c.py $(abspath $(DGX)) $(abspath $(BUILD))/tools
 
 run-test_generate: $(BUILD)/tools/dgx_ui_c test_generate.c test_generate.py generate_program.h check.h

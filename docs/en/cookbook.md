@@ -984,7 +984,7 @@ static const dgx_ui_widget_t    card_w      = {.kind = DGX_UI_FRAME, .flags = DG
                                                .want_w = 68, .want_h = 44, .look = &nine_look};
 ```
 
-![Two frames of nine pictures with rounded corners, a temperature in one and a fan's state in the other](../images/nine.png)
+![A frame drawn of nine pictures, the lines between its cells in dashes, and its nine pieces apart, eight times as large: four corners, two edges one pixel wide, two one pixel high, and a middle of one pixel](../images/nine.png)
 
 - **A box is not sized by its children**: a frame takes its size from `want_w` and `want_h`, or from its parent.
 - **The corners** are drawn as they are. **The edges and the middle** are laid again and again along their cell

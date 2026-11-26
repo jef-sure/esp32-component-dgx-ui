@@ -10,7 +10,8 @@ one with a look of every draw, every field said; one of the program's draw with 
 kind of field, colours in any order, names of '.' and '-', editors; one by the rule, with no names file. Each is made
 C, all are compiled into one program with test_generate_appearance.c, which loads each on the tables of the names file
 and holds the made one against it field by field, and a page of a widget for each look of it drawn on both pixel by
-pixel. The same appearances spoiled at a byte are given to dgx_ui_c and to the loader on the same tables: the same
+pixel. Its colours are written by DGX's names where DGX names them, by the first name in its dgx_colors.h, else
+in hex; the list of those names dgx_ui_c.py reads out of the header is held to the header. The same appearances spoiled at a byte are given to dgx_ui_c and to the loader on the same tables: the same
 verdict, the same code, byte and name. A tree made with -a on an appearance against the loader on the tables -t -a
 makes of the two; the tree's file compiled against an appearance of other names stops at its stamp. The tool's own
 refusals: a look of the program's draw that gives parameters, a file of another kind not written over.
@@ -21,6 +22,7 @@ import random
 import re
 import subprocess
 import sys
+import importlib.util
 
 here = os.path.dirname(os.path.abspath(__file__))
 tool, dump, work, compile_command = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2]), os.path.abspath(sys.argv[3]), sys.argv[4:]
@@ -29,6 +31,23 @@ for leftover in os.listdir(work):
     if leftover.endswith((".c", ".h", ".json", ".txt")):
         os.remove(os.path.join(work, leftover))
 failures = []
+
+# DGX's colours by their names, in the order of the dgx_colors.h the tool was built against: the first name of each value
+build_script = importlib.util.spec_from_file_location("dgx_ui_c", os.path.join(here, "..", "..", "tools", "dgx_ui_c.py"))
+dgx_ui_c = importlib.util.module_from_spec(build_script)
+build_script.loader.exec_module(dgx_ui_c)
+colors_header = next((os.path.join(word[2:], "dgx_colors.h") for word in compile_command
+                      if word.startswith("-I") and os.path.exists(os.path.join(word[2:], "dgx_colors.h"))), None)
+if not colors_header:
+    sys.exit("test_generate_appearance.py: no dgx_colors.h among the compile command's -I")
+dgx_named = {}  # value: its first name
+for line in open(colors_header).read().splitlines():
+    found = dgx_ui_c.COLOR_LINE.match(line)
+    if found:
+        dgx_named.setdefault(int(found.group(2)) << 16 | int(found.group(3)) << 8 | int(found.group(4)), found.group(1))
+named_rand = random.Random(149)  # a stream of its own: the appearances by chance stay what they were
+dgx_values = sorted(dgx_named)
+
 described = json.loads(subprocess.run([dump], capture_output=True, text=True, check=True, timeout=30).stdout)
 DRAWS = sorted(described["draws"])
 COLOR, UNDER, NUMBER, BOOL, WORD, FLAGS, BIT, BANDS, FONT, HAND, VARIANTS, PICTURE = range(12)
@@ -66,7 +85,11 @@ def chance_appearance(rand, name, every=False):
     colors = ["paper", "ink", "fill", "border"] + others
     written = colors[:]
     rand.shuffle(written)
-    color_text = ", ".join(f'"{c}": "#{rand.randrange(1 << 24):06x}"' for c in written)
+
+    def a_value():
+        value = rand.randrange(1 << 24)
+        return named_rand.choice(dgx_values) if named_rand.random() < 1 / 3 else value
+    color_text = ", ".join(f'"{c}": "#{a_value():06x}"' for c in written)
 
     def a_color(under):
         return "null" if under and rand.random() < 0.25 else f'"{rand.choice(colors)}"'
@@ -175,6 +198,9 @@ make("dialed", '{"dgx-ui": 1, "name": "dialed", "colors": {"paper": "#000000", "
                ' "disabled": "paper", "ink": "ink", "ink_disabled": "border", "shadow": "paper", "depth": 1}}}}', "-n", names_path)
 for k in range(40):
     make(f"chance{k}", chance_appearance(rand, f"chance{k}"), "-n", names_path)
+# colours DGX names, one of them by its second name too, and one it does not
+make("named", '{"dgx-ui": 1, "name": "named", "colors": {"paper": "#000000", "ink": "#ffa500", "fill": "#00ffff", "border": "#123456", "sea": "#ff00ff",'
+              ' "stone": "#d3d3d3"}}', "-n", names_path)
 # by the rule: no names file; every draw of the library, both hands, the fonts dgx_font_<name>, the program's own
 make("ruled", '{"dgx-ui": 1, "name": "ruled", "colors": {"paper": "#000000", "ink": "#ffffff", "fill": "#101010", "border": "#202020"},'
               ' "styles": {"body": {"fonts": ["small", {"font": "hand", "hand": "handwriting", "height": 20}]}}, "looks": {"pane": {"draw": "frame", "params": {"border": "ink", "width": 1}},'
@@ -190,6 +216,54 @@ if status or "Not checked for want of the program's tables: which fonts are hand
 for suffix in (".c", ".h"):
     if os.path.exists(os.path.join(work, "unchecked" + suffix)):
         os.remove(os.path.join(work, "unchecked" + suffix))
+
+# the made tables of colours: a value DGX names by its first name there, any other in hex
+for name, _ in cases:
+    table = re.search(r"_rgb\[\d+\] = \{(.*)\};", open(os.path.join(work, name + ".c")).read())
+    for entry in table.group(1).split(", ") if table else ["none"]:
+        by_name = re.fullmatch(r"DGX_([A-Z0-9]+)\(DGX_RGB_24\)", entry)
+        if by_name and by_name.group(1) not in dgx_named.values() or not by_name and (not re.fullmatch(r"0x[0-9a-f]{6}", entry) or int(entry, 16) in dgx_named):
+            failures.append(f"{name}.c: a colour of its table written {entry}")
+    if '#include "dgx_colors.h"' not in open(os.path.join(work, name + ".c")).read():
+        failures.append(f"{name}.c: no dgx_colors.h included")
+named_text = open(os.path.join(work, "named.c")).read() if "named" in [name for name, _ in cases] else ""
+if "named_rgb[6] = {DGX_BLACK(DGX_RGB_24), DGX_ORANGE(DGX_RGB_24), DGX_CYAN(DGX_RGB_24), 0x123456, DGX_MAGENTA(DGX_RGB_24), DGX_LIGHTGREY(DGX_RGB_24)};" \
+        not in named_text:
+    failures.append("named.c: its colours not written by DGX's first names: " + " ".join(re.findall(r"named_rgb.*", named_text)))
+
+# the names dgx_ui_c.py read for the tool: every colour line of the header, in its order
+made_list = open(os.path.join(os.path.dirname(tool), "library_colors.h")).read()
+header_names = re.findall(r"^#define DGX_(\w+)\(rgb_func\)", open(colors_header).read(), re.M)
+if made_list != "".join(f"COLOR({name})\n" for name in header_names) or len(header_names) < 149:
+    failures.append(f"library_colors.h: not the {len(header_names)} names of {colors_header} in their order")
+# a macro of another kind in the header is passed over; a colour line of another form is refused, by its line
+odd_header = os.path.join(work, "odd_colors.h")
+with open(odd_header, "w") as out:
+    out.write("#pragma once\n#define DGX_BLACK(rgb_func) rgb_func(0, 0, 0)\n#define DGX_COLOR_OF(name, rgb_func) DGX_##name(rgb_func)\n"
+              "#define DGX_SHADE 3\n#define DGX_WHITE(rgb_func) rgb_func(255, 255, 255)\n")
+try:
+    if dgx_ui_c.library_colors(odd_header) != "COLOR(BLACK)\nCOLOR(WHITE)\n":
+        failures.append("a header with macros of another kind: not its two colours")
+except SystemExit as refusal:
+    failures.append(f"a header with macros of another kind refused: {refusal}")
+for odd_line in ("#define DGX_TEAL(rgb_func) rgb_func(0x00, 128, 128)", "#define DGX_TEAL(rgb_func) (rgb_func(0, 128, 128))", "#define  DGX_TEAL(rgb_func) rgb_func(0,128,128)"):
+    with open(odd_header, "w") as out:
+        out.write(f"#define DGX_BLACK(rgb_func) rgb_func(0, 0, 0)\n{odd_line}\n")
+    try:
+        dgx_ui_c.library_colors(odd_header)
+        failures.append(f"a colour of another form taken: {odd_line}")
+    except SystemExit as refusal:
+        if str(refusal) != f"dgx_ui_c.py: {odd_header}:2: a colour not of the form #define DGX_<NAME>(rgb_func) rgb_func(r, g, b): {odd_line}":
+            failures.append(f"a colour of another form refused in other words: {refusal}")
+with open(odd_header, "w") as out:
+    out.write("#define DGX_SHADE 3\n")
+try:
+    dgx_ui_c.library_colors(odd_header)
+    failures.append("a header of no colour taken")
+except SystemExit as refusal:
+    if "no colour by its name found in" not in str(refusal):
+        failures.append(f"a header of no colour refused in other words: {refusal}")
+os.remove(odd_header)
 
 # ---- the loader's tables of the names file, and the tables of pages on an appearance ----
 status, said = run("-n", names_path, "-t", "vocab")

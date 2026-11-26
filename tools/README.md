@@ -208,8 +208,11 @@ enum { day_stamp = 0x416f7392 };                   /* of its looks' and styles' 
 ```
 
 A colour whose name is not a name of C has no constant: the header lists it in a comment, and
-`dgx_ui_appearance_color()` finds it. The tables hold the appearance's looks and styles first, then the looks and
-styles of the names file.
+`dgx_ui_appearance_color()` finds it. In `day.c` a colour that is one of DGX's named colours is written by its name,
+`DGX_ORANGE(DGX_RGB_24)` for `#ffa500`, and any other as its number, `0x123456`. A value with several names takes the
+first in `dgx_colors.h`: `DGX_CYAN` for `#00ffff`, not `DGX_AQUA`. The names are read from the `dgx_colors.h` of
+the DGX the tool is built with, and the numbers are the same either way. The tables hold the appearance's looks and
+styles first, then the looks and styles of the names file.
 
 What an appearance may name comes from the names file, by three more tables and its pictures, or with none from a
 rule:

@@ -14,8 +14,10 @@ steps may touch it. On the linux target of ESP-IDF:
    tree and tables made on it in main, the main's tree loaded on those tables the same as added, of its looks and style;
 2. a description edited: its files made again, no other, no configure, the tool not built again;
 3. the tree renamed inside: the same files, the new function, no configure;
-4. the tool's source touched: the tool built again, then every file made again;
-5. the appearance edited: its files made again and those made on it, in both components, no other, no configure;
+4. the tool's source touched: the tool built again, then every file made again; the same for DGX's dgx_colors.h, whose
+   names of colours the tool is built with;
+5. the appearance edited: its files made again and those made on it, in both components, no other, no configure; its
+   accent made DGX's orange, written in look.c by DGX's name;
 6. the configure refusals, each by its words: one file name twice in a component, one prefix in two components, a
    prefix not of C, one of dgx_, a names file whose name is not of C, a description's file name no file may have, one
    that begins with '-', a word not understood, an appearance no dgx_ui_appearance() made;
@@ -116,11 +118,20 @@ tool_source = os.path.join(project, "ext", "dgx-ui", "tools", "dgx_ui_c.c")
 os.utime(tool_source)  # now: the copy keeps the checkout's older time
 status, output = idf("build")
 built_and_ran("4", output, status, set(MADE), 1, "noise")
+colors_header = os.path.join(project, "managed_components", "jef-sure__dgx", "include", "dgx_colors.h")
+check("4: DGX's dgx_colors.h", os.path.exists(colors_header), colors_header)
+if os.path.exists(colors_header):
+    os.utime(colors_header)
+    status, output = idf("build")
+    built_and_ran("4 dgx_colors.h", output, status, set(MADE), 1, "noise")
 
 # 5. the appearance edited: its files and those made on it
-edit("components/second/look.json", '"accent": "#f0a03c"', '"accent": "#f0a03d"')
+edit("components/second/look.json", '"accent": "#f0a03c"', '"accent": "#ffa500"')
 status, output = idf("build")
 built_and_ran("5", output, status, {"look", "c", "framed", "themed"}, 0, "noise")
+made_look = os.path.join(project, "build", "esp-idf", "second", "dgx_ui_made", "look.c")
+look_text = open(made_look).read() if os.path.exists(made_look) else ""
+check("5: look.c writes the accent DGX_ORANGE(DGX_RGB_24)", "0x44556a, DGX_ORANGE(DGX_RGB_24)};" in look_text, look_text[:2000])
 
 # 6. the configure refusals
 for case, words in [("files_twice", "dgx_ui_tree(more/a.json): a.c and a.h are made of pages/a.json already in this component: give one of them a PREFIX"),

@@ -481,8 +481,60 @@ static void own_pictures(const char *dir)
     }
 }
 
+/* A frame of nine pictures: at the left a frame of the scene's own size in the recipe's nine_look, on a tree of 3
+   pixels a point, the lines between its nine cells in dashes; at the right the recipe's nine pieces apart, in their
+   places, each pixel 8 by 8 in the colours its map gives them, each in dashes */
+static void nine_picture(const char *dir)
+{
+    static dgx_ui_node_t         nodes[4];
+    static const dgx_ui_widget_t nine_root_w  = {.kind = DGX_UI_BOX, .pad = 4};
+    static const dgx_ui_widget_t nine_frame_w = {.kind = DGX_UI_FRAME, .want_w = 64, .want_h = 44, .look = &nine_look};
+    dgx_ui_t                     ui;
+    dgx_ui_paint_t               paint;
+    static uint8_t               nine_buffer[256];
+    picture_screen(&paint);
+    paint.buffer = nine_buffer, paint.buffer_size = sizeof nine_buffer;
+    dgx_ui_init(&ui, nodes, 4, 3);
+    const int frame = dgx_ui_add(&ui, dgx_ui_add(&ui, -1, &nine_root_w), &nine_frame_w);
+    dgx_ui_paint(&ui, &paint, 0);
+    dgx_screen_t        *scr   = paint.scr;
+    const dgx_ui_node_t *node  = dgx_ui_node(&ui, frame);
+    const uint32_t       mark  = dgx_screen_rgb(scr, 255, 170, 60);
+    const int            point = ui.unit;
+    /* the cells: the columns as wide as the top corners, the rows as high as the left corners; the lines between them */
+    const int left = node->x + nine_images[0].width * point, right = node->x + node->w - nine_images[2].width * point;
+    const int top = node->y + nine_images[0].height * point, bottom = node->y + node->h - nine_images[6].height * point;
+    dashes(scr, left, node->y, 1, node->h, mark), dashes(scr, right - 1, node->y, 1, node->h, mark);
+    dashes(scr, node->x, top, node->w, 1, mark), dashes(scr, node->x, bottom - 1, node->w, 1, mark);
+    /* the pieces apart: each in the cell of a grid of 3 by 3 of its own size */
+    enum { ZOOM = 8, APART = 10 };
+    const int widths[3] = {nine_images[0].width, nine_images[1].width, nine_images[2].width};
+    const int heights[3] = {nine_images[0].height, nine_images[3].height, nine_images[6].height};
+    int       at_y = node->y;
+    for (int row = 0; row < 3; ++row) {
+        int at_x = node->x + node->w + 20;
+        for (int column = 0; column < 3; ++column) {
+            const dgx_image_t *image  = &nine_images[row * 3 + column];
+            const int          stride = (image->width + 1) / 2; /* a row of 4 bits a pixel begins a new byte */
+            for (int y = 0; y < image->height; ++y)
+                for (int x = 0; x < image->width; ++x) {
+                    const uint8_t byte  = image->data[y * stride + x / 2];
+                    const int     value = x % 2 ? byte & 15 : byte >> 4;
+                    const int     index = value ? nine_map[value - 1] : nine_params.fill;
+                    dgx_fill_rectangle(scr, at_x + x * ZOOM, at_y + y * ZOOM, ZOOM, ZOOM, picture_colors[index]);
+                }
+            dashes(scr, at_x - 2, at_y - 2, image->width * ZOOM + 4, image->height * ZOOM + 4, mark);
+            at_x += widths[column] * ZOOM + APART;
+        }
+        at_y += heights[row] * ZOOM + APART;
+    }
+    picture_write(scr, dir, "nine.ppm", node->y + node->h + 4 * point);
+    dgx_ui_free(&ui), dgx_ui_paint_free(&paint), dgx_screen_destroy(&scr);
+}
+
 static void recipe_pictures(const char *dir)
 {
+    nine_picture(dir);
     control_pictures(dir);
     text_pictures(dir);
     page_pictures(dir);

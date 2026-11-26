@@ -51,7 +51,7 @@ function(_dgx_ui_c_rule out)
         file(GLOB headers "${DGX_UI_COMPONENT_DIR}/include/*.h" "${DGX_UI_COMPONENT_DIR}/src/*.h")
         add_custom_command(OUTPUT "${binary}"
             COMMAND ${python} "${DGX_UI_COMPONENT_DIR}/tools/dgx_ui_c.py" "${dgx_dir}" "${dir}"
-            DEPENDS ${tool_sources} ${headers}
+            DEPENDS ${tool_sources} ${headers} "${dgx_dir}/include/dgx_colors.h"
             COMMENT "dgx-ui: dgx_ui_c built for the computer"
             VERBATIM)
         add_custom_target(dgx_ui_c_built DEPENDS "${binary}")

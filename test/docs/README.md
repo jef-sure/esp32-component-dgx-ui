@@ -59,12 +59,12 @@ colours holding every level of the soft edges. `getting-started.png` is drawn by
 getting-started page's program, in the fonts DGX makes of `start.needs` as that program's CMakeLists asks for them:
 
 ```sh
-make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # first, getting-started, settings, popup, lines, list, dropdown, background, states, nine, scroll
+make -C test/host -f ../docs/run.mk pictures OUT=/tmp/pictures   # first, getting-started, settings, popup, lines, list, dropdown, background, states, scroll
 python3 -c "from PIL import Image; import sys; [Image.open(f'/tmp/pictures/{n}.ppm').convert('P', palette=Image.ADAPTIVE, colors=256).save(f'docs/images/{n}.png', optimize=True) for n in sys.argv[1:]]" list dropdown
 ```
 
-The run of the recipes draws `ring`, `ring-layout`, `rows`, `line`, `face`, `slider`, `stepper`, `radio`, `level`,
-`icon`, `picture-button`, `picture`, `log`, `font`, `soft`, `hand`, `night`, `show`, `bar`, `slide`, `field`,
+The run of the recipes draws `ring`, `ring-layout`, `nine`, `rows`, `line`, `face`, `slider`, `stepper`, `radio`,
+`level`, `icon`, `picture-button`, `picture`, `log`, `font`, `soft`, `hand`, `night`, `show`, `bar`, `slide`, `field`,
 `own-look`, `own-widget`, `canvas`, `graph` and `turn`; the same line, given its directory, makes them PNG.
 
 `docs/images/strip.png` is the example `examples/controls` itself, built for the computer and stopped while the PIN is

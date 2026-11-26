@@ -89,6 +89,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "dgx_colors.h"
 #include "dgx_draw.h"
 #include "dgx_ui.h"
 #include "dgx_ui_appearance.h"
@@ -112,6 +113,25 @@ static const struct {
 #undef DRAW
 #undef COUNT
 enum { LIBRARY_COUNT_COUNT = sizeof library_counts / sizeof *library_counts };
+
+/* DGX's colours by their names, in the order of its dgx_colors.h: the names read at the tool's build, the values DGX's macros */
+#define COLOR(name) {#name, DGX_##name(DGX_RGB_24)},
+static const struct {
+    const char *name;
+    uint32_t    rgb;
+} dgx_colors[] = {
+#include "library_colors.h"
+};
+#undef COLOR
+enum { DGX_COLOR_COUNT = sizeof dgx_colors / sizeof *dgx_colors };
+
+/* the first of DGX's names of a colour, NULL for one of none */
+static const char *dgx_color_name(uint32_t rgb)
+{
+    for (int k = 0; k < DGX_COLOR_COUNT; ++k)
+        if (dgx_colors[k].rgb == rgb) return dgx_colors[k].name;
+    return NULL;
+}
 
 static const char *description_path, *prefix; /* with -t the names file's path, and the prefix -t gives */
 static bool        tables_mode;                /* -t: the names file alone made C, the loader's tables */
@@ -944,11 +964,16 @@ static void write_appearance(const char *directory, const char *const *headers, 
     out(&h_file, "\n#ifdef __cplusplus\n}\n#endif\n");
 
     out_head(&c_file, base_name(c_path));
-    out(&c_file, "#include <stdbool.h>\n#include <stddef.h>\n\n#include \"dgx_draw.h\"\n#include \"dgx_ui_appearance.h\"\n");
+    out(&c_file, "#include <stdbool.h>\n#include <stddef.h>\n\n#include \"dgx_colors.h\"\n#include \"dgx_draw.h\"\n#include \"dgx_ui_appearance.h\"\n");
     for (int k = 0; k < header_count; ++k) out(&c_file, "#include \"%s\"\n", headers[k]);
     out(&c_file, "#include \"%s\"\n\n", base_name(h_path));
+    /* a colour of DGX's by its first name there, DGX_ORANGE(DGX_RGB_24): the same number as its hex */
     out(&c_file, "static const uint32_t %s_rgb[%d] = {", p, appearance.color_count);
-    for (int k = 0; k < appearance.color_count; ++k) out(&c_file, "%s0x%06x", k ? ", " : "", (unsigned)appearance.rgb[k]);
+    for (int k = 0; k < appearance.color_count; ++k) {
+        const char *name = dgx_color_name(appearance.rgb[k]);
+        if (name) out(&c_file, "%sDGX_%s(DGX_RGB_24)", k ? ", " : "", name);
+        else out(&c_file, "%s0x%06x", k ? ", " : "", (unsigned)appearance.rgb[k]);
+    }
     out(&c_file, "};\nstatic const char *const %s_names_of_colors[%d] = {", p, appearance.color_count);
     for (int k = 0; k < appearance.color_count; ++k) out(&c_file, "%s", k ? ", " : ""), out_string(&c_file, appearance.color_names[k]);
     out(&c_file, "};\n");

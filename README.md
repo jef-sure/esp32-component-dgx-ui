@@ -86,7 +86,7 @@ on a board or in a window on the computer.
 | ---- | ------------- |
 | [Getting started](docs/en/getting-started.md) | adding the component, the first program piece by piece, building for a chip and for the computer |
 | [How it works](docs/en/how-it-works.md) | the tree, the layout, state and events, messages, time, the painter and the looks, memory |
-| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, pictures and a frame of nine of them, texts of several lines, a page that scrolls, a handwritten text, colours of your own, popups and pages, keys and touch, a field and a keyboard, pages and appearances from descriptions, a look and a control of your own, a display of 18 or 24 bits, the tree as a layer in another compositor's strips |
+| [Cookbook](docs/en/cookbook.md) | recipes: a value from a task, a clock, buttons, a slider, a list, a dropdown, an icon, pictures and a frame of nine of them, texts of several lines, a page that scrolls, a handwritten text, colours of your own, popups and pages, keys and touch, a field and a keyboard, pages and appearances from descriptions, a look and a control of your own, a display of 18 or 24 bits, the tree as a layer in another compositor's strips; most with a picture drawn by the recipe's own code |
 | [API reference](docs/en/api.md) | every type, function and constant, by header |
 | [The builder of pages](editor/README.md) | a project's pages edited in a browser, drawn as the board draws them: opening a project, the panel, the properties, the appearance and the names file by forms, saving, an agent beside it, in another page |
 | [The preview](editor/preview/README.md) | a description drawn in a browser as the board draws it: the page to try it by hand, the calls for a page that edits descriptions |
@@ -126,7 +126,8 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
 - **A builder of pages**: [editor/index.html](editor/README.md), opened from the disk, opens a project's directory,
   draws its pages by the preview at the board's size and edits their widgets: selected on the panel, set by their
   properties, added, moved, wrapped, with undo; their appearance and names file by forms. Only the files edited are
-  saved. Served from a terminal, `tools/dgx_ui_mcp.py`, it has an agent beside it over MCP.
+  saved. Served from a terminal by `tools/dgx_ui_serve.py`, it has the project open at once in any browser, VS Code's
+  too; served by `tools/dgx_ui_mcp.py`, it has an agent beside it over MCP.
 - **Rows and columns**: a box stacks its children as a column or a row, with a padding and a gap, in points that are
   so many pixels or in percent; a child may take all that is left. The layout is made again only when the screen, the widgets or
   their sizes change, and then only what moved is drawn.
@@ -144,10 +145,9 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
 - **Controls**: a button with a shadow and a pressed face, a button of a picture, a switch, a checkbox, radio
   buttons, a slider, a list, a dropdown with its list, a field typed into with a blinking caret, pictures and icons
   of 1, 4 and 8 bits and of RGB565, on a display of 16 bits and through the buffer on one of 18 or 24, and a frame
-  of nine pictures.
+  of nine pictures. A control names its look, so a program carries only the looks it uses.
 - **Scales** that show a value: a level bar and a ring scale, each with bands of colour, drawn by the library in
-  whole pixels, with no memory for pixels. A control names its look, so a program
-  carries only the looks it uses.
+  whole pixels, with no memory for pixels.
 - **Controls of the program's own**: a widget drawn by the program's look becomes a control when the look names a
   behaviour, what the finger and the keys do with it; the core does the hit, the press, the focus and the click.
 - **A picture for the background**: a function of the program's lays it, and labels, buttons and pictures show it
@@ -167,7 +167,7 @@ to be made: the fonts DGX ships are ready, and hello is written in two of them. 
 
 ## What it leaves to others
 
-An interface of tables, graphs and long texts is a task for
+An interface of tables, charts with axes and legends, and long texts to edit is a task for
 [DGX-LVGL](https://github.com/jef-sure/esp32-component-dgx-lvgl).
 
 ## How light
