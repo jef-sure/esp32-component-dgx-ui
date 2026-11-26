@@ -1,6 +1,7 @@
 # The fonts the code of the pages names and their pictures are drawn in, made by DGX as a program's build makes the
 # needs of the cookbook's "What the recipes share": soft edges, 4 bits a pixel, a face the rules choose. With the
-# letters of the cookbook in both languages and of the pictures' program.
+# letters of the cookbook in both languages and of the pictures' program. Last, the fonts of one bit of the recipe
+# "A monochrome screen".
 rules fonts.rules
 need body
 size 13px
@@ -30,3 +31,10 @@ size 12pt
 bits 4
 text ../../docs/en/cookbook.md
 text ../../docs/ru/cookbook.md
+need mono_text
+dgx TerminusTTFMedium12
+need mono_news
+dgx GLCD5x7
+need mono_value
+size 16px
+letters 0123456789 ppm

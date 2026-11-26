@@ -19,7 +19,7 @@
 
 static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
 {
-    if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, c);
+    if (w > 0 && h > 0) dgx_ui_fill(paint, x, y, w, h, c);
 }
 
 /* the caret's rectangle: of its colour, or the paper */

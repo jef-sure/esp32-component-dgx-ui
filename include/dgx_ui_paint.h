@@ -220,6 +220,16 @@ static inline uint32_t dgx_ui_wake(const dgx_ui_paint_t *paint, const dgx_ui_t *
     return wait;
 }
 
+/**
+ * A colour of the table of a screen of 1 bit, the dim fill of a monochrome screen: the looks' fills, the track of a
+ * ring or a bar, a box, a frame's inside and its border, are hatched there, a pixel lit through a pixel where
+ * (x + y) & 1 of the screen, the same at every pass and seamless between widgets. Letters and a picture of 1 bit over
+ * it lie on the opposite of their ink; letters and lines drawn in it are lit. dgx_screen_rgb() never gives it. With
+ * CONFIG_DGX_UI_HATCH, on by itself with the drivers of 1-bit panels of DGX: {0, 1, DGX_UI_HATCH}, the paper, the ink
+ * and the dim fill. On a screen of more bits it is an error of the table, drawn as 0.
+ */
+#define DGX_UI_HATCH 0x80000000u
+
 /** @brief A color of the table, packed for the screen; 0 past its end. */
 static inline uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)
 {

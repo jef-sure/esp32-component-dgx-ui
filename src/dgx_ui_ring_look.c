@@ -406,7 +406,11 @@ static void put_mixed(const ring_t *r, int x, int y, const int16_t *classes)
     if (!mixes) {
         const int cls = classes[most];
         if (cls == AROUND) dgx_ui_lay_paper(paint, paper, x, y, 1, 1);
+#if DGX_UI_HATCHES
+        else dgx_ui_fill(paint, x, y, 1, 1, dgx_ui_color(paint, cls)); /* a hatch by the pixel's parity */
+#else
         else dgx_set_pixel(scr, x - paint->ox, y - paint->oy, dgx_ui_color(paint, cls));
+#endif
         return;
     }
     int n = 0;

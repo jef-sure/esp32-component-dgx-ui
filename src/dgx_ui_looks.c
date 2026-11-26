@@ -18,8 +18,27 @@ void dgx_ui_lay_paper(dgx_ui_paint_t *paint, uint8_t paper, int x, int y, int w,
 {
     if (w <= 0 || h <= 0) return;
     if (dgx_ui_paper_drawn(paint, paper)) paint->drawn->lay(paint, x, y, w, h); /* the program's picture */
-    else dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, dgx_ui_color(paint, paper == DGX_UI_PAPER ? paint->paper : paper));
+    else dgx_ui_fill(paint, x, y, w, h, dgx_ui_color(paint, paper == DGX_UI_PAPER ? paint->paper : paper));
 }
+
+#if DGX_UI_HATCHES
+void dgx_ui_fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t color)
+{
+    dgx_screen_t *scr = paint->scr;
+    if (color != DGX_UI_HATCH || scr->color_bits != 1) {
+        dgx_fill_rectangle(scr, x - paint->ox, y - paint->oy, w, h, color == DGX_UI_HATCH ? 0 : color);
+        return;
+    }
+    /* the rectangle within the clip, in pixels of the paint's screen; the parity of the tree's screen, so that a part,
+       a strip and a composing at any offset lay the same pixels */
+    int cx, cy, cw, ch;
+    dgx_screen_clip_get(scr, &cx, &cy, &cw, &ch);
+    const int x0 = DGX_MAX(x - paint->ox, cx), y0 = DGX_MAX(y - paint->oy, cy);
+    const int x1 = DGX_MIN(x - paint->ox + w, cx + cw), y1 = DGX_MIN(y - paint->oy + h, cy + ch);
+    for (int sy = y0; sy < y1; ++sy)
+        for (int sx = x0; sx < x1; ++sx) dgx_set_pixel(scr, sx, sy, (uint32_t)((sx + paint->ox + sy + paint->oy) & 1));
+}
+#endif
 
 bool dgx_ui_frame_begin(dgx_ui_paint_t *paint, const dgx_ui_t *ui, int i, dgx_ui_rect_t rect, uint8_t color, dgx_ui_frame_t *frame)
 {
@@ -59,6 +78,13 @@ void dgx_ui_frame_end(dgx_ui_paint_t *paint, const dgx_ui_t *ui, const dgx_ui_fr
 void dgx_ui_field_text(dgx_ui_paint_t *paint, const dgx_font_context_t *ctx, int x, int y, const char *text, uint8_t paper)
 {
     if (dgx_ui_paper_drawn(paint, paper)) paint->drawn->text(paint, ctx, x, y, text, paper); /* over the picture */
+#if DGX_UI_HATCHES
+    else if (ctx->bg == DGX_UI_HATCH) { /* the field under the letters the opposite of their ink, on 1 bit */
+        dgx_font_context_t solid = *ctx;
+        solid.bg                 = paint->scr->color_bits == 1 ? dgx_ui_under_ink(paint, ctx->color, ctx->bg) : 0; /* deeper: 0 */
+        dgx_font_draw(&solid, x, y, text);
+    }
+#endif
     else dgx_font_draw(ctx, x, y, text);
 }
 
@@ -66,7 +92,7 @@ void dgx_ui_field_text(dgx_ui_paint_t *paint, const dgx_font_context_t *ctx, int
 static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t color, bool lay)
 {
     if (lay) dgx_ui_lay_paper(paint, DGX_UI_PAPER, x, y, w, h);
-    else if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, color);
+    else if (w > 0 && h > 0) dgx_ui_fill(paint, x, y, w, h, color);
 }
 
 /* the area less the children: of the colour, or the paper laid */

@@ -59,6 +59,7 @@
 - [График-развёртка](#график-развёртка)
 - [Шкала по кругу с виджетами внутри](#шкала-по-кругу-с-виджетами-внутри)
 - [Дисплей на 18 или 24 бита](#дисплей-на-18-или-24-бита)
+- [Монохромный экран](#монохромный-экран)
 - [Цикл, который спит до следующего момента](#цикл-который-спит-до-следующего-момента)
 - [Притушить экран, когда никто не трогает](#притушить-экран-когда-никто-не-трогает)
 - [Сколько длится проход](#сколько-длится-проход)
@@ -2720,7 +2721,7 @@ static int made_page_load(const char *json, size_t len, void *memory, size_t siz
   и `page` пишутся в файле без выражения. Выражение — это C без пробелов.
 - **Без `NAMES`** имена превращаются в C по правилу, `"settings.volume"` становится `&settings.volume`, а то,
   чего у программы нет, находит компилятор. Правило и страница самого инструмента:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.3/tools/README.md).
 - **`HEADERS`** — заголовки программы, которые включает сделанный файл: те, что объявляют упомянутое в выражениях.
 - **Сколько это стоит**: только само дерево. На ESP32 программа с этой страницей, переведённой на C, на 7,5 КБ
   меньше той, что её загружает. Виджеты — константы во флеше, по 60 байт<!-- sizeof dgx_ui_widget_t -->; в ОЗУ лежат узлы, как у любого
@@ -3343,6 +3344,126 @@ static void deep_paint_init(dgx_ui_paint_t *paint)
   буфер должны помещаться строка картинки и строка дисплея в масштабе картинки. С `dgx_ui_strips` на их месте бумага,
   а в журнале сказано, что подключить. Для дисплея на 24 бита не за шиной, DSI, их тоже подключают ради картинок;
   это около 1,4 КБ, которых в программе с одним текстом нет.
+
+## Монохромный экран
+
+![Страница 128 на 64 пикселя в два цвета: CO2 и часы; кольцо и полоса с заштрихованными пустыми частями, рядом 812 ppm; строка новостей в рамке](../images/mono.png)
+
+Маленький дисплей в один бит на пиксель знает два цвета, бумагу и чернила: OLED 128 на 64 на SSD1306, SSD1309 или
+SH1106, ЖК-дисплей на ST7565R или ST7920. dgx-ui рисует на нём, как на любом дисплее. Своё у такого дисплея — три
+вещи: таблица цветов, облики, которые дают каждой части один из двух цветов, и шрифты в один бит. То, что цветной
+дисплей заливает тусклым цветом, — пустая часть кольца или полосы — здесь заштриховано: горит каждый второй пиксель,
+как клетки шахматной доски. На картинке — эта страница, каждый пиксель дисплея три на три.
+
+```cmake
+# main/CMakeLists.txt: fonts of one bit; two pixel fonts of DGX whole, and the figures made for the program
+dgx_font_need(mono_text DGX TerminusTTFMedium12)
+dgx_font_need(mono_news DGX GLCD5x7)
+dgx_font_need(mono_value SIZE 16px LETTERS "0123456789 ppm")
+```
+
+Таблица ставит два цвета и штриховку на места тех цветов, которые берут облики библиотеки. Тогда кольцо, полоса
+уровня и рамка без своих параметров выглядят верно и так:
+
+```c
+/* 0 the paper; 1 the ink of letters; 2 what a colour display fills dimmer, hatched; 3 lines and filled parts, ink */
+enum { MONO_PAPER, MONO_INK, MONO_DIM, MONO_LINE, MONO_COLORS };
+static const uint32_t mono_colors[MONO_COLORS] = {[MONO_PAPER] = 0, [MONO_INK] = 1, [MONO_DIM] = DGX_UI_HATCH, [MONO_LINE] = 1};
+
+/* the frame of the news: a line of ink round the paper, not round the hatch, so the letters lie on a quiet ground */
+static const dgx_ui_frame_look_t mono_frame_params = {.border = MONO_LINE, .width = 1};
+static const dgx_ui_look_t       mono_frame_look   = {.draw = dgx_ui_draw_frame, .params = &mono_frame_params, .fill = MONO_PAPER};
+
+static int32_t mono_ppm = 812, mono_filter = 62; /* the ring's value and the bar's, written by the program */
+static int     mono_clock, mono_value;            /* the labels the program writes, by their index */
+
+static const dgx_ui_font_variant_t mono_text_font[1]  = {{.font = &dgx_font_mono_text}};
+static const dgx_ui_font_variant_t mono_news_font[1]  = {{.font = &dgx_font_mono_news}};
+static const dgx_ui_font_variant_t mono_value_font[1] = {{.font = &dgx_font_mono_value}};
+static const dgx_ui_text_style_t   mono_st_text  = {.fonts = mono_text_font, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+static const dgx_ui_text_style_t   mono_st_clock = {.fonts = mono_text_font, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
+static const dgx_ui_text_style_t   mono_st_value = {.fonts = mono_value_font, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+/* the news a line at a time, the next one every 1.5 s */
+static const dgx_ui_text_style_t mono_st_news = {.fonts = mono_news_font, .count = 1, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 1500};
+
+static char             mono_clock_buf[8], mono_value_buf[12];
+static dgx_ui_textbox_t mono_clock_box, mono_value_box, mono_co2_box = DGX_UI_TEXT_CONST("CO2", 1, &mono_st_text);
+static dgx_ui_textbox_t mono_news_box = DGX_UI_TEXT_CONST("Window open: the air is fresh. Next reading in a minute.", 1, &mono_st_news);
+
+/* a pixel a point: CO2 and the clock; the ring, the value and the bar in a frame; the news in a frame */
+static const dgx_ui_widget_t mono_root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 1, .gap = 1};
+static const dgx_ui_widget_t mono_top_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 13};
+static const dgx_ui_widget_t mono_co2_w    = {.kind = DGX_UI_LABEL, .text = &mono_co2_box, .want_w = 24};
+static const dgx_ui_widget_t mono_clock_w  = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &mono_clock_box};
+static const dgx_ui_widget_t mono_middle_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 3, .want_h = 34};
+static const dgx_ui_widget_t mono_ring_w   = {.kind = DGX_UI_OWN, .min = 400, .max = 2000, .want_w = 34, .want_h = 34, .value = &mono_ppm,
+                                              .look = &dgx_ui_look_ring};
+static const dgx_ui_widget_t mono_side_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_REST, .gap = 4};
+static const dgx_ui_widget_t mono_value_w  = {.kind = DGX_UI_LABEL, .want_h = 16, .text = &mono_value_box};
+static const dgx_ui_widget_t mono_bar_frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 1, .want_h = 8};
+static const dgx_ui_widget_t mono_bar_w        = {.kind = DGX_UI_OWN, .max = 100, .want_h = 6, .value = &mono_filter, .look = &dgx_ui_look_level};
+static const dgx_ui_widget_t mono_news_frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .want_h = 12, .look = &mono_frame_look};
+static const dgx_ui_widget_t mono_news_w       = {.kind = DGX_UI_LABEL, .text = &mono_news_box, .look = &dgx_ui_look_lines};
+
+static dgx_ui_node_t mono_nodes[16];
+
+static void mono_page(dgx_ui_t *ui)
+{
+    dgx_ui_textbox_init(&mono_clock_box, mono_clock_buf, sizeof mono_clock_buf, 1, &mono_st_clock);
+    dgx_ui_textbox_init(&mono_value_box, mono_value_buf, sizeof mono_value_buf, 1, &mono_st_value);
+    dgx_ui_init(ui, mono_nodes, 16, 1);
+    const int root = dgx_ui_add(ui, -1, &mono_root_w), top = dgx_ui_add(ui, root, &mono_top_w);
+    dgx_ui_add(ui, top, &mono_co2_w);
+    mono_clock       = dgx_ui_add(ui, top, &mono_clock_w);
+    const int middle = dgx_ui_add(ui, root, &mono_middle_w);
+    dgx_ui_add(ui, middle, &mono_ring_w);
+    const int side = dgx_ui_add(ui, middle, &mono_side_w);
+    mono_value     = dgx_ui_add(ui, side, &mono_value_w);
+    dgx_ui_add(ui, dgx_ui_add(ui, side, &mono_bar_frame_w), &mono_bar_w);
+    dgx_ui_add(ui, dgx_ui_add(ui, root, &mono_news_frame_w), &mono_news_w);
+}
+```
+
+Дисплей — здесь SSD1306 на I2C; цикл тот же, что в [Начале работы](getting-started.md), с этой структурой
+отрисовки, а часы и значение программа пишет, как любые надписи:
+`dgx_ui_text_printf(ui, mono_value, "%d ppm", (int)mono_ppm)`.
+
+```c
+#include "bus/dgx_i2c_esp32.h"
+#include "drivers/ssd1306.h"
+
+/* the display at 0x3C, SDA on 21 and SCL on 22; false when it does not answer */
+static bool mono_display(dgx_ui_paint_t *paint)
+{
+    dgx_bus_protocols_t *bus = dgx_i2c_init(I2C_NUM_0, 0x3C, GPIO_NUM_21, GPIO_NUM_22, 400 * 1000);
+    dgx_screen_t        *scr = bus ? dgx_ssd1306_init(bus, GPIO_NUM_NC, DGX_SSD1306_128X64, false) : NULL;
+    *paint                   = (dgx_ui_paint_t){.scr = scr, .colors = mono_colors, .color_count = MONO_COLORS};
+    return scr != NULL;
+}
+```
+
+- **Штриховка** — это `DGX_UI_HATCH` в таблице. Облик заливает ею то, что залил бы этим цветом: дорожку кольца или
+  полосы, контейнер, внутренность рамки. Горят пиксели, у которых `(x + y) & 1` экрана, поэтому два заштрихованных
+  виджета рядом сходятся без шва, а виджет, нарисованный заново, кладёт те же пиксели.
+- **Буквы поверх штриховки** ложатся на сплошные строки цвета, обратного их чернилам: узор под буквами рвал бы их.
+  Картинка в один бит — тоже. Строки над буквами и под ними остаются заштрихованными; в узкой рамке это рябит, поэтому
+  у новостей своя рамка, вокруг бумаги.
+- **Рамка, у которой `border` — штриховка**, выходит пунктирной. Буквы, у которых чернила — штриховка, горят, как
+  чернила.
+- **Облики библиотеки** берут цвета 2 и 3 из таблицы цветного дисплея: рамка — линия цвета 3 вокруг цвета 2, кольцо и полоса —
+  цвет 3 по цвету 2. В таблице из одних бумаги, чернил и штриховки цвет 3 был бы за её концом, то есть 0: линия и
+  заполненная часть стали бы бумагой. Надпись и текст в несколько строк рисуются цветом 1.
+- **Шрифты в один бит** — потребность без `BITS`. Мягким краям шрифта в 4 бита нечего показать в двух цветах.
+- **Включает штриховку** `CONFIG_DGX_UI_HATCH`. Драйверы 1-битных панелей DGX включают его сами: SSD1306, SSD1309,
+  SH1106, ST7565R, ST7920. Программа, которая рисует на своём виртуальном экране в один бит, пишет
+  `CONFIG_DGX_UI_HATCH=y` в свой `sdkconfig.defaults`. На дисплее с большим числом бит `DGX_UI_HATCH` — ошибка
+  таблицы, он рисуется как 0.
+- **Чего это стоит**: 256 байт, замерено на такой странице на ESP32. В программе для цветного дисплея штриховки нет.
+- **Прокручиваемый контейнер** на одном бите при каждом сдвиге рисуется целиком. DGX сдвигал бы пиксели в один бит
+  по одному: ESP32 на 240 МГц рисует контейнер 128 на 64 заново за 6,5 мс, а сдвигает за 10,3 мс. Дисплею в обоих
+  случаях отправляется весь контейнер.
+- **[Страницы, которые сдвигаются](#страницы-которые-сдвигаются)**, сдвигом или плавной сменой, на одном бите тоже
+  доходят до конца.
 
 ## Цикл, который спит до следующего момента
 

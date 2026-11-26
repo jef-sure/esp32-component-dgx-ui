@@ -20,7 +20,7 @@ static const char *TAG = "dgx_ui";
 
 static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
 {
-    if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, c);
+    if (w > 0 && h > 0) dgx_ui_fill(paint, x, y, w, h, c);
 }
 
 /* the picture a widget shows: a button its one; a switch or a radio the second while it is on or chosen, else the
@@ -62,7 +62,7 @@ static void picture_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, 
     const int y1 = cut.y + cut.h - paint->oy < py + ph ? cut.y + cut.h - paint->oy : py + ph;
     if (x1 > x0 && y1 > y0) {
         dgx_screen_clip(paint->scr, x0, y0, x1 - x0, y1 - y0);
-        const dgx_image_blit_t how = {.flags = DGX_IMAGE_OPAQUE, .color = ink, .bg = face, .scale = (uint8_t)k};
+        const dgx_image_blit_t how = {.flags = DGX_IMAGE_OPAQUE, .color = ink, .bg = dgx_ui_under_ink(paint, ink, face), .scale = (uint8_t)k};
         dgx_image_blit(paint->scr, hole.x - paint->ox + im->origin_x * k, hole.y - paint->oy + im->origin_y * k, im, &how);
         dgx_screen_clip(paint->scr, px, py, pw, ph);
     }

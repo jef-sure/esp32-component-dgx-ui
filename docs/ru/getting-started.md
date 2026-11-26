@@ -55,11 +55,11 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 
 ## 1. Подключите компонент
 
-Версия 0.1.2 dgx-ui и драйвер датчика лежат в реестре компонентов ESP. В `main/idf_component.yml` проекта:
+Версия 0.1.3 dgx-ui и драйвер датчика лежат в реестре компонентов ESP. В `main/idf_component.yml` проекта:
 
 ```yaml
 dependencies:
-  jef-sure/dgx-ui: "^0.1.2"
+  jef-sure/dgx-ui: "^0.1.3"
   jef-sure/scd4x: "^0.3.0"
 ```
 

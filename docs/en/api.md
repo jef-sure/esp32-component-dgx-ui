@@ -21,7 +21,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
 | [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.2: the names and
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.3: the names and
 the signatures are fixed since 0.1.0; one that would break a program comes only with 0.2.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -862,6 +862,16 @@ The members after them are the painter's. A look reads these while it draws: `pa
 under the widget; `on_background`, what lies under the widget is the program's picture; `whole`, nothing of the widget is on the screen as it should be; `composing`, `dgx_ui_paint_area()`
 is drawing and nothing is to be remembered; `part` and `parts`, which part of the widget's box this call is for, of
 how many.
+
+A display of one bit takes in its table, beside 0 and 1, `DGX_UI_HATCH`, 0x80000000: the dim fill. What the looks
+fill with its index, the track of a ring or a bar, a box, the inside of a frame and its border, is hatched
+there, a pixel lit where `(x + y) & 1` of the tree's screen: the same pixels at every pass and no seam between
+widgets. Letters and a picture of one bit over it lie on rows of the colour opposite to their ink; letters drawn in it
+are lit. A box that scrolls on such a display is drawn whole at every move. The hatch is built with
+`CONFIG_DGX_UI_HATCH`, which DGX's drivers of 1-bit panels turn on by themselves (SSD1306, SSD1309, SH1106, ST7565R,
+ST7920) and a program that draws on a 1-bit virtual screen of its own sets; without it a program carries none of it.
+On a display of more bits `DGX_UI_HATCH` is an error of the table, drawn as 0. The recipe is
+[A monochrome screen](cookbook.md#a-monochrome-screen).
 
 | Call | What it does |
 | ---- | ------------ |
@@ -1931,7 +1941,7 @@ Three calls for the `CMakeLists.txt` of a component, the program's `main` among 
 written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
 C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
-the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/tools/README.md).
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.3/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])

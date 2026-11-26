@@ -5,6 +5,8 @@
 #include "esp_err.h"
 
 typedef int gpio_num_t;
+#define GPIO_NUM_NC (-1)
+enum { GPIO_NUM_21 = 21, GPIO_NUM_22 = 22 }; /* the I2C of "A monochrome screen" */
 typedef enum { GPIO_MODE_INPUT = 1 } gpio_mode_t;
 typedef enum { GPIO_INTR_DISABLE, GPIO_INTR_POSEDGE, GPIO_INTR_NEGEDGE, GPIO_INTR_ANYEDGE, GPIO_INTR_LOW_LEVEL, GPIO_INTR_HIGH_LEVEL } gpio_int_type_t;
 typedef struct {

@@ -8,9 +8,37 @@
  *      Author: Anton Petrusevich
  */
 
+#include "dgx_draw.h"
 #include "dgx_font.h"
 #include "dgx_ui_paint.h"
 #include "dgx_ui_priv.h"
+
+/* the hatched fill of DGX_UI_HATCH (dgx_ui_looks.c): on a chip by CONFIG_DGX_UI_HATCH, which the drivers of 1-bit panels
+   turn on; on the computer always */
+#ifdef ESP_PLATFORM
+#include "sdkconfig.h"
+#if CONFIG_DGX_UI_HATCH
+#define DGX_UI_HATCHES 1
+#endif
+#elif !defined DGX_UI_HATCHES
+#define DGX_UI_HATCHES 1
+#endif
+
+#if DGX_UI_HATCHES
+/* a rectangle of the tree's screen filled with a colour of the table; DGX_UI_HATCH on a screen of 1 bit hatched, a pixel
+   lit where (x + y) & 1 of the tree's screen, each pixel once; on a deeper screen 0 */
+void dgx_ui_fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t color);
+/* the paper under letters or a picture of 1 bit drawn in ink: DGX_UI_HATCH on a screen of 1 bit is the opposite of the
+   ink, so that they show; any other the paper given */
+static inline uint32_t dgx_ui_under_ink(const dgx_ui_paint_t *paint, uint32_t ink, uint32_t paper)
+{
+    return paper == DGX_UI_HATCH && paint->scr->color_bits == 1 ? (ink ? 0u : 1u) : paper;
+}
+#else
+/* the fill as it was written before the hatch, word for word: a program with no hatch is built to the same bytes */
+#define dgx_ui_fill(paint, x, y, w, h, color) dgx_fill_rectangle((paint)->scr, (x) - (paint)->ox, (y) - (paint)->oy, w, h, color)
+#define dgx_ui_under_ink(paint, ink, paper)   (paper)
+#endif
 
 /* the look of a widget: its own, else its kind's; NULL: nothing draws it */
 const dgx_ui_look_t *dgx_ui_look_of(const dgx_ui_widget_t *w);

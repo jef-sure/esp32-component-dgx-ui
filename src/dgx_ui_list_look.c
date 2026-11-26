@@ -119,7 +119,7 @@ bool dgx_ui_draw_list(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t
         if (th < 1) th = 1;
         if (ty + th > n->y + n->h) th = n->y + n->h - ty;
         dgx_ui_lay_paper(paint, p->paper, bx, n->y, bw, ty - n->y);
-        dgx_fill_rectangle(paint->scr, bx - paint->ox, ty - paint->oy, bw, th, dgx_ui_color(paint, p->knob));
+        dgx_ui_fill(paint, bx, ty, bw, th, dgx_ui_color(paint, p->knob));
         dgx_ui_lay_paper(paint, p->paper, bx, ty + th, bw, n->y + n->h - ty - th);
     }
     return false;

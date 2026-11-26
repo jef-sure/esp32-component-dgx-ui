@@ -1,5 +1,12 @@
 # Changes
 
+## 0.1.3 - 2026-11-26
+
+- A dim fill on a display of one bit is hatched, a pixel through a pixel: DGX_UI_HATCH in the table of colours.
+  CONFIG_DGX_UI_HATCH turns it on, by itself with DGX's drivers of 1-bit panels; about 0.3 KB, nothing for a colour
+  display. A scrolling box there is drawn whole, which is faster than moving its pixels.
+- The recipe "A monochrome screen".
+
 ## 0.1.2 - 2026-11-26
 
 - A ring scale may have soft edges, `.soft = &dgx_ui_ring_soft`, or `"soft": true` in an appearance: about 1.7 KB for

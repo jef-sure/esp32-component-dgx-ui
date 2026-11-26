@@ -28,7 +28,7 @@ void dgx_ui_tell_no_place(int i, const dgx_ui_widget_t *w, const char *kind, boo
 
 static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
 {
-    if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, c);
+    if (w > 0 && h > 0) dgx_ui_fill(paint, x, y, w, h, c);
 }
 
 /* a knob: solid of `knob`, or with the focus hollow, a border of a point in `border` round `inside` (a colour), or round

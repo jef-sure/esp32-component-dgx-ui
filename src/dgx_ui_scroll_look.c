@@ -75,7 +75,7 @@ static const dgx_ui_scroller_t scroller = {.before = before, .free = free_held};
 static void ground(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_rect_t r)
 {
     if (r.w <= 0 || r.h <= 0) return;
-    if (look->fill != DGX_UI_PAPER) dgx_fill_rectangle(paint->scr, r.x - paint->ox, r.y - paint->oy, r.w, r.h, dgx_ui_color(paint, look->fill));
+    if (look->fill != DGX_UI_PAPER) dgx_ui_fill(paint, r.x, r.y, r.w, r.h, dgx_ui_color(paint, look->fill));
     else dgx_ui_lay_paper(paint, DGX_UI_PAPER, r.x, r.y, r.w, r.h);
 }
 
@@ -108,29 +108,35 @@ static void draw_bar(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t 
     dgx_ui_scroll_bar(p, b, &ah, &ky, &kh);
     const bool     focused = (dgx_ui_bits_shown(ui, n) & DGX_UI_FOCUSED) && p->focused != DGX_UI_PAPER;
     const uint32_t track = dgx_ui_color(paint, p->track), knob = dgx_ui_color(paint, focused ? p->focused : p->knob);
-    const int      x = b->bar_x - paint->ox, y = b->rows.y - paint->oy, w = b->bar;
+    const int      x = b->bar_x, y = b->rows.y, w = b->bar; /* of the tree's screen */
     for (int r = 0; r < ah; ++r) { /* the arrow's row r from its point: as wide as the bar at its base */
         const int      span = (w * (r + 1) + ah - 1) / ah, side = (w - span) / 2;
         const uint32_t ink  = dgx_ui_color(paint, p->arrows);
         for (int end = 0; end < 2; ++end) {
             const int row = end ? y + b->rows.h - 1 - r : y + r;
-            dgx_fill_rectangle(paint->scr, x, row, side, 1, track);
-            dgx_fill_rectangle(paint->scr, x + side, row, span, 1, ink);
-            dgx_fill_rectangle(paint->scr, x + side + span, row, w - side - span, 1, track);
+            dgx_ui_fill(paint, x, row, side, 1, track);
+            dgx_ui_fill(paint, x + side, row, span, 1, ink);
+            dgx_ui_fill(paint, x + side + span, row, w - side - span, 1, track);
         }
     }
-    dgx_fill_rectangle(paint->scr, x, y + ah, w, ky - ah, track);
-    dgx_fill_rectangle(paint->scr, x, y + ky, w, kh, knob);
-    dgx_fill_rectangle(paint->scr, x, y + ky + kh, w, b->rows.h - ah - ky - kh, track);
+    dgx_ui_fill(paint, x, y + ah, w, ky - ah, track);
+    dgx_ui_fill(paint, x, y + ky, w, kh, knob);
+    dgx_ui_fill(paint, x, y + ky + kh, w, b->rows.h - ah - ky - kh, track);
 }
 
 /* the picture moved by d rows up, the rows that came in drawn: false when it cannot be, the box drawn whole then. Not
    under a composing, nor a clip of nothing (a teller's pass, dgx_ui_paint_changes()), nor over a drawn background the box
-   does not fill, nor by a whole view; on a panel that moves by its own scroll, not while another box holds its area */
+   does not fill, nor by a whole view, nor on a screen of 1 bit that may hold a hatch; on a panel that moves by its own
+   scroll, not while another box holds its area */
 static bool move(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, const dgx_ui_scroll_box_t *b, int d)
 {
     const int ad = d < 0 ? -d : d;
     if (paint->composing || paint->parts != 1 || ad >= b->rows.h || (look->fill == DGX_UI_PAPER && paint->on_background)) return false;
+#if DGX_UI_HATCHES
+    /* on a screen of 1 bit drawn whole: moved by an odd count, a hatch would be out of step with the screen's; and DGX
+       moves its pixels one by one, slower than the box drawn anew (6.5 ms against 10.3 at 128 x 64 on an ESP32) */
+    if (paint->scr->color_bits == 1) return false;
+#endif
     const dgx_ui_node_t *n = dgx_ui_at(ui, i);
     if (n->parent >= 0 && !(dgx_ui_at(ui, n->parent)->widget->flags & (DGX_UI_COLUMN | DGX_UI_ROW))) /* a box of neither: one over it moves too */
         for (int c = dgx_ui_at(ui, n->parent)->child; c >= 0; c = dgx_ui_at(ui, c)->next) {

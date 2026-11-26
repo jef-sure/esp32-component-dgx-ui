@@ -17,7 +17,7 @@
 
 static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
 {
-    if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, c);
+    if (w > 0 && h > 0) dgx_ui_fill(paint, x, y, w, h, c);
 }
 
 /* the line k of a text of lines ended by '\n', into line (at most DGX_UI_LINE bytes); empty before the first and past
@@ -77,7 +77,7 @@ static void draw_inside(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
             dgx_screen_clip(paint->scr, px, cy0, pw, cy1 - cy0);
             fill(paint, n->x, top, pad < tw ? pad : tw, bottom - top, face);
             if (tw > pad) {
-                const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = face, .scale = s, .field = tw - pad,
+                const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = dgx_ui_under_ink(paint, ink, face), .scale = s, .field = tw - pad,
                                                 .align = DGX_FONT_ALIGN_LEFT};
                 dgx_font_draw(&ctx, n->x + pad - paint->ox, base - paint->oy, line);
             }

@@ -51,7 +51,7 @@ bool dgx_ui_draw_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     const dgx_ui_rect_t hole  = dgx_ui_rect(n->x + (n->w - im->width * k) / 2, n->y + (n->h - im->height * k) / 2, im->width * k, im->height * k);
     paper_around(paint, n, drawn ? &none : &hole, p->paper);
     const uint32_t         paper = dgx_ui_color(paint, p->paper == DGX_UI_PAPER ? paint->paper : p->paper);
-    const dgx_image_blit_t how   = {.flags = drawn ? 0 : DGX_IMAGE_OPAQUE, .color = dgx_ui_color(paint, p->ink), .bg = paper, .scale = (uint8_t)k};
+    const dgx_image_blit_t how   = {.flags = drawn ? 0 : DGX_IMAGE_OPAQUE, .color = dgx_ui_color(paint, p->ink), .bg = dgx_ui_under_ink(paint, dgx_ui_color(paint, p->ink), paper), .scale = (uint8_t)k};
     dgx_image_blit(paint->scr, hole.x - paint->ox + im->origin_x * k, hole.y - paint->oy + im->origin_y * k, im, &how); /* cut to its box by the painter's clip */
     return false;
 }

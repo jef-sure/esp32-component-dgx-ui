@@ -1,5 +1,5 @@
 ## IDF Component Manager Manifest File
-version: "0.1.2"
+version: "0.1.3"
 description: "A light layer of widgets on the DGX display library for ESP32: rows and columns, values that come as messages from other tasks, animation only while a widget asks for time"
 url: https://github.com/jef-sure/esp32-component-dgx-ui
 repository: https://github.com/jef-sure/esp32-component-dgx-ui.git
@@ -40,6 +40,7 @@ files:
     - "idf_component.yml"
     - "CMakeLists.txt"
     - "project_include.cmake"  # dgx_ui_tree() and dgx_ui_names(): descriptions made C at build time
+    - "Kconfig"  # CONFIG_DGX_UI_HATCH: the hatched fill of a screen of 1 bit
     - "host/**/*.mk"  # dgx-ui built on the computer with make, beside DGX's host/dgx_host.mk
     - "src/**/*.c"
     - "src/**/*.h"

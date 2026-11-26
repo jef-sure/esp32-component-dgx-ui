@@ -18,7 +18,7 @@
 
 static void fill(dgx_ui_paint_t *paint, int x, int y, int w, int h, uint32_t c)
 {
-    if (w > 0 && h > 0) dgx_fill_rectangle(paint->scr, x - paint->ox, y - paint->oy, w, h, c);
+    if (w > 0 && h > 0) dgx_ui_fill(paint, x, y, w, h, c);
 }
 
 /* the face, fx, fy, fw, fh: its rows above and below the text's field, then the field */
@@ -42,7 +42,7 @@ static void draw_face(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, int fx, int
     const int y0 = t > py ? t : py, y1 = b < py + ph ? b : py + ph;
     if (y1 > y0) {
         dgx_screen_clip(paint->scr, px, y0, pw, y1 - y0);
-        const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = face, .scale = s, .field = fw,
+        const dgx_font_context_t ctx = {.scr = paint->scr, .font = f, .color = ink, .bg = dgx_ui_under_ink(paint, ink, face), .scale = s, .field = fw,
                                         .align = DGX_FONT_ALIGN_CENTER};
         dgx_font_draw(&ctx, fx - paint->ox, base - paint->oy, box->buf ? box->buf : "");
         dgx_screen_clip(paint->scr, px, py, pw, ph);

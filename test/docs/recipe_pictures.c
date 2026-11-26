@@ -533,9 +533,39 @@ static void nine_picture(const char *dir)
     dgx_ui_free(&ui), dgx_ui_paint_free(&paint), dgx_screen_destroy(&scr);
 }
 
+/* A monochrome screen: the recipe's page on a screen of 1 bit of 128 x 64 with the recipe's table, the clock and the
+   value written as its program writes them; each pixel 3 by 3, the paper and the ink in the colours of the other
+   pictures */
+static void mono_picture(const char *dir)
+{
+    enum { ZOOM = 3 };
+    dgx_ui_t       ui;
+    dgx_screen_t  *scr   = dgx_vscreen_init(128, 64, 1, DgxScreenRGB);
+    dgx_ui_paint_t paint = {.scr = scr, .colors = mono_colors, .color_count = MONO_COLORS};
+    mono_page(&ui);
+    dgx_ui_text_set(&ui, mono_clock, "12:34");
+    dgx_ui_text_printf(&ui, mono_value, "%d ppm", (int)mono_ppm);
+    dgx_ui_paint(&ui, &paint, 0);
+    if (dir) {
+        char path[600];
+        snprintf(path, sizeof path, "%s/mono.ppm", dir);
+        FILE *file = fopen(path, "wb");
+        if (!file) fprintf(stderr, "cannot write %s\n", path), exit(1);
+        fprintf(file, "P6\n%d %d\n255\n", scr->width * ZOOM, scr->height * ZOOM);
+        for (int y = 0; y < scr->height * ZOOM; ++y)
+            for (int x = 0; x < scr->width * ZOOM; ++x) {
+                const bool lit = scr->get_pixel(scr, x / ZOOM, y / ZOOM) != 0;
+                fputc(lit ? 230 : 16, file), fputc(lit ? 230 : 20, file), fputc(lit ? 220 : 28, file);
+            }
+        fclose(file);
+    }
+    dgx_ui_free(&ui), dgx_ui_paint_free(&paint), dgx_screen_destroy(&scr);
+}
+
 static void recipe_pictures(const char *dir)
 {
     nine_picture(dir);
+    mono_picture(dir);
     control_pictures(dir);
     text_pictures(dir);
     page_pictures(dir);

@@ -1,0 +1,13 @@
+menu "dgx-ui"
+
+config DGX_UI_HATCH
+    bool "A hatched fill on a screen of 1 bit: DGX_UI_HATCH in the table of colours"
+    default y if DGX_ENABLE_V_BW_SCREEN || DGX_ENABLE_ST7920
+    default n
+    help
+        The looks fill with a pixel through a pixel, (x + y) & 1 of the screen, where the table of the
+        painter's colours holds DGX_UI_HATCH: the dim fill of a monochrome screen. On by itself with the
+        drivers of 1-bit panels of DGX (SSD1306, SSD1309, SH1106, ST7565R, ST7920); a program that draws on
+        a 1-bit virtual screen of its own turns it on. Off, a program carries none of it.
+
+endmenu

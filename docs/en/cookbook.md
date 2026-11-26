@@ -58,6 +58,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A graph that sweeps](#a-graph-that-sweeps)
 - [A ring scale with widgets inside](#a-ring-scale-with-widgets-inside)
 - [A display of 18 or 24 bits](#a-display-of-18-or-24-bits)
+- [A monochrome screen](#a-monochrome-screen)
 - [A loop that sleeps till the next moment](#a-loop-that-sleeps-till-the-next-moment)
 - [Dim the screen when nobody touches it](#dim-the-screen-when-nobody-touches-it)
 - [How long a pass takes](#how-long-a-pass-takes)
@@ -2691,7 +2692,7 @@ What to know of it:
   `back` and `page` go in the file with no expression. An expression is C written with no spaces.
 - **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
   compiler finds what the program has not. The rule and the tool's own page:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.2/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.3/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,
@@ -3305,6 +3306,125 @@ static void deep_paint_init(dgx_ui_paint_t *paint)
   depth, and the buffer holds a row of the picture and a row of the display at the picture's scale. With
   `dgx_ui_strips` they are paper, and the log says what to name. A display of 24 bits not behind a bus, a DSI one,
   names it too for its pictures; it costs about 1.4 KB, which a program of text alone does not carry.
+
+## A monochrome screen
+
+![A page of 128 by 64 pixels in two colours: CO2 and a clock; a ring and a bar whose empty parts are hatched, beside 812 ppm; a line of news in a frame](../images/mono.png)
+
+A small display of one bit a pixel has two colours, the paper and the ink: an OLED of 128 by 64 on an SSD1306,
+SSD1309 or SH1106, an LCD on an ST7565R or an ST7920. dgx-ui draws on it as on any display. Three things are its
+own: the table of colours, the looks, which give every part one of the two, and the fonts, of one bit. What a colour
+display fills dimmer, the empty part of a ring or a bar, is hatched here: every other pixel lit, as the squares of a
+chessboard. The picture is this page, each pixel of the display three by three.
+
+```cmake
+# main/CMakeLists.txt: fonts of one bit; two pixel fonts of DGX whole, and the figures made for the program
+dgx_font_need(mono_text DGX TerminusTTFMedium12)
+dgx_font_need(mono_news DGX GLCD5x7)
+dgx_font_need(mono_value SIZE 16px LETTERS "0123456789 ppm")
+```
+
+The table puts the two colours and the hatch in the places of the colours the library's looks take, so a ring, a
+level bar and a frame with no parameters of their own are right as they are:
+
+```c
+/* 0 the paper; 1 the ink of letters; 2 what a colour display fills dimmer, hatched; 3 lines and filled parts, ink */
+enum { MONO_PAPER, MONO_INK, MONO_DIM, MONO_LINE, MONO_COLORS };
+static const uint32_t mono_colors[MONO_COLORS] = {[MONO_PAPER] = 0, [MONO_INK] = 1, [MONO_DIM] = DGX_UI_HATCH, [MONO_LINE] = 1};
+
+/* the frame of the news: a line of ink round the paper, not round the hatch, so the letters lie on a quiet ground */
+static const dgx_ui_frame_look_t mono_frame_params = {.border = MONO_LINE, .width = 1};
+static const dgx_ui_look_t       mono_frame_look   = {.draw = dgx_ui_draw_frame, .params = &mono_frame_params, .fill = MONO_PAPER};
+
+static int32_t mono_ppm = 812, mono_filter = 62; /* the ring's value and the bar's, written by the program */
+static int     mono_clock, mono_value;            /* the labels the program writes, by their index */
+
+static const dgx_ui_font_variant_t mono_text_font[1]  = {{.font = &dgx_font_mono_text}};
+static const dgx_ui_font_variant_t mono_news_font[1]  = {{.font = &dgx_font_mono_news}};
+static const dgx_ui_font_variant_t mono_value_font[1] = {{.font = &dgx_font_mono_value}};
+static const dgx_ui_text_style_t   mono_st_text  = {.fonts = mono_text_font, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+static const dgx_ui_text_style_t   mono_st_clock = {.fonts = mono_text_font, .count = 1, .align = DGX_FONT_ALIGN_RIGHT};
+static const dgx_ui_text_style_t   mono_st_value = {.fonts = mono_value_font, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
+/* the news a line at a time, the next one every 1.5 s */
+static const dgx_ui_text_style_t mono_st_news = {.fonts = mono_news_font, .count = 1, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 1500};
+
+static char             mono_clock_buf[8], mono_value_buf[12];
+static dgx_ui_textbox_t mono_clock_box, mono_value_box, mono_co2_box = DGX_UI_TEXT_CONST("CO2", 1, &mono_st_text);
+static dgx_ui_textbox_t mono_news_box = DGX_UI_TEXT_CONST("Window open: the air is fresh. Next reading in a minute.", 1, &mono_st_news);
+
+/* a pixel a point: CO2 and the clock; the ring, the value and the bar in a frame; the news in a frame */
+static const dgx_ui_widget_t mono_root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 1, .gap = 1};
+static const dgx_ui_widget_t mono_top_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 13};
+static const dgx_ui_widget_t mono_co2_w    = {.kind = DGX_UI_LABEL, .text = &mono_co2_box, .want_w = 24};
+static const dgx_ui_widget_t mono_clock_w  = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &mono_clock_box};
+static const dgx_ui_widget_t mono_middle_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 3, .want_h = 34};
+static const dgx_ui_widget_t mono_ring_w   = {.kind = DGX_UI_OWN, .min = 400, .max = 2000, .want_w = 34, .want_h = 34, .value = &mono_ppm,
+                                              .look = &dgx_ui_look_ring};
+static const dgx_ui_widget_t mono_side_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_REST, .gap = 4};
+static const dgx_ui_widget_t mono_value_w  = {.kind = DGX_UI_LABEL, .want_h = 16, .text = &mono_value_box};
+static const dgx_ui_widget_t mono_bar_frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 1, .want_h = 8};
+static const dgx_ui_widget_t mono_bar_w        = {.kind = DGX_UI_OWN, .max = 100, .want_h = 6, .value = &mono_filter, .look = &dgx_ui_look_level};
+static const dgx_ui_widget_t mono_news_frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .want_h = 12, .look = &mono_frame_look};
+static const dgx_ui_widget_t mono_news_w       = {.kind = DGX_UI_LABEL, .text = &mono_news_box, .look = &dgx_ui_look_lines};
+
+static dgx_ui_node_t mono_nodes[16];
+
+static void mono_page(dgx_ui_t *ui)
+{
+    dgx_ui_textbox_init(&mono_clock_box, mono_clock_buf, sizeof mono_clock_buf, 1, &mono_st_clock);
+    dgx_ui_textbox_init(&mono_value_box, mono_value_buf, sizeof mono_value_buf, 1, &mono_st_value);
+    dgx_ui_init(ui, mono_nodes, 16, 1);
+    const int root = dgx_ui_add(ui, -1, &mono_root_w), top = dgx_ui_add(ui, root, &mono_top_w);
+    dgx_ui_add(ui, top, &mono_co2_w);
+    mono_clock       = dgx_ui_add(ui, top, &mono_clock_w);
+    const int middle = dgx_ui_add(ui, root, &mono_middle_w);
+    dgx_ui_add(ui, middle, &mono_ring_w);
+    const int side = dgx_ui_add(ui, middle, &mono_side_w);
+    mono_value     = dgx_ui_add(ui, side, &mono_value_w);
+    dgx_ui_add(ui, dgx_ui_add(ui, side, &mono_bar_frame_w), &mono_bar_w);
+    dgx_ui_add(ui, dgx_ui_add(ui, root, &mono_news_frame_w), &mono_news_w);
+}
+```
+
+The display, here an SSD1306 behind I2C; the loop is the one of [Getting started](getting-started.md) with this
+paint, and the program writes the clock and the value as any labels:
+`dgx_ui_text_printf(ui, mono_value, "%d ppm", (int)mono_ppm)`.
+
+```c
+#include "bus/dgx_i2c_esp32.h"
+#include "drivers/ssd1306.h"
+
+/* the display at 0x3C, SDA on 21 and SCL on 22; false when it does not answer */
+static bool mono_display(dgx_ui_paint_t *paint)
+{
+    dgx_bus_protocols_t *bus = dgx_i2c_init(I2C_NUM_0, 0x3C, GPIO_NUM_21, GPIO_NUM_22, 400 * 1000);
+    dgx_screen_t        *scr = bus ? dgx_ssd1306_init(bus, GPIO_NUM_NC, DGX_SSD1306_128X64, false) : NULL;
+    *paint                   = (dgx_ui_paint_t){.scr = scr, .colors = mono_colors, .color_count = MONO_COLORS};
+    return scr != NULL;
+}
+```
+
+- **The hatch** is `DGX_UI_HATCH` in the table. A look fills with it what it would fill with that colour: the track
+  of a ring or a bar, a box, the inside of a frame. The lit pixels are those where `(x + y) & 1` of the screen, so two
+  hatched widgets side by side meet without a seam, and a widget drawn again lays the same pixels.
+- **Letters over the hatch** lie on solid rows of the colour opposite to their ink: a pattern under letters would tear
+  them. A picture of one bit too. Rows above and below the letters stay hatched; in a narrow frame that is restless,
+  which is why the news has a frame of its own round the paper.
+- **A frame whose `border` is the hatch** comes out dotted. Letters whose ink is the hatch are lit as ink.
+- **The library's looks** take colours 2 and 3 of a colour display's table: a frame is a line of 3 round 2, a ring and a bar
+  are 3 over 2. A table of the paper, the ink and the hatch alone would leave 3 past its end, which is 0: the line and
+  the filled part would be paper. A label and a text of lines draw in 1.
+- **Fonts of one bit**: a need without `BITS`. The soft edges of a font of 4 bits have nothing to show in two colours.
+- **What turns it on** is `CONFIG_DGX_UI_HATCH`. DGX's drivers of 1-bit panels turn it on by themselves: SSD1306,
+  SSD1309, SH1106, ST7565R, ST7920. A program that draws on a virtual screen of one bit of its own puts
+  `CONFIG_DGX_UI_HATCH=y` into its `sdkconfig.defaults`. On a display of more bits `DGX_UI_HATCH` is an error of the
+  table and is drawn as 0.
+- **What it costs**: 256 bytes, measured on a page like this on an ESP32. A program for a colour display carries none
+  of it.
+- **A box that scrolls** is drawn whole at every move on one bit. DGX would move the pixels of one bit one by one: an
+  ESP32 at 240 MHz draws a box of 128 by 64 anew in 6.5 ms and moves it in 10.3 ms. The display is sent the whole box
+  either way.
+- **[Pages that slide](#pages-that-slide)**, by a slide or a crossfade, run to their end on one bit too.
 
 ## A loop that sleeps till the next moment
 
