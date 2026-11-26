@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.71 - 2026-11-26
+
+- Pictures of the builder in its page, editor/README.md: the page, the appearance, the names, the texts, the agent's
+  dialog and a rename's question.
+
 ## 0.0.70 - 2026-11-26
 
 - A widget's flags are 32 bits, room for more: a widget is 60 B. The tree's members regrouped, the program's first:
