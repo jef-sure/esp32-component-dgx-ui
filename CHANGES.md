@@ -1,5 +1,10 @@
 # Changes
 
+## 0.0.72 - 2026-11-26
+
+- Pictures of the recipes in the cookbook, 24 of them, each drawn by its recipe's own code. The icon, the buttons of
+  pictures and the battery keep their size beside the text at any unit; the field's recipe sets up its text box.
+
 ## 0.0.71 - 2026-11-26
 
 - Pictures of the builder in its page, editor/README.md: the page, the appearance, the names, the texts, the agent's
