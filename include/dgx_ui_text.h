@@ -147,6 +147,26 @@ _Static_assert(sizeof(dgx_ui_textbox_t) == 28, "a text box is 28 bytes on a 32-b
 int dgx_ui_variant_line(const dgx_ui_t *ui, const dgx_ui_font_variant_t *v);
 
 /**
+ * @brief The lines a text takes in a style at a width, as dgx_ui_look_lines lays it when it draws: by the same laying,
+ * word by word, a word wider than a line by its letters, in the style's first variant the look can draw (most often
+ * fonts[0]). A text box of so many lines is as tall as the text in fonts[0]: the look then draws it whole, with no
+ * ellipsis and no empty row. For a layout that needs the height before the tree is laid: a row of a list of answers.
+ * @param ui    the tree the label is in: its unit
+ * @param width the width the label's node will have, in pixels: the look lays its lines across all of it, so nothing
+ *              is taken off it
+ * @return the lines, 1 for an empty text, at most 1000; 0 when the style has no variant the look draws or the width
+ * is none. A text box holds at most 255 lines: the program bounds it.
+ */
+int dgx_ui_lines_count(const dgx_ui_t *ui, const dgx_ui_text_style_t *style, const char *text, int width);
+
+/**
+ * @brief The lines a text takes in a style at a width, as dgx_ui_look_hand_lines lays it: its handwriting measured
+ * by its hand, a bitmap variant by its font; otherwise as dgx_ui_lines_count(). A program that calls one of the two
+ * carries not the other's look.
+ */
+int dgx_ui_hand_lines_count(const dgx_ui_t *ui, const dgx_ui_text_style_t *style, const char *text, int width);
+
+/**
  * @brief A text box over the program's buffer, empty, of so many lines in a style.
  * @param size Bytes of buf; a text set is cut to size - 1 bytes.
  */

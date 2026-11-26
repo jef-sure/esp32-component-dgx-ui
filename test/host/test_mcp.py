@@ -54,7 +54,7 @@ class Client:
 
     def __init__(self, project, *extra, env=None):
         self.process = subprocess.Popen([sys.executable, str(SERVER), "--project", str(project), "--port", "0", *extra],
-                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", env=env)
         self.ident = 0
 
     def send(self, row):
@@ -122,7 +122,7 @@ class FakePage:
                 answer = self.answers(request)
                 if answer is not None:
                     self.call("POST", "/agent/answer", {"id": request["id"], "value": answer})
-            self.requests += len(said["requests"])
+            self.requests = said["requested"]
 
 
 def project_in(folder, planted=None):
@@ -220,6 +220,19 @@ def main():
         check(answer["result"].get("isError") and "did not answer" in value_of(answer)["error"] and 9 <= time.monotonic() - began < 15,
               f"a page that does not answer: said in time: {answer}")
 
+        # a page opened again after the edits, as a reload, a second tab or the link opened again opens it: none of the
+        # requests answered or given up comes to it, nor goes a late answer of one through; a new request comes to it
+        check(page.call("POST", "/agent/answer", {"id": request["id"], "value": {"late": True}}) == (200, b"{}"), "a late answer taken quietly")
+        page.stopped = True
+        again = FakePage(link, answers)
+        time.sleep(1)
+        check(not [one for one in again.got if isinstance(one, dict) and "kind" in one], f"no past request to a page opened again: {again.got}")
+        check({"from": "agent", "text": "Hello, person"} in again.got, "the dialog shown to it")
+        check(value_of(client.tool("select", {"path": "main/home.json", "widget": [0]})) == {"kind": "select"}, "a new request answered by it")
+        kinds = [one["kind"] for one in again.got if isinstance(one, dict) and "kind" in one]
+        check(kinds == ["select"], f"only the new request came to it: {kinds}")
+        page = again
+
         # the page's calls by the token, the Host and its own origin
         check(page.call("GET", "/agent/updates?messages=0&requests=0", token=False)[0] == 401, "updates with no token refused")
         check(page.call("GET", "/agent/updates?messages=0&requests=0", host="evil.example")[0] == 403, "updates by another Host refused")
@@ -235,6 +248,17 @@ def main():
         check(page.call("POST", "/project/file?path=CMakeLists.txt", "spoiled")[0] == 400, "and written by them")
         page.stopped = True
         client.close()
+
+        # the server under a code page that holds no Cyrillic, as Windows with no UTF-8 mode runs it: rows in UTF-8 both ways
+        coded = Client(project, env={**os.environ, "PYTHONIOENCODING": "cp1252"})
+        coded_page = FakePage(value_of(coded.tool("page_link"))["link"], answers)
+        check(value_of(coded.tool("say", {"text": "Рамка — готово"})) is not None, "the agent's Cyrillic taken")
+        time.sleep(0.5)
+        check({"from": "agent", "text": "Рамка — готово"} in coded_page.got, "and shown on the page as it was")
+        check(coded_page.call("POST", "/agent/say", {"text": "Рамку, пожалуйста"}) == (200, b"{}"), "the person writes in Cyrillic")
+        check(value_of(coded.tool("wait_for_person", {"seconds": 5})) == {"messages": ["Рамку, пожалуйста"]}, "the agent reads it as it was")
+        coded_page.stopped = True
+        coded.close()
 
         # a folder of no dgx-ui: no tools
         empty = work / "empty"

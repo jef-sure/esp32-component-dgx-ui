@@ -6,7 +6,9 @@
  * says. ACTIVATE held on a button of DGX_UI_REPEAT whose third repeat opens a dialog with a focused OK: the OK never
  * pressed; the focus moved to a plain button while it is held: that button never activated. A crossfade of a page in a
  * place that is hidden, on a panel that cannot be read: no division by a row of no bytes, the page shown. A square
- * screen turned through the eight orientations: laid and drawn again at each turn, every pixel written.
+ * screen turned through the eight orientations: laid and drawn again at each turn, every pixel written. A scrolling
+ * box whose place the program wrote at INT32_MIN and at INT32_MAX, before it was first drawn and between passes: the
+ * difference with the offset drawn taken with no overflow, the box drawn as a fresh paint draws it.
  */
 #define PANEL_W 64
 #define PANEL_H 64
@@ -260,6 +262,45 @@ static void test_turns(void)
     v->destroy(&v);
 }
 
+/* a scrolling box, its place at the ends of int32_t: before the first pass, and between passes on a screen that moves */
+static void test_scroll_ends(void)
+{
+    static int32_t               offset;
+    static const dgx_ui_widget_t root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN};
+    static const dgx_ui_widget_t box_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN | DGX_UI_SCROLL, .want_h = 40, .value = &offset, .look = &dgx_ui_look_scroll};
+    static const dgx_ui_widget_t row_w  = {.kind = DGX_UI_FRAME, .want_h = 30};
+    static const int32_t         ends[2] = {INT32_MIN, INT32_MAX};
+    dgx_screen_t                *v = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB), *ref = dgx_vscreen_init(PANEL_W, PANEL_H, 16, DgxScreenRGB);
+    for (int e = 0; e < 2; ++e) {
+        static dgx_ui_node_t nodes[8];
+        dgx_ui_t             ui;
+        dgx_ui_init(&ui, nodes, 8, 1);
+        dgx_ui_set_root(&ui, 0, 0, PANEL_W, PANEL_H);
+        dgx_ui_add(&ui, -1, &root_w);
+        offset = ends[e]; /* before the box is in the tree: the drawn value taken from it */
+        const int box = dgx_ui_add(&ui, 0, &box_w);
+        for (int k = 0; k < 5; ++k) dgx_ui_add(&ui, box, &row_w);
+        dgx_ui_paint_t p = {.scr = v, .colors = colors, .color_count = 4};
+        dgx_ui_paint(&ui, &p, 0);
+        CHECK(offset == (e ? 5 * 30 - 40 : 0)); /* five rows of 30 in a view of 40 */
+        /* written at each end between passes: laid within its bounds, drawn as a fresh paint draws it */
+        for (int k = 0; k < 4; ++k) {
+            offset = ends[(e + k) % 2];
+            dgx_ui_paint(&ui, &p, 100 + 100 * (uint32_t)k);
+            dgx_ui_paint_t fresh = {.scr = ref, .colors = colors, .color_count = 4};
+            dgx_ui_paint_area_to(&ui, &fresh, ref, NULL, 0, 0, PANEL_W, PANEL_H);
+            dgx_ui_paint_free(&fresh);
+            int differ = 0;
+            for (int y = 0; y < PANEL_H; ++y)
+                for (int x = 0; x < PANEL_W; ++x) differ += dgx_get_pixel(v, x, y) != dgx_get_pixel(ref, x, y);
+            CHECK(differ == 0 && offset >= 0 && offset <= 110);
+        }
+        dgx_ui_paint_free(&p);
+        dgx_ui_free(&ui);
+    }
+    v->destroy(&v), ref->destroy(&ref);
+}
+
 int main(void)
 {
     test_rows();
@@ -267,5 +308,6 @@ int main(void)
     test_held_key();
     test_hidden_place();
     test_turns();
+    test_scroll_ends();
     CHECK_DONE();
 }

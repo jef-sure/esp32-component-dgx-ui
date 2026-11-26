@@ -1,5 +1,16 @@
 # Changes
 
+## 0.1.1 - 2026-11-26
+
+- dgx_ui_lines_count() and dgx_ui_hand_lines_count(): the lines a text takes in a style at a width, laid as
+  dgx_ui_look_lines and dgx_ui_look_hand_lines lay it, for a label as tall as its text.
+- A scrolling box whose place a program wrote at an end of int32_t is drawn with no overflow.
+- dgx_ui_mcp.py hands a page that opens again only the requests still waited for: a reload no longer applies the
+  agent's past edits over newer work. It reads and writes UTF-8 whatever the locale, so Cyrillic works on Windows.
+- The README's links and pictures name the version by full address, so they work on the registry's page too.
+- The layer recipe says the table of colours is in the screen's format, RGB565 in the processor's order for a
+  16-bit strip.
+
 ## 0.1.0 - 2026-11-26
 
 - The first version in the ESP Component Registry, as `jef-sure/dgx-ui`; the example hello takes it from there.

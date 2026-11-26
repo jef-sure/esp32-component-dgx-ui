@@ -85,6 +85,7 @@ class Desk:
         self.changed = threading.Condition()
         self.messages = []  # {"from": "person" | "agent", "text"}
         self.requests = []  # {"id", "kind", "args"}: what the agent asks the page, in order
+        self.waiting = set()  # the ids of the requests the agent still waits for: only these go to a page
         self.answers = {}
         self.read_by_agent = 0
         self.polled = None  # the clock of the page's last ask
@@ -99,23 +100,29 @@ class Desk:
                 return None
             ident = len(self.requests) + 1
             self.requests.append({"id": ident, "kind": kind, "args": args})
+            self.waiting.add(ident)
             self.changed.notify_all()
             self.changed.wait_for(lambda: ident in self.answers, timeout=seconds)
+            self.waiting.discard(ident)  # answered or given up: never handed to a page again, a late answer dropped
             return self.answers.pop(ident, None)
 
     def answer(self, ident, value):
         with self.changed:
-            if any(request["id"] == ident for request in self.requests):
+            if ident in self.waiting and ident not in self.answers:
                 self.answers[ident] = value
                 self.changed.notify_all()
 
     def updates(self, messages, requests, seconds):
-        """The messages and the requests after those the page has, waiting for one to come."""
+        """The messages after those the page has, and the requests after those it has that the agent still waits for,
+        waiting for one to come; with the count of requests made, which the page takes as its own. A page loaded again,
+        a second one or a link opened again starts at 0: it gets no request answered or given up before it came, so an
+        edit of the past is never applied over the person's newer work."""
         with self.changed:
             self.polled = time.monotonic()
             self.changed.wait_for(lambda: len(self.messages) > messages or len(self.requests) > requests, timeout=seconds)
             self.polled = time.monotonic()
-            return {"messages": self.messages[messages:], "requests": self.requests[requests:]}
+            waited = [request for request in self.requests[requests:] if request["id"] in self.waiting]
+            return {"messages": self.messages[messages:], "requests": waited, "requested": len(self.requests)}
 
     def add(self, sender, text):
         with self.changed:
@@ -271,7 +278,10 @@ def version():
 
 
 def answer_rows(answer):
-    """Answers the requests of MCP on stdin until it closes."""
+    """Answers the requests of MCP on stdin until it closes. MCP over stdio is UTF-8 whatever the locale: under a code
+    page of Windows a person's Cyrillic would not be written, or written in bytes not UTF-8, and read in it too."""
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8")
     for row in sys.stdin:
         if row.strip():
             try:

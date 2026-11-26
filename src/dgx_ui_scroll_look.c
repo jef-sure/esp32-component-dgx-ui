@@ -184,7 +184,10 @@ bool dgx_ui_draw_scroll(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     dgx_ui_scroll_measure(ui, i, &b);
     /* an offset the program wrote into the place since the layout: the children laid at it first */
     if (n->widget->value && *n->widget->value != b.offset) dgx_ui_relayout(ui), dgx_ui_layout(ui), dgx_ui_scroll_measure(ui, i, &b);
-    const int d = (int)(dgx_ui_value_of(n) - n->state_drawn.value);
+    /* the offset's move since drawn: a place written at an end of int32_t differs by more than an int holds; a move
+       of the rows' height or more is drawn whole anyway */
+    const int64_t moved = (int64_t)dgx_ui_value_of(n) - n->state_drawn.value;
+    const int     d     = moved > b.rows.h ? b.rows.h : moved < -b.rows.h ? -b.rows.h : (int)moved;
     if (!paint->whole && d && !move(look, paint, ui, i, &b, d)) paint->whole = true; /* its children too */
     if (paint->whole) {
         /* the children's column around them, the pad beside the bar */

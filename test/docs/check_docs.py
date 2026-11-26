@@ -99,12 +99,23 @@ def anchors_of(path, seen={}):
     return seen[path]
 
 
+# a link of a page to a file of this repository by its full address at a version, as the README has them for the
+# registry, which shows the README alone: https://github.com/<repo>/blob/<version>/<path>, and raw.githubusercontent.com
+OWN_LINK = re.compile(r'https://(?:github\.com/jef-sure/esp32-component-dgx-ui/blob|raw\.githubusercontent\.com/jef-sure/esp32-component-dgx-ui)/([^/]+)/(.+)')
+
+
 def links_wrong(path, text):
-    """What is wrong with the links of a page to files of the repository and to their headings, a line each."""
+    """What is wrong with the links of a page to files of the repository and to their headings, a line each; a link by
+    the full address must name the manifest's version"""
     said = []
+    own_version = re.search(r'^version:\s*"([^"]+)"', open(os.path.join(repo, 'idf_component.yml')).read(), re.M).group(1)
     for target, anchor in re.findall(r'\]\(([^)#\s]*)(?:#([^)\s]*))?\)', text):
-        if re.match(r'https?:|mailto:', target): continue
-        file = os.path.normpath(os.path.join(os.path.dirname(path), target)) if target else path
+        own = OWN_LINK.match(target)
+        if own:
+            if own.group(1) != own_version: said.append(f'link to version {own.group(1)}, the manifest says {own_version}: {target}')
+            file = os.path.join(repo, own.group(2))
+        elif re.match(r'https?:|mailto:', target): continue
+        else: file = os.path.normpath(os.path.join(os.path.dirname(path), target)) if target else path
         if not os.path.exists(file):
             said.append(f'link to a file that is not there: {target}')
         elif anchor and file.endswith('.md') and anchor not in anchors_of(file):

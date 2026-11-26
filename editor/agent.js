@@ -29,7 +29,7 @@ function dgxUiAgent(store, token, base = '') {
                     }
                     await post('/agent/answer', { id: request.id, value });
                 }
-                requests += said.requests.length;
+                requests = said.requested; // the server's count: past requests, answered or given up, never asked again
             } catch {
                 await pause(2000); // the server stopped, or is not there yet
             }

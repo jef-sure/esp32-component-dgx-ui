@@ -21,8 +21,8 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
 | [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.0: the names and
-the signatures are fixed; one that would break a program comes only with 0.2.
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.1: the names and
+the signatures are fixed since 0.1.0; one that would break a program comes only with 0.2.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
 call. The library keeps nothing of a tree outside the tree and its paint, so two tasks, each with its own trees and
@@ -669,6 +669,16 @@ under `DGX_FONTS_SCALE` has the board's size already, so a program of one tree f
 `int dgx_ui_variant_line(const dgx_ui_t *ui, const dgx_ui_font_variant_t *v)`: the height of a line of a variant in a
 tree: its `height` for a handwritten font, the font's advance for one of bitmaps, each times the tree's unit, the bitmap
 one only for a variant of `points`; `ui` `NULL` counts a unit of 1.
+
+`int dgx_ui_lines_count(const dgx_ui_t *ui, const dgx_ui_text_style_t *style, const char *text, int width)`: the lines
+a text takes in a style at a width, laid as `dgx_ui_look_lines` lays it when it draws, word by word, a word wider than
+a line by its letters, in the style's first variant the look can draw. `width` is the width the label's node will
+have, in pixels: the look lays its lines across all of it. A text box of so many lines is as tall as the text, and
+the look draws it whole, with no ellipsis and no empty row: for a layout that needs a label's height before the tree
+is laid, a row of answers beside a control. It returns 1 for an empty text, at most 1000, and 0 when the width is
+none or the style has no variant the look draws; a text box holds at most 255 lines, which the program bounds.
+`int dgx_ui_hand_lines_count(...)`, of the same arguments, counts as `dgx_ui_look_hand_lines` lays a text: its
+handwriting measured by its hand. A program that calls one of the two carries not the other's look.
 
 ### The text box
 
@@ -1906,7 +1916,7 @@ Three calls for the `CMakeLists.txt` of a component, the program's `main` among 
 written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
 C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
-the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])

@@ -4,7 +4,7 @@ The smallest program of [dgx-ui](https://github.com/jef-sure/esp32-component-dgx
 from. A text that never changes, and in a frame a count that another task sends once a second. The task that owns the
 display sleeps on its queue; when a count comes, its field is drawn again and nothing else is.
 
-The project takes dgx-ui from the ESP Component Registry, `jef-sure/dgx-ui: "^0.1.0"` in `main/idf_component.yml`,
+The project takes dgx-ui from the ESP Component Registry, `jef-sure/dgx-ui: "^0.1.1"` in `main/idf_component.yml`,
 and [DGX](https://github.com/jef-sure/esp32-component-dgx), the display library, comes with it from the registry.
 Inside the repository of dgx-ui, where it lies as `examples/hello`, it builds with the checkout around it and asks the
 registry for DGX only.
@@ -62,12 +62,12 @@ Nothing else in the program knows the size of the display: the tree lays itself 
 
 ## What next
 
-- [Letters with soft edges](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/docs/en/cookbook.md#letters-with-soft-edges):
+- [Letters with soft edges](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/cookbook.md#letters-with-soft-edges):
   fonts DGX makes as it builds the program, of the letters the program writes.
-- [Getting started](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/docs/en/getting-started.md): a
+- [Getting started](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/getting-started.md): a
   program explained piece by piece, a round CO2 scale fed by a sensor.
-- [How it works](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/docs/en/how-it-works.md): the tree,
+- [How it works](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/how-it-works.md): the tree,
   the messages, the painter and the looks.
-- [Cookbook](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/docs/en/cookbook.md): buttons, sliders,
+- [Cookbook](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/cookbook.md): buttons, sliders,
   lists, popups, keys and touch.
-- [API reference](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/docs/en/api.md).
+- [API reference](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/docs/en/api.md).

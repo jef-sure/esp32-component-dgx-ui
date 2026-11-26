@@ -86,3 +86,16 @@ static int fit_lines(const dgx_ui_text_style_t *st, const char *text, int len, i
     }
     return best;
 }
+
+/* the lines a text takes at a width in its style's first variant the look can draw, as the look lays it: 1 for an
+   empty text, at most limit; 0 when no variant can be drawn or the width holds nothing */
+static int lines_count(const dgx_ui_t *ui, const dgx_ui_text_style_t *st, const char *text, int width, int limit)
+{
+    if (!ui || !st || width <= 0) return 0;
+    for (int v = 0; v < st->count; ++v) {
+        if (LINES_HEIGHT(&st->fonts[v], ui->unit) <= 0) continue;
+        const int n = text ? count_lines(text, (int)strlen(text), &st->fonts[v], width, limit, 0, NULL, ui->unit) : 0;
+        return n > 0 ? n : 1;
+    }
+    return 0;
+}

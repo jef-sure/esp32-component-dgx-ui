@@ -303,4 +303,9 @@ bool dgx_ui_draw_hand_lines(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dg
 }
 
 static const dgx_ui_text_look_t hand_lines_default = {.ink = 1, .paper = DGX_UI_PAPER};
+int dgx_ui_hand_lines_count(const dgx_ui_t *ui, const dgx_ui_text_style_t *style, const char *text, int width)
+{
+    return lines_count(ui, style, text, width, MAX_LINES);
+}
+
 const dgx_ui_look_t             dgx_ui_look_hand_lines = {.draw = dgx_ui_draw_hand_lines, .params = &hand_lines_default, .fill = DGX_UI_PAPER};

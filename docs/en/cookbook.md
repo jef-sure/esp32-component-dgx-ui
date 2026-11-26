@@ -1447,7 +1447,7 @@ What happens in a note 200 pixels wide and three lines high:
 
 What to know of it:
 
-- **The widget names the look.** `dgx_ui_look_lines` passes a handwritten variant over, as before, so a program of
+- **The widget names the look.** `dgx_ui_look_lines` passes a handwritten variant over, so a program of
   bitmap lines carries no handwriting, and a program of handwritten labels of one line carries no lines.
 - **Not narrowed.** `narrow` is for one line; in lines the list of variants fits the text.
 - **What is kept.** The paint keeps the line breaks of the text and each line's amount of writing for the widget: 12
@@ -2255,7 +2255,7 @@ What to know of it:
 - **A wake with no finger** costs one read: the tick finds no finger and the ticker is stopped again. On an ESP32
   the pins 36 and 39 may wake so while the ADC or Wi-Fi works.
 - **What still needs time is not lost.** A widget that animates, a held key and a look that asks for time wake the
-  loop by `dgx_ui_wake()`, as before; only the touch's ticks stop.
+  loop by `dgx_ui_wake()`; the interrupt stops only the touch's ticks.
 - **In a window on the computer** there is no such line: the ticker stays there.
 - **Measured on a CYD** (an XPT2046, its `PENIRQ` on pin 36, low when touched): in 70 seconds with nobody touching no
   interrupt came, and the loop was not woken once after its start. 28 touches gave 28 interrupts and 28 stops of the
@@ -2689,7 +2689,7 @@ What to know of it:
   `back` and `page` go in the file with no expression. An expression is C written with no spaces.
 - **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
   compiler finds what the program has not. The rule and the tool's own page:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/main/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.1/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,
@@ -2763,7 +2763,7 @@ What happens:
 2. The page is made on it: its slider and its button, which name no look, take `"slider"` and `"button"` of the
    appearance, which stand before the library's of `vocab.txt`; its texts, which name no style, take the
    appearance's first. The page's file names them as `&day_look[0]` and `&day_style[0]`.
-3. The program calls `day_take()` once, before the first paint, and adds the page as before, by `sound_add()`.
+3. The program calls `day_take()` once, before the first paint, and adds the page by `sound_add()`, as in the recipe above.
 
 What to know of it:
 
@@ -3343,8 +3343,9 @@ static void ui_loop_asleep(dgx_ui_t *ui, dgx_ui_paint_t *paint, QueueHandle_t qu
   loop that does not wait at all spins.
 - **A message wakes the loop sooner**; the next pass names the moments again.
 - **A look of your own** names its moment by `dgx_ui_wake_in(paint, ms)` before it returns `true`. Without that it
-  is called at the next pass, as before.
-- The loop that asks only what `dgx_ui_paint()` and `dgx_ui_time()` return works as it did.
+  is called at the next pass.
+- A loop that looks only at what `dgx_ui_paint()` and `dgx_ui_time()` return works too: it waits a tick whenever
+  one of them asks for time.
 
 ## Dim the screen when nobody touches it
 
@@ -3684,6 +3685,9 @@ What to keep to:
   `dgx_ui_paint_changes()` the marks are gone, and nothing is on the paint's screen.
 - **The paint's screen** is the display's own. The tree is laid for its size and its turn, and nothing is written
   on it, so no screen as large as the display is needed.
+- **The table of colours** is in the format of the screen the strips are composed in: for a strip of 16 bits, RGB565
+  in the processor's order, as `dgx_lut_from_rgb()` and `DGX_RGB_16` give it. DGX swaps the bytes for the bus as it
+  sends the strip. A table already swapped for the bus mixes soft edges wrong, those of letters and of a soft pen.
 - **When to call.** When the loop would paint: after input and messages, and when `dgx_ui_wake()` says a look's
   moment has come. A look that asks for time is told at every call, its moment come or not.
 - **What is told.** A widget drawn whole is told once, and its children not. Where a popup closed and where the
