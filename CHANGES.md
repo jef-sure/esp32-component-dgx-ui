@@ -1,5 +1,12 @@
 # Changes
 
+## 0.1.11 - 2026-11-27
+
+- One MCP server for boards' page and the builder in it: mounted_agent() and skill_part() of tools/dgx_ui_mcp.py.
+  --install in a project of boards points to boards' server; --install --standalone installs dgx-ui's own anyway.
+- The mount options dialog and languageSelector, and setLanguage(); the project named by its CMake project(). No
+  change to the firmware.
+
 ## 0.1.10 - 2026-11-27
 
 - The builder mounted by the page of another server on this computer, under a prefix of its paths: mounted() of

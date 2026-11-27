@@ -288,7 +288,7 @@ def main():
               f"--install by Claude Code's command: {argv_file.read_text() if argv_file.exists() else done.stderr}")
         # the skill beside it: the package's, the version under its title; again the same; under CLAUDE_CONFIG_DIR; not over another's
         installed = home / ".claude" / "skills" / "dgx-ui-builder" / "SKILL.md"
-        source = SKILL.read_text(encoding="utf-8")
+        source = skill_of(SKILL.read_text(encoding="utf-8"), hosted=False)  # this server's own lines, no marker
         title = re.search(r"^# .*\n", source, re.M)
         expected = source[:title.end()] + f"\nWritten by dgx_ui_mcp.py --install of dgx-ui {version}.\n" + source[title.end():]
         check(installed.exists() and installed.read_text(encoding="utf-8") == expected and str(installed) in done.stdout,
@@ -311,6 +311,27 @@ def main():
         done = subprocess.run([sys.executable, str(SERVER), "--install"], cwd=work, env=environment, capture_output=True, text=True, timeout=30)
         check(done.returncode == 1 and installed.read_text(encoding="utf-8") == own_skill and "left as it is" in done.stdout,
               f"--install: a skill of the person's own not written over: {done.returncode} {done.stdout}")
+        # in a project of jef-sure/boards, by each of its signs: nothing given, boards' server named, its copy's tool when it
+        # has one; --standalone gives it there all the same
+        signs = {"copy": ("managed_components/jef-sure__boards/tools/boards_mcp.py", "python3 managed_components/jef-sure__boards/tools/boards_mcp.py --install"),
+                 "bare copy": ("managed_components/jef-sure__boards/idf_component.yml", "the MCP server of jef-sure/boards"),
+                 "local": ("components/local-boards/CMakeLists.txt", "the MCP server of jef-sure/boards"),
+                 "preset": ("CMakePresets.json", "the MCP server of jef-sure/boards")}
+        for sign, (file, named) in signs.items():
+            boards = work / f"boards-{sign.replace(' ', '-')}"
+            (boards / file).parent.mkdir(parents=True, exist_ok=True)
+            (boards / file).write_text('{"configurePresets": [{"name": "default", "cacheVariables": {"BOARD": "cyd"}}]}\n' if sign == "preset" else "#\n")
+            fresh = boards / "home"
+            fresh.mkdir()
+            argv_file.unlink(missing_ok=True)
+            done = subprocess.run([sys.executable, str(SERVER), "--install"], cwd=boards, env={**environment, "HOME": str(fresh)}, capture_output=True, text=True, timeout=30)
+            check(done.returncode == 0 and "Not installed beside it" in done.stdout and named in done.stdout and "--standalone" in done.stdout and
+                  not argv_file.exists() and not (fresh / ".claude").exists() and not (boards / ".mcp.json").exists(),
+                  f"--install in a project of boards ({sign}): nothing given, boards named: {done.returncode} {done.stdout}")
+        done = subprocess.run([sys.executable, str(SERVER), "--install", "--standalone"], cwd=work / "boards-copy",
+                              env={**environment, "HOME": str(work / "boards-copy" / "home")}, capture_output=True, text=True, timeout=30)
+        check(done.returncode == 0 and argv_file.exists() and (work / "boards-copy" / "home" / ".claude" / "skills" / "dgx-ui-builder" / "SKILL.md").exists(),
+              f"--install --standalone in a project of boards: given: {done.stdout}")
         (bin_dir / "claude").unlink()
         folder = work / "agent-folder"
         folder.mkdir()
@@ -341,10 +362,18 @@ def main():
     return 0
 
 
+def skill_of(text, hosted):
+    """The skill's text for one way of serving, by the markers: the other's blocks dropped, the markers too."""
+    other = "standalone" if hosted else "hosted"
+    text = re.sub(rf"^<!-- {other} -->\n.*?^<!-- /{other} -->\n", "", text, flags=re.M | re.S)
+    return re.sub(r"^<!-- /?(?:standalone|hosted) -->\n", "", text, flags=re.M)
+
+
 def check_skill():
     """The skill: its frontmatter, the server's tools in it both ways, the instructions' among them, the sections it names
     of the documentation, no path of a machine"""
-    text = SKILL.read_text(encoding="utf-8")
+    raw = SKILL.read_text(encoding="utf-8")
+    text = skill_of(raw, hosted=False)
     front = re.match(r"---\n(.*?)\n---\n", text, re.S)
     keys = dict(line.split(": ", 1) for line in front.group(1).splitlines()) if front else {}
     check(set(keys) == {"name", "description"} and keys["name"] == SKILL.parent.name and re.fullmatch(r"[a-z0-9-]{1,64}", keys["name"])
@@ -366,6 +395,19 @@ def check_skill():
     for page, section in re.findall(r"`(\w+\.md)`, section \"([^\"]+)\"", text):
         check(section in headings.get(page, set()), f"the skill's section {page} \"{section}\"")
     check(not re.search(r"/home/|/Users/|[A-Z]:\\|~/|managed_components/|\.espressif", text), "no path of a machine in the skill")
+    # the markers: each block closed, none inside another
+    check(re.sub(r"^<!-- (standalone|hosted) -->\n(?:(?!<!--).*\n)*?<!-- /\1 -->\n", "", raw, flags=re.M).count("<!--") == 0, "the skill's markers in pairs")
+    # the part for a server that hosts the builder: no frontmatter, the hosted lines, the six tools by the host's names and no
+    # other word touched, the headings a level down, no marker; a tool the host has not, never named
+    part = server.skill_part("ui_")
+    hosted_names = {tool["name"] for tool in server.mounted_agent(str(HERE), "t", 1, "/x", "ui_")[0]}
+    check(not part.startswith("---") and part.startswith("## ") and "<!--" not in part and "<!--" not in server.skill_text(False), "skill_part: no frontmatter, no marker")
+    check(set(re.findall(r"`(ui_[a-z_]+)`", part)) == hosted_names, f"skill_part: every builder's tool by its host's name: {sorted(set(re.findall(r'`(ui_[a-z_]+)`', part)))}")
+    check(not set(re.findall(r"`([a-z_]+)`", part)) & tools, f"skill_part: no tool by its own name: {sorted(set(re.findall(r'`([a-z_]+)`', part)) & tools)}")
+    undone = re.sub(r"^#(#+ )", r"\1", re.sub(r"`ui_([a-z_]+)`", r"`\1`", part), flags=re.M)
+    hosted = re.sub(r"\A---\n.*?\n---\n+", "", skill_of(raw, hosted=True), count=1, flags=re.S)
+    check(undone == hosted, "skill_part: nothing but the names and the headings changed")
+    check(server.skill_text(False) == text, "the skill installed: this server's lines alone")
 
 
 if __name__ == "__main__":

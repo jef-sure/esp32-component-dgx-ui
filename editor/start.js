@@ -5,7 +5,7 @@
 
 (() => {
     const start = { language: navigator.language.startsWith('ru') ? 'ru' : 'en' }, served = dgxUiServedToken(location.hash);
-    const mounted = dgxUiBuilderMount('#app', served ? { open: () => dgxUiServerHost(served), start } : { host: dgxUiBrowserHost, start });
-    // beside an agent: the dialog, and what it asks answered by the store
-    if (served && dgxUiAgentAsked(location.hash)) mounted.then(({ store }) => store.startAgent(dgxUiAgent(store, served)));
+    // beside an agent (#...&agent=1): its dialog, and what it asks answered by the store, started by the mount as on a page
+    // that hosts the builder
+    dgxUiBuilderMount('#app', served ? { open: () => dgxUiServerHost(served), agent: dgxUiAgentAsked(location.hash), start } : { host: dgxUiBrowserHost, start });
 })();

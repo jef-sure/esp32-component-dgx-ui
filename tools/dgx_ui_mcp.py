@@ -10,11 +10,15 @@ page, which holds the preview's module and the loader, and come back with what i
 the model is the agent that started this server. Standard library only, so the Python of ESP-IDF runs it.
 
 Usage, as a server in the MCP configuration of a client: python3 tools/dgx_ui_mcp.py [--port N] [--project DIR]
-Once, to give it to the agent: python3 tools/dgx_ui_mcp.py --install
+Once, to give it to the agent: python3 tools/dgx_ui_mcp.py --install (in a project of jef-sure/boards, whose server
+serves the builder too, it gives nothing unless --standalone)
 With no agent, the builder for the folder it runs in: python3 tools/dgx_ui_mcp.py --serve [--project DIR]
 
 The project is the folder the agent works in, or --project. A project with its own copy of dgx-ui is served the
 builder's page of that copy, as dgx_ui_serve.py serves it; nothing of the copy is run here.
+
+A server of another component whose page hosts the builder (boards' tools/boards_mcp.py) gives its agent the builder's
+tools by mounted_agent(), and its skill the builder's part by skill_part().
 """
 import argparse
 import http.server
@@ -76,6 +80,7 @@ TOOLS = [
 ]
 ASKED = {"page_state": "state", "page_image": "image", "read_file": "read", "edit_file": "edit", "select": "select", "formats": "formats"}
 NOT_OPEN = "The builder is not open: give the person page_link."
+NOT_ANSWERED = "The builder did not answer in {seconds} s: it may be closed. Give the person page_link."
 
 
 class Desk:
@@ -139,58 +144,75 @@ class Desk:
             return new
 
 
-def handler_of(desk, project, token, port, page):
-    """The builder's handler of dgx_ui_serve.py, with the calls of the page to the agent: /agent/updates, /agent/answer and
-    /agent/say, by the token and the Host, a POST from the builder's own page."""
-    Page = serve.handler_of(project, token, port, page)
+class AgentCalls:
+    """The page's calls to the agent, /agent/updates, /agent/answer and /agent/say under a prefix, by the rules of
+    dgx_ui_serve.py's Calls (calls): its Host, its token, a POST from its own page. handle() answers them whole, True;
+    any other path it leaves, False."""
 
-    class AgentPage(Page):
-        def do_GET(self):
-            address = urllib.parse.urlsplit(self.path)
-            if address.path != "/agent/updates":
-                return super().do_GET()
-            if not self.allowed():
-                return self.answer(403, {"error": "another Host"})
-            if not self.by_token():
-                return self.answer(401, {"error": "the token of the link"})
+    def __init__(self, desk, calls):
+        self.desk, self.calls = desk, calls
+
+    def handle(self, request):
+        calls, desk = self.calls, self.desk
+        address = urllib.parse.urlsplit(request.path)
+        path = address.path
+        if calls.prefix:
+            if not path.startswith(calls.prefix + "/"):
+                return False
+            path = path[len(calls.prefix):]
+        if (request.command, path) not in (("GET", "/agent/updates"), ("POST", "/agent/answer"), ("POST", "/agent/say")):
+            return False
+        if not calls.allowed(request):
+            return calls.answer(request, 403, {"error": "another Host"}) or True
+        if not calls.by_token(request):
+            return calls.answer(request, 401, {"error": "the token of the link"}) or True
+        if request.command == "GET":
             asked = urllib.parse.parse_qs(address.query)
             messages, requests = asked.get("messages", ["0"])[0], asked.get("requests", ["0"])[0]
             if not (messages.isdigit() and requests.isdigit()):
-                return self.answer(400, {"error": "messages and requests are counts"})
-            return self.answer(200, desk.updates(int(messages), int(requests), LONGEST_POLL_S))
+                return calls.answer(request, 400, {"error": "messages and requests are counts"}) or True
+            return calls.answer(request, 200, desk.updates(int(messages), int(requests), LONGEST_POLL_S)) or True
+        if not calls.from_own_page(request):
+            return calls.answer(request, 403, {"error": "a call from another page"}) or True
+        length = request.headers.get("Content-Length", "")
+        if not length.isdigit() or int(length) > serve.LONGEST_BODY:
+            return calls.answer(request, 413, {"error": f"a body of at most {serve.LONGEST_BODY} bytes"}) or True
+        try:
+            body = json.loads(request.rfile.read(int(length)) or b"{}")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return calls.answer(request, 400, {"error": "not JSON"}) or True
+        if path == "/agent/say":
+            if not isinstance(body, dict) or not isinstance(body.get("text"), str):
+                return calls.answer(request, 400, {"error": "a text"}) or True
+            desk.add("person", body["text"])
+        else:
+            if not isinstance(body, dict) or not isinstance(body.get("id"), int) or "value" not in body:
+                return calls.answer(request, 400, {"error": "the id of a request and its value"}) or True
+            desk.answer(body["id"], body["value"])
+        return calls.answer(request, 200) or True
+
+
+def handler_of(desk, project, token, port, page):
+    """The builder's handler of dgx_ui_serve.py, with the calls of the page to the agent (AgentCalls) first."""
+    Page = serve.handler_of(project, token, port, page)
+    agent = AgentCalls(desk, serve.Calls(project, token, port, page))
+
+    class AgentPage(Page):
+        def do_GET(self):
+            if not agent.handle(self):
+                super().do_GET()
 
         def do_POST(self):
-            address = urllib.parse.urlsplit(self.path)
-            if address.path not in ("/agent/answer", "/agent/say"):
-                return super().do_POST()
-            if not self.allowed():
-                return self.answer(403, {"error": "another Host"})
-            if not self.by_token():
-                return self.answer(401, {"error": "the token of the link"})
-            if not self.from_own_page():
-                return self.answer(403, {"error": "a call from another page"})
-            length = self.headers.get("Content-Length", "")
-            if not length.isdigit() or int(length) > serve.LONGEST_BODY:
-                return self.answer(413, {"error": f"a body of at most {serve.LONGEST_BODY} bytes"})
-            try:
-                body = json.loads(self.rfile.read(int(length)) or b"{}")
-            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-                return self.answer(400, {"error": "not JSON"})
-            if address.path == "/agent/say":
-                if not isinstance(body, dict) or not isinstance(body.get("text"), str):
-                    return self.answer(400, {"error": "a text"})
-                desk.add("person", body["text"])
-            else:
-                if not isinstance(body, dict) or not isinstance(body.get("id"), int) or "value" not in body:
-                    return self.answer(400, {"error": "the id of a request and its value"})
-                desk.answer(body["id"], body["value"])
-            return self.answer(200)
+            if not agent.handle(self):
+                super().do_POST()
 
     return AgentPage
 
 
-def call(desk, link, name, arguments):
-    """A tool's value; for the image, the content of MCP itself."""
+def call(desk, link, name, arguments, said=None, not_open=NOT_OPEN, not_answered=NOT_ANSWERED):
+    """A tool's value; for the image, the content of MCP itself. said: hosted, the host's way to show the person the
+    why of an edit, in place of the builder's dialog; not_open and not_answered: the words for a page that is not open,
+    and for one that did not answer in time ({seconds} its seconds)."""
     if name == "page_link":
         return {"link": link}
     if name == "say":
@@ -199,14 +221,22 @@ def call(desk, link, name, arguments):
     if name == "wait_for_person":
         return {"messages": desk.from_person(min(arguments.get("seconds", LONGEST_WAIT_S), LONGEST_WAIT_S))}
     if not desk.open():
-        return {"error": NOT_OPEN, **(own_copy() if name == "formats" else {})}
-    if name == "edit_file":
+        return {"error": not_open, **(own_copy() if name == "formats" else {})}
+    unshown = None
+    if name == "edit_file" and said is None:
         desk.add("agent", arguments["why"])
+    elif name == "edit_file":
+        try:
+            said(arguments["why"])
+        except Exception as error:  # the host's failure: the edit goes on, the result says the why was not shown
+            unshown = f"the why was not shown to the person: {error}"
     value = desk.ask(ASKED[name], arguments)
     if value is None:
-        return {"error": f"The builder did not answer in {ANSWER_S} s: it may be closed. Give the person page_link."}
+        return {"error": not_answered.format(seconds=ANSWER_S)}
     if name == "formats" and isinstance(value, dict):
         value = {**value, **own_copy()}
+    if unshown and isinstance(value, dict):
+        value = {**value, "unshown": unshown}
     return value
 
 
@@ -257,19 +287,67 @@ def answer_of(desk, link, request, tools=TOOLS, instructions=INSTRUCTIONS):
         problem = "tools/call takes params with the name of a tool of tools/list" if not tool else argument_problem(tool["inputSchema"], arguments)
         if problem:
             return {"jsonrpc": "2.0", "id": ident, "error": {"code": -32602, "message": problem}}
-        try:
-            value = call(desk, link, tool["name"], arguments)
-            if tool["name"] == "page_image" and isinstance(value, dict) and isinstance(value.get("png"), str):
-                content = [{"type": "image", "data": value["png"], "mimeType": "image/png"},
-                           {"type": "text", "text": json.dumps({"width": value.get("width"), "height": value.get("height")})}]
-            else:
-                content = [{"type": "text", "text": json.dumps(value, ensure_ascii=False)}]
-            result = {"content": content, **({"isError": True} if isinstance(value, dict) and "error" in value else {})}
-        except Exception as error:  # a tool that fails answers with an error: the conversation goes on
-            result = {"content": [{"type": "text", "text": f"{tool['name']} failed: {error}"}], "isError": True}
+        result = result_of(tool["name"], lambda: call(desk, link, tool["name"], arguments))
     else:
         return {"jsonrpc": "2.0", "id": ident, "error": {"code": -32601, "message": f"no method {method}"}}
     return {"jsonrpc": "2.0", "id": ident, "result": result}
+
+
+def result_of(name, run):
+    """The result of tools/call of MCP for the tool name, its value given by run(): the image of page_image as an
+    image of MCP, any other value as JSON text; an error, or a tool that fails, marked isError."""
+    try:
+        value = run()
+        if name == "page_image" and isinstance(value, dict) and isinstance(value.get("png"), str):
+            content = [{"type": "image", "data": value["png"], "mimeType": "image/png"},
+                       {"type": "text", "text": json.dumps({"width": value.get("width"), "height": value.get("height")})}]
+        else:
+            content = [{"type": "text", "text": json.dumps(value, ensure_ascii=False)}]
+        return {"content": content, **({"isError": True} if isinstance(value, dict) and "error" in value else {})}
+    except Exception as error:  # a tool that fails answers with an error: the conversation goes on
+        return {"content": [{"type": "text", "text": f"{name} failed: {error}"}], "isError": True}
+
+
+HOSTED = ("page_state", "page_image", "read_file", "edit_file", "select", "formats")  # the tools a host's server gives
+HOSTED_NOT_OPEN = "The builder is not open: ask the person to open its tab on the page that hosts it."
+HOSTED_NOT_ANSWERED = "The builder did not answer in {seconds} s: it may be closed: ask the person to open its tab on the page that hosts it again."
+HOSTED_WHY = {"type": "string", "description": "why: shown to the person in the dialog of the page that hosts the builder"}
+
+
+def mounted_agent(project, token, port, prefix, tool_prefix, said=None):
+    """The agent of the builder for another server on this computer, whose page mounts the builder (boards'
+    tools/boards_mcp.py): its MCP server gives tools, each named tool_prefix and the builder's name (ui_page_state ...),
+    without page_link, wait_for_person and say, as the page and its dialog are the host's; call(name, arguments) runs
+    one through the builder's page and returns the result of tools/call of MCP; handle(request) of its http.server
+    handler answers the page's prefix + "/agent/..." by the rules of dgx_ui_serve.py, True, else False. said(text), the
+    host's, shows the person the why of an edit in its dialog: called in the thread of call(), so it is safe from any
+    thread and returns soon; one that raises does not stop the edit, the result says the why was not shown, with the
+    error. None: the why is shown nowhere but where the agent says it."""
+    desk = Desk()
+    calls = serve.Calls(project, token, port, serve.page_copy(project)[0], prefix)
+    tools = []
+    for tool in TOOLS:
+        if tool["name"] in HOSTED:
+            hosted = json.loads(json.dumps(tool))
+            hosted["name"] = tool_prefix + tool["name"]
+            if "why" in hosted["inputSchema"].get("properties", {}):
+                hosted["inputSchema"]["properties"]["why"] = HOSTED_WHY
+            tools.append(hosted)
+    names = {tool["name"]: tool for tool in tools}
+
+    def run(name, arguments):
+        tool = names.get(name)
+        if not tool:
+            return {"content": [{"type": "text", "text": f"no tool {name}"}], "isError": True}
+        arguments = arguments if arguments is not None else {}
+        problem = argument_problem(tool["inputSchema"], arguments)
+        if problem:
+            return {"content": [{"type": "text", "text": problem}], "isError": True}
+        own = name[len(tool_prefix):]
+        return result_of(own, lambda: call(desk, None, own, arguments, said=said if said is not None else (lambda text: None),
+                                           not_open=HOSTED_NOT_OPEN, not_answered=HOSTED_NOT_ANSWERED))
+
+    return tools, run, AgentCalls(desk, calls).handle
 
 
 def version():
@@ -326,13 +404,37 @@ SKILL = pathlib.Path(__file__).resolve().parent / "skills" / "dgx-ui-builder" / 
 SKILL_MARK = "Written by dgx_ui_mcp.py --install of dgx-ui "
 
 
+def skill_text(hosted):
+    """SKILL.md for one way of serving: the lines between <!-- standalone --> and <!-- /standalone --> kept for this
+    server, those between <!-- hosted --> and <!-- /hosted --> for a server whose page hosts the builder; the other's
+    lines and the markers themselves gone."""
+    kept, inside = [], None
+    for line in SKILL.read_text(encoding="utf-8").splitlines(keepends=True):
+        marker = re.fullmatch(r"<!-- (/?)(standalone|hosted) -->\s*", line)
+        if marker:
+            inside = None if marker.group(1) else marker.group(2)
+        elif inside is None or (inside == "hosted") == hosted:
+            kept.append(line)
+    return "".join(kept)
+
+
+def skill_part(tool_prefix, hosted=True):
+    """The skill's text for the agent of a server whose page hosts the builder (boards' tools/boards_mcp.py), put after
+    the host's own skill: no frontmatter, the hosted lines, the builder's six tools by the host's names (tool_prefix and
+    their own, in backticks alone, no other word touched), every heading a level down."""
+    text = skill_text(hosted)
+    text = re.sub(r"\A---\n.*?\n---\n+", "", text, count=1, flags=re.S)
+    text = re.sub(r"`(" + "|".join(HOSTED) + r")`", lambda found: f"`{tool_prefix}{found.group(1)}`", text)
+    return re.sub(r"^(#+ )", r"#\1", text, flags=re.M)
+
+
 def install_skill():
     """The skill dgx-ui-builder copied for Claude Code, into skills/ of its folder of the person, with the version of this
     copy under its title: a copy, which stays when the project's copy of dgx-ui goes; one of the person's own is not
     written over. Whether it is there."""
     folder = pathlib.Path(os.environ.get("CLAUDE_CONFIG_DIR") or pathlib.Path.home() / ".claude") / "skills" / "dgx-ui-builder"
     target = folder / "SKILL.md"
-    text = re.sub(r"^(# .*\n)", lambda title: f"{title.group(1)}\n{SKILL_MARK}{version()}.\n", SKILL.read_text(encoding="utf-8"), count=1, flags=re.M)
+    text = re.sub(r"^(# .*\n)", lambda title: f"{title.group(1)}\n{SKILL_MARK}{version()}.\n", skill_text(False), count=1, flags=re.M)
     old = target.read_text(encoding="utf-8", errors="replace") if target.exists() else None
     if old is not None and SKILL_MARK not in old:
         print(f"{target}: a skill dgx-ui-builder of another's is there, left as it is; this one is {SKILL}.")
@@ -344,11 +446,29 @@ def install_skill():
     return True
 
 
-def install():
+def boards_of(project):
+    """How the project shows jef-sure/boards, whose MCP server serves this builder too: its copy in managed_components/
+    (with its server's tool, or not), a board of the project's own in components/local-boards, or a BOARD in the
+    preset; the words that point to boards' server, or None."""
+    copy = os.path.join(project, "managed_components", "jef-sure__boards")
+    if os.path.isfile(os.path.join(copy, "tools", "boards_mcp.py")):
+        return "python3 managed_components/jef-sure__boards/tools/boards_mcp.py --install"
+    if os.path.isdir(copy) or os.path.isdir(os.path.join(project, "components", "local-boards")) or serve.preset_board(os.path.realpath(project)):
+        return "the MCP server of jef-sure/boards, by its tools/boards_mcp.py --install"
+    return None
+
+
+def install(standalone=False):
     """Gives this server to the agent of the person: to Claude Code for every folder when its command is there, with the
     skill dgx-ui-builder, otherwise in .mcp.json of the folder it runs in, beside the servers that file names. Full paths,
     so the folder of the agent does not matter; a copy run from a project's managed_components/ serves as long as that
-    project is there. Run again, it writes the skill afresh."""
+    project is there. Run again, it writes the skill afresh. In a project of jef-sure/boards, whose server serves this
+    builder too, nothing is given, unless standalone."""
+    boards = None if standalone else boards_of(os.getcwd())
+    if boards:
+        print(f"This project has jef-sure/boards: its MCP server serves dgx-ui's builder too ({boards}). Not installed beside it.")
+        print("To install dgx-ui's own anyway: --install --standalone.")
+        return 0
     server = {"command": sys.executable, "args": [str(pathlib.Path(__file__).resolve())]}
     claude = claude_command()
     if claude:
@@ -376,11 +496,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--port", type=int, default=None, help=f"the port; {serve.DEFAULT_PORT} by default, any free one when it is taken")
     parser.add_argument("--install", action="store_true", help="give this server to the agent and stop")
+    parser.add_argument("--standalone", action="store_true", help="with --install: give it in a project of jef-sure/boards too, "
+                        "whose server serves the builder")
     parser.add_argument("--serve", action="store_true", help="no agent: serve the builder and print its link, until Ctrl-C")
     parser.add_argument("--project", type=pathlib.Path, default=pathlib.Path.cwd(), help="the project's folder; the current one by default")
     args = parser.parse_args()
     if args.install:
-        return install()
+        return install(args.standalone)
     if not args.project.is_dir():
         parser.error(f"--project {args.project}: no such folder")
     if args.serve:

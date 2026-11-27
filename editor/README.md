@@ -105,6 +105,11 @@ folder it works in; a folder with no call of dgx-ui and no description gets no t
 the script run: when that copy goes with its project, run `--install` again, or from a clone of dgx-ui.
 `--serve` is the builder with no agent, as `dgx_ui_serve.py`.
 
+In a project with [jef-sure/boards](https://github.com/jef-sure/esp32-component-boards) (its copy in
+`managed_components/jef-sure__boards/`, `components/local-boards/`, or a `BOARD` in its preset), `--install` gives
+nothing: boards' MCP server serves this builder too, on boards' page, and `--install` names its command.
+`--install --standalone` gives dgx-ui's own all the same.
+
 With the server comes a skill for the agent,
 [`tools/skills/dgx-ui-builder/SKILL.md`](../tools/skills/dgx-ui-builder/SKILL.md): the order of work with the tools,
 what the agent must not do (write a project's file on the disk, build, flash, run `--install`), where each format is
@@ -297,8 +302,13 @@ mounts it on an element of its own:
 | `host` | the files' host: `dgxUiBrowserHost`, whose folder the person opens; or a project's host already opened, as `await dgxUiServerHost(token, prefix)` gives it, opened at once |
 | `open` | a function that gives a project's host, opened at once |
 | `start` | what the builder starts with, `{language: 'ru'}` |
-| `agent` | `false`: no agent is started, and nothing asks the server's `/agent/` |
+| `agent` | `true`: the agent is started once the project is open, by the host's `agent(store)` (the host of `dgxUiServerHost()` has it); `false`: none, and nothing asks the server's `/agent/`; not given: none started |
+| `dialog` | `false`: the builder's own dialog is not shown, for a page that talks with the person in its own |
 | `boardsLine` | `false`: the line that points to the page of jef-sure/boards is not shown, for that page itself |
+| `languageSelector` | `false`: the builder's choice of language is not shown, and `start.language` is taken over a remembered one, for a page that has its own choice |
+
+What `dgxUiBuilderMount()` resolves to has `setLanguage(code)`, `'en'` or `'ru'`, for the hosting page to call when
+its own language changes.
 
 The builder's scripts leave nothing global but names that begin with `dgxUi`, `DgxUi` and `DGX_UI_`. The Vue and
 Pinia of `vendor/` may be the page's own, of the same versions.
@@ -336,7 +346,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
   the builder needs: `script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'` (Vue compiles the templates in the browser,
   and the preview is WebAssembly), `connect-src 'self'`, `img-src 'self' data: blob:`, `style-src 'self'
   'unsafe-inline'`, `font-src 'self' data:`.
-- The agent's calls are not mounted: the builder is mounted with `agent: false`.
+- The agent of the builder is the hosting server's, by `mounted_agent()` of the project's copy of
+  `tools/dgx_ui_mcp.py`. That file loads the `dgx_ui_serve.py` beside it as its `serve`, so one load gives both from
+  one copy. It is loaded by the name `dgx_ui_serve`, so a process holds one copy of dgx-ui: a second one loaded in
+  it would get the first's.
+
+```python
+spec = importlib.util.spec_from_file_location("dgx_ui_mcp", "managed_components/jef-sure__dgx-ui/tools/dgx_ui_mcp.py")
+agent = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(agent)
+handle = agent.serve.mounted(project, token, port, "/dgx-ui")
+tools, call, handle_agent = agent.mounted_agent(project, token, port, "/dgx-ui", "ui_", said=show_in_dialog)
+```
+
+- `handle_agent(request)` answers the page's `/dgx-ui/agent/...` by the same rules, `True`, else `False`: a handler
+  asks it and `handle()` before its own paths, on a threaded server (`http.server.ThreadingHTTPServer`), as the page
+  waits for the agent's requests up to 25 s.
+- `tools` are the builder's tools named with the prefix, `ui_page_state`, `ui_page_image`, `ui_read_file`,
+  `ui_edit_file`, `ui_select` and `ui_formats`, for the hosting MCP server's list. `page_link`, `wait_for_person` and
+  `say` are not among them: the page and its dialog are the host's.
+- `call(name, arguments)` runs one through the builder's page and returns the result of `tools/call` of MCP. With no
+  builder open, it says so.
+- `said(text)` is the host's: it shows the person the why of each edit, in the dialog of its page. It is called in
+  the thread of `call()`, so it is safe from any thread and returns soon; one that raises does not stop the edit,
+  and the result says the why was not shown. With no `said`, the why is shown nowhere but where the agent says it.
+- `skill_part("ui_", hosted=True)` of the same file gives the builder's skill for the hosting server's own: its tools
+  named so, its headings a level down, the page and the dialog the host's.
+- The page mounts the builder with `agent: true, dialog: false, boardsLine: false, languageSelector: false`.
 
 A host gives the builder a project's files by paths relative to its directory: `list(directory)`, `read(path)` the
 bytes of a file or `null`, `write(path, text)`. `host_browser.js` has two: a directory of the File System Access API,

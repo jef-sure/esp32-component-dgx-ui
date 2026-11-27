@@ -7,8 +7,8 @@ the builder's files under it, of the types of a fixed table and not sniffed, und
 /x/editor/ its index.html and /x/editor 301 to it, no other folder and no listing, nothing outside editor/ (an encoded
 "..", once and twice, and a ".." of a part); the project's calls under it by the token of the link, of this Host, a
 write from this origin alone, by the same rules of reading and writing as the server's own; the agent's /x/agent/... and
-another path of /x left to the server. And the server's own handler, the same calls without a prefix: /editor/ and
-/editor.
+another path of /x left to the server; the project's name as boards' page names it, by its project(). And the server's
+own handler, the same calls without a prefix: /editor/ and /editor.
 """
 import http.client
 import http.server
@@ -133,6 +133,13 @@ status, _, _ = ask("GET", "/x/project", auth=False)
 check(status == 401, f"no token: {status}")
 status, _, data = ask("GET", "/x/project")
 check(status == 200 and json.loads(data) == {"name": "proj"}, f"/x/project: {status} {data!r}")
+# the project's name as boards' page names it: the first project(<name>) of the root CMakeLists, else the folder's
+lists = (project / "CMakeLists.txt").read_text()
+for text, name in (("project(hook)\n", "hook"), ("  project(  spaced VERSION 1)\nproject(second)\n", "spaced"), ("# project(no)\n", "proj")):
+    (project / "CMakeLists.txt").write_text(lists + text)
+    status, _, data = ask("GET", "/x/project")
+    check(status == 200 and json.loads(data) == {"name": name}, f"the name of {text!r}: {data!r}")
+(project / "CMakeLists.txt").write_text(lists)
 status, _, data = ask("GET", "/x/project/file?path=main/page.json")
 check(status == 200 and data == (project / "main" / "page.json").read_bytes(), f"a page read: {status}")
 status, _, _ = ask("GET", "/x/project/file?path=main/../../x")

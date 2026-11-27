@@ -405,14 +405,28 @@ const { chrome, devtools } = require('./chrome');
                             'main/home.json': new TextEncoder().encode('{"dgx-ui": 1, "tree": {"kind": "box"}}\\n'),
                             'managed_components/jef-sure__boards/tools/boards_mcp.py': new TextEncoder().encode('#\\n') };
             const said = {};
-            for (const [key, options] of [['plain', {}], ['boards', { agent: false, boardsLine: false }]]) {
+            const link = () => ({ stop: () => {}, say: () => {} }); // an agent's link that polls nothing
+            for (const [key, options] of [['plain', {}], ['boards', { agent: false, boardsLine: false }],
+                                          ['hosted', { agent: true, dialog: false, boardsLine: false, languageSelector: false, start: { language: 'ru' } }],
+                                          ['own', { agent: true }]]) {
                 const element = document.createElement('div');
                 document.body.appendChild(element);
-                const { store } = await dgxUiBuilderMount(element, { host: dgxUiMemoryHost('b', files, () => true), start: { language: 'en' }, ...options });
+                const host = dgxUiMemoryHost('b', files, () => true);
+                host.agent = (store) => ((window.agentAsked = (window.agentAsked ?? 0) + 1), link()); // as a server's host gives it
+                const mounted = await dgxUiBuilderMount(element, { host, start: { language: 'en' }, ...options });
+                const store = mounted.store;
                 await new Promise((done) => setTimeout(done, 100));
-                store.startAgent({ stop: () => {}, say: () => {} });
+                if (!options.agent) store.startAgent(link());
                 const line = element.querySelector('.boards');
-                said[key] = { current: store.current, line: line ? line.textContent.trim() : null, agent: store.agent, picker: !!element.querySelector('input[webkitdirectory]') };
+                said[key] = { current: store.current, line: line ? line.textContent.trim() : null, agent: store.agent, picker: !!element.querySelector('input[webkitdirectory]'),
+                              dialog: !!element.querySelector('.agent'), selector: !!element.querySelector('select[aria-label]') &&
+                              [...element.querySelectorAll('select')].some((one) => [...one.options].some((option) => option.value === 'ru')),
+                              language: store.language };
+                if (key === 'hosted') {
+                    mounted.setLanguage('en');
+                    await new Promise((done) => setTimeout(done, 50));
+                    said[key].languageAfter = store.language;
+                }
                 element.remove();
             }
             return said;
@@ -422,6 +436,11 @@ const { chrome, devtools } = require('./chrome');
         check(mountedOut.plain.line?.includes('managed_components/jef-sure__boards/tools/boards_mcp.py --serve') && mountedOut.plain.agent === true,
               'by default: the line to boards\' page, an agent may start: ' + JSON.stringify(mountedOut.plain));
         check(mountedOut.boards.line === null && mountedOut.boards.agent === false, 'boardsLine false, agent false: no line, no agent: ' + JSON.stringify(mountedOut.boards));
+        check(mountedOut.hosted.agent === true && !mountedOut.hosted.dialog && !mountedOut.hosted.selector && mountedOut.hosted.language === 'ru' &&
+              mountedOut.hosted.languageAfter === 'en', 'agent true, dialog false, languageSelector false: the host\'s agent started, no dialog, no selector, ' +
+              'the page\'s language, setLanguage(): ' + JSON.stringify(mountedOut.hosted));
+        check(mountedOut.own.agent === true && mountedOut.own.dialog && mountedOut.own.selector, 'agent true by default: the dialog and the selector: ' +
+              JSON.stringify(mountedOut.own));
 
         /* the same project on the disk, through tools/dgx_ui_serve.py: the page by the link it prints opens the project at
            once, with nothing to choose; a description saved goes to the file, and a file the build reads is refused,

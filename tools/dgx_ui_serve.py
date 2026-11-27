@@ -405,6 +405,17 @@ def make_picture(root, asked):
             return data.read(), None
 
 
+def project_name(root):
+    """The project's name as boards' page names it: the first project(<name>) of the root CMakeLists.txt, else the
+    folder's name; so that the two pages name one project alike."""
+    try:
+        with open(os.path.join(root, "CMakeLists.txt"), encoding="utf-8", errors="replace") as lists:
+            found = re.search(r"^\s*project\(\s*([^\s)]+)", lists.read(LONGEST_BODY), re.M)
+    except OSError:
+        found = None
+    return found.group(1) if found else os.path.basename(root)
+
+
 def preset_board(root):
     """The BOARD of the project's "default" configure preset (CMakePresets.json), a word of [a-z0-9_]; None when
     there is none, read now as the person may have changed the board."""
@@ -628,7 +639,7 @@ class Calls:
             return self.answer(request, 401, {"error": "the token of the link"})
         root = self.root
         if path == "/project":
-            return self.answer(request, 200, {"name": os.path.basename(root)})
+            return self.answer(request, 200, {"name": project_name(root)})
         if path == "/project/list":
             rel, problem = self.path_asked(address, listing=True)
             if problem:

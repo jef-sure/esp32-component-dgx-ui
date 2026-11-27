@@ -15,7 +15,9 @@ browser as the board draws it, on the same names file, and says where the loader
 
 Beside it here, `dgx_ui_serve.py` serves the builder of pages from a terminal, for a browser that gives a page no
 folder to open: [From a terminal](../editor/README.md#from-a-terminal). `dgx_ui_mcp.py` serves it with an agent
-beside it, over MCP: [With an agent](../editor/README.md#with-an-agent).
+beside it, over MCP: [With an agent](../editor/README.md#with-an-agent). Another server of this computer, as the
+page of jef-sure/boards, mounts the builder and its agent by their `mounted()` and `mounted_agent()`:
+[In another page](../editor/README.md#in-another-page).
 
 ## From CMake
 

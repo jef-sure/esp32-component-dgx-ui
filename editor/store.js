@@ -367,6 +367,8 @@ const dgxUiBuilderStore = (() => {
             ready: false,
             agentAllowed: true, // false: a page that mounts the builder has its own agent, none is started here
             boardsLine: true, // false: a page that mounts the builder is boards', the line that points to it not shown
+            dialog: true, // false: the agent's dialog is the page's that mounts the builder, the builder's own not shown
+            languageSelector: true, // false: the language is the page's that mounts the builder, given by its setLanguage()
             failed: null, // the module could not start: its words
             language: 'en',
             screens: SCREENS,

@@ -5,9 +5,16 @@ description: Use when a person makes or edits the pages, appearances or names fi
 
 # Working with dgx-ui's builder
 
+<!-- standalone -->
 The person edits the pages of their program in dgx-ui's builder, a page in their browser. You see the same builder
 through the tools of the dgx-ui server. You can read its files, put edits into it and talk in its dialog. Every edit
 you make is a step the person can undo there.
+<!-- /standalone -->
+<!-- hosted -->
+The person edits the pages of their program in dgx-ui's builder, a tab of the page that hosts it in their browser. You
+see the same builder through its tools on that page's server. You can read its files and put edits into it, and you
+talk with the person in the dialog of the hosting page. Every edit you make is a step the person can undo there.
+<!-- /hosted -->
 
 The files are of three kinds:
 
@@ -20,7 +27,12 @@ Which names file and appearance a page uses is set by its call in the project's 
 
 ## The order of work
 
+<!-- standalone -->
 1. `page_link`: give the person the link and ask them to open it. Until it is open, the other tools say so.
+<!-- /standalone -->
+<!-- hosted -->
+1. The builder is a tab of the hosting page: ask the person to open it there. Until it is open, the other tools say so.
+<!-- /hosted -->
 2. `page_state`: the pages, names files and appearances, the page open, the widget selected, the loader's verdicts,
    the names the page uses that its names file has not, and the files edited and not saved.
 3. `formats`, before you write a key you have not seen in the project. It gives the keys of a description by kind,
@@ -31,14 +43,24 @@ Which names file and appearance a page uses is set by its call in the project's 
    one is refused, mend it and edit again before you go on.
 6. `select` to show the person a page and a widget, by its path of child indices: `[]` the root, `[1, 0]` the first
    child of the root's second child. `page_image` gives the panel as the board draws it, to check how a page looks.
+<!-- standalone -->
 7. `wait_for_person` for what the person writes in the dialog, and `say` to answer there.
+<!-- /standalone -->
+<!-- hosted -->
+7. Talk with the person in the hosting page's dialog: the `why` of each edit is shown there too.
+<!-- /hosted -->
 
 ## Rules
 
 - Edit only through `edit_file`. Do not write a project file on the disk, even one you could reach. The builder
   holds edits not yet saved, and a file written behind it is lost or overwritten.
 - The saving is the person's. After your edits, say what you changed and ask them to save (Ctrl+S in the builder).
+<!-- standalone -->
 - Do not run a build, flash a board, or run `dgx_ui_mcp.py --install` yourself. You may tell the person the command.
+<!-- /standalone -->
+<!-- hosted -->
+- Do not run a build, flash a board, or install an MCP server yourself. You may tell the person the command.
+<!-- /hosted -->
   The same goes for the project's `CMakeLists.txt`: suggest the line, and leave the edit to the person.
 - Read the verdicts after every edit. A page that the loader refuses is not drawn, and the program would refuse it
   the same way.
@@ -56,9 +78,15 @@ folder `formats` gives as `docs`:
   names file's lines.
 - `cookbook.md`: worked programs, most of them with a picture.
 
+<!-- standalone -->
 If this file names a version of dgx-ui on the line under its title and `formats` gives another, this file is older
 or newer than the server. Trust `formats` and the documentation in `docs`, and suggest that the person run
 `--install` again.
+<!-- /standalone -->
+<!-- hosted -->
+If this file names a version of dgx-ui and `formats` gives another, this file is older or newer than the server. Trust
+`formats` and the documentation in `docs`, and suggest that the person install the hosting page's server again.
+<!-- /hosted -->
 
 ## Worked cases
 

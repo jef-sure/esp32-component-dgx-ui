@@ -32,6 +32,8 @@ async function dgxUiServerHost(token, prefix = '') {
     return {
         name: (await project.json()).name,
         inPlace: true,
+        // the agent beside the builder, by the same token and prefix: its server's /agent/* (tools/dgx_ui_mcp.py)
+        agent: (store) => dgxUiAgent(store, token, prefix),
         async list(directory) {
             const response = await call(at('list', directory));
             return response.status === 204 ? null : response.ok ? response.json() : unknown(response);

@@ -1038,11 +1038,11 @@ static int weather_show(dgx_ui_t *ui, int parent)
   файла, ничего из этого не попадает.
 - **При сборке программы отвергается**, словами и со строкой файла имён: ассет, которого DGX не сделал, палитра с
   непрозрачностью из PNG, картинка, которую облик виджета не рисует. Список — на странице инструмента,
-  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/tools/README.md#a-picture-of-a-file)
+  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.11/tools/README.md#a-picture-of-a-file)
   (на английском).
 - **Построитель страниц** сам берёт PNG: считает его цвета, предлагает глубину и записывает PNG рядом с `images.txt`,
   потребность и строку файла имён
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/editor/README.md#a-picture-from-a-png-file),
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.11/editor/README.md#a-picture-from-a-png-file),
   на английском).
 
 ## Значок с мягкими краями
@@ -1111,7 +1111,7 @@ static void icons_show(dgx_ui_t *ui, int parent)
   на 64 рисуется за 9,4 мс маской и за 9,1 мс картинкой в 16 бит; на 10-дюймовой P4 — за 2,1 и 1,8 мс.
 - **Построитель страниц** видит мягкие края PNG и предлагает маску в 4 бита для одного цвета и картинку в 16 бит для
   нескольких, а виджетам, которые её показывают, ставит этот облик
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/editor/README.md#a-picture-from-a-png-file),
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.11/editor/README.md#a-picture-from-a-png-file),
   на английском).
 
 ## Рамка из девяти картинок
@@ -2900,7 +2900,7 @@ static int made_page_load(const char *json, size_t len, void *memory, size_t siz
   и `page` пишутся в файле без выражения. Выражение — это C без пробелов.
 - **Без `NAMES`** имена превращаются в C по правилу, `"settings.volume"` становится `&settings.volume`, а то,
   чего у программы нет, находит компилятор. Правило и страница самого инструмента:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.11/tools/README.md).
 - **`HEADERS`** — заголовки программы, которые включает сделанный файл: те, что объявляют упомянутое в выражениях.
 - **Сколько это стоит**: только само дерево. На ESP32 программа с этой страницей, переведённой на C, на 7,5 КБ
   меньше той, что её загружает. Виджеты — константы во флеше, по 60 байт<!-- sizeof dgx_ui_widget_t -->; в ОЗУ лежат узлы, как у любого

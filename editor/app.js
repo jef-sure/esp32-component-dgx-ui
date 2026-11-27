@@ -901,7 +901,7 @@ const dgxUiBuilderMount = (() => {
                     <field v-for="field in store.fields" :key="store.selection.join('.') + '/' + field.key" :field="field"></field>
                 </div>
                 </template>
-                <agent-pane v-if="store.agent"></agent-pane>
+                <agent-pane v-if="store.agent && store.dialog"></agent-pane>
             </aside>
         `,
     };
@@ -984,7 +984,7 @@ const dgxUiBuilderMount = (() => {
                             <button @click="store.save(true)" :disabled="!store.dirty.length" :title="'Ctrl+S'">
                                 {{ t('Save') }}<span v-if="store.dirty.length"> ({{ store.dirty.length }})</span></button>
                         </template>
-                        <select :value="store.language" @change="store.setLanguage($event.target.value)" :aria-label="t('Language')">
+                        <select v-if="store.languageSelector" :value="store.language" @change="store.setLanguage($event.target.value)" :aria-label="t('Language')">
                             <option v-for="one in languages" :key="one.code" :value="one.code">{{ one.title }}</option></select>
                     </span>
                 </header>
@@ -1031,8 +1031,11 @@ const dgxUiBuilderMount = (() => {
     // the builder on an element of a page: options.host, the files' host whose folder the person opens
     // (dgxUiBrowserHost), or a project's host opened already (the server's, dgxUiServerHost()), opened at once;
     // options.open, a function that gives such a project's host; options.start, what the store's start() takes;
-    // options.agent false: no agent started, nothing polls /agent/*; options.boardsLine false: the line that points to
-    // boards' page not shown, for its own page that mounts the builder. Both are true by default
+    // options.agent true: the agent of the opened host started (a server's host, whose agent() gives it), false: none
+    // ever started, nothing polls /agent/*; options.dialog false: the agent's dialog is the page's own, the builder's
+    // not shown; options.boardsLine false: the line that points to boards' page not shown, for its own page;
+    // options.languageSelector false: the language is the page's, given by the setLanguage() of what this resolves to.
+    // dialog, boardsLine and languageSelector are true by default; agent starts nothing unless true
     return async function mount(element, options = {}) {
         const opened = options.host && typeof options.host.read === 'function' ? options.host : null; // a project's, not a picker's
         const app = Vue.createApp({ components: { DgxUiBuilder }, data: () => ({ host: opened ? null : options.host ?? null }),
@@ -1043,14 +1046,19 @@ const dgxUiBuilderMount = (() => {
         const store = dgxUiBuilderStore(pinia);
         store.agentAllowed = options.agent !== false;
         store.boardsLine = options.boardsLine !== false;
+        store.dialog = options.dialog !== false;
+        store.languageSelector = options.languageSelector !== false;
         await store.start(options.start ?? {});
+        if (!store.languageSelector && options.start?.language) store.setLanguage(options.start.language); // the page's own
         if (opened || options.open) {
             try {
-                await store.open(opened ?? (await options.open()));
+                const host = opened ?? (await options.open());
+                await store.open(host);
+                if (options.agent === true && typeof host.agent === 'function') store.startAgent(host.agent(store));
             } catch (error) {
                 store.say('{0}', [String(error?.message ?? error)], true);
             }
         }
-        return { app, store };
+        return { app, store, setLanguage: (code) => store.setLanguage(code) };
     };
 })();
