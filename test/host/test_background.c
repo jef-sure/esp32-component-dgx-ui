@@ -9,7 +9,7 @@
  * to the rectangle by the clip. A popup whose root does not
  * fill shows the map. dgx_ui_background_changed() at two corners writes those two rectangles alone, as a whole new
  * composing would have them; partly off the screen, its part on it; under a frame that fills, nothing. A picture of 4
- * bits in a strip with no room left: its box the map. Letters of a font of 4 bits: in a strip their soft edges mix
+ * bits in a strip with no room left past it: drawn the same. Letters of a font of 4 bits: in a strip their soft edges mix
  * with the map, as on the virtual screen; straight on the panel, which cannot be read, with the colour of the paper.
  */
 #include <string.h>
@@ -416,8 +416,8 @@ int main(void)
         CHECK(panel_written(panel) == 0);
     }
 
-    /* the picture of 4 bits in its strip: drawn with room left in the buffer for a row of it; with none left, its box
-       the map, told once in the log */
+    /* the picture of 4 bits in its strip, with room left in the buffer past the strip and with none: the same, every
+       pixel once, as the picture takes no room of its own */
     {
         const dgx_ui_node_t *n   = dgx_ui_node(&a.ui, a.p4);
         const size_t         row = (size_t)n->w * 2;
@@ -425,14 +425,11 @@ int main(void)
         dgx_ui_redraw(&a.ui, a.p4), dgx_ui_redraw(&b.ui, b.p4);
         dgx_ui_paint(&a.ui, &pa, 8), dgx_ui_paint(&b.ui, &pv, 8);
         CHECK(differ(panel, v) == 0);
-        pa.buffer_size = row * (size_t)n->h + 5;
+        pa.buffer_size = row * (size_t)n->h;
         panel_count_from_now(panel);
         dgx_ui_redraw(&a.ui, a.p4);
         dgx_ui_paint(&a.ui, &pa, 9);
-        int off = 0;
-        for (int y = n->y; y < n->y + n->h; ++y)
-            for (int x = n->x; x < n->x + n->w; ++x) off += panel->mem[y][x] != dgx_get_pixel(map, x, y);
-        CHECK(off == 0 && panel_twice(panel) == 0);
+        CHECK(differ(panel, v) == 0 && panel_twice(panel) == 0);
         pa.buffer_size = sizeof buffer;
     }
 

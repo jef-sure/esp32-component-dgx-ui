@@ -2,11 +2,11 @@
  * dgx_ui_deep.c
  *
  *  Pictures on a screen of 18 or 24 bits, named by the program as the paint's strips, dgx_ui_strips_pictures: the
- *  strips of dgx_ui_strips, and the looks of indexed pictures, of RGB565 and of the frame of nine pictures put their
- *  pixels through a strip of the screen's depth in the free part of the buffer, 3 bytes a pixel, a block of rows sent
- *  by one transfer. An index is the painter's colour; RGB565 is spread to 8 bits a channel, its high bits repeated into
- *  the low ones, so that its white is 255, 255, 255. On the drawn background the strip is laid with it first and an
- *  index 0 leaves it: every pixel once. A program that names it not carries none of it.
+ *  strips of dgx_ui_strips, and the looks of RGB565 and of the frame of nine pictures put their pixels through a strip
+ *  of the screen's depth in the free part of the buffer, 3 bytes a pixel, a block of rows sent by one transfer. An
+ *  index is the painter's colour; RGB565 is spread to 8 bits a channel, its high bits repeated into the low ones, so
+ *  that its white is 255, 255, 255. On the drawn background the strip is laid with it first and an index 0 leaves it:
+ *  every pixel once. A program that names it not carries none of it.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich

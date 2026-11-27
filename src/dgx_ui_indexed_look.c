@@ -2,13 +2,14 @@
  * dgx_ui_indexed_look.c
  *
  *  The look of pictures of 4 and 8 bits (dgx_image_t): their values, through the picture's map, are indices of the
- *  painter's table; they are blitted into an 8-bit virtual screen laid over the program's buffer, a strip of as many
- *  rows as the buffer takes at a time, and each strip sent through a table of RGB565 made from the painter's colours.
- *  A pixel 0 is the paper, as the rest of the box around the picture: every pixel once, nothing blinks. On the
- *  program's drawn background the box is laid and the picture sent over it, its index 0 leaving the background. A picture of 1
- *  bit goes to the look of a picture. It needs the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN), a buffer in
- *  the paint and a 16-bit screen, or on 18 or 24 bits the strips of pictures (dgx_ui_strips_pictures), each row of
- *  indices put through a row of the screen's depth; without them the box is paper, told once in the log.
+ *  painter's table, drawn by DGX in those colours on a screen of any depth. Over a paper of a colour the paper is
+ *  around the picture and its value 0 too: every pixel of the box once, nothing blinks. Over the program's drawn
+ *  background the box is laid and the picture drawn over it, a pixel of the index 0 leaving the background; over a
+ *  hatched paper on a screen of 1 bit the same, its value 0 leaving the hatch. A value whose colour is DGX_UI_HATCH is
+ *  lit, as letters are. A picture of 1 bit goes to the look of a picture. It needs neither the virtual screens of DGX
+ *  nor a buffer, but on a display of 18 bits over the drawn background, where DGX 0.12.12 loses the ends of the runs
+ *  of a row: there the strips of dgx_ui_strips, else the box is paper, told once in the log. The colours of a picture
+ *  of 4 bits lie on the stack, those of one of 8 bits in a table the paint keeps, made at its first need.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -19,7 +20,6 @@
 #include "dgx_draw.h"
 #include "dgx_image.h"
 #include "dgx_ui_paint_priv.h"
-#include "dgx_vscreen.h"
 #include "esp_log.h"
 
 static const char *TAG = "dgx_ui";
@@ -39,8 +39,8 @@ static void paper_around(dgx_ui_paint_t *paint, const dgx_ui_node_t *n, const dg
 {
     const dgx_ui_rect_t box = dgx_ui_rect(n->x, n->y, n->w, n->h);
     dgx_ui_rect_t       parts[4];
-    const int           k = dgx_ui_rect_subtract(&box, hole, parts);
-    for (int j = 0; j < k; ++j) dgx_ui_lay_paper(paint, paper, parts[j].x, parts[j].y, parts[j].w, parts[j].h);
+    const int           count = dgx_ui_rect_subtract(&box, hole, parts);
+    for (int k = 0; k < count; ++k) dgx_ui_lay_paper(paint, paper, parts[k].x, parts[k].y, parts[k].w, parts[k].h);
 }
 
 bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms)
@@ -50,66 +50,63 @@ bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     const dgx_ui_picture_t      *pic = shown(n);
     const dgx_image_t           *im  = pic ? pic->image : NULL;
     if (im && im->format == DGX_IMAGE_1BPP) return dgx_ui_draw_picture(look, paint, ui, i, now_ms);
-    const int           paper_index = p->paper == DGX_UI_PAPER ? paint->paper : p->paper;
-    const dgx_ui_rect_t none        = dgx_ui_rect(0, 0, 0, 0);
+    const dgx_ui_rect_t none = dgx_ui_rect(0, 0, 0, 0);
     if (!im || (im->format != DGX_IMAGE_4BPP && im->format != DGX_IMAGE_8BPP) || pic->mask) {
         static bool told; /* a mask, which dgx_ui_c refuses here when it sees it: one of a description loaded or an icon's value */
         if (im && pic->mask && !told) {
             ESP_LOGW(TAG, "widget %d: a mask is drawn by dgx_ui_look_soft_picture: its box is paper", i);
             told = true;
         }
-        paper_around(paint, n, &none, p->paper); /* none */
+        paper_around(paint, n, &none, p->paper);
         return false;
     }
-    /* on 18 or 24 bits through the strips of pictures (dgx_ui_strips_pictures): a row of indices and its row of the
-       screen's depth in the buffer */
-    const int                k      = dgx_ui_picture_scale(ui, pic); /* its pixel so many of the screen's, across and down */
-    const bool               deep   = paint->scr->color_bits != 16;
-    const dgx_ui_strips_t   *strips = paint->strips;
-    size_t                   room;
-    uint8_t                 *buffer = dgx_ui_buffer_free(paint, &room);
-    const size_t             row    = (size_t)im->width + (deep ? dgx_ui_deep_row(im->width, k) : 0);
-    const int                rows   = row ? (int)(room / row) : 0;
-    if (!buffer || rows < 1 || (deep && !(strips && strips->put_indexed))) {
+    /* DGX 0.12.12 sends a run of a row to a display of 18 bits by 18 bits a pixel, where its pixels take 3 bytes, and
+       the last quarter of every run is lost: over the drawn background, which the picture is put over by runs, such a
+       display takes the box as paper until DGX's fix; through the strips it goes into a virtual screen, whole */
+    const bool drawn = dgx_ui_paper_drawn(paint, p->paper);
+    if (drawn && paint->scr->color_bits == 18 && paint->scr->screen_subtype == DgxPhysicalScreenWithBus) {
         static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
-        if (!told) {
-            if (deep) ESP_LOGW(TAG, "widget %d: a picture of %d bits on %d bits: name dgx_ui_strips_pictures for the paint's strips, its buffer %u bytes a row at least",
-                               i, im->format, paint->scr->color_bits, (unsigned)row);
-            else ESP_LOGW(TAG, "widget %d: a picture of %d bits needs a buffer of a row at least (%d bytes) and a 16-bit screen", i, im->format, im->width);
-        }
+        if (!told) ESP_LOGW(TAG, "widget %d: a picture of %d bits over the drawn background on 18 bits: name dgx_ui_strips for the paint's strips", i, im->format);
         told = true;
         paper_around(paint, n, &none, p->paper);
         return false;
     }
-    /* the painter's own: an 8-bit screen over the buffer and, on 16 bits, the table of its indices, made at their first need */
-    if (!paint->indexed) paint->indexed = dgx_vscreen_from_array(buffer, im->width, 1, 8, DgxScreenRGB);
-    if (!deep && !paint->lut) paint->lut = malloc(256 * sizeof *paint->lut);
-    if (!paint->indexed || (!deep && !paint->lut)) {
-        paper_around(paint, n, &none, p->paper);
-        return false;
+    /* the colours of the values: 16 on the stack, 256 in the paint's table, each followed by the opacities */
+    const int values = im->format == DGX_IMAGE_4BPP ? 16 : 256;
+    uint32_t  few[16 + 16 / 4];
+    uint32_t *colors = few;
+    if (values > 16) {
+        if (!paint->values) paint->values = malloc(256 * sizeof *paint->values + 256);
+        if (!paint->values) {
+            ESP_LOGE(TAG, "no memory for the colours of a picture of 8 bits: its box is drawn as paper");
+            paper_around(paint, n, &none, p->paper);
+            return false;
+        }
+        colors = paint->values;
     }
-    for (int c = 0; !deep && c < 256; ++c) paint->lut[c] = (uint16_t)(c < paint->color_count && paint->colors ? paint->colors[c] : 0);
-    /* in the middle of the box, the rest of it paper; then the picture strip by strip. On the drawn background the
-       whole box laid, and the picture's index 0 not sent: the background stays there */
-    const bool          drawn = dgx_ui_paper_drawn(paint, p->paper);
-    const dgx_ui_rect_t hole  = dgx_ui_rect(n->x + (n->w - im->width * k) / 2, n->y + (n->h - im->height * k) / 2, im->width * k, im->height * k);
-    paper_around(paint, n, drawn ? &none : &hole, p->paper);
-    /* only the picture's rows in the clip, which the painter keeps within the box: a scaled row cut at the clip's edge
-       drawn whole and cut by it; a part beside a cover, a band of a composing, costs its own rows */
-    int cx, cy, cw, ch;
-    dgx_screen_clip_get(paint->scr, &cx, &cy, &cw, &ch);
-    const int top = cy + paint->oy > hole.y ? (cy + paint->oy - hole.y) / k : 0;
-    const int end = cy + paint->oy + ch < hole.y + hole.h ? (cy + paint->oy + ch - hole.y + k - 1) / k : im->height;
-    /* the table exact: one that runs straight from its first colour to its last is not mixed by a panel's hardware */
-    const dgx_image_blit_t how = {.flags = DGX_IMAGE_OPAQUE, .map = pic->map, .bg = pic->solid ? pic->zero : drawn ? 0u : (uint32_t)paper_index};
-    for (int y0 = top; y0 < end; y0 += rows) { /* y0 a row of the picture, from its own top */
-        const int h = end - y0 < rows ? end - y0 : rows;
-        dgx_vscreen_array_set(paint->indexed, buffer, im->width, h);
-        dgx_image_blit(paint->indexed, im->origin_x, im->origin_y - y0, im, &how);
-        if (deep) strips->put_indexed(paint, hole.x, hole.y + y0 * k, buffer, im->width, im->width, h, k, drawn, (size_t)im->width * (size_t)rows);
-        else dgx_vscreen8_to_screen16(paint->scr, hole.x - paint->ox, hole.y + y0 * k - paint->oy, paint->indexed, paint->lut,
-                                      DGX_VSCREEN_EXACT | DGX_VSCREEN_SCALE(k) | (drawn ? DGX_VSCREEN_TRANSPARENT : 0u));
+    uint8_t *const alpha = (uint8_t *)(colors + values);
+    /* over the drawn background, or a hatched paper, the box laid and the picture put over it: on the background a
+       pixel of the index 0 shows it, on the hatch the value 0 */
+    const int  paper   = p->paper == DGX_UI_PAPER ? paint->paper : p->paper;
+#if DGX_UI_HATCHES
+    const bool hatched = !drawn && paint->scr->color_bits == 1 && dgx_ui_color(paint, paper) == DGX_UI_HATCH;
+#else
+    const bool hatched = false;
+#endif
+    for (int v = 0; v < values; ++v) {
+        const int index = v ? pic->map ? pic->map[v - 1] : v : pic->solid ? pic->zero : drawn ? 0 : paper;
+        colors[v]       = dgx_ui_color(paint, index);
+        alpha[v]        = drawn ? (index ? 255u : 0u) : v || pic->solid ? 255u : 0u;
     }
+    const int           k    = dgx_ui_picture_scale(ui, pic); /* its pixel so many of the screen's, across and down */
+    const dgx_ui_rect_t hole = dgx_ui_rect(n->x + (n->w - im->width * k) / 2, n->y + (n->h - im->height * k) / 2, im->width * k, im->height * k);
+    paper_around(paint, n, drawn || hatched ? &none : &hole, p->paper);
+    const dgx_image_blit_t how = {.flags  = drawn || hatched ? 0u : DGX_IMAGE_OPAQUE,
+                                  .colors = colors,
+                                  .alpha  = drawn || hatched ? alpha : NULL,
+                                  .bg     = colors[0],
+                                  .scale  = (uint8_t)k};
+    dgx_image_blit(paint->scr, hole.x - paint->ox + im->origin_x * k, hole.y - paint->oy + im->origin_y * k, im, &how); /* cut to its box by the painter's clip */
     return false;
 }
 

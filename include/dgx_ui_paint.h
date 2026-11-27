@@ -131,9 +131,10 @@ struct dgx_ui_paint_t {
     /* the painter's: neither read nor written by a program or a look */
     dgx_screen_t                    *rgb565;          ///< the look of RGB565: a virtual screen pointed at each picture,
                                                       ///< made at its first need
-    dgx_screen_t                    *indexed;         ///< the look of indexed pictures: an 8-bit virtual screen over
+    dgx_screen_t                    *indexed;         ///< the frame of nine pictures: an 8-bit virtual screen over
                                                       ///< the buffer, made at its first need
-    uint16_t                        *lut;             ///< and the RGB565 of the 256 indices, made at its first need
+    uint16_t                        *lut;             ///< and, as for a canvas, the RGB565 of the 256 indices, made at
+                                                      ///< its first need
     dgx_screen_t                    *strip;           ///< the strips: a virtual screen of the display's depth over the
                                                       ///< buffer, made at its first need
     size_t                           buffer_used;     ///< while a strip is drawn: its bytes at the start of the buffer
@@ -147,6 +148,8 @@ struct dgx_ui_paint_t {
                                                       ///< NULL none
     void                            *scroll_held;     ///< the scroller's: the area of the panel a scrolling box holds,
                                                       ///< freed by dgx_ui_paint_free(); NULL none
+    uint32_t                        *values;          ///< the look of indexed pictures of 8 bits: the colour of each of
+                                                      ///< the 256 values, then their opacities, made at its first need
 }; /* its name, dgx_ui_paint_t: dgx_ui.h */
 
 /*
@@ -501,10 +504,10 @@ extern const dgx_ui_look_t dgx_ui_look_ring;
  * top-right corner, the bottom row as high as the bottom-left one. A box smaller than its corners cuts them, the far
  * ones kept at its far edges, none over another. Its children are drawn over it as over a frame's fill; the pad that
  * keeps them off the edges is the widget's own. Every pixel of the box once, drawn in strips of an 8-bit virtual screen
- * over the paint's buffer and sent through the table of the painter's colours, as dgx_ui_look_indexed draws: it needs
- * CONFIG_DGX_ENABLE_VSCREEN, a buffer of a row of the box and a 16-bit screen; without them it is the fill alone, told
- * once in the log. Its own parameters give no pieces: the fill 2 alone, until a program's look gives them. A program
- * that names it not carries none of it.
+ * over the paint's buffer and sent through the table of the painter's colours: it needs CONFIG_DGX_ENABLE_VSCREEN, a
+ * buffer of a row of the box and a 16-bit screen; without them it is the fill alone, told once in the log. Its own
+ * parameters give no pieces: the fill 2 alone, until a program's look gives them. A program that names it not carries
+ * none of it.
  */
 extern const dgx_ui_look_t dgx_ui_look_nine;
 
@@ -547,15 +550,18 @@ extern const dgx_ui_behavior_t dgx_ui_scroll_behavior;
  * - dgx_ui_look_picture: PICTURE and ICON of a dgx_image_t of 1 bit (of 4 and 8 bits, dgx_ui_look_indexed below),
  *   in the middle of the box, the rest of it paper; an ICON of a value outside min..max shows none;
  * - dgx_ui_look_rgb565: PICTURE and ICON of RGB565, by a virtual screen over its pixels kept by the paint
- *   (dgx_ui_paint_free() gives it back): it needs CONFIG_DGX_ENABLE_VSCREEN and a 16-bit screen; on another the box
- *   is paper;
+ *   (dgx_ui_paint_free() gives it back): it needs CONFIG_DGX_ENABLE_VSCREEN and a 16-bit screen, or on 18 or 24 bits
+ *   dgx_ui_strips_pictures; else the box is paper. dgx_ui_look_soft_picture draws such a picture too, by DGX's blit,
+ *   on any screen and without virtual screens;
  * - dgx_ui_look_indexed: PICTURE and ICON of a dgx_image_t of 4 or 8 bits (one of 1 bit as dgx_ui_look_picture): its
- *   values through the picture's map are indices of the painter's table, its 0 the paper; drawn into an 8-bit virtual
- *   screen over the paint's buffer, a strip of buffer_size / width rows at a time, and sent through a table of the
- *   painter's colours. It needs CONFIG_DGX_ENABLE_VSCREEN, a buffer of a row at least and a 16-bit screen; without
- *   them the box is paper, told once in the log: on a display of 18 or 24 bits such a picture stays paper, as DGX
- *   sends a screen through a table to one of 16 bits only. Only the rows the clip shows are built. The paint keeps
- *   that screen and the table of 512 bytes (dgx_ui_paint_free() gives them back).
+ *   values through the picture's map are indices of the painter's table, its 0 the paper, drawn by DGX in those
+ *   colours on a screen of any depth. Over a paper of a colour every pixel of the box once. Over the program's drawn
+ *   background the box laid and the picture put over it, a pixel of the index 0 leaving the background; over a
+ *   hatched paper on a screen of 1 bit the same, its value 0 leaving the hatch. A value whose colour is DGX_UI_HATCH
+ *   is lit, as letters are. It needs neither CONFIG_DGX_ENABLE_VSCREEN nor a buffer, but on a display of 18 bits
+ *   over the drawn background, where DGX 0.12.12 loses the ends of the runs of a row: there it needs dgx_ui_strips,
+ *   and without them the box is paper, told once in the log. For a picture of 8 bits the paint keeps a table of 1280
+ *   bytes (dgx_ui_paint_free() gives it back).
  *
  * The focus of a button, a dropdown, a radio and a checkbox a frame of a point in colour 1 round its box (a button's
  * round its face), with a point of paper or face between it and what it frames; a switch's and a slider's its knob
@@ -643,7 +649,8 @@ bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms);
 
 /**
  * @brief What the painter made for itself given back: the virtual screens of the looks of pictures and of the strips,
- * the table of the indexed pictures, the canvases of the widgets. The paint may be used again after.
+ * the tables of the pictures of 8 bits and of the canvases, the canvases of the widgets. The paint may be used again
+ * after.
  */
 void dgx_ui_paint_free(dgx_ui_paint_t *paint);
 
@@ -656,10 +663,10 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint);
 extern const dgx_ui_strips_t dgx_ui_strips;
 
 /**
- * @brief The strips of dgx_ui_strips, and pictures on a screen of 18 or 24 bits: the looks of indexed pictures, of
- * RGB565 and of the frame of nine pictures put their pixels through a strip of the screen's depth in the buffer, 3
- * bytes a pixel, a block of rows a transfer. Without it they draw on 16 bits only. The strip of a widget takes half
- * the free room at most, the rest the looks'. A program on 16 bits names dgx_ui_strips, or none.
+ * @brief The strips of dgx_ui_strips, and pictures on a screen of 18 or 24 bits: the looks of RGB565 and of the frame
+ * of nine pictures put their pixels through a strip of the screen's depth in the buffer, 3 bytes a pixel, a block of
+ * rows a transfer. Without it they draw on 16 bits only; the look of indexed pictures needs it on none. The strip of
+ * a widget takes half the free room at most, the rest the looks'. A program on 16 bits names dgx_ui_strips, or none.
  */
 extern const dgx_ui_strips_t dgx_ui_strips_pictures;
 

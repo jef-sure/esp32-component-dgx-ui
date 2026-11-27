@@ -1,5 +1,13 @@
 # Changes
 
+## 0.1.6 - 2026-11-27
+
+- Pictures of 4 and 8 bits (dgx_ui_look_indexed) are drawn by DGX in their colours on a screen of any depth, with no
+  buffer and no virtual screen; faster on paper and at a scale. A picture of 8 bits keeps a table of 1280 bytes. On a
+  display of 18 bits over a drawn background such a picture needs dgx_ui_strips until DGX fixes its runs there.
+- On a screen of one bit such a picture draws in the colours 0 and 1, the hatch lit, its 0 showing a hatched paper.
+- DGX 0.12.12 or a later 0.12.
+
 ## 0.1.5 - 2026-11-27
 
 - Soft pictures: dgx_ui_look_soft_picture draws a mask in its ink, or a picture of 16 bits with its opacity, the edges

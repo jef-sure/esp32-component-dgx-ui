@@ -250,6 +250,8 @@ void dgx_ui_paint_free(dgx_ui_paint_t *paint)
     if (paint->scroller) paint->scroller->free(paint);
     free(paint->lut);
     paint->lut = NULL;
+    free(paint->values);
+    paint->values = NULL;
 }
 
 /* every widget under i that meets the area drawn whole under a clip of its part of it, nothing marked; for the

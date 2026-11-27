@@ -1,10 +1,13 @@
 /*
- * The look of indexed pictures through the paint's buffer: a picture of 4 bits and one of 8, in one strip and in
- * several, every pixel of the box once, each pixel the painter's colour of its value through the map, its 0 the
- * paper, the box around it paper; a picture of 1 bit as the look of a picture draws it; no buffer, the box paper; the
- * screen composed in strips as drawn. A popup over a part of a picture: nothing written under it; a buffer of one row
- * exactly, and of a width that does not divide it; a map entry and a value past the table; an icon between pictures of
- * two sizes; a picture wider than its box, cut by it.
+ * The look of indexed pictures, drawn by DGX by their colours: a picture of 4 bits and one of 8, every pixel of the box
+ * once, each pixel the painter's colour of its value through the map, its 0 the paper, the box around it paper; a
+ * picture of 1 bit as the look of a picture draws it; the paint's buffer of any size, or none, changing nothing; the
+ * screen composed in strips as drawn. A popup over a part of a picture: nothing written under it; a map entry and a
+ * value past the table; an icon between pictures of two sizes; a picture wider than its box, cut by it. Over the
+ * program's drawn background a pixel of the index 0 shows it: a map entry 0, `solid` with `zero` 0, and `solid` with
+ * another `zero` covering it. On a screen of 1 bit: the colours 0 and 1, DGX_UI_HATCH lit, a hatched paper around
+ * the picture and under its 0. The tables the paint keeps: none for 4 bits, one for 8, given back by
+ * dgx_ui_paint_free(); no virtual screen.
  */
 #include <string.h>
 
@@ -81,6 +84,18 @@ static int wrong(const panel_t *panel, int i, const dgx_image_t *im, const uint8
     return bad;
 }
 
+/* the program's drawn background: stripes of two colours not in the table */
+static uint32_t stripe(int x, int y)
+{
+    return (x / 3 + y) & 1 ? 0x1234u : 0x4321u;
+}
+
+static void stripes(dgx_ui_paint_t *paint, int x, int y, int w, int h, void *ctx)
+{
+    for (int row = y; row < y + h; ++row)
+        for (int col = x; col < x + w; ++col) dgx_fill_rectangle(paint->scr, col - paint->ox, row - paint->oy, 1, 1, stripe(col, row));
+}
+
 static bool once_in_box(panel_t *panel, int i)
 {
     const dgx_ui_node_t *n = dgx_ui_node(&ui, i);
@@ -119,18 +134,22 @@ int main(void)
         CHECK(panel->mem[y0][x0] == colors[1] && panel->mem[y0 + 3][x0 + 3] == colors[0]);
     }
 
-    /* a buffer of 12: two rows of the 4-bit picture at a time, three strips; drawn again, its box once */
-    pp.buffer_size = 12;
-    dgx_ui_redraw(&ui, p4);
-    panel_count_from_now(panel);
-    dgx_ui_paint(&ui, &pp, 1);
-    CHECK(once_in_box(panel, p4) && wrong(panel, p4, &im4, map4) == 0);
-    /* a buffer of 5: one row of the 8-bit picture at a time */
-    pp.buffer_size = 5;
-    dgx_ui_redraw(&ui, p8);
-    panel_count_from_now(panel);
-    dgx_ui_paint(&ui, &pp, 2);
-    CHECK(once_in_box(panel, p8) && wrong(panel, p8, &im8, map8) == 0);
+    /* the paint's buffer of any size, or none: the same pictures, every pixel of the box once */
+    {
+        static const size_t sizes[] = {0, 3, 5, 6, 12, 13};
+        for (int k = 0; k < 6; ++k) {
+            pp.buffer = sizes[k] ? buffer : NULL, pp.buffer_size = sizes[k];
+            dgx_ui_redraw(&ui, p4);
+            panel_count_from_now(panel);
+            dgx_ui_paint(&ui, &pp, 1);
+            CHECK(once_in_box(panel, p4) && wrong(panel, p4, &im4, map4) == 0);
+            dgx_ui_redraw(&ui, p8);
+            panel_count_from_now(panel);
+            dgx_ui_paint(&ui, &pp, 2);
+            CHECK(once_in_box(panel, p8) && wrong(panel, p8, &im8, map8) == 0);
+        }
+        pp.buffer = buffer, pp.buffer_size = sizeof buffer;
+    }
 
     /* the screen composed in strips of 4 rows into a buffer of its own, the paint's buffer for the pictures */
     {
@@ -148,38 +167,6 @@ int main(void)
         dgx_ui_paint_free(&pb);
         band->destroy(&band);
     }
-
-    /* no buffer, or one smaller than a row: the box paper */
-    pp.buffer = NULL;
-    dgx_ui_redraw(&ui, p4);
-    panel_count_from_now(panel);
-    dgx_ui_paint(&ui, &pp, 3);
-    {
-        const dgx_ui_node_t *n = dgx_ui_node(&ui, p4);
-        int                  ink = 0;
-        for (int y = n->y; y < n->y + n->h; ++y)
-            for (int x = n->x; x < n->x + n->w; ++x) ink += panel->mem[y][x] != colors[0];
-        CHECK(once_in_box(panel, p4) && ink == 0);
-    }
-    pp.buffer = buffer, pp.buffer_size = 3;
-    dgx_ui_redraw(&ui, p8);
-    dgx_ui_paint(&ui, &pp, 4);
-    CHECK(wrong(panel, p8, &im8, map8) > 0); /* paper where the picture was */
-
-    pp.buffer_size = sizeof buffer;
-
-    /* a buffer of one row exactly (6), and of 13: two rows and a byte to spare */
-    pp.buffer_size = 6;
-    dgx_ui_redraw(&ui, p4);
-    panel_count_from_now(panel);
-    dgx_ui_paint(&ui, &pp, 5);
-    CHECK(once_in_box(panel, p4) && wrong(panel, p4, &im4, map4) == 0);
-    pp.buffer_size = 13;
-    dgx_ui_redraw(&ui, p4);
-    panel_count_from_now(panel);
-    dgx_ui_paint(&ui, &pp, 6);
-    CHECK(once_in_box(panel, p4) && wrong(panel, p4, &im4, map4) == 0);
-    pp.buffer_size = sizeof buffer;
 
     /* a popup over the right half of the 4-bit picture's box: drawn again, nothing under the popup, the rest once */
     {
@@ -269,9 +256,88 @@ int main(void)
         dgx_ui_free(&t);
     }
 
-    CHECK(pp.strip == NULL);
+    /* over the program's drawn background: a pixel of the index 0 shows it, a map entry 0 or a value 0, but for
+       `solid` with another `zero` */
+    {
+        static const uint8_t    hole_map[15] = {0, 2, 3}, keep_map[15] = {1, 2, 0};
+        static dgx_ui_picture_t over[3];
+        over[0] = (dgx_ui_picture_t){.image = &im4, .map = hole_map};
+        over[1] = (dgx_ui_picture_t){.image = &im4, .map = map4, .solid = 1, .zero = 0};
+        over[2] = (dgx_ui_picture_t){.image = &im4, .map = keep_map, .solid = 1, .zero = 3};
+        static dgx_ui_widget_t ow[3];
+        static dgx_ui_node_t   bn[4];
+        static dgx_ui_t        bt;
+        dgx_ui_init(&bt, bn, 4, 1), dgx_ui_add(&bt, -1, &root_w);
+        int at[3];
+        for (int k = 0; k < 3; ++k) {
+            ow[k] = (dgx_ui_widget_t){.kind = DGX_UI_PICTURE, .picture = &over[k], .want_w = 10, .want_h = 9, .look = &dgx_ui_look_indexed};
+            at[k] = dgx_ui_add(&bt, 0, &ow[k]);
+        }
+        dgx_ui_paint_t pd = {.scr = &panel->sbus.scr, .colors = colors, .color_count = 4};
+        dgx_ui_background_set(&pd, stripes, NULL);
+        dgx_ui_paint(&bt, &pd, 20);
+        int bad = 0;
+        for (int k = 0; k < 3; ++k) {
+            const dgx_ui_node_t *n  = dgx_ui_node(&bt, at[k]);
+            const int            x0 = n->x + (n->w - 6) / 2, y0 = n->y + (n->h - 5) / 2;
+            for (int y = n->y; y < n->y + n->h; ++y)
+                for (int x = n->x; x < n->x + n->w; ++x) {
+                    const bool inside = x >= x0 && y >= y0 && x < x0 + 6 && y < y0 + 5;
+                    const int  v      = inside ? (x - x0 + y - y0) % 4 : 0;
+                    const int  index  = !inside ? 0 : v ? over[k].map[v - 1] : over[k].solid ? over[k].zero : 0;
+                    bad += panel->mem[y][x] != (index ? colors[index] : stripe(x, y));
+                }
+        }
+        CHECK(bad == 0);
+        CHECK(pd.values == NULL && pd.lut == NULL && pd.indexed == NULL); /* 4 bits: the colours on the stack */
+        dgx_ui_paint_free(&pd);
+        dgx_ui_free(&bt);
+    }
+
+    /* a screen of 1 bit, the table {0, 1, DGX_UI_HATCH}: the values 1 and 2 of the map lit, the hatch as ink too, the
+       index 0 not; over the paper 0 every pixel of the box 0 but those; over the hatched paper the hatch around the
+       picture and under its value 0 */
+    {
+        dgx_screen_t                      *one     = dgx_vscreen_init(PANEL_W, PANEL_H, 1, DgxScreenRGB);
+        static const uint32_t              bw[3]   = {0, 1, DGX_UI_HATCH};
+        static const uint8_t               bw_map[15] = {1, 2, 0};
+        static const dgx_ui_picture_t      bw_pic  = {.image = &im4, .map = bw_map};
+        static const dgx_ui_picture_look_t plain   = {.ink = 1, .paper = 0}, hatched = {.ink = 1, .paper = 2};
+        static const dgx_ui_look_t         looks[2] = {{.draw = dgx_ui_draw_indexed, .params = &plain, .fill = DGX_UI_PAPER},
+                                                       {.draw = dgx_ui_draw_indexed, .params = &hatched, .fill = DGX_UI_PAPER}};
+        static dgx_ui_widget_t             mw[2];
+        static dgx_ui_node_t               mn[3];
+        static dgx_ui_t                    mt;
+        dgx_ui_init(&mt, mn, 3, 1), dgx_ui_add(&mt, -1, &root_w);
+        int at[2];
+        for (int k = 0; k < 2; ++k) {
+            mw[k] = (dgx_ui_widget_t){.kind = DGX_UI_PICTURE, .picture = &bw_pic, .want_w = 10, .want_h = 9, .look = &looks[k]};
+            at[k] = dgx_ui_add(&mt, 0, &mw[k]);
+        }
+        dgx_ui_paint_t pm = {.scr = one, .colors = bw, .color_count = 3};
+        dgx_ui_paint(&mt, &pm, 21);
+        int bad = 0;
+        for (int k = 0; k < 2; ++k) {
+            const dgx_ui_node_t *n  = dgx_ui_node(&mt, at[k]);
+            const int            x0 = n->x + (n->w - 6) / 2, y0 = n->y + (n->h - 5) / 2;
+            for (int y = n->y; y < n->y + n->h; ++y)
+                for (int x = n->x; x < n->x + n->w; ++x) {
+                    const bool     inside = x >= x0 && y >= y0 && x < x0 + 6 && y < y0 + 5;
+                    const int      v      = inside ? (x - x0 + y - y0) % 4 : 0;
+                    const uint32_t paper  = k ? (uint32_t)((x + y) & 1) : 0u;
+                    bad += dgx_get_pixel(one, x, y) != (v ? (bw_map[v - 1] ? 1u : 0u) : paper);
+                }
+        }
+        CHECK(bad == 0);
+        dgx_ui_paint_free(&pm);
+        dgx_ui_free(&mt);
+        dgx_screen_destroy(&one);
+    }
+
+    /* the paint's: a table for the pictures of 8 bits, no virtual screen and no table of RGB565; all given back */
+    CHECK(pp.strip == NULL && pp.indexed == NULL && pp.lut == NULL && pp.values != NULL);
     dgx_ui_paint_free(&pp);
-    CHECK(pp.indexed == NULL && pp.lut == NULL);
+    CHECK(pp.values == NULL);
     dgx_ui_free(&ui);
     free(panel);
     CHECK_DONE();

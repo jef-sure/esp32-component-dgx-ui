@@ -9,8 +9,7 @@
  *  - over a drawn background on the panel, which cannot be read: a pixel covered half or more the picture's, the rest
  *    the background's; with the strips named, which can be read: mixed with the background, every pixel once;
  *  - on a screen of 1 bit, the paper hatched: around the picture the hatch, under it no pattern, a pixel covered half
- *    or more the ink and the rest not lit. The mask there is 16 pixels wide: DGX 0.12.11 sends a row of 1 bit by whole
- *    bytes, so a row of a width not divisible by 8 wraps in its window and its first pixels take the bits left over.
+ *    or more the ink and the rest not lit, a row of the mask 12 pixels wide, not of whole bytes.
  */
 #include <stdio.h>
 #include <string.h>
@@ -29,10 +28,7 @@ static uint32_t       colors[4];
 static uint8_t        buffer[PANEL_W * 3 * 8];
 static dgx_ui_paint_t paint;
 
-enum { WIDE = 16 }; /* the mask of the screen of 1 bit, of whole bytes a row */
-static uint8_t     mask4_data[PH * PW / 2], mask8_data[PH * PW], soft_rgb[PH * PW * 2], soft_alpha[PH * PW], opaque_rgb[PH * PW * 2], wide_data[PH * WIDE];
-static dgx_image_t wide = {.width = WIDE, .height = PH, .format = DGX_IMAGE_8BPP, .data = wide_data};
-static const dgx_ui_picture_t pic_wide = {.image = &wide, .mask = 1};
+static uint8_t     mask4_data[PH * PW / 2], mask8_data[PH * PW], soft_rgb[PH * PW * 2], soft_alpha[PH * PW], opaque_rgb[PH * PW * 2];
 static dgx_image_t mask4 = {.width = PW, .height = PH, .format = DGX_IMAGE_4BPP, .data = mask4_data};
 static dgx_image_t mask8 = {.width = PW, .height = PH, .format = DGX_IMAGE_8BPP, .data = mask8_data};
 static dgx_image_t soft16 = {.width = PW, .height = PH, .format = DGX_IMAGE_16BPP, .data = soft_rgb, .alpha = soft_alpha};
@@ -75,7 +71,9 @@ static uint32_t mix(uint32_t under, uint32_t color, unsigned a)
 static uint32_t of_rgb565(dgx_screen_t *scr, uint16_t v)
 {
     if (scr->color_bits == 16) return v;
-    return dgx_screen_rgb(scr, (uint8_t)((v >> 8) & 0xf8u), (uint8_t)((v >> 3) & 0xfcu), (uint8_t)((v << 3) & 0xf8u));
+    /* each channel widened by its high bits again, as DGX widens 16 bits: white stays white */
+    const unsigned red = v >> 11, green = v >> 5 & 63u, blue = v & 31u;
+    return dgx_screen_rgb(scr, (uint8_t)(red << 3 | red >> 2), (uint8_t)(green << 2 | green >> 4), (uint8_t)(blue << 3 | blue >> 2));
 }
 
 /* what the picture shown in widget i puts at x, y of the screen, over `under`, the paper or the background there:
@@ -142,7 +140,6 @@ int main(void)
             const int p = y * PW + x;
             if (!(x & 1)) mask4_data[p / 2] = (uint8_t)(((x + 3 * y) % 16) << 4 | ((x + 1 + 3 * y) % 16));
             mask8_data[p] = (uint8_t)((x * 23 + y * 41) % 256);
-            wide_data[y * WIDE + x] = mask8_data[p], wide_data[y * WIDE + x + WIDE - PW] = (uint8_t)(255 - mask8_data[p]);
             soft_alpha[p] = (uint8_t)(x == 0 ? 0 : x == PW - 1 ? 255 : (x * 31 + y * 17) % 256);
             const uint16_t s = (uint16_t)((x * 2) << 11 | (y * 6) << 5 | (31 - x)), o = (uint16_t)((31 - y * 3) << 11 | (x * 5) << 5 | (y * 3));
             soft_rgb[2 * p] = (uint8_t)(s >> 8), soft_rgb[2 * p + 1] = (uint8_t)s;
@@ -220,7 +217,7 @@ int main(void)
         static const uint32_t        bw[3]     = {0, 1, DGX_UI_HATCH};
         static const dgx_ui_picture_look_t hatched = {.ink = 1, .paper = 2};
         static const dgx_ui_look_t   look      = {.draw = dgx_ui_draw_soft_picture, .params = &hatched, .fill = DGX_UI_PAPER};
-        static const dgx_ui_widget_t one_w     = {.kind = DGX_UI_PICTURE, .picture = &pic_wide, .want_w = CELL_W, .want_h = CELL_H, .look = &look};
+        static const dgx_ui_widget_t one_w     = {.kind = DGX_UI_PICTURE, .picture = &pic_mask8, .want_w = CELL_W, .want_h = CELL_H, .look = &look};
         static dgx_ui_node_t         one_nodes[2];
         dgx_ui_t                     tree;
         dgx_ui_init(&tree, one_nodes, 2, 1);
@@ -229,12 +226,12 @@ int main(void)
         dgx_ui_paint_t on = {.scr = one, .colors = bw, .color_count = 3};
         dgx_ui_paint(&tree, &on, 0);
         const dgx_ui_node_t *n = dgx_ui_node(&tree, i);
-        const int            hx = n->x + (n->w - WIDE) / 2, hy = n->y + (n->h - PH) / 2;
+        const int            hx = n->x + (n->w - PW) / 2, hy = n->y + (n->h - PH) / 2;
         int                  wrong = 0;
         for (int y = n->y; y < n->y + n->h; ++y)
             for (int x = n->x; x < n->x + n->w; ++x) {
-                const bool     inside = x >= hx && x < hx + WIDE && y >= hy && y < hy + PH;
-                const uint32_t want   = inside ? wide_data[(y - hy) * WIDE + x - hx] >= 128 : (uint32_t)((x + y) & 1);
+                const bool     inside = x >= hx && x < hx + PW && y >= hy && y < hy + PH;
+                const uint32_t want   = inside ? mask8_data[(y - hy) * PW + x - hx] >= 128 : (uint32_t)((x + y) & 1);
                 wrong += dgx_get_pixel(one, x, y) != want;
             }
         CHECK(wrong == 0);

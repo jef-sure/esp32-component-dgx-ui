@@ -6,11 +6,12 @@
  * middle of each channel; a frame of nine pictures with a child, against the same tree drawn at 16 bits, each colour
  * taken back to its index. Buffers of several sizes, the picture's strips of 1, 2, 3, 7 rows and more; no pixel written
  * twice, a window for a block of rows and not one a row. Without the strips of pictures, or with dgx_ui_strips alone,
- * the box paper. A virtual screen of 24 bits as the paint's screen, a display of DSI's kind, the same pixels.
+ * the indexed pictures the same, drawn by DGX at the panel's depth, and RGB565 the box paper. A virtual screen of 24 bits as the paint's screen, a display of DSI's kind, the same pixels.
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "check.h"
 #include "dgx_draw.h"
@@ -72,6 +73,7 @@ static uint32_t pixel(dgx_screen_t *scr, panel_t *panel, int x, int y)
 /* ---- an indexed picture and an RGB565 one, each in a box larger than it ---- */
 
 static dgx_ui_picture_t pic8, pic4, pic565;
+static bool             indexed_paper; /* the model of the indexed pictures: their boxes all paper */
 
 /* the pixels of a box that differ from the model: the picture in the middle at scale k, its zeros paper or the
    background, the rest paper */
@@ -82,7 +84,7 @@ static int off_model(dgx_screen_t *scr, panel_t *panel, const dgx_ui_node_t *n, 
     for (int y = n->y; y < n->y + n->h; ++y)
         for (int x = n->x; x < n->x + n->w; ++x) {
             uint32_t want = colors[0];
-            if (x >= hx && x < hx + w * k && y >= hy && y < hy + h * k) {
+            if (x >= hx && x < hx + w * k && y >= hy && y < hy + h * k && !(indexed_paper && which != 565)) {
                 const int px = (x - hx) / k, py = (y - hy) / k;
                 if (which == 565) want = spread(rgb565_values[py * w + px]);
                 else {
@@ -104,7 +106,8 @@ static void          draw_background(dgx_ui_paint_t *paint, int x, int y, int w,
     dgx_vscreen_region_to_screen(paint->scr, x - paint->ox, y - paint->oy, background, x, y, w, h, 0);
 }
 
-static int pictures(dgx_screen_t *scr, panel_t *panel, size_t buffer_size, int k, bool drawn, const dgx_ui_strips_t *strips, int *windows)
+/* the pixels of the three pictures off the model; those of RGB565 apart in *off565 when it is given */
+static int pictures(dgx_screen_t *scr, panel_t *panel, size_t buffer_size, int k, bool drawn, const dgx_ui_strips_t *strips, int *windows, int *off565)
 {
     static uint8_t                     buffer[16384];
     static const dgx_ui_picture_look_t paper  = {.ink = 1, .paper = DGX_UI_PAPER};
@@ -127,10 +130,13 @@ static int pictures(dgx_screen_t *scr, panel_t *panel, size_t buffer_size, int k
     if (panel) panel_count_from_now(panel);
     dgx_ui_paint(&ui, &paint, 0);
     if (windows && panel) *windows = panel->windows;
-    int off = off_model(scr, panel, dgx_ui_node(&ui, a), W8, H8, k, 8, drawn ? background : NULL) +
-              off_model(scr, panel, dgx_ui_node(&ui, b), W4, H4, k, 4, drawn ? background : NULL) + off_model(scr, panel, dgx_ui_node(&ui, c), W565, H565, k, 565, drawn ? background : NULL);
-    /* drawn again, the pictures alone: no pixel twice (the root, a box of neither, fills under its children) */
-    if (panel) {
+    const int rgb_off = off_model(scr, panel, dgx_ui_node(&ui, c), W565, H565, k, 565, drawn ? background : NULL);
+    int       off     = off_model(scr, panel, dgx_ui_node(&ui, a), W8, H8, k, 8, drawn ? background : NULL) +
+              off_model(scr, panel, dgx_ui_node(&ui, b), W4, H4, k, 4, drawn ? background : NULL) + (off565 ? 0 : rgb_off);
+    if (off565) *off565 = rgb_off;
+    /* drawn again, the pictures alone: no pixel twice (the root, a box of neither, fills under its children); on the
+       drawn background without strips the box laid and the picture put over it */
+    if (panel && (!drawn || strips)) {
         dgx_ui_redraw(&ui, a), dgx_ui_redraw(&ui, b), dgx_ui_redraw(&ui, c);
         panel_count_from_now(panel);
         dgx_ui_paint(&ui, &paint, 20);
@@ -210,7 +216,7 @@ int main(void)
     for (int k = 1; k <= 3; ++k)
         for (size_t size = 400 + 600 * (size_t)(k * k); size <= 16384; size = size * 3 / 2) { /* from a row of the picture's and its strip's */
             int       windows = 0;
-            const int off     = pictures(scr, panel, size, k, false, &dgx_ui_strips_pictures, &windows);
+            const int off     = pictures(scr, panel, size, k, false, &dgx_ui_strips_pictures, &windows, NULL);
             if (off && !wrong) fprintf(stderr, "  scale %d, a buffer of %u: %d pixels off\n", k, (unsigned)size, off);
             wrong += off != 0, ++cases;
             few_rows += windows < 200; /* blocks of rows, not a window a row of the 37 x k */
@@ -220,17 +226,47 @@ int main(void)
     background = dgx_vscreen_init(PANEL_W, PANEL_H, PANEL_BITS, DgxScreenRGB);
     for (int y = 0; y < PANEL_H; ++y)
         for (int x = 0; x < PANEL_W; ++x) dgx_set_pixel(background, x, y, deep((uint32_t)(x * 2) << 16 | (uint32_t)(y * 2) << 8 | 0x40));
-    CHECK(pictures(scr, panel, 4096, 1, true, &dgx_ui_strips_pictures, NULL) == 0);
-    CHECK(pictures(scr, panel, 4096, 2, true, &dgx_ui_strips_pictures, NULL) == 0);
-    /* without the strips of pictures: paper, as before */
-    CHECK(pictures(scr, panel, 4096, 1, false, &dgx_ui_strips, NULL) > 100 && pictures(scr, panel, 4096, 1, false, NULL, NULL) > 100);
+    CHECK(pictures(scr, panel, 4096, 1, true, &dgx_ui_strips_pictures, NULL, NULL) == 0);
+    CHECK(pictures(scr, panel, 4096, 2, true, &dgx_ui_strips_pictures, NULL, NULL) == 0);
+    /* without the strips of pictures: the indexed pictures the same, at scales 1 and 2, over a colour and the drawn
+       background; RGB565 paper, as before */
+    {
+        int off565_strips = 0, off565_none = 0;
+        CHECK(pictures(scr, panel, 4096, 1, false, &dgx_ui_strips, NULL, &off565_strips) == 0 && pictures(scr, panel, 4096, 2, false, NULL, NULL, &off565_none) == 0);
+        CHECK(off565_strips > W565 * H565 / 2 && off565_none > W565 * H565 * 2); /* most of its pixels, at scales 1 and 2 */
+        /* on the drawn background without strips: the box laid, the picture put over it. Not on a display of 18 bits:
+           DGX 0.12.12 sends a run of a row there by 18 bits a pixel, where a pixel takes 3 bytes in the run, and the
+           last quarter of every run is lost; there the look keeps the box paper, told once in the log, and through
+           dgx_ui_strips the picture goes into a virtual screen, whole */
+#if PANEL_BITS == 24
+        CHECK(pictures(scr, panel, 0, 2, true, NULL, NULL, &off565_none) == 0);
+#else
+        fflush(stderr);
+        FILE     *log   = tmpfile();
+        const int saved = dup(2);
+        dup2(fileno(log), 2);
+        indexed_paper   = true;
+        const int paper = pictures(scr, panel, 0, 2, true, NULL, NULL, &off565_none);
+        indexed_paper   = false;
+        fflush(stderr);
+        dup2(saved, 2), close(saved);
+        static char text[4096];
+        rewind(log);
+        text[fread(text, 1, sizeof text - 1, log)] = 0;
+        fclose(log);
+        int lines = 0;
+        for (const char *at = text; (at = strstr(at, "over the drawn background on 18 bits: name dgx_ui_strips")); ++at) ++lines;
+        CHECK(paper == 0 && lines == 1);
+        CHECK(pictures(scr, panel, 4096, 2, true, &dgx_ui_strips, NULL, &off565_none) == 0);
+#endif
+    }
     /* the frame of nine pictures with a child, buffers of a row of it and more */
     int nine_off = 0;
     for (size_t size = 520; size <= 8192; size = size * 2) nine_off += nine(scr, panel, size); /* from a row of the strips' at half the buffer */
     CHECK(nine_off == 0);
     /* a virtual screen of the depth as the paint's screen: the same */
     dgx_screen_t *vs = dgx_vscreen_init(PANEL_W, PANEL_H, PANEL_BITS, DgxScreenRGB);
-    CHECK(pictures(vs, NULL, 4096, 2, false, &dgx_ui_strips_pictures, NULL) == 0 && nine(vs, NULL, 4096) == 0);
+    CHECK(pictures(vs, NULL, 4096, 2, false, &dgx_ui_strips_pictures, NULL, NULL) == 0 && nine(vs, NULL, 4096) == 0);
     dgx_screen_destroy(&vs), dgx_screen_destroy(&background);
     free(panel);
     CHECK_DONE();

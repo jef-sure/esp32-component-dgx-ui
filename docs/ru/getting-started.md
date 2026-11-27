@@ -24,7 +24,7 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 - Дисплей, с которым работает [DGX](https://github.com/jef-sure/esp32-component-dgx). Здесь это круглый GC9A01
   240 на 240 на SPI.
 - Датчик CO2 Sensirion SCD41 по I2C. Подойдёт и SCD40 или SCD43: команды одни и те же, разница в точности и режимах.
-- DGX 0.12.11 или новее из ветки 0.12. Она подтянется сама вместе с dgx-ui.
+- DGX 0.12.12 или новее из ветки 0.12. Она подтянется сама вместе с dgx-ui.
 - На машине сборки, кроме ESP-IDF: свой компилятор C, файлы разработки FreeType, `pkg-config`, fontconfig и одна из
   гарнитур DejaVu Sans, Liberation Sans, Noto Sans, FreeSans и Arial — из неё DGX при сборке делает шрифты
   программы. В Debian и Ubuntu:
@@ -55,11 +55,11 @@ dgx-ui — это лёгкий слой виджетов на [DGX](https://gith
 
 ## 1. Подключите компонент
 
-Версия 0.1.5 dgx-ui и драйвер датчика лежат в реестре компонентов ESP. В `main/idf_component.yml` проекта:
+Версия 0.1.6 dgx-ui и драйвер датчика лежат в реестре компонентов ESP. В `main/idf_component.yml` проекта:
 
 ```yaml
 dependencies:
-  jef-sure/dgx-ui: "^0.1.5"
+  jef-sure/dgx-ui: "^0.1.6"
   jef-sure/scd4x: "^0.3.0"
 ```
 

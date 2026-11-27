@@ -22,7 +22,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | pictures of a file of DGX, made of PNG files when the program is built, read where they lie into a table of the widgets' pictures |
 | [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.5: the names and
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.6: the names and
 the signatures are fixed since 0.1.0; one that would break a program comes only with 0.2.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -851,6 +851,7 @@ typedef struct dgx_ui_paint_t {
     dgx_ui_rect_t   cover_was;
     const dgx_ui_scroller_t *scroller;
     void           *scroll_held;
+    uint32_t       *values;
 } dgx_ui_paint_t;
 ```
 
@@ -863,7 +864,7 @@ How a tree is drawn on a screen. The program fills the first members and keeps t
 | `background` | the index of the colour under the tree. With a drawn background, the colour a look is told where it cannot lay the picture: give the picture's main colour |
 | `background_draw`, `background_ctx`, `drawn` | the program's picture under the tree; set by `dgx_ui_background_set()`, not by hand |
 | `buffer`, `buffer_size` | memory of the program's that the painter draws in: for a look that needs it, a picture of 4 or 8 bits, a strip of its rows at a time; and for the strips. Start it on a word boundary, in memory the bus sends by DMA on a chip. `NULL`: none |
-| `strips` | `&dgx_ui_strips`: the painter draws through the buffer in strips. Name it for a display behind a bus of 18 or 24 bits, and for one of 16 bits with a drawn background; `&dgx_ui_strips_pictures` for pictures of 4, 8 or 16 bits on a screen of 18 or 24 bits. `NULL`: straight |
+| `strips` | `&dgx_ui_strips`: the painter draws through the buffer in strips. Name it for a display behind a bus of 18 or 24 bits, and for one of 16 bits with a drawn background; `&dgx_ui_strips_pictures` for pictures of RGB565 and the frame of nine pictures on a screen of 18 or 24 bits. `NULL`: straight |
 | `cover` | a rectangle not drawn into: the band of DGX-DI's keyboard while it is open; empty otherwise |
 | `ox`, `oy` | the pixel of the tree's screen that lies at (0, 0) of `scr`; 0, or the place of a buffer when composing |
 
@@ -887,7 +888,7 @@ On a display of more bits `DGX_UI_HATCH` is an error of the table, drawn as 0. T
 | `bool dgx_ui_paint(dgx_ui_t *ui, dgx_ui_paint_t *paint, uint32_t now_ms)` | The tree laid if it has to be, then what changed drawn, in one batch, and its popup over it. The clip of the screen is given back as it was. `true` when a widget asks for more time. |
 | `void dgx_ui_paint_area(dgx_ui_t *ui, dgx_ui_paint_t *paint, int x, int y, int w, int h)` | A rectangle of the tree's screen composed from the root down: the background, then every widget that meets it, whole, under a clip. Nothing is marked as drawn. Pixels may be written more than once. The looks are given the time of the last `dgx_ui_paint()` with this paint, its `now_ms`; a program that composes with a paint that `dgx_ui_paint()` never draws sets `now_ms` first. |
 | `void dgx_ui_paint_area_to(dgx_ui_t *ui, dgx_ui_paint_t *paint, dgx_screen_t *scr, const uint32_t *colors, int x, int y, int w, int h)` | The same rectangle composed onto another screen, its corner at that screen's (0, 0): a strip of a mirror of the display. `colors` is the table packed for that screen, `NULL` the paint's own. The paint's screen, colours and place are put back after; its canvases stay its own. An inline of the header. |
-| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of indexed pictures and of the strips, and the table of the indexed pictures. The canvases of the widgets too. The struct may be used again. |
+| `void dgx_ui_paint_free(dgx_ui_paint_t *paint)` | What the painter made for itself given back: the screen objects of the looks of RGB565 and of the frame of nine pictures and of the strips, the table of the colours of pictures of 8 bits and that of the frame. The canvases of the widgets too. The struct may be used again. |
 | `uint32_t dgx_ui_color(const dgx_ui_paint_t *paint, int index)` | A colour of the table; 0 past its end. |
 | `uint8_t dgx_ui_bits_shown(const dgx_ui_t *ui, const dgx_ui_node_t *n)` | For a look: the bits of a widget's state to show. They are the state's bits, less `DGX_UI_FOCUSED` while a modal popup lies over the widget's tree. `state_drawn.bits` holds them once the widget is drawn. |
 | `void dgx_ui_fill_around(dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, dgx_ui_rect_t area, uint32_t color)` | For a look of the program's own that holds children: an area of the widget `i`, in pixels of the tree's screen, filled with a colour everywhere but under its shown children that a look draws. In a column or a row; a widget of neither has the area filled whole. Called from a look's `draw`. |
@@ -1009,8 +1010,9 @@ takes, and each strip is sent once: every pixel once.
   those passes, every pixel once, as any look that asks for time.
 
 `extern const dgx_ui_strips_t dgx_ui_strips_pictures;` is the same strips, and pictures on a screen of 18 or 24 bits:
-`dgx_ui_look_indexed`, `dgx_ui_look_rgb565` and the frame of nine pictures, which draw on 16 bits alone, put their
-pixels through a strip of the screen's depth in the buffer, 3 bytes a pixel, a block of rows a transfer. Without it
+`dgx_ui_look_rgb565` and the frame of nine pictures, which draw on 16 bits alone, put their pixels through a strip of
+the screen's depth in the buffer, 3 bytes a pixel, a block of rows a transfer. `dgx_ui_look_indexed` does not need
+it: it draws on any depth. Without it
 there they lay paper or their fill, and the log says what to name. A colour of the table goes as the table has it; one
 of RGB565 is spread with its high bits repeated in the low ones, so white stays 255, 255, 255. The strip of a widget
 takes half the free buffer at most, the rest is the pictures'; a row of the picture, a byte a pixel, and a row of the
@@ -1054,10 +1056,10 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_level` | a level bar, on a widget of `DGX_UI_OWN`: the value of its place as the filled part of its box from one edge, its colour by bands of value | `dgx_ui_level_look_t` |
 | `dgx_ui_look_ring` | a ring scale, on a widget of `DGX_UI_OWN`: the value of its place as an arc of a ring, coloured by bands of value, widgets inside it | `dgx_ui_ring_look_t` |
 | `dgx_ui_look_picture` | a picture or an icon of 1 bit, in the middle of the box | `dgx_ui_picture_look_t` |
-| `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen | `dgx_ui_picture_look_t` |
+| `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen, or on 18 or 24 bits `dgx_ui_strips_pictures`. `dgx_ui_look_soft_picture` draws such a picture too, by DGX's drawing of pictures, on any screen and with no virtual screen | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_nine` | a box or a frame drawn as a frame of nine pictures, its pieces given by a look of the program's; colour 2 alone without them | `dgx_ui_nine_look_t` |
 | `dgx_ui_look_scroll` | a box of `DGX_UI_COLUMN \| DGX_UI_SCROLL`: a window over its children, its bar at the right while they are taller than it; [A scrolling box](#a-scrolling-box) | `dgx_ui_scroll_look_t` |
-| `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table; one of 1 bit too. It needs `CONFIG_DGX_ENABLE_VSCREEN`, the paint's buffer of a row of the picture at least, and a 16-bit screen; without them the widget is paper | `dgx_ui_picture_look_t` |
+| `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table, drawn by DGX in those colours on a screen of any depth; one of 1 bit too. Over a paper of a colour every pixel of the box once; over the drawn background a pixel of the index 0 leaves the background. A value whose colour is `DGX_UI_HATCH` is lit. No virtual screen and no buffer; for a picture of 8 bits the paint keeps a table of 1280 bytes. On a display of 18 bits behind a bus, over the drawn background, it needs `dgx_ui_strips`, else the box is paper (DGX 0.12.12 loses the ends of the runs of a row there) | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_soft_picture` | a picture or an icon with soft edges: a mask of 4 or 8 bits in the ink, or a picture of 16 bits with its opacity. Over a paper of a colour its edges are mixed with it on any screen and every pixel of the box is written once; over a drawn background they are mixed with it where the screen can be read, and where it cannot a pixel half covered or more takes the picture whole. One of 1 bit as `dgx_ui_look_picture`. No virtual screen, no buffer | `dgx_ui_picture_look_t` |
 
 A look that no widget names is not linked into the program.
@@ -1373,9 +1375,10 @@ top-left corner and the top row as high, the right column as wide as the top-rig
 the bottom-left one. A box smaller than its corners cuts them, the right and bottom ones kept at its far edges, none
 over another. `fill` is an index, never `DGX_UI_PAPER`: the frame is filled whole, and a look of the program's names
 the same index as its `fill`, so that its children's paper is the frame's. The children are drawn over it, every
-pixel of the box once; what keeps them off its edges is the widget's `pad`. It is drawn in strips over the paint's
-buffer, as `dgx_ui_look_indexed` is, and needs what that look needs; without it, with no pieces, or for a piece of
-RGB565, the fill stands in, told once in the log. `dgx_ui_look_nine` has no pieces, colour 2 alone, until a look of
+pixel of the box once; what keeps them off its edges is the widget's `pad`. It is drawn in strips of an 8-bit virtual
+screen over the paint's buffer and needs `CONFIG_DGX_ENABLE_VSCREEN`, a buffer of a row of the box, and a 16-bit
+screen, or on 18 or 24 bits `dgx_ui_strips_pictures`; without them, with no pieces, or for a piece of RGB565, the
+fill stands in, told once in the log. `dgx_ui_look_nine` has no pieces, colour 2 alone, until a look of
 the program's gives them; a program that names neither carries none of it. The recipe:
 [A frame of nine pictures](cookbook.md#a-frame-of-nine-pictures).
 
@@ -2006,7 +2009,7 @@ Three calls for the `CMakeLists.txt` of a component, the program's `main` among 
 written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
 C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
-the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/tools/README.md).
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])

@@ -49,8 +49,12 @@ def rgb16(r, g, b):
     return (r & 0xF8) << 8 | (g & 0xFC) << 3 | (b & 0xF8) >> 3
 
 
-def level(v, top):  # DGX's rounding of a channel to its depth
+def level(v, top):  # DGX's rounding of a mask's coverage to its depth
     return (v * top * 2 + 255) // 510
+
+
+def channel(v, bits):  # a channel of a colour of 16 bits, its high bits, as DGX's writer and DGX_RGB_16 take them
+    return v >> (8 - bits)
 
 
 def mixed(under, color, a):  # DGX's mix of two colours of 16 bits by an opacity 0..255, channel by channel
@@ -153,7 +157,7 @@ run = tool_run("-n", "names.txt", "-g", "out", "-a", "look.json", "-ap", "day", 
 check(run.returncode == 0, "the tables made C: " + run.stderr.strip())
 
 # the expected pixels: a colour of the appearance packed as the table, the paper where a hole is; 1 bit the look's ink
-# and paper; 16 bits rounded to the depth as DGX's writer rounds it
+# and paper; 16 bits a channel's high bits as DGX's writer takes them, a mask's coverage rounded to its depth
 values_of = []
 with open(os.path.join(work, "pf_expected.h"), "w") as out:
     out.write("/* made by test_picture_files.py */\n#include <stdint.h>\n")
@@ -167,7 +171,7 @@ with open(os.path.join(work, "pf_expected.h"), "w") as out:
                 top = (1 << p["bits"]) - 1
                 values.append(soft(table[0], table[1], level(c[3], top) * (255 // top)))
             elif p["bits"] == 16:
-                color = level(c[0], 31) << 11 | level(c[1], 63) << 5 | level(c[2], 31)
+                color = channel(c[0], 5) << 11 | channel(c[1], 6) << 5 | channel(c[2], 5)
                 values.append(soft(table[0], color, c[3]) if len(c) == 4 else color)
             else:
                 values.append(table[0] if c is HOLE else table[nearest(c)])

@@ -894,8 +894,11 @@ static const dgx_ui_picture_t logo_pic = {.rgb565 = logo_pixels, .width = 64, .h
 static const dgx_ui_widget_t  logo_w   = {.kind = DGX_UI_PICTURE, .picture = &logo_pic, .look = &dgx_ui_look_rgb565};
 ```
 
-- The look of RGB565 needs `CONFIG_DGX_ENABLE_VSCREEN=y` and a 16-bit screen. On another screen the widget is
-  paper.
+- The look of RGB565 needs `CONFIG_DGX_ENABLE_VSCREEN=y` and a 16-bit screen, or on 18 or 24 bits the strips of
+  [A display of 18 or 24 bits](#a-display-of-18-or-24-bits). On another screen the widget is paper. The look
+  `dgx_ui_look_soft_picture` draws the same rows by DGX's drawing of pictures, on any screen and with no virtual
+  screen: as fast over a paper, faster at a scale; it costs about 5 KB of DGX in a program that draws no other
+  picture.
 - The painter makes one small screen object for such pictures at the first need.
   `dgx_ui_paint_free(&paint)` gives it back when the program stops painting.
 - `.scale = 1` draws a pixel of the picture as a point of the tree, `unit` by `unit` pixels: the same logo keeps its
@@ -924,27 +927,18 @@ static const dgx_ui_picture_t battery_pics[2] = {
 static int32_t                battery_low_now; /* 0: charged, the first map; 1: low, the second */
 static const dgx_ui_widget_t  battery_w = {
     .kind = DGX_UI_ICON, .picture = battery_pics, .min = 0, .max = 1, .want_w = 14, .want_h = 8, .value = &battery_low_now, .look = &dgx_ui_look_indexed};
-
-/* the painter's buffer: such a picture is drawn in it a strip of its rows at a time, a byte a pixel */
-static uint8_t paint_buffer[256];
-
-static void paint_buffer_give(dgx_ui_paint_t *paint)
-{
-    paint->buffer = paint_buffer, paint->buffer_size = sizeof paint_buffer;
-}
 ```
 
 - **The values** go through the picture's `map` to indices of the painter's table: the value 1 is `map[0]`, the
   value 2 `map[1]`. Without a map the value itself is the index. A pixel 0 is a hole: the paper shows.
 - **The same data in other colours** is another map: the battery above is one picture and two maps, an icon of two
   states.
-- **The buffer.** The painter draws such a picture in memory the program gives it, `buffer` and `buffer_size` of
-  the paint, a strip of the picture's rows at a time, and sends each strip through the table: every pixel of the
-  widget is written once. A row of the widest picture, a byte a pixel, is enough; with more the strips are higher
-  and fewer. With no buffer, or one smaller than a row, the widget is paper and the log says so once.
-- It needs `CONFIG_DGX_ENABLE_VSCREEN=y` and a 16-bit screen. On a display of 18 or 24 bits such a picture is paper.
-- The painter keeps a small screen object and a table of 512 bytes for such pictures from the first one on;
-  `dgx_ui_paint_free(&paint)` gives them back.
+- **Drawn by DGX** in the colours of the table, on a screen of any depth, 18 and 24 bits too: every pixel of the
+  widget is written once, and nothing blinks. It needs no buffer and no virtual screen. Over the program's picture
+  under the widgets a pixel 0 shows the picture; on a display of 18 bits behind a bus that wants the strips,
+  `dgx_ui_strips`, or the widget is paper and the log says so once.
+- For a picture of 8 bits the painter keeps a table of the 256 colours, 1280 bytes, from the first one on;
+  `dgx_ui_paint_free(&paint)` gives it back. One of 4 bits takes none.
 - A picture of 1 bit is drawn by this look as well, so an icon whose pictures are of different depths names it. A
   program that has pictures of 1 bit only names `dgx_ui_look_picture` and carries none of this.
 
@@ -1002,7 +996,7 @@ static int weather_show(dgx_ui_t *ui, int parent)
   to 15 colours and a transparent background, or 16 colours with none; 8 for 255 and 256; 16 for a photograph, by the
   look `rgb565`. A picture whose edges are soft, partly transparent, is a mask or a picture of 16 bits with its
   opacity, [An icon with soft edges](#an-icon-with-soft-edges).
-- **The look of 4 and 8 bits** draws through the paint's buffer and needs `CONFIG_DGX_ENABLE_VSCREEN=y`, as in
+- **The look of 4 and 8 bits** needs no buffer and no virtual screen, as in
   [A picture from flash](#a-picture-from-flash).
 - **Several PNG files in one need**, `arrows PNG art/up.png art/down.png BITS 1`, are as many pictures, the range of an
   icon: `picture arrows @arrows 2`.
@@ -1012,10 +1006,10 @@ static int weather_show(dgx_ui_t *ui, int parent)
   draws them as fast. A program that names no picture of a file carries none of it.
 - **Refused when the program is built**, in words with the line of the names file: an asset DGX made not, a palette
   that keeps the opacity of its PNG, a picture that the widget's look does not draw. The list is on the tool's page,
-  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/tools/README.md#a-picture-of-a-file).
+  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/tools/README.md#a-picture-of-a-file).
 - **The builder of pages** imports a PNG by itself: it counts its colours, offers the depth, and writes the PNG beside
   `images.txt`, the need and the line of the names file
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/editor/README.md#a-picture-from-a-png-file)).
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/editor/README.md#a-picture-from-a-png-file)).
 
 ## An icon with soft edges
 
@@ -1085,7 +1079,7 @@ static void icons_show(dgx_ui_t *ui, int parent)
   9.4 ms as a mask and 9.1 ms as a picture of 16 bits; on the 10" P4 2.1 and 1.8 ms.
 - **The builder of pages** sees soft edges in a PNG and offers a mask of 4 bits for one colour, a picture of 16 bits
   for several, and sets the look of the widgets that show it
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/editor/README.md#a-picture-from-a-png-file)).
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/editor/README.md#a-picture-from-a-png-file)).
 
 ## A frame of nine pictures
 
@@ -1138,9 +1132,10 @@ static const dgx_ui_widget_t    card_w      = {.kind = DGX_UI_FRAME, .flags = DG
   on a screen of a larger unit; each piece has its own.
 - **The fill** is under all of it, where a piece has a 0: `fill` of the parameters, never `DGX_UI_PAPER`, and the
   same index in the look's `fill`, so that the children's paper is the frame's.
-- **The buffer**, the screen and `CONFIG_DGX_ENABLE_VSCREEN=y` are those of
-  [a picture of several colours](#a-picture-from-flash): the frame is drawn in strips of the paint's buffer, every
-  pixel once. Without them it is the fill alone, and the log says so once.
+- **The buffer.** The frame is drawn in strips of an 8-bit virtual screen over the paint's buffer, `buffer` and
+  `buffer_size` of the paint, a row of the box at least, a byte a pixel; every pixel once. It needs
+  `CONFIG_DGX_ENABLE_VSCREEN=y` and a 16-bit screen, or on 18 or 24 bits `dgx_ui_strips_pictures`. Without them it
+  is the fill alone, and the log says so once.
 - `dgx_ui_look_nine`, the library's look, has no pieces of its own: a program that wants a frame of pictures gives
   them, as here. One that names neither carries nothing of it.
 - **In an appearance** the same frame is a look of `"nine"` whose pieces are a name of the program's pictures: the
@@ -2833,7 +2828,7 @@ What to know of it:
   `back` and `page` go in the file with no expression. An expression is C written with no spaces.
 - **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
   compiler finds what the program has not. The rule and the tool's own page:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,
@@ -3442,9 +3437,9 @@ static void deep_paint_init(dgx_ui_paint_t *paint)
   strips. A program that does not name them carries none of it, which is why they are named and not found out.
 - **A 16-bit display** draws straight whatever is named: its text is not filled first.
 - It needs `CONFIG_DGX_ENABLE_VSCREEN=y`; named without it the program does not link.
-- **Pictures of colours**, of RGB565 or of 4 or 8 bits, and the frame of nine pictures, need
-  `.strips = &dgx_ui_strips_pictures` in place of `&dgx_ui_strips`: their pixels go through a strip of the display's
-  depth, and the buffer holds a row of the picture and a row of the display at the picture's scale. With
+- **Pictures of RGB565** and the frame of nine pictures need `.strips = &dgx_ui_strips_pictures` in place of
+  `&dgx_ui_strips`: their pixels go through a strip of the display's depth, and the buffer holds a row of the picture
+  and a row of the display at the picture's scale. A picture of 4 or 8 bits needs neither: it is drawn on any depth. With
   `dgx_ui_strips` they are paper, and the log says what to name. A display of 24 bits not behind a bus, a DSI one,
   names it too for its pictures; it costs about 1.4 KB, which a program of text alone does not carry.
 

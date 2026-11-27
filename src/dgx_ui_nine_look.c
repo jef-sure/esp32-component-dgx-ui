@@ -7,9 +7,10 @@
  *  the bottom of the bottom-left's, each piece at its own scale. A box smaller than its corners cuts them, the far ones
  *  kept at the box's far edges, none over another. Drawn in strips of an 8-bit virtual screen over the paint's buffer,
  *  each piece through its map, a picture of 1 bit in ink, and sent through the table of the painter's colours around the
- *  children: every pixel of the box once. As the look of indexed pictures, it needs the virtual screens of DGX
- *  (CONFIG_DGX_ENABLE_VSCREEN), a buffer of a row of the box and a 16-bit screen, or on 18 or 24 bits the strips of
- *  pictures (dgx_ui_strips_pictures); without them, or with no pieces, it is the fill alone, told once in the log. A program that names it not carries none of it.
+ *  children: every pixel of the box once. It needs the virtual screens of DGX (CONFIG_DGX_ENABLE_VSCREEN), a buffer
+ *  of a row of the box and a 16-bit screen, or on 18 or 24 bits the strips of pictures (dgx_ui_strips_pictures);
+ *  without them, or with no pieces, it is the fill alone, told once in the log. A program that names it not carries
+ *  none of it.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich

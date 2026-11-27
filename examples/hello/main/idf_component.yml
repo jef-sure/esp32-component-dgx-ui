@@ -1,4 +1,4 @@
 dependencies:
   # from the ESP Component Registry; inside the repository the checkout takes its place (CMakeLists.txt of the
   # project). DGX, the display library, comes with it
-  jef-sure/dgx-ui: "^0.1.5"
+  jef-sure/dgx-ui: "^0.1.6"
