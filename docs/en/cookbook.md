@@ -957,8 +957,7 @@ static const dgx_ui_widget_t  battery_w = {
   states.
 - **Drawn by DGX** in the colours of the table, on a screen of any depth, 18 and 24 bits too: every pixel of the
   widget is written once, and nothing blinks. It needs no buffer and no virtual screen. Over the program's picture
-  under the widgets a pixel 0 shows the picture; on a display of 18 bits behind a bus that wants the strips,
-  `dgx_ui_strips`, or the widget is paper and the log says so once.
+  under the widgets a pixel 0 shows the picture.
 - For a picture of 8 bits the painter keeps a table of the 256 colours, 1280 bytes, from the first one on;
   `dgx_ui_paint_free(&paint)` gives it back. One of 4 bits takes none.
 - A picture of 1 bit is drawn by this look as well, so an icon whose pictures are of different depths names it. A
@@ -1028,10 +1027,10 @@ static int weather_show(dgx_ui_t *ui, int parent)
   draws them as fast. A program that names no picture of a file carries none of it.
 - **Refused when the program is built**, in words with the line of the names file: an asset DGX made not, a palette
   that keeps the opacity of its PNG, a picture that the widget's look does not draw. The list is on the tool's page,
-  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/tools/README.md#a-picture-of-a-file).
+  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/tools/README.md#a-picture-of-a-file).
 - **The builder of pages** imports a PNG by itself: it counts its colours, offers the depth, and writes the PNG beside
   `images.txt`, the need and the line of the names file
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/editor/README.md#a-picture-from-a-png-file)).
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/editor/README.md#a-picture-from-a-png-file)).
 
 ## An icon with soft edges
 
@@ -1101,7 +1100,7 @@ static void icons_show(dgx_ui_t *ui, int parent)
   9.4 ms as a mask and 9.1 ms as a picture of 16 bits; on the 10" P4 2.1 and 1.8 ms.
 - **The builder of pages** sees soft edges in a PNG and offers a mask of 4 bits for one colour, a picture of 16 bits
   for several, and sets the look of the widgets that show it
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/editor/README.md#a-picture-from-a-png-file)).
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/editor/README.md#a-picture-from-a-png-file)).
 
 ## A frame of nine pictures
 
@@ -2842,7 +2841,7 @@ What to know of it:
   `back` and `page` go in the file with no expression. An expression is C written with no spaces.
 - **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
   compiler finds what the program has not. The rule and the tool's own page:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,
@@ -3885,7 +3884,7 @@ static void mirror(dgx_ui_t *ui, dgx_ui_paint_t *paint, const dgx_di_keyboard_t 
   its own table in place of `NULL`.
 - **What moves** is shown as the last pass drew it: the looks are given the time of the last `dgx_ui_paint()`.
 - **The keyboard and the pad of DGX-DI** draw themselves past the tree, so the painter does not put them in the
-  picture. DGX-DI from 0.1.7 on draws them onto the same strip, after the tree: the keyboard as above, with the
+  picture. DGX-DI from 0.1.8 on draws them onto the same strip, after the tree: the keyboard as above, with the
   display's pixel at the strip's corner given, and the pad before it by `dgx_di_pad_draw_to(pad, band, 0, y)`. The
   program's `main/idf_component.yml` then asks for `jef-sure/dgx-di` 0.2.0 or later, the first on DGX 0.12.
 

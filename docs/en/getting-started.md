@@ -25,7 +25,7 @@ assumed: every part of the program is explained where it appears.
   240 on SPI.
 - A Sensirion SCD41 CO2 sensor on I2C. An SCD40 or an SCD43 does too: the commands are the same, they differ in
   accuracy and modes.
-- DGX 0.12.12 or a later 0.12. It comes by itself with dgx-ui.
+- DGX 0.12.13 or a later 0.12. It comes by itself with dgx-ui.
 - On the build machine, beside ESP-IDF: a C compiler of its own, the development files of FreeType, `pkg-config`,
   fontconfig and one of the faces DejaVu Sans, Liberation Sans, Noto Sans, FreeSans and Arial, of which DGX makes the
   program's fonts as it builds it. On Debian and Ubuntu:
@@ -57,12 +57,12 @@ there the program makes the measurements up itself, one a second: all of the sca
 
 ## 1. Add the components
 
-Version 0.1.7 of dgx-ui and the driver of the sensor are both in the ESP Component Registry. In
+Version 0.1.8 of dgx-ui and the driver of the sensor are both in the ESP Component Registry. In
 `main/idf_component.yml` of the project:
 
 ```yaml
 dependencies:
-  jef-sure/dgx-ui: "^0.1.7"
+  jef-sure/dgx-ui: "^0.1.8"
   jef-sure/scd4x: "^0.3.0"
 ```
 

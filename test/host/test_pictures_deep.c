@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "check.h"
 #include "dgx_draw.h"
@@ -73,7 +72,6 @@ static uint32_t pixel(dgx_screen_t *scr, panel_t *panel, int x, int y)
 /* ---- an indexed picture and an RGB565 one, each in a box larger than it ---- */
 
 static dgx_ui_picture_t pic8, pic4, pic565;
-static bool             indexed_paper; /* the model of the indexed pictures: their boxes all paper */
 
 /* the pixels of a box that differ from the model: the picture in the middle at scale k, its zeros paper or the
    background, the rest paper */
@@ -84,7 +82,7 @@ static int off_model(dgx_screen_t *scr, panel_t *panel, const dgx_ui_node_t *n, 
     for (int y = n->y; y < n->y + n->h; ++y)
         for (int x = n->x; x < n->x + n->w; ++x) {
             uint32_t want = colors[0];
-            if (x >= hx && x < hx + w * k && y >= hy && y < hy + h * k && !(indexed_paper && which != 565)) {
+            if (x >= hx && x < hx + w * k && y >= hy && y < hy + h * k) {
                 const int px = (x - hx) / k, py = (y - hy) / k;
                 if (which == 565) want = spread(rgb565_values[py * w + px]);
                 else {
@@ -234,31 +232,10 @@ int main(void)
         int off565_strips = 0, off565_none = 0;
         CHECK(pictures(scr, panel, 4096, 1, false, &dgx_ui_strips, NULL, &off565_strips) == 0 && pictures(scr, panel, 4096, 2, false, NULL, NULL, &off565_none) == 0);
         CHECK(off565_strips > W565 * H565 / 2 && off565_none > W565 * H565 * 2); /* most of its pixels, at scales 1 and 2 */
-        /* on the drawn background without strips: the box laid, the picture put over it. Not on a display of 18 bits:
-           DGX 0.12.12 sends a run of a row there by 18 bits a pixel, where a pixel takes 3 bytes in the run, and the
-           last quarter of every run is lost; there the look keeps the box paper, told once in the log, and through
-           dgx_ui_strips the picture goes into a virtual screen, whole */
-#if PANEL_BITS == 24
-        CHECK(pictures(scr, panel, 0, 2, true, NULL, NULL, &off565_none) == 0);
-#else
-        fflush(stderr);
-        FILE     *log   = tmpfile();
-        const int saved = dup(2);
-        dup2(fileno(log), 2);
-        indexed_paper   = true;
-        const int paper = pictures(scr, panel, 0, 2, true, NULL, NULL, &off565_none);
-        indexed_paper   = false;
-        fflush(stderr);
-        dup2(saved, 2), close(saved);
-        static char text[4096];
-        rewind(log);
-        text[fread(text, 1, sizeof text - 1, log)] = 0;
-        fclose(log);
-        int lines = 0;
-        for (const char *at = text; (at = strstr(at, "over the drawn background on 18 bits: name dgx_ui_strips")); ++at) ++lines;
-        CHECK(paper == 0 && lines == 1);
+        /* on the drawn background without strips: the box laid, the picture put over it, by runs on the display, each
+           run of its pixels whole on 18 bits as on 24 (DGX 0.12.13); the same through dgx_ui_strips */
+        CHECK(pictures(scr, panel, 0, 2, true, NULL, NULL, &off565_none) == 0 && pictures(scr, panel, 0, 1, true, NULL, NULL, &off565_none) == 0);
         CHECK(pictures(scr, panel, 4096, 2, true, &dgx_ui_strips, NULL, &off565_none) == 0);
-#endif
     }
     /* the frame of nine pictures with a child, buffers of a row of it and more */
     int nine_off = 0;

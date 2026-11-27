@@ -559,10 +559,8 @@ extern const dgx_ui_behavior_t dgx_ui_scroll_behavior;
  *   colours on a screen of any depth. Over a paper of a colour every pixel of the box once. Over the program's drawn
  *   background the box laid and the picture put over it, a pixel of the index 0 leaving the background; over a
  *   hatched paper on a screen of 1 bit the same, its value 0 leaving the hatch. A value whose colour is DGX_UI_HATCH
- *   is lit, as letters are. It needs neither CONFIG_DGX_ENABLE_VSCREEN nor a buffer, but on a display of 18 bits
- *   over the drawn background, where DGX 0.12.12 loses the ends of the runs of a row: there it needs dgx_ui_strips,
- *   and without them the box is paper, told once in the log. For a picture of 8 bits the paint keeps a table of 1280
- *   bytes (dgx_ui_paint_free() gives it back).
+ *   is lit, as letters are. It needs neither CONFIG_DGX_ENABLE_VSCREEN nor a buffer. For a picture of 8 bits the paint
+ *   keeps a table of 1280 bytes (dgx_ui_paint_free() gives it back).
  *
  * The focus of a button, a dropdown, a radio and a checkbox a frame of a point in colour 1 round its box (a button's
  * round its face), with a point of paper or face between it and what it frames; a switch's and a slider's its knob

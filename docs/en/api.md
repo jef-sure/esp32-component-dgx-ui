@@ -22,7 +22,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | pictures of a file of DGX, made of PNG files when the program is built, read where they lie into a table of the widgets' pictures |
 | [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.7: the names and
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.8: the names and
 the signatures are fixed since 0.1.0; one that would break a program comes only with 0.2.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -1091,7 +1091,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_rgb565` | a picture or an icon of RGB565. It needs `CONFIG_DGX_ENABLE_VSCREEN` and a 16-bit screen, or on 18 or 24 bits `dgx_ui_strips_pictures`. `dgx_ui_look_soft_picture` draws such a picture too, by DGX's drawing of pictures, on any screen and with no virtual screen | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_nine` | a box or a frame drawn as a frame of nine pictures, its pieces given by a look of the program's; colour 2 alone without them | `dgx_ui_nine_look_t` |
 | `dgx_ui_look_scroll` | a box of `DGX_UI_COLUMN \| DGX_UI_SCROLL`: a window over its children, its bar at the right while they are taller than it; [A scrolling box](#a-scrolling-box) | `dgx_ui_scroll_look_t` |
-| `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table, drawn by DGX in those colours on a screen of any depth; one of 1 bit too. Over a paper of a colour every pixel of the box once; over the drawn background a pixel of the index 0 leaves the background. A value whose colour is `DGX_UI_HATCH` is lit. No virtual screen and no buffer; for a picture of 8 bits the paint keeps a table of 1280 bytes. On a display of 18 bits behind a bus, over the drawn background, it needs `dgx_ui_strips`, else the box is paper (DGX 0.12.12 loses the ends of the runs of a row there) | `dgx_ui_picture_look_t` |
+| `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table, drawn by DGX in those colours on a screen of any depth; one of 1 bit too. Over a paper of a colour every pixel of the box once; over the drawn background a pixel of the index 0 leaves the background. A value whose colour is `DGX_UI_HATCH` is lit. No virtual screen and no buffer; for a picture of 8 bits the paint keeps a table of 1280 bytes | `dgx_ui_picture_look_t` |
 | `dgx_ui_look_soft_picture` | a picture or an icon with soft edges: a mask of 4 or 8 bits in the ink, or a picture of 16 bits with its opacity. Over a paper of a colour its edges are mixed with it on any screen and every pixel of the box is written once; over a drawn background they are mixed with it where the screen can be read, and where it cannot a pixel half covered or more takes the picture whole. One of 1 bit as `dgx_ui_look_picture`. No virtual screen, no buffer | `dgx_ui_picture_look_t` |
 
 A look that no widget names is not linked into the program.
@@ -2042,7 +2042,7 @@ Three calls for the `CMakeLists.txt` of a component, the program's `main` among 
 written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
 C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
-the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/tools/README.md).
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])

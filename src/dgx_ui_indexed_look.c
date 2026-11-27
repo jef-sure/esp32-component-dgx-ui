@@ -7,9 +7,8 @@
  *  background the box is laid and the picture drawn over it, a pixel of the index 0 leaving the background; over a
  *  hatched paper on a screen of 1 bit the same, its value 0 leaving the hatch. A value whose colour is DGX_UI_HATCH is
  *  lit, as letters are. A picture of 1 bit goes to the look of a picture. It needs neither the virtual screens of DGX
- *  nor a buffer, but on a display of 18 bits over the drawn background, where DGX 0.12.12 loses the ends of the runs
- *  of a row: there the strips of dgx_ui_strips, else the box is paper, told once in the log. The colours of a picture
- *  of 4 bits lie on the stack, those of one of 8 bits in a table the paint keeps, made at its first need.
+ *  nor a buffer. The colours of a picture of 4 bits lie on the stack, those of one of 8 bits in a table the paint
+ *  keeps, made at its first need.
  *
  *  Copyright (c) 2026 Anton Petrusevich
  *      Author: Anton Petrusevich
@@ -60,17 +59,7 @@ bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
         paper_around(paint, n, &none, p->paper);
         return false;
     }
-    /* DGX 0.12.12 sends a run of a row to a display of 18 bits by 18 bits a pixel, where its pixels take 3 bytes, and
-       the last quarter of every run is lost: over the drawn background, which the picture is put over by runs, such a
-       display takes the box as paper until DGX's fix; through the strips it goes into a virtual screen, whole */
     const bool drawn = dgx_ui_paper_drawn(paint, p->paper);
-    if (drawn && paint->scr->color_bits == 18 && paint->scr->screen_subtype == DgxPhysicalScreenWithBus) {
-        static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
-        if (!told) ESP_LOGW(TAG, "widget %d: a picture of %d bits over the drawn background on 18 bits: name dgx_ui_strips for the paint's strips", i, im->format);
-        told = true;
-        paper_around(paint, n, &none, p->paper);
-        return false;
-    }
     /* the colours of the values: 16 on the stack, 256 in the paint's table, each followed by the opacities */
     const int values = im->format == DGX_IMAGE_4BPP ? 16 : 256;
     uint32_t  few[16 + 16 / 4];

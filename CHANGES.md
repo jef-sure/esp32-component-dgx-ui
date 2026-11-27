@@ -1,5 +1,10 @@
 # Changes
 
+## 0.1.8 - 2026-11-27
+
+- A picture of 4 or 8 bits over a drawn background on a display of 18 bits is drawn with no strips too.
+- DGX 0.12.13 or a later 0.12.
+
 ## 0.1.7 - 2026-11-27
 
 - A button in one line: DGX_UI_BUTTON(caption, style, command) and DGX_UI_LABEL(caption, style), C only. The button

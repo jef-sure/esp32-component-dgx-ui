@@ -37,7 +37,7 @@ It checks that:
   product, `1792 bytes<!-- sizeof dgx_ui_node_t * DGX_UI_BLOCK -->`. The mark is a comment, not seen on the page;
   the size is an `_Static_assert` of the header, which a chip's build holds to the struct. A size written with no
   mark is not checked;
-- a version a page names is the manifests': "Version 0.0.52" and `version: "0.0.52"` are dgx-ui's own, "DGX 0.12.12 or
+- a version a page names is the manifests': "Version 0.0.52" and `version: "0.0.52"` are dgx-ui's own, "DGX 0.12.13 or
   a later" the least DGX that `idf_component.yml` asks for, `` `jef-sure/dgx-di` 0.2.0 `` the least DGX-DI the
   examples ask for.
 
