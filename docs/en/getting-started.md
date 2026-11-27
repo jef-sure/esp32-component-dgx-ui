@@ -62,7 +62,7 @@ dgx-ui and the driver of the sensor are both in the ESP Component Registry. In
 
 ```yaml
 dependencies:
-  jef-sure/dgx-ui: "^0.1.9"
+  jef-sure/dgx-ui: "^0.1.12"
   jef-sure/scd4x: "^0.3.0"
 ```
 

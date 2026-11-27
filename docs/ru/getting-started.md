@@ -59,7 +59,7 @@ dgx-ui и драйвер датчика лежат в реестре компо�
 
 ```yaml
 dependencies:
-  jef-sure/dgx-ui: "^0.1.9"
+  jef-sure/dgx-ui: "^0.1.12"
   jef-sure/scd4x: "^0.3.0"
 ```
 

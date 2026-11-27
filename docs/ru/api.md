@@ -23,7 +23,7 @@
 | [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | картинки из файла DGX, который при сборке сделан из PNG, прочитанные на месте в таблицу картинок виджетов |
 | [`project_include.cmake`](#project_includecmake) | три вызова CMake: описания, файлы имён и внешний вид, переведённые на C при сборке программы |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.11:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.12:
 имена и сигнатуры зафиксированы с 0.1.0; то, что сломало бы программу, придёт только с 0.2.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -2066,7 +2066,7 @@ typedef struct dgx_ui_picture_file_t {
 на C при сборке программы — это делает `dgx_ui_c`, инструмент компонента, который работает на компьютере. Рецепт:
 [Описание, переведённое на C при сборке](cookbook.md#описание-переведённое-на-c-при-сборке);
 страница самого инструмента:
-[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.11/tools/README.md).
+[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.12/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])

@@ -1,5 +1,10 @@
 # Changes
 
+## 0.1.12 - 2026-11-27
+
+- The version of 0.1.10 and 0.1.11 in the ESP Component Registry: the builder mounted in boards' page, and one MCP
+  server for both. No change to the code.
+
 ## 0.1.11 - 2026-11-27
 
 - One MCP server for boards' page and the builder in it: mounted_agent() and skill_part() of tools/dgx_ui_mcp.py.
