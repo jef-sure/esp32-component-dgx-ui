@@ -8,8 +8,15 @@
 // (tools/dgx_ui_serve.py SERVER_API), as it reads it here
 const DGX_UI_SERVER_API = 1;
 
-async function dgxUiServerHost(token, base = '') {
-    const call = (path, init = {}) => fetch(base + path, { ...init, cache: 'no-store', headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+// prefix: the server's paths under it, a page that mounts the builder (tools/dgx_ui_serve.py mounted()); '' this server's
+async function dgxUiServerHost(token, prefix = '') {
+    // bytes as base64, a piece at a time so that no call takes more arguments than an engine allows
+    const base64Of = (bytes) => {
+        let text = '';
+        for (let at = 0; at < bytes.length; at += 0x8000) text += String.fromCharCode.apply(null, bytes.subarray(at, at + 0x8000));
+        return btoa(text);
+    };
+    const call = (path, init = {}) => fetch(prefix + path, { ...init, cache: 'no-store', headers: { ...init.headers, Authorization: `Bearer ${token}` } });
     const at = (kind, path) => `/project/${kind}?path=${encodeURIComponent(path.split('/').filter((part) => part !== '').join('/'))}`;
     const refused = async (response) => {
         const said = await response.json().catch(() => null);
@@ -53,13 +60,6 @@ async function dgxUiServerHost(token, base = '') {
             return Uint8Array.from(atob(said.dgxi), (c) => c.charCodeAt(0));
         },
     };
-}
-
-// bytes as base64, a piece at a time so that no call takes more arguments than an engine allows
-function base64Of(bytes) {
-    let text = '';
-    for (let at = 0; at < bytes.length; at += 0x8000) text += String.fromCharCode.apply(null, bytes.subarray(at, at + 0x8000));
-    return btoa(text);
 }
 
 // the token of the link the server printed: #project=<token>; null on a page opened otherwise

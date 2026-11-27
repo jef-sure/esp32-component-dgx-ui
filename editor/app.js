@@ -5,7 +5,7 @@
 
 const dgxUiBuilderMount = (() => {
     const { computed, ref, watch, nextTick, onMounted, onUnmounted } = Vue;
-    const { LOAD_CODES, SCREENS, ZOOMS, DEPTHS } = useDgxUiBuilder;
+    const { LOAD_CODES, SCREENS, ZOOMS, DEPTHS } = dgxUiBuilderStore;
     // what the loader's codes mean, as dgx_ui_load.h says
     const CODE_WORDS = {
         SYNTAX: 'not JSON, a string not well-formed UTF-8, or a value of the wrong type for its key',
@@ -38,10 +38,14 @@ const dgxUiBuilderMount = (() => {
         opened: 'On the screen: the page "{0}", opened by an action; clicks select nothing in it.',
         unread: 'The text does not read: {0}, at byte {1}.',
         broken: 'As it is now, the appearance is refused, or the pages drawn on it are: these. Save anyway, or cancel and mend it.',
+        boardsCopy: 'The page of jef-sure/boards is this project\'s main one, and holds this builder: python3 {0}/tools/boards_mcp.py --serve, ' +
+                    'or the boards MCP server of your agent.',
+        boards: 'The page of jef-sure/boards is this project\'s main one, and holds this builder: the boards MCP server of your agent, or ' +
+                'tools/boards_mcp.py --serve of jef-sure/boards.',
     };
 
     function useWords() {
-        const store = useDgxUiBuilder();
+        const store = dgxUiBuilderStore();
         const t = (text, ...values) => dgxUiTranslate(store.language, text, ...values);
         // a verdict of the loader in words: null when taken
         const verdictText = (verdict) => {
@@ -96,6 +100,8 @@ const dgxUiBuilderMount = (() => {
                     <button @click="store.move(1)" :disabled="!store.selection.length" :title="t('Down')">↓</button>
                     <button @click="store.wrap()" :title="t('in a box of its own')">{{ t('Wrap') }}</button>
                 </div>
+                <p v-if="store.boardsLine && store.project?.boards" class="note boards">{{ store.project.boards.copy
+                    ? t(LONG_TEXTS.boardsCopy, store.project.boards.copy) : t(LONG_TEXTS.boards) }}</p>
                 <details class="project">
                     <summary>{{ t('The project') }}</summary>
                     <p v-if="store.project.board">{{ t('Board of the preset: {0}', store.project.board) }}<span v-if="store.project.boardScreen">,
@@ -1022,20 +1028,25 @@ const dgxUiBuilderMount = (() => {
         `,
     };
 
-    // the builder on an element of a page: options.host, the files' host, whose folder the person opens; options.open, a
-    // host of a project opened at once, the server's (host_server.js), with no folder to choose; options.start, what the
-    // store's start() takes
+    // the builder on an element of a page: options.host, the files' host whose folder the person opens
+    // (dgxUiBrowserHost), or a project's host opened already (the server's, dgxUiServerHost()), opened at once;
+    // options.open, a function that gives such a project's host; options.start, what the store's start() takes;
+    // options.agent false: no agent started, nothing polls /agent/*; options.boardsLine false: the line that points to
+    // boards' page not shown, for its own page that mounts the builder. Both are true by default
     return async function mount(element, options = {}) {
-        const app = Vue.createApp({ components: { DgxUiBuilder }, data: () => ({ host: options.host ?? null }),
+        const opened = options.host && typeof options.host.read === 'function' ? options.host : null; // a project's, not a picker's
+        const app = Vue.createApp({ components: { DgxUiBuilder }, data: () => ({ host: opened ? null : options.host ?? null }),
                                     template: '<dgx-ui-builder :host="host"></dgx-ui-builder>' });
         const pinia = Pinia.createPinia();
         app.use(pinia);
         app.mount(element);
-        const store = useDgxUiBuilder(pinia);
+        const store = dgxUiBuilderStore(pinia);
+        store.agentAllowed = options.agent !== false;
+        store.boardsLine = options.boardsLine !== false;
         await store.start(options.start ?? {});
-        if (options.open) {
+        if (opened || options.open) {
             try {
-                await store.open(await options.open());
+                await store.open(opened ?? (await options.open()));
             } catch (error) {
                 store.say('{0}', [String(error?.message ?? error)], true);
             }

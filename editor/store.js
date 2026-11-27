@@ -12,7 +12,7 @@
 // writes with dgx_fonts-files.txt, in build/dgx_fonts/ or build/<board>/dgx_fonts/.
 'use strict';
 
-const useDgxUiBuilder = (() => {
+const dgxUiBuilderStore = (() => {
     const description = window.DgxUiDescription;
     const { read, write, widgets, widgetAt, indexOf, pathOf, samePath, valueOf, shown, builderOf, unitOfByte, illFormedAt } = description;
     const { History } = window.DgxUiHistory;
@@ -228,15 +228,19 @@ const useDgxUiBuilder = (() => {
         }
     }
 
-    // the panel of the board a build is of: the computer's sdkconfig showing a board, or the board's entry of
-    // jef-sure/boards, local or of the catalog; null when neither says it
+    // the panel of the board a build is of: the configuration showing the display (the build's sdkconfig, else the
+    // project's sdkconfig.<BOARD> where a preset of boards keeps it), the display's names of boards first, then the
+    // computer's; else the board's entry of jef-sure/boards, local or of the catalog; null when none says it
     async function boardScreen(host, board, binaryDir) {
-        const config = binaryDir ? textOf(await host.read(`${binaryDir}/sdkconfig`)) : null;
-        if (config) {
-            const value = (name) => +(config.match(new RegExp(`^CONFIG_BOARD_HOST_${name}=([0-9]+)$`, 'm'))?.[1] ?? NaN);
-            const depth = DEPTHS.includes(value('COLOR_BITS')) ? value('COLOR_BITS') : 16;
-            if (value('WIDTH') > 0 && value('HEIGHT') > 0)
-                return { width: value('WIDTH'), height: value('HEIGHT'), depth, from: `${binaryDir}/sdkconfig` };
+        const configs = [binaryDir ? `${binaryDir}/sdkconfig` : null, board && /^[a-z0-9_]+$/.test(board) ? `sdkconfig.${board}` : null];
+        for (const file of configs.filter((one) => one)) {
+            const config = textOf(await host.read(file));
+            if (!config) continue;
+            for (const kind of ['DISPLAY', 'HOST']) {
+                const value = (name) => +(config.match(new RegExp(`^CONFIG_BOARD_${kind}_${name}=([0-9]+)$`, 'm'))?.[1] ?? NaN);
+                const depth = DEPTHS.includes(value('COLOR_BITS')) ? value('COLOR_BITS') : 16;
+                if (value('WIDTH') > 0 && value('HEIGHT') > 0) return { width: value('WIDTH'), height: value('HEIGHT'), depth, from: file };
+            }
         }
         if (!board || !/^[a-z0-9_]+$/.test(board)) return null;
         const entries = [`components/local-boards/boards/${board}/board.json`,
@@ -255,6 +259,16 @@ const useDgxUiBuilder = (() => {
                     return { width: panel.width, height: panel.height, depth, from: file };
             }
         }
+        return null;
+    }
+
+    // jef-sure/boards in the project, by what the host reads: its copy in managed_components/, a board of the project's
+    // own in components/local-boards, or a BOARD in the preset. The copy, when it has tools/boards_mcp.py; null none
+    async function boardsOf(host, board) {
+        const named = async (folder, name) => ((await host.list(folder)) ?? []).some((entry) => entry.name === name);
+        const copy = 'managed_components/jef-sure__boards';
+        if (await named('managed_components', 'jef-sure__boards')) return { copy: (await named(`${copy}/tools`, 'boards_mcp.py')) ? copy : null };
+        if (board || (await named('components', 'local-boards'))) return { copy: null };
         return null;
     }
 
@@ -326,6 +340,7 @@ const useDgxUiBuilder = (() => {
         if (project.fontDirs.length > 1 && !ofPreset)
             project.notes.push({ text: 'fonts of several builds: {0} taken, another may be chosen', values: [project.fontDir] });
         if (project.board) project.boardScreen = await boardScreen(host, project.board, binaryDir);
+        project.boards = await boardsOf(host, project.board);
         return project;
     }
 
@@ -350,6 +365,8 @@ const useDgxUiBuilder = (() => {
     const store = Pinia.defineStore('dgx-ui-builder', {
         state: () => ({
             ready: false,
+            agentAllowed: true, // false: a page that mounts the builder has its own agent, none is started here
+            boardsLine: true, // false: a page that mounts the builder is boards', the line that points to it not shown
             failed: null, // the module could not start: its words
             language: 'en',
             screens: SCREENS,
@@ -1700,6 +1717,7 @@ const useDgxUiBuilder = (() => {
             // ---- an agent beside the builder (tools/dgx_ui_mcp.py) ----
 
             startAgent(link) {
+                if (!this.agentAllowed) return link?.stop?.(); /* the page's own agent: nothing polls /agent/* */
                 this.raw.agentLink = Vue.markRaw(link);
                 this.agent = true;
             },

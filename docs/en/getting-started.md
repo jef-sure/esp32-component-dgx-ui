@@ -57,7 +57,7 @@ there the program makes the measurements up itself, one a second: all of the sca
 
 ## 1. Add the components
 
-Version 0.1.9 of dgx-ui and the driver of the sensor are both in the ESP Component Registry. In
+dgx-ui and the driver of the sensor are both in the ESP Component Registry. In
 `main/idf_component.yml` of the project:
 
 ```yaml

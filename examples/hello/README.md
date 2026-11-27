@@ -62,12 +62,12 @@ Nothing else in the program knows the size of the display: the tree lays itself 
 
 ## What next
 
-- [Letters with soft edges](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/docs/en/cookbook.md#letters-with-soft-edges):
+- [Letters with soft edges](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/docs/en/cookbook.md#letters-with-soft-edges):
   fonts DGX makes as it builds the program, of the letters the program writes.
-- [Getting started](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/docs/en/getting-started.md): a
+- [Getting started](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/docs/en/getting-started.md): a
   program explained piece by piece, a round CO2 scale fed by a sensor.
-- [How it works](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/docs/en/how-it-works.md): the tree,
+- [How it works](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/docs/en/how-it-works.md): the tree,
   the messages, the painter and the looks.
-- [Cookbook](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/docs/en/cookbook.md): buttons, sliders,
+- [Cookbook](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/docs/en/cookbook.md): buttons, sliders,
   lists, popups, keys and touch.
-- [API reference](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/docs/en/api.md).
+- [API reference](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/docs/en/api.md).

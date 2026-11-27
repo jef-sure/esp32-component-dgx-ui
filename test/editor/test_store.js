@@ -77,14 +77,14 @@ function filesOf(directory) {
 async function storeOf(files, name = 'project') {
     const { sandbox, run } = page();
     run('Pinia.setActivePinia(Pinia.createPinia())');
-    const store = run('useDgxUiBuilder()');
+    const store = run('dgxUiBuilderStore()');
     const preferences = new Map();
     await store.start({ preferences: { get: (key) => preferences.get(key) ?? null, set: (key, value) => preferences.set(key, value) } });
     check(store.ready && !store.failed, 'the module started: ' + store.failed);
     const written = {};
     sandbox.files = files;
     sandbox.save = (where, text) => ((written[where] = text), true);
-    const host = run(`memoryHost(${JSON.stringify(name)}, files, save)`);
+    const host = run(`dgxUiMemoryHost(${JSON.stringify(name)}, files, save)`);
     await store.open(host);
     return { store, written, preferences, run };
 }
@@ -105,7 +105,7 @@ const boxOf = (store, widgetPath) => {
             const { sandbox, run } = page();
             return { store: null, run, sandbox };
         })();
-        const calls = (file, text) => run(`useDgxUiBuilder.cmakeCalls(${JSON.stringify(file)}, ${JSON.stringify(text)})`);
+        const calls = (file, text) => run(`dgxUiBuilderStore.cmakeCalls(${JSON.stringify(file)}, ${JSON.stringify(text)})`);
         const one = calls('main/CMakeLists.txt', [
             'idf_component_register(SRCS "main.c" INCLUDE_DIRS ".")',
             'dgx_ui_tree(home.json NAMES names.txt APPEARANCE ../look/look.json HEADERS a.h b.h)   # a comment (dgx_ui_tree(no.json))',
@@ -790,6 +790,40 @@ const boxOf = (store, widgetPath) => {
               JSON.stringify([keys(), store.verdicts.page]));
         store.undo();
         check(!keys().includes('value') && store.files['main/s.json'].text === page, 'undone');
+    }
+
+    /* ---- the screen from the configuration: the display's names of boards first, the build's sdkconfig, else the
+       project's sdkconfig.<BOARD>, else the board's entry; boards found by three signs; no agent for a page's own ---- */
+    {
+        const base = { 'CMakeLists.txt': bytes('dgx_ui_tree(main/home.json)\n'), 'main/home.json': bytes('{"dgx-ui": 1, "tree": {"kind": "box"}}\n') };
+        const preset = (board) => bytes(JSON.stringify({ configurePresets: [{ name: 'default', binaryDir: '${sourceDir}/build/b', cacheVariables: { BOARD: board } }] }));
+        const six = 'CONFIG_BOARD_DISPLAY_WIDTH=480\nCONFIG_BOARD_DISPLAY_HEIGHT=272\nCONFIG_BOARD_DISPLAY_COLOR_BITS=16\n' +
+                    'CONFIG_BOARD_HOST_WIDTH=320\nCONFIG_BOARD_HOST_HEIGHT=240\nCONFIG_BOARD_HOST_COLOR_BITS=16\n';
+        const screenOf = (store) => JSON.stringify(store.project.boardScreen);
+        let { store } = await storeOf({ ...base, 'CMakePresets.json': preset('b'), 'sdkconfig.b': bytes(six) });
+        check(store.project.boardScreen?.width === 480 && store.project.boardScreen.height === 272 && store.project.boardScreen.from === 'sdkconfig.b',
+              'the display\'s names first, of the project\'s sdkconfig.<BOARD> when the build has none: ' + screenOf(store));
+        ({ store } = await storeOf({ ...base, 'CMakePresets.json': preset('b'), 'sdkconfig.b': bytes(six),
+                                     'build/b/sdkconfig': bytes('CONFIG_BOARD_HOST_WIDTH=800\nCONFIG_BOARD_HOST_HEIGHT=480\nCONFIG_BOARD_HOST_COLOR_BITS=16\n') }));
+        check(store.project.boardScreen?.width === 800 && store.project.boardScreen.from === 'build/b/sdkconfig',
+              'the build\'s sdkconfig first, the computer\'s names where the display\'s are not: ' + screenOf(store));
+        ({ store } = await storeOf({ ...base, 'CMakePresets.json': preset('b'),
+                                     'components/local-boards/boards/b/board.json': bytes('{"devices": {"lcd": {"config": {"panel": {"width": 240, "height": 135}}}}}\n') }));
+        check(store.project.boardScreen?.width === 240 && store.project.boardScreen.from.endsWith('board.json'), 'no configuration: the board\'s entry: ' + screenOf(store));
+        // boards found: its copy with its server's tool, its copy alone, a board of the project's own, a BOARD in the preset; none
+        const boardsOf = async (files) => (await storeOf({ ...base, ...files })).store.project.boards;
+        const tool = bytes('# boards\n');
+        check(JSON.stringify(await boardsOf({ 'managed_components/jef-sure__boards/tools/boards_mcp.py': tool })) === '{"copy":"managed_components/jef-sure__boards"}',
+              'boards\' copy with tools/boards_mcp.py: named');
+        check(JSON.stringify(await boardsOf({ 'managed_components/jef-sure__boards/idf_component.yml': tool })) === '{"copy":null}', 'boards\' copy with no server: found, none named');
+        check(JSON.stringify(await boardsOf({ 'components/local-boards/CMakeLists.txt': bytes('idf_component_register()\n') })) === '{"copy":null}', 'a board of the project\'s own');
+        check(JSON.stringify(await boardsOf({ 'CMakePresets.json': preset('b') })) === '{"copy":null}', 'a BOARD in the preset');
+        check((await boardsOf({})) === null, 'no boards: none');
+        // a page's own agent: none started here
+        store.agentAllowed = false;
+        let stopped = false;
+        store.startAgent({ stop: () => (stopped = true), say: () => {} });
+        check(!store.agent && stopped && !store.agentSay('hello'), 'agent false: no agent, the link given back stopped');
     }
 
     if (failures) {

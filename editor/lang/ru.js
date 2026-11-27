@@ -106,6 +106,10 @@ DGX_UI_LANGUAGES.ru = {
         '{0} not saved: {1}': '{0} не сохранён: {1}',
         'CMakePresets.json: not JSON, its board not read': 'CMakePresets.json: не JSON, плата из него не прочитана',
         'fonts of several builds: {0} taken, another may be chosen': 'шрифты есть у нескольких сборок: взяты из {0}, можно выбрать другие',
+        'The page of jef-sure/boards is this project\'s main one, and holds this builder: python3 {0}/tools/boards_mcp.py --serve, or the boards MCP server of your agent.':
+            'Главная страница этого проекта — страница jef-sure/boards, и построитель открывается в ней: python3 {0}/tools/boards_mcp.py --serve или MCP-сервер boards у вашего агента.',
+        'The page of jef-sure/boards is this project\'s main one, and holds this builder: the boards MCP server of your agent, or tools/boards_mcp.py --serve of jef-sure/boards.':
+            'Главная страница этого проекта — страница jef-sure/boards, и построитель открывается в ней: MCP-сервер boards у вашего агента или tools/boards_mcp.py --serve из jef-sure/boards.',
         '{0}: no such file': '{0}: такого файла нет',
         'not UTF-8': 'не UTF-8',
         'no such file': 'такого файла нет',

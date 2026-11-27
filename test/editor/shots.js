@@ -154,8 +154,8 @@ async function run(binary, sun) {
             }
             throw new Error(`${what}: not in ${ms} ms`);
         };
-        const store = 'useDgxUiBuilder()';
-        await until(`typeof useDgxUiBuilder === 'function' && ${store}.ready`, 'the module started in the page');
+        const store = 'dgxUiBuilderStore()';
+        await until(`typeof dgxUiBuilderStore === 'function' && ${store}.ready`, 'the module started in the page');
         /* no motion and no caret: the same pixels whenever the picture is taken */
         await evaluate(`(() => { const style = document.createElement('style');
             style.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; caret-color: transparent !important; }';
@@ -163,7 +163,7 @@ async function run(binary, sun) {
         await evaluate(`(async () => {
             const given = ${JSON.stringify(projectFiles(sun.logo))}, files = {};
             for (const [where, text] of Object.entries(given)) files[where] = Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
-            await ${store}.open(memoryHost('hook', files, () => true));
+            await ${store}.open(dgxUiMemoryHost('hook', files, () => true));
         })()`);
         await until(`${store}.page && ${store}.drawn > 0`, 'the project open, a page drawn');
         await evaluate('document.fonts.ready.then(() => true)');

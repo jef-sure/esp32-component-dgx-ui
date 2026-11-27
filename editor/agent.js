@@ -3,16 +3,17 @@
 // Opened by the link the server gives, #project=<token>&agent=1.
 'use strict';
 
-function dgxUiAgent(store, token, base = '') {
+// prefix: the server's paths under it, as dgxUiServerHost() takes it
+function dgxUiAgent(store, token, prefix = '') {
     const headers = { Authorization: `Bearer ${token}` };
     const pause = (ms) => new Promise((done) => setTimeout(done, ms));
-    const post = (path, body) => fetch(base + path, { method: 'POST', cache: 'no-store', body: JSON.stringify(body),
+    const post = (path, body) => fetch(prefix + path, { method: 'POST', cache: 'no-store', body: JSON.stringify(body),
                                                       headers: { ...headers, 'Content-Type': 'application/json' } });
     let messages = 0, requests = 0, stopped = false;
     (async () => {
         while (!stopped) {
             try {
-                const response = await fetch(`${base}/agent/updates?messages=${messages}&requests=${requests}`, { cache: 'no-store', headers });
+                const response = await fetch(`${prefix}/agent/updates?messages=${messages}&requests=${requests}`, { cache: 'no-store', headers });
                 if (!response.ok) {
                     await pause(2000);
                     continue;

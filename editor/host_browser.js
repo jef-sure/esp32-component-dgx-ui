@@ -1,8 +1,8 @@
 // The files of the builder in a browser. A host gives the store a project's files by paths relative to its directory:
 // list(directory) the entries of a directory, [{name, directory}], or null when there is none; read(path) the bytes of a
 // file, or null; write(path, text) true when written in place, false when given otherwise, as a download.
-//  - folderHost(): a directory opened by the File System Access API, read and written in place;
-//  - memoryHost(): files held in memory, the files a directory input chose where the browser has no such API, a save
+//  - dgxUiFolderHost(): a directory opened by the File System Access API, read and written in place;
+//  - dgxUiMemoryHost(): files held in memory, the files a directory input chose where the browser has no such API, a save
 //    being a download; and the host the tests give the store.
 'use strict';
 
@@ -27,7 +27,7 @@ async function dgxUiFolderAt(root, parts, create = false) {
 
 const dgxUiParts = (path) => path.split('/').filter((part) => part !== '');
 
-function folderHost(folder) {
+function dgxUiFolderHost(folder) {
     return {
         name: folder.name,
         inPlace: true,
@@ -57,7 +57,7 @@ function folderHost(folder) {
 
 // files: {path: Uint8Array, or a Blob read when asked, as a File of an input}; save(path, text): what a write does beside
 // keeping the text, false when it is not written in place
-function memoryHost(name, files, save = () => false) {
+function dgxUiMemoryHost(name, files, save = () => false) {
     const encoder = new TextEncoder();
     return {
         name,
@@ -102,7 +102,7 @@ const dgxUiBrowserHost = {
     },
 
     async openFolder() {
-        return folderHost(await window.showDirectoryPicker({ mode: 'readwrite' }));
+        return dgxUiFolderHost(await window.showDirectoryPicker({ mode: 'readwrite' }));
     },
 
     // what an <input webkitdirectory> gives: the paths start at the directory picked
@@ -112,8 +112,8 @@ const dgxUiBrowserHost = {
         const name = picked[0].webkitRelativePath.split('/')[0];
         const files = {};
         for (const file of picked) files[file.webkitRelativePath.slice(name.length + 1)] = file;
-        return memoryHost(name, files, dgxUiDownload);
+        return dgxUiMemoryHost(name, files, dgxUiDownload);
     },
 };
 
-if (typeof module !== 'undefined') module.exports = { folderHost, memoryHost };
+if (typeof module !== 'undefined') module.exports = { dgxUiFolderHost, dgxUiMemoryHost };

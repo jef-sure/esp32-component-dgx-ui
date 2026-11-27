@@ -11,13 +11,14 @@ It prints the link of the builder, which opens the project at once. The project 
 project with its own copy of dgx-ui, managed_components/jef-sure__dgx-ui/ of the registry or managed_components/dgx-ui/
 of git, is served the builder's page of that copy, so the builder is of the version the project builds with; nothing
 of the copy is run here (page_copy()). Standard library only, so the Python of ESP-IDF runs it. tools/dgx_ui_mcp.py
---serve is the same server; without --serve, it puts an agent beside the page.
+--serve is the same server; without --serve, it puts an agent beside the page. Another server of this computer mounts
+the builder under a prefix of its own paths by mounted().
 
 Only this computer reaches it: bound to 127.0.0.1, every request of this Host, every page and file under a
 Content-Security-Policy that lets a page call nothing but this server. The project's calls carry a token the link gives,
 a write comes from the builder's own page, and the paths lie in the project. What is read: the project's CMakeLists and
 CMakePresets.json, the files its calls name, the pages and appearances there, the fonts DGX writes, the board's entry,
-and of a build's sdkconfig the lines of the panel alone. What is written: the files the project's dgx_ui_tree(),
+and of a build's sdkconfig, or of the project's sdkconfig.<BOARD> of its preset, the lines of the panel alone. What is written: the files the project's dgx_ui_tree(),
 dgx_ui_appearance() and dgx_ui_names() calls name, read at each write, and pages and appearances already there, of
 .json or .txt; never a file or folder of a dot, nor one the build reads by its name.
 """
@@ -85,7 +86,7 @@ MOST_PIXELS = 4 * 1024 * 1024
 DGX_COPY = "managed_components/jef-sure__dgx"
 BOARD_FILES = (re.compile(r"components/local-boards/boards/[a-z0-9_]+/board\.json"),
                re.compile(r"managed_components/jef-sure__boards/catalog/boards/[a-z0-9_]+/board\.json"))
-SDKCONFIG_SHOWN = re.compile(rb"^CONFIG_BOARD_HOST_(?:WIDTH|HEIGHT|COLOR_BITS)=[0-9]+[ \t\r]*$", re.M)
+SDKCONFIG_SHOWN = re.compile(rb"^CONFIG_BOARD_(?:DISPLAY|HOST)_(?:WIDTH|HEIGHT|COLOR_BITS)=[0-9]+[ \t\r]*$", re.M)
 
 
 def inside(root, path):
@@ -404,17 +405,36 @@ def make_picture(root, asked):
             return data.read(), None
 
 
+def preset_board(root):
+    """The BOARD of the project's "default" configure preset (CMakePresets.json), a word of [a-z0-9_]; None when
+    there is none, read now as the person may have changed the board."""
+    try:
+        with open(os.path.join(root, "CMakePresets.json"), encoding="utf-8") as presets:
+            found = json.load(presets).get("configurePresets", [])
+    except (OSError, ValueError, AttributeError):
+        return None
+    for preset in found if isinstance(found, list) else []:
+        if isinstance(preset, dict) and preset.get("name") == "default":
+            board = (preset.get("cacheVariables") or {}).get("BOARD") if isinstance(preset.get("cacheVariables"), dict) else None
+            return board if isinstance(board, str) and re.fullmatch(r"[a-z0-9_]+", board) else None
+    return None
+
+
 def reading(root, rel, real):
     """What is wrong with a read of a file, or None, and whether only its lines of the panel are given: the builder reads
     the project's CMakeLists and CMakePresets.json, the files its calls name, the pages and appearances there, the fonts
     DGX writes and the board's entry; never a file or folder of a dot, nor dependencies.lock, and of an sdkconfig only
-    that of a build, and of it only the panel's lines."""
+    that of a build or the project's own of its preset's board (sdkconfig.<BOARD>, where a preset of boards keeps it),
+    and of it only the panel's lines."""
     written = os.path.relpath(real, root).replace(os.sep, "/")
     for path in (rel, written):
         if any(part.startswith(".") for part in path.split("/")):
             return "nothing of a dot is read: a folder or file of a tool's", False
     name = written.split("/")[-1].casefold()
     if name == "sdkconfig" and in_build(root, real):
+        return None, True
+    board = preset_board(root) if written.startswith("sdkconfig.") else None
+    if board and written == f"sdkconfig.{board}":
         return None, True
     if name.startswith(NEVER_WRITTEN_PREFIXES):
         return f"{written.split('/')[-1]} is not read by the builder", False
@@ -503,154 +523,236 @@ def write_file(root, rel, data):
         raise
 
 
+# the types of what editor/ holds, a fixed table: a guess of the system's (mimetypes reads the registry of Windows and
+# /etc/mime.types) that took .js for text/plain would keep the page's scripts from running
+TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+         ".json": "application/json", ".md": "text/plain; charset=utf-8", ".txt": "text/plain; charset=utf-8"}
+
+
+class Calls:
+    """The builder's files and the project's calls, for a handler of http.server of any server: this one's
+    (handler_of()), or another's that mounts the builder under a prefix of its paths (mounted()). handle() answers what
+    it owns, prefix + "/editor/..." and prefix + "/project...", whole, and returns True; any other path it leaves,
+    False. The page is served from the editor/ of page, a copy of dgx-ui that page_copy() took, else this one's."""
+
+    def __init__(self, project, token, port, page=None, prefix=""):
+        self.root, self.served = os.path.realpath(project), os.path.realpath(os.path.join(page or ROOT, "editor"))
+        self.token, self.port, self.prefix = token, port, prefix
+        self.own_origin = f"http://{ADDRESS}:{port}"
+
+    def answer(self, request, code, value=None, body=None, kind="application/json"):
+        body = body if body is not None else json.dumps({} if value is None else value).encode()
+        request.send_response(code)
+        if code != 204:
+            request.send_header("Content-Type", kind)
+            request.send_header("Content-Length", str(len(body)))
+        request.send_header("Cache-Control", "no-store")
+        request.send_header("Content-Security-Policy", CSP)
+        request.end_headers()
+        request.wfile.write(body)
+
+    def allowed(self, request):
+        """Only this address: another site in the browser can reach 127.0.0.1, by a name of its own that leads here,
+        but not with this Host."""
+        return request.headers.get("Host") == f"{ADDRESS}:{self.port}"
+
+    def by_token(self, request):
+        return secrets.compare_digest(request.headers.get("Authorization", ""), f"Bearer {self.token}")
+
+    def from_own_page(self, request):
+        """A page of another site can send to 127.0.0.1 without reading the answer: a write comes from this one. In the
+        frame of VS Code's browser the page keeps this origin."""
+        return request.headers.get("Origin") == self.own_origin
+
+    def path_asked(self, address, **rule):
+        rel = urllib.parse.parse_qs(address.query).get("path", [""])[0]
+        return rel, problem_of(self.root, rel, **rule)
+
+    def handle(self, request):
+        """The request answered when its path is the builder's, True; else False, nothing sent. The prefix is matched
+        at a boundary of the path's parts: "/xy" is not of "/x"."""
+        address = urllib.parse.urlsplit(request.path)
+        path = address.path
+        if self.prefix:
+            if not (path == self.prefix or path.startswith(self.prefix + "/")):
+                return False
+            path = path[len(self.prefix):]
+        if not (path in ("/editor", "/project") or path.startswith(("/editor/", "/project/"))):
+            return False
+        if request.command == "GET":
+            self.get(request, address, path)
+        elif request.command == "POST":
+            self.post(request, address, path)
+        else:
+            self.answer(request, 405)
+        return True
+
+    def get(self, request, address, path):
+        if not self.allowed(request):
+            return self.answer(request, 403, {"error": "another Host"})
+        if path == "/project" or path.startswith("/project/"):
+            return self.project(request, address, path)
+        if path == "/editor":
+            # the folder asked without its slash: to the folder, as a browser's relative paths of its page need
+            request.send_response(301)
+            request.send_header("Location", f"{self.prefix}/editor/")
+            request.send_header("Content-Length", "0")
+            request.end_headers()
+            return None
+        return self.file(request, urllib.parse.unquote(path[len("/editor/"):]))
+
+    def file(self, request, rel):
+        """A file of the builder's folder, the path unquoted once, its links followed and still inside it; the folder
+        itself its index.html, any other folder none. No listing; the query is not read."""
+        if "\0" in rel or rel.endswith("/"):
+            return self.answer(request, 404)
+        real = os.path.realpath(os.path.join(self.served, rel or "index.html"))
+        if not inside(self.served, real) or not os.path.isfile(real):
+            return self.answer(request, 404)
+        with open(real, "rb") as data:
+            body = data.read()
+        request.send_response(200)
+        request.send_header("Content-Type", TYPES.get(os.path.splitext(real)[1].lower(), "application/octet-stream"))
+        request.send_header("Content-Length", str(len(body)))
+        # every file asked again: a page cached from another copy or version would run one script of each. No
+        # X-Frame-Options and no frame-ancestors: the browser of VS Code shows the page in a frame of its own
+        request.send_header("Cache-Control", "no-cache")
+        request.send_header("Content-Security-Policy", CSP)
+        request.send_header("X-Content-Type-Options", "nosniff")
+        request.end_headers()
+        request.wfile.write(body)
+        return None
+
+    def project(self, request, address, path):
+        if not self.by_token(request):
+            return self.answer(request, 401, {"error": "the token of the link"})
+        root = self.root
+        if path == "/project":
+            return self.answer(request, 200, {"name": os.path.basename(root)})
+        if path == "/project/list":
+            rel, problem = self.path_asked(address, listing=True)
+            if problem:
+                return self.answer(request, 400, {"error": problem})
+            folder = os.path.join(root, rel)
+            if not os.path.isdir(folder):
+                return self.answer(request, 204, body=b"")  # none: not an error, which a browser would show in red
+            entries = []
+            with os.scandir(folder) as found:
+                for entry in found:
+                    if entry.is_symlink() and not inside(root, os.path.realpath(entry.path)):
+                        continue  # a link out of the project is not shown
+                    if entry.name.startswith("."):
+                        continue  # nor a file or folder of a dot, a tool's, which the builder never reads
+                    entries.append({"name": entry.name, "directory": entry.is_dir()})
+            return self.answer(request, 200, sorted(entries, key=lambda entry: entry["name"]))
+        if path == "/project/file":
+            rel, problem = self.path_asked(address)
+            if problem:
+                return self.answer(request, 400, {"error": problem})
+            full = os.path.join(root, rel)
+            if not os.path.isfile(full):
+                return self.answer(request, 204, body=b"")
+            with open(full, "rb") as data:
+                body = data.read()
+            if reading(root, rel, os.path.realpath(full))[1]:
+                body = b"".join(line.group(0).rstrip() + b"\n" for line in SDKCONFIG_SHOWN.finditer(body))
+            return self.answer(request, 200, body=body, kind="application/octet-stream")
+        return self.answer(request, 404)
+
+    def post(self, request, address, path):
+        root = self.root
+        if not self.allowed(request):
+            return self.answer(request, 403, {"error": "another Host"})
+        if not self.by_token(request):
+            return self.answer(request, 401, {"error": "the token of the link"})
+        if not self.from_own_page(request):
+            return self.answer(request, 403, {"error": "a write from another page"})
+        if path not in ("/project/file", "/project/binary", "/project/image"):
+            return self.answer(request, 404)
+        length = request.headers.get("Content-Length", "")
+        if not length.isdigit():
+            return self.answer(request, 411)
+        if int(length) > LONGEST_BODY:
+            return self.answer(request, 413, {"error": f"a file of at most {LONGEST_BODY} bytes"})
+        try:
+            data = request.rfile.read(int(length))
+        except OSError:  # nothing more came for TIMEOUT_S
+            data = b""
+        if len(data) < int(length):
+            return self.answer(request, 400, {"error": "the body ended before its length: nothing written"})
+        if path == "/project/image":
+            try:
+                asked = json.loads(data)
+            except ValueError:
+                return self.answer(request, 400, {"error": "not JSON"})
+            made, problem = make_picture(root, asked)
+            if problem:
+                return self.answer(request, 400, {"error": problem})
+            return self.answer(request, 200, {"dgxi": base64.b64encode(made).decode(), "length": len(made)})
+        if path == "/project/binary":
+            rel = urllib.parse.parse_qs(address.query).get("path", [""])[0]
+            problem = png_problem(root, rel, data)
+            if problem:
+                return self.answer(request, 400, {"error": problem})
+            folder = os.path.dirname(os.path.join(root, rel))
+            try:
+                os.makedirs(folder, exist_ok=True)  # images/ beside the file of needs, png_problem() allowed it
+                write_file(root, rel, data)
+            except OSError as error:
+                return self.answer(request, 500, {"error": f"{rel}: {error.strerror or error}"})
+            return self.answer(request, 200)
+        rel, problem = self.path_asked(address, writing=True)
+        if problem:
+            return self.answer(request, 400, {"error": problem})
+        try:
+            write_file(root, rel, data)
+        except OSError as error:
+            # a folder that may not be written, a full disk: the page is told, and the server goes on
+            return self.answer(request, 500, {"error": f"{rel}: {error.strerror or error}"})
+        return self.answer(request, 200)
+
+
+def mounted(project, token, port, prefix):
+    """The builder for another server on this computer, its page mounting the builder's (boards' tools/boards_mcp.py
+    --serve): handle(request) of its http.server handler answers prefix + "/editor/..." and prefix + "/project...", by
+    the rules of this server, with its token and port, and returns True; for any other path it returns False and sends
+    nothing. The page is the project's copy's, as page_copy() takes it. The agent's /agent/* are not served."""
+    return Calls(project, token, port, page_copy(project)[0], prefix).handle
+
+
 def handler_of(project, token, port, page=None):
-    """The handler of the builder's calls and files: the page served from the editor/ of page, a copy of dgx-ui that
-    page_copy() took, else this one's."""
-    root, served = os.path.realpath(project), os.path.realpath(os.path.join(page or ROOT, "editor"))
-    own_origin = f"http://{ADDRESS}:{port}"
+    """The handler of this server: the builder's files and calls, by Calls with no prefix; allowed(), by_token(),
+    from_own_page() and answer() for a handler that extends it (tools/dgx_ui_mcp.py)."""
+    calls = Calls(project, token, port, page)
 
-    class Page(http.server.SimpleHTTPRequestHandler):
+    class Page(http.server.BaseHTTPRequestHandler):
         timeout = TIMEOUT_S
-
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=os.path.dirname(served), **kwargs)
 
         def log_message(self, *_):
             pass
 
-        def end_headers(self):
-            # every file asked again: a page cached from another copy or version would run one script of each. No
-            # X-Frame-Options and no frame-ancestors: the browser of VS Code shows the page in a frame of its own
-            if not any(line.lower().startswith(b"cache-control") for line in getattr(self, "_headers_buffer", [])):
-                self.send_header("Cache-Control", "no-cache")
-            self.send_header("Content-Security-Policy", CSP)
-            super().end_headers()
-
         def answer(self, code, value=None, body=None, kind="application/json"):
-            body = body if body is not None else json.dumps({} if value is None else value).encode()
-            self.send_response(code)
-            if code != 204:
-                self.send_header("Content-Type", kind)
-                self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(body)
+            calls.answer(self, code, value, body, kind)
 
         def allowed(self):
-            """Only this address: another site in the browser can reach 127.0.0.1, by a name of its own that leads here,
-            but not with this Host."""
-            return self.headers.get("Host") == f"{ADDRESS}:{port}"
+            return calls.allowed(self)
 
         def by_token(self):
-            return secrets.compare_digest(self.headers.get("Authorization", ""), f"Bearer {token}")
+            return calls.by_token(self)
 
         def from_own_page(self):
-            """A page of another site can send to 127.0.0.1 without reading the answer: a write comes from this one. In
-            the frame of VS Code's browser the page keeps this origin."""
-            return self.headers.get("Origin") == own_origin
-
-        def path_asked(self, address, **rule):
-            rel = urllib.parse.parse_qs(address.query).get("path", [""])[0]
-            return rel, problem_of(root, rel, **rule)
+            return calls.from_own_page(self)
 
         def do_GET(self):
-            if not self.allowed():
-                return self.answer(403, {"error": "another Host"})
-            address = urllib.parse.urlsplit(self.path)
-            if address.path == "/project" or address.path.startswith("/project/"):
-                if not self.by_token():
-                    return self.answer(401, {"error": "the token of the link"})
-                if address.path == "/project":
-                    return self.answer(200, {"name": os.path.basename(root)})
-                if address.path == "/project/list":
-                    rel, problem = self.path_asked(address, listing=True)
-                    if problem:
-                        return self.answer(400, {"error": problem})
-                    folder = os.path.join(root, rel)
-                    if not os.path.isdir(folder):
-                        return self.answer(204, body=b"")  # none: not an error, which a browser would show in red
-                    entries = []
-                    with os.scandir(folder) as found:
-                        for entry in found:
-                            if entry.is_symlink() and not inside(root, os.path.realpath(entry.path)):
-                                continue  # a link out of the project is not shown
-                            if entry.name.startswith("."):
-                                continue  # nor a file or folder of a dot, a tool's, which the builder never reads
-                            entries.append({"name": entry.name, "directory": entry.is_dir()})
-                    return self.answer(200, sorted(entries, key=lambda entry: entry["name"]))
-                if address.path == "/project/file":
-                    rel, problem = self.path_asked(address)
-                    if problem:
-                        return self.answer(400, {"error": problem})
-                    path = os.path.join(root, rel)
-                    if not os.path.isfile(path):
-                        return self.answer(204, body=b"")
-                    with open(path, "rb") as data:
-                        body = data.read()
-                    if reading(root, rel, os.path.realpath(path))[1]:
-                        body = b"".join(line.group(0).rstrip() + b"\n" for line in SDKCONFIG_SHOWN.finditer(body))
-                    return self.answer(200, body=body, kind="application/octet-stream")
-                return self.answer(404)
-            # the file that will be read, by the base class's own reading of the path, its links followed: of the
-            # builder's folder, whatever the path's encoding
-            if not inside(served, os.path.realpath(self.translate_path(self.path))):
-                return self.answer(404)
-            return super().do_GET()
+            if not calls.handle(self):
+                self.answer(404)
+
+        def do_POST(self):
+            if not calls.handle(self):
+                self.answer(404)
 
         def do_HEAD(self):
             return self.answer(405)
-
-        def do_POST(self):
-            if not self.allowed():
-                return self.answer(403, {"error": "another Host"})
-            if not self.by_token():
-                return self.answer(401, {"error": "the token of the link"})
-            if not self.from_own_page():
-                return self.answer(403, {"error": "a write from another page"})
-            address = urllib.parse.urlsplit(self.path)
-            if address.path not in ("/project/file", "/project/binary", "/project/image"):
-                return self.answer(404)
-            length = self.headers.get("Content-Length", "")
-            if not length.isdigit():
-                return self.answer(411)
-            if int(length) > LONGEST_BODY:
-                return self.answer(413, {"error": f"a file of at most {LONGEST_BODY} bytes"})
-            try:
-                data = self.rfile.read(int(length))
-            except OSError:  # nothing more came for TIMEOUT_S
-                data = b""
-            if len(data) < int(length):
-                return self.answer(400, {"error": "the body ended before its length: nothing written"})
-            if address.path == "/project/image":
-                try:
-                    asked = json.loads(data)
-                except ValueError:
-                    return self.answer(400, {"error": "not JSON"})
-                made, problem = make_picture(root, asked)
-                if problem:
-                    return self.answer(400, {"error": problem})
-                return self.answer(200, {"dgxi": base64.b64encode(made).decode(), "length": len(made)})
-            if address.path == "/project/binary":
-                rel = urllib.parse.parse_qs(address.query).get("path", [""])[0]
-                problem = png_problem(root, rel, data)
-                if problem:
-                    return self.answer(400, {"error": problem})
-                folder = os.path.dirname(os.path.join(root, rel))
-                try:
-                    os.makedirs(folder, exist_ok=True)  # images/ beside the file of needs, png_problem() allowed it
-                    write_file(root, rel, data)
-                except OSError as error:
-                    return self.answer(500, {"error": f"{rel}: {error.strerror or error}"})
-                return self.answer(200)
-            rel, problem = self.path_asked(address, writing=True)
-            if problem:
-                return self.answer(400, {"error": problem})
-            try:
-                write_file(root, rel, data)
-            except OSError as error:
-                # a folder that may not be written, a full disk: the page is told, and the server goes on
-                return self.answer(500, {"error": f"{rel}: {error.strerror or error}"})
-            return self.answer(200)
 
     return Page
 

@@ -99,13 +99,13 @@ const PROJECT = {
 async function storeOf(files, withWriter) {
     const { sandbox, run } = page();
     run('Pinia.setActivePinia(Pinia.createPinia())');
-    const store = run('useDgxUiBuilder()');
+    const store = run('dgxUiBuilderStore()');
     await store.start({ preferences: { get: () => null, set: () => {} } });
     check(store.ready && !store.failed, 'the module started: ' + store.failed);
     const written = {}, binary = [];
     sandbox.files = Object.fromEntries(Object.entries(files).map(([where, text]) => [where, encoder.encode(text)]));
     sandbox.save = (where, text) => ((written[where] = text), true);
-    const host = run('memoryHost("demo", files, save)');
+    const host = run('dgxUiMemoryHost("demo", files, save)');
     if (withWriter) {
         host.image = async (pngs, options) => made(pngs, options);
         host.writeBinary = async (where, bytes) => (binary.push([where, bytes]), true);
@@ -121,12 +121,12 @@ const pictureBitsOf = (one) => (one.colors <= 2 - (one.transparent ? 1 : 0) ? 1 
     /* the depth by the colours */
     {
         const { run } = page();
-        const bits = (colors, holes) => run(`useDgxUiBuilder.pictureBits(${colors}, ${holes})`);
+        const bits = (colors, holes) => run(`dgxUiBuilderStore.pictureBits(${colors}, ${holes})`);
         const table = [[2, false, 1], [3, false, 4], [1, true, 1], [2, true, 4], [15, true, 4], [16, true, 8], [16, false, 4], [17, false, 8],
                        [255, true, 8], [256, true, 16], [256, false, 8], [257, false, 16], [257, true, 16]];
         for (const [colors, holes, want] of table) check(bits(colors, holes) === want, `${colors} colours${holes ? ' and holes' : ''}: ${want} bits, not ${bits(colors, holes)}`);
-        check(run('useDgxUiBuilder.pictureName("My Logo-2.png")') === 'my_logo_2' && run('useDgxUiBuilder.pictureName("9.png")') === '_9' &&
-              run('useDgxUiBuilder.pictureName("dgx_x.png")') === 'picture_dgx_x', 'a name of C made of a file\'s');
+        check(run('dgxUiBuilderStore.pictureName("My Logo-2.png")') === 'my_logo_2' && run('dgxUiBuilderStore.pictureName("9.png")') === '_9' &&
+              run('dgxUiBuilderStore.pictureName("dgx_x.png")') === 'picture_dgx_x', 'a name of C made of a file\'s');
     }
 
     /* a picture imported, taken, saved */
@@ -179,7 +179,7 @@ const pictureBitsOf = (one) => (one.colors <= 2 - (one.transparent ? 1 : 0) ? 1 
     /* soft edges: a mask of one colour, 16 bits of more */
     {
         const { run } = page();
-        const kind = (colors, holes, soft) => run(`JSON.stringify(useDgxUiBuilder.pictureKind(${colors}, ${holes}, ${soft}))`);
+        const kind = (colors, holes, soft) => run(`JSON.stringify(dgxUiBuilderStore.pictureKind(${colors}, ${holes}, ${soft}))`);
         check(kind(1, true, true) === '{"mask":true,"bits":4}' && kind(3, true, true) === '{"mask":false,"bits":16}' && kind(3, true, false) === '{"mask":false,"bits":4}',
               'the kind by colours and soft edges: ' + [kind(1, true, true), kind(3, true, true), kind(3, true, false)]);
         const { store, written } = await storeOf(PROJECT, true);

@@ -93,8 +93,8 @@ const { chrome, devtools } = require('./chrome');
             }
             return check(false, `${what}: not in ${ms} ms`);
         };
-        const store = 'useDgxUiBuilder()';
-        await until(`typeof useDgxUiBuilder === 'function' && ${store}.ready`, 'the module started in the page');
+        const store = 'dgxUiBuilderStore()';
+        await until(`typeof dgxUiBuilderStore === 'function' && ${store}.ready`, 'the module started in the page');
         check(await evaluate(`!!document.querySelector('.dgx-ui-builder header h1') && !${store}.failed`), 'the page drawn');
 
         /* a project in memory, as a host gives one with no File System Access */
@@ -123,7 +123,7 @@ const { chrome, devtools } = require('./chrome');
             const given = ${JSON.stringify(encoded)}, files = {};
             for (const [where, text] of Object.entries(given)) files[where] = Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
             window.savedByTest = {};
-            await ${store}.open(memoryHost('demo', files, (where, text) => ((window.savedByTest[where] = text), true)));
+            await ${store}.open(dgxUiMemoryHost('demo', files, (where, text) => ((window.savedByTest[where] = text), true)));
         })()`);
         check(await evaluate(`${store}.current === 'main/home.json' && ${store}.verdicts.page.code === 0 &&
                               ${store}.verdicts.fonts[0].verdict.code === 0`),
@@ -397,6 +397,32 @@ const { chrome, devtools } = require('./chrome');
         fs.writeFileSync(screenshot, Buffer.from(shot.data, 'base64'));
         check(fs.statSync(screenshot).size > 10000, 'a screenshot kept: ' + screenshot);
 
+        /* a builder mounted by another page, as boards' page mounts it: the project's host given opened, opened at once; the
+           line that points to boards' page shown by default where the project has boards, not with boardsLine false; no
+           agent with agent false */
+        const mountedOut = await evaluate(`(async () => {
+            const files = { 'CMakeLists.txt': new TextEncoder().encode('dgx_ui_tree(main/home.json)\\n'),
+                            'main/home.json': new TextEncoder().encode('{"dgx-ui": 1, "tree": {"kind": "box"}}\\n'),
+                            'managed_components/jef-sure__boards/tools/boards_mcp.py': new TextEncoder().encode('#\\n') };
+            const said = {};
+            for (const [key, options] of [['plain', {}], ['boards', { agent: false, boardsLine: false }]]) {
+                const element = document.createElement('div');
+                document.body.appendChild(element);
+                const { store } = await dgxUiBuilderMount(element, { host: dgxUiMemoryHost('b', files, () => true), start: { language: 'en' }, ...options });
+                await new Promise((done) => setTimeout(done, 100));
+                store.startAgent({ stop: () => {}, say: () => {} });
+                const line = element.querySelector('.boards');
+                said[key] = { current: store.current, line: line ? line.textContent.trim() : null, agent: store.agent, picker: !!element.querySelector('input[webkitdirectory]') };
+                element.remove();
+            }
+            return said;
+        })()`);
+        check(mountedOut.plain.current === 'main/home.json' && mountedOut.boards.current === 'main/home.json' && !mountedOut.boards.picker,
+              'a host given opened: the project opened at once, no folder to choose: ' + JSON.stringify(mountedOut));
+        check(mountedOut.plain.line?.includes('managed_components/jef-sure__boards/tools/boards_mcp.py --serve') && mountedOut.plain.agent === true,
+              'by default: the line to boards\' page, an agent may start: ' + JSON.stringify(mountedOut.plain));
+        check(mountedOut.boards.line === null && mountedOut.boards.agent === false, 'boardsLine false, agent false: no line, no agent: ' + JSON.stringify(mountedOut.boards));
+
         /* the same project on the disk, through tools/dgx_ui_serve.py: the page by the link it prints opens the project at
            once, with nothing to choose; a description saved goes to the file, and a file the build reads is refused,
            saying why */
@@ -417,7 +443,7 @@ const { chrome, devtools } = require('./chrome');
             setTimeout(() => fail(new Error('no link from the server in 20 s: ' + out)), 20000);
         });
         await send('Page.navigate', { url: link });
-        await until(`typeof useDgxUiBuilder === 'function' && ${store}.ready && ${store}.project?.name === 'demo' && ${store}.current === 'main/home.json'`,
+        await until(`typeof dgxUiBuilderStore === 'function' && ${store}.ready && ${store}.project?.name === 'demo' && ${store}.current === 'main/home.json'`,
                     'the served page opens its project at once', 20000);
         check(await evaluate(`![...document.querySelectorAll('.dgx-ui-builder header button')].some((one) => one.textContent.includes('Open a project')) &&
                               !document.querySelector('.dgx-ui-builder input[type=file]')`), 'no folder to choose on the served page');
@@ -498,7 +524,7 @@ const { chrome, devtools } = require('./chrome');
         const agentLink = valueOf(await tool('page_link')).link;
         check(/^http:\/\/127\.0\.0\.1:\d+\/editor\/#project=[\w-]+&agent=1$/.test(agentLink), 'the agent gives the link: ' + agentLink);
         await send('Page.navigate', { url: agentLink });
-        await until(`typeof useDgxUiBuilder === 'function' && ${store}.agent && ${store}.current === 'main/home.json' && ${store}.drawn > 0`,
+        await until(`typeof dgxUiBuilderStore === 'function' && ${store}.agent && ${store}.current === 'main/home.json' && ${store}.drawn > 0`,
                     'the builder beside the agent, its dialog shown', 20000);
         await until(`!!document.querySelector('.dgx-ui-builder .agent textarea')`, 'the dialog on the page');
         let state = valueOf(await tool('page_state'));

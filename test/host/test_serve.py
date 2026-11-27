@@ -91,7 +91,7 @@ for (const [, script] of fs.readFileSync(path.join(editor, 'index.html'), 'utf8'
 }
 const paths = [];
 for (const list of lists) {
-    const said = vm.runInContext(`useDgxUiBuilder.cmakeCalls(${JSON.stringify(list)}, ${JSON.stringify(fs.readFileSync(path.join(root, list), 'utf8'))})`, sandbox);
+    const said = vm.runInContext(`dgxUiBuilderStore.cmakeCalls(${JSON.stringify(list)}, ${JSON.stringify(fs.readFileSync(path.join(root, list), 'utf8'))})`, sandbox);
     for (const call of said.calls) paths.push(...[call.file, call.names, call.appearance].filter(Boolean));
 }
 console.log(JSON.stringify(paths));
@@ -265,8 +265,24 @@ try:
                         ("build-host/sdkconfig", b"CONFIG_BOARD_HOST_WIDTH=320\nCONFIG_BOARD_HOST_HEIGHT=240\nCONFIG_BOARD_HOST_COLOR_BITS=16\n")):
         status, body, _ = ask("GET", at("file", rel))
         check(status == 200 and (wanted is None or body == wanted), f"{rel}: read ({status} {body[:80]})")
-    # a read goes by the file a link leads to: a link of a list's name, or of a name a call gives, to another file is refused
+    # the project's sdkconfig.<BOARD> of the default preset, where a preset of boards keeps it: the panel's six lines alone;
+    # another board's not read; neither written
     presets = (project / "CMakePresets.json").read_text()
+    (project / "CMakePresets.json").write_text('{"configurePresets": [{"name": "default", "cacheVariables": {"BOARD": "x"}}]}\n')
+    six = (b"CONFIG_BOARD_DISPLAY_WIDTH=480\nCONFIG_BOARD_DISPLAY_HEIGHT=272\nCONFIG_BOARD_DISPLAY_COLOR_BITS=16\n"
+           b"CONFIG_BOARD_HOST_WIDTH=480\nCONFIG_BOARD_HOST_HEIGHT=272\nCONFIG_BOARD_HOST_COLOR_BITS=16\n")
+    (project / "sdkconfig.x").write_bytes(b"CONFIG_WIFI_PASSWORD=secret\n" + six)
+    (project / "sdkconfig.y").write_bytes(b"CONFIG_WIFI_PASSWORD=secret\n" + six)
+    status, body, _ = ask("GET", at("file", "sdkconfig.x"))
+    check(status == 200 and body == six, f"sdkconfig.x of the preset's board: the six lines alone ({status} {body[:80]})")
+    status, body, _ = ask("GET", at("file", "sdkconfig.y"))
+    check(status == 400 and b"secret" not in body, f"sdkconfig.y of another board: not read ({status})")
+    status, _, _ = ask("POST", at("file", "sdkconfig.x"), b"CONFIG_X=y\n")
+    check(status == 400 and b"secret" in (project / "sdkconfig.x").read_bytes(), f"sdkconfig.x: not written ({status})")
+    (project / "CMakePresets.json").write_text(presets)
+    status, _, _ = ask("GET", at("file", "sdkconfig.x"))
+    check(status == 400, f"sdkconfig.x with no board of that name in the preset: not read ({status})")
+    # a read goes by the file a link leads to: a link of a list's name, or of a name a call gives, to another file is refused
     (project / "CMakePresets.json").unlink()
     (project / "CMakePresets.json").symlink_to(project / "main" / "secrets.h")
     (project / "components" / "linked").mkdir()

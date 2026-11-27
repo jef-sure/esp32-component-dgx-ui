@@ -15,7 +15,7 @@
  * call after it throws the same; a new preview is made by create() again. A pageText that throws gives the module no
  * text, as one that gives null, and its error goes to the log.
  */
-const NO_WAKE = 0xffffffff;
+const DGX_UI_WAKE_NONE = 0xffffffff; // the module's wake of none, as dgx_ui_paint.h names it
 
 class DgxUiPreview {
     /** A preview of its own: the module compiled and made ready. */
@@ -339,7 +339,7 @@ class DgxUiPreview {
     /** The milliseconds after nowMs a widget asks to be drawn again; Infinity, none. */
     wake(nowMs) {
         const ms = this.call(() => this.exports.preview_wake(nowMs >>> 0)) >>> 0;
-        return ms === NO_WAKE ? Infinity : ms;
+        return ms === DGX_UI_WAKE_NONE ? Infinity : ms;
     }
 
     /** The panel's pixels, red, green, blue, 255, row after row: a view of the module's memory, read before the next call. */
@@ -396,6 +396,5 @@ class DgxUiPreview {
     }
 }
 
-const global = typeof globalThis !== 'undefined' ? globalThis : root;
-global.DgxUiPreview = DgxUiPreview;
+globalThis.DgxUiPreview = DgxUiPreview;
 if (typeof module === 'object' && module && module.exports) module.exports = DgxUiPreview;

@@ -1027,10 +1027,10 @@ static int weather_show(dgx_ui_t *ui, int parent)
   draws them as fast. A program that names no picture of a file carries none of it.
 - **Refused when the program is built**, in words with the line of the names file: an asset DGX made not, a palette
   that keeps the opacity of its PNG, a picture that the widget's look does not draw. The list is on the tool's page,
-  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/tools/README.md#a-picture-of-a-file).
+  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/tools/README.md#a-picture-of-a-file).
 - **The builder of pages** imports a PNG by itself: it counts its colours, offers the depth, and writes the PNG beside
   `images.txt`, the need and the line of the names file
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/editor/README.md#a-picture-from-a-png-file)).
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/editor/README.md#a-picture-from-a-png-file)).
 
 ## An icon with soft edges
 
@@ -1100,7 +1100,7 @@ static void icons_show(dgx_ui_t *ui, int parent)
   9.4 ms as a mask and 9.1 ms as a picture of 16 bits; on the 10" P4 2.1 and 1.8 ms.
 - **The builder of pages** sees soft edges in a PNG and offers a mask of 4 bits for one colour, a picture of 16 bits
   for several, and sets the look of the widgets that show it
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/editor/README.md#a-picture-from-a-png-file)).
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/editor/README.md#a-picture-from-a-png-file)).
 
 ## A frame of nine pictures
 
@@ -2870,7 +2870,7 @@ What to know of it:
   `back` and `page` go in the file with no expression. An expression is C written with no spaces.
 - **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
   compiler finds what the program has not. The rule and the tool's own page:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.10/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,

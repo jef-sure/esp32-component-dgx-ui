@@ -1,5 +1,12 @@
 # Changes
 
+## 0.1.10 - 2026-11-27
+
+- The builder mounted by the page of another server on this computer, under a prefix of its paths: mounted() of
+  tools/dgx_ui_serve.py, and the options agent and boardsLine of dgxUiBuilderMount(). boards' page mounts it so.
+- The builder takes the screen from CONFIG_BOARD_DISPLAY_* of a board of jef-sure/boards, and in a project that has
+  boards says that boards' page is its main one. No change to the firmware.
+
 ## 0.1.9 - 2026-11-27
 
 - DGX-DI's keyboard for a field, dgx_ui_di_keyboard_* in dgx_ui_di.h: opened when the field is edited, away from it and

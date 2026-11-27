@@ -31,8 +31,15 @@ The builder reads the project's own declarations:
 - The fonts: `dgx_fonts-files.txt` in `build/dgx_fonts/` or `build/<board>/dgx_fonts/`, which DGX writes when the
   program's CMakeLists calls `dgx_fonts_files()` ([fonts of the project](preview/README.md#fonts-of-the-project)).
   Without it the fonts are stand-ins, and the page says so.
-- The screen: of the board of the project's preset when the build says it, else one of the list (320x240 of the CYD,
-  480x272, 480x800, 1024x600, 800x1280), with its depth and its pixels a point.
+- The screen: of the board of the project's preset, as the program sees it at its start:
+  `CONFIG_BOARD_DISPLAY_WIDTH`, `_HEIGHT` and `_COLOR_BITS` of the build's `sdkconfig`, or of the project's
+  `sdkconfig.<BOARD>` where a preset of [jef-sure/boards](https://github.com/jef-sure/esp32-component-boards) keeps
+  it; else `CONFIG_BOARD_HOST_*` there, as an older boards writes them; else the board's entry, `board.json`. With
+  no board, one of the list (320x240 of the CYD, 480x272, 480x800, 1024x600, 800x1280), with its depth and its pixels
+  a point.
+- A project with jef-sure/boards (`managed_components/jef-sure__boards/`, `components/local-boards/`, or a `BOARD` in
+  its preset) has boards' page as its main one, which holds this builder: the builder says so in a line above the
+  project, with the command of the copy of boards it found.
 
 ## From a terminal
 
@@ -52,8 +59,10 @@ takes a free one and says so, and there the zoom and the language the browser ke
   which a browser never sends in an address.
 - It reads only what the builder reads: the project's CMakeLists and `CMakePresets.json`, the files its calls name,
   the pages and appearances there, the PNG files the lines of the file of pictures' needs name, the fonts and the
-  pictures DGX writes under `build/`, and the board's entry; of a build's `sdkconfig` only the panel's lines. Nothing of a dot, no other `sdkconfig*` and no `dependencies.lock`: a file such
-  as `main/secrets.h` is not read.
+  pictures DGX writes under `build/`, and the board's entry; of a build's `sdkconfig`, and of the project's
+  `sdkconfig.<BOARD>` of its preset's board, only the six lines of the screen, `CONFIG_BOARD_DISPLAY_*` and
+  `CONFIG_BOARD_HOST_*` (an `sdkconfig` may hold a password). Nothing of a dot, no other `sdkconfig*` and no
+  `dependencies.lock`: a file such as `main/secrets.h` is not read.
 - It writes only what the project gives the builder: the files its `dgx_ui_tree()`, `dgx_ui_appearance()` and
   `dgx_ui_names()` calls name, read anew at each save, and pages and appearances already there; of `.json` and
   `.txt`, into folders that are there; and a PNG file of a picture the builder imports, beside the file of
@@ -273,7 +282,8 @@ storage.
 
 ## In another page
 
-A page that hosts the builder loads the same scripts as `index.html` and mounts it on an element of its own:
+A page that hosts the builder loads `builder.css` and the scripts of `index.html`, in its order, but `start.js`, and
+mounts it on an element of its own:
 
 ```html
 <div id="builder"></div>
@@ -281,6 +291,52 @@ A page that hosts the builder loads the same scripts as `index.html` and mounts 
     dgxUiBuilderMount('#builder', {host: dgxUiBrowserHost, start: {language: 'ru'}});
 </script>
 ```
+
+| Option | What it is |
+| ------ | ---------- |
+| `host` | the files' host: `dgxUiBrowserHost`, whose folder the person opens; or a project's host already opened, as `await dgxUiServerHost(token, prefix)` gives it, opened at once |
+| `open` | a function that gives a project's host, opened at once |
+| `start` | what the builder starts with, `{language: 'ru'}` |
+| `agent` | `false`: no agent is started, and nothing asks the server's `/agent/` |
+| `boardsLine` | `false`: the line that points to the page of jef-sure/boards is not shown, for that page itself |
+
+The builder's scripts leave nothing global but names that begin with `dgxUi`, `DgxUi` and `DGX_UI_`. The Vue and
+Pinia of `vendor/` may be the page's own, of the same versions.
+
+### Under a server of Python
+
+A server of this computer written in Python mounts the builder under a prefix of its own paths, as the page of
+jef-sure/boards does (its `tools/boards_mcp.py --serve`), by `mounted()` of the project's copy of
+`tools/dgx_ui_serve.py`:
+
+```python
+import http.server, importlib.util
+
+spec = importlib.util.spec_from_file_location("dgx_ui_serve", "managed_components/jef-sure__dgx-ui/tools/dgx_ui_serve.py")
+serve = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(serve)
+handle = serve.mounted(project, token, port, "/dgx-ui")
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if handle(self):
+            return
+        ...  # the server's own paths
+
+    do_POST = do_GET
+```
+
+- `handle(request)` answers `/dgx-ui/editor/...`, the builder's files, and `/dgx-ui/project...`, the project's
+  calls, by the rules of [From a terminal](#from-a-terminal), and returns `True`. For any other path it sends
+  nothing and returns `False`.
+- A request's Host must be `127.0.0.1:<port>`, and a write's Origin `http://127.0.0.1:<port>`: the server listens on
+  127.0.0.1 and its link names it, not `localhost`. The project's calls carry the token the hosting page holds, given
+  to `dgxUiServerHost(token, '/dgx-ui')`.
+- The page loads the builder from `/dgx-ui/editor/`. A Content-Security-Policy of its own, if it has one, allows what
+  the builder needs: `script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'` (Vue compiles the templates in the browser,
+  and the preview is WebAssembly), `connect-src 'self'`, `img-src 'self' data: blob:`, `style-src 'self'
+  'unsafe-inline'`, `font-src 'self' data:`.
+- The agent's calls are not mounted: the builder is mounted with `agent: false`.
 
 A host gives the builder a project's files by paths relative to its directory: `list(directory)`, `read(path)` the
 bytes of a file or `null`, `write(path, text)`. `host_browser.js` has two: a directory of the File System Access API,
