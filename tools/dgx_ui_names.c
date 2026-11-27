@@ -215,26 +215,27 @@ char *picture_file_refused(const entry_t *entry, const void *opened)
     const dgx_image_file_t *file  = opened;
     bool                    alpha = false;
     const unsigned          format = file->bytes[4] | file->bytes[5] << 8u; /* of the header, read as DGX reads it */
-    if (format > 1)
-        return printed("picture %s: @%s is of the format %u of a later DGX: dgx-ui reads the format 1, pictures of 1, 4 and 8 bits indexed and 16 of pixels",
-                       entry->name, entry->asset, format);
+    if (format > 2)
+        return printed("picture %s: @%s is of the format %u of a later DGX: dgx-ui reads the formats 1 and 2, pictures of 1, 4 and 8 bits indexed, masks "
+                       "of 4 and 8 bits and 16 bits of pixels", entry->name, entry->asset, format);
     for (unsigned j = 0; j < file->count; ++j) {
         dgx_image_file_picture_t one;
         alpha |= dgx_image_file_picture(file, j, &one) == ESP_OK && one.alpha;
     }
     for (unsigned j = 0; file->kind == DGX_IMAGE_FILE_INDEXED && j < file->colors; ++j) alpha |= file->palette[4 * j + 3] != 255;
-    if (file->kind == DGX_IMAGE_FILE_PIXELS && file->bits == 16 && alpha)
-        return printed("picture %s: @%s of 16 bits has transparency, which dgx-ui does not mix: BACKGROUND <rrggbb> in its need, or BITS 1, 4 or 8",
-                       entry->name, entry->asset);
-    if (!(file->kind == DGX_IMAGE_FILE_PIXELS && file->bits == 16) && !(file->kind == DGX_IMAGE_FILE_INDEXED && file->bits <= 8)) {
+    const bool mask = file->kind == DGX_IMAGE_FILE_MASK && (file->bits == 4 || file->bits == 8);
+    if (!(file->kind == DGX_IMAGE_FILE_PIXELS && file->bits == 16) && !(file->kind == DGX_IMAGE_FILE_INDEXED && file->bits <= 8) && !mask) {
         char kind[40];
         snprintf(kind, sizeof kind, file->kind == DGX_IMAGE_FILE_PIXELS ? "pixels" : file->kind == DGX_IMAGE_FILE_INDEXED ? "an indexed palette"
-                                    : file->kind == 3 /* DGX_IMAGE_FILE_MASK of DGX 0.12.11 */ ? "a mask of soft edges (MASK)" : "kind %u",
+                                    : file->kind == DGX_IMAGE_FILE_MASK ? "a mask" : "kind %u",
                  (unsigned)file->kind);
-        return printed("picture %s: @%s is of %u bits of %s: dgx-ui draws 1, 4 and 8 bits indexed and 16 of pixels", entry->name, entry->asset,
-                       (unsigned)file->bits, kind);
+        return printed("picture %s: @%s is of %u bits of %s: dgx-ui draws 1, 4 and 8 bits indexed, masks of 4 and 8 bits and 16 bits of pixels", entry->name,
+                       entry->asset, (unsigned)file->bits, kind);
     }
-    if (alpha) return printed("picture %s: @%s keeps the opacity of its PNG (ALPHA), which dgx-ui does not mix: its need without ALPHA", entry->name, entry->asset);
+    if (mask && entry->map) return printed("picture %s: @%s is a mask, drawn in one colour, the look's ink: map= says nothing of it", entry->name, entry->asset);
+    if (alpha && file->kind == DGX_IMAGE_FILE_INDEXED)
+        return printed("picture %s: @%s keeps the opacity of its PNG in its palette (ALPHA), which dgx-ui does not mix: its need without ALPHA, or BITS 16 "
+                       "for soft edges", entry->name, entry->asset);
     if (entry->count_given && entry->count != file->count)
         return printed("picture %s: the line says %u pictures, @%s holds %u", entry->name, entry->count, entry->asset, (unsigned)file->count);
     return NULL;

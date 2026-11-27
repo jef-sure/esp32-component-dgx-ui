@@ -577,8 +577,34 @@ static void imported_picture(const char *dir)
     picture_done(&ui, &paint, dir, "imported.ppm");
 }
 
+/* An icon with soft edges: the recipe's icons_show() on the appearance of the recipes before it, the icons once over
+   the fill of a frame and once over a picture under the widgets; the picture is the scene's own, as a program's would
+   be, upright stripes of the appearance's fill and border, 12 pixels each */
+static void stripes_draw(dgx_ui_paint_t *paint, int x, int y, int w, int h, void *ctx)
+{
+    const uint32_t *colors = ctx;
+    for (int at = x - x % 12; at < x + w; at += 12) {
+        const int from = at > x ? at : x, to = at + 12 < x + w ? at + 12 : x + w;
+        dgx_fill_rectangle(paint->scr, from - paint->ox, y - paint->oy, to - from, h, colors[at / 12 % 2 ? 3 : 2]);
+    }
+}
+
+static void soft_icons_picture(const char *dir)
+{
+    static dgx_ui_node_t         nodes[12];
+    static const dgx_ui_widget_t soft_root_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 6, .gap = 6};
+    dgx_ui_t                     ui;
+    dgx_ui_paint_t               paint = {.scr = dgx_vscreen_init(320, 240, 16, DgxScreenRGB)};
+    day_take(paint.scr, &paint);
+    dgx_ui_background_set(&paint, stripes_draw, (void *)day_colors);
+    dgx_ui_init(&ui, nodes, 12, 2);
+    icons_show(&ui, dgx_ui_add(&ui, -1, &soft_root_w));
+    picture_done(&ui, &paint, dir, "soft-icons.ppm");
+}
+
 static void recipe_pictures(const char *dir)
 {
+    soft_icons_picture(dir);
     nine_picture(dir);
     mono_picture(dir);
     imported_picture(dir);

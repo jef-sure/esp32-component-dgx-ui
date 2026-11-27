@@ -211,6 +211,13 @@ DGX_UI_LANGUAGES.ru = {
         'the light': 'светлые',
         'the dark': 'тёмные',
         'the holes in the colour': 'прозрачное залить цветом',
+        'soft edges, as the PNG has them': 'мягкие края, как в PNG',
+        'A mask: drawn in the ink of the look soft_picture, its edges soft. 8 bits give smoother edges at twice the bytes.':
+            'Маска: её рисует облик soft_picture цветом чернил, края мягкие. 8 бит дают более плавные края, но вдвое больше байт.',
+        '16 bits with the opacity of every pixel: the look soft_picture draws its edges soft.':
+            '16 бит и непрозрачность каждого пикселя: облик soft_picture рисует края мягкими.',
+        '{0} of its widgets on this page are drawn by another look.': 'Её элементов на этой странице с другим обликом: {0}.',
+        'Draw them by soft_picture': 'Рисовать их обликом soft_picture',
         '{0} bytes of flash and {1} of RAM; the panel draws the bytes the board reads':
             '{0} байт во флеше и {1} в ОЗУ; панель рисует те же байты, что прочтёт плата',
         'Take it': 'Взять',

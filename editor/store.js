@@ -41,6 +41,13 @@ const useDgxUiBuilder = (() => {
     // file of 1, 4 or 8 bits a dgx_image_t of DGX too (include/dgx_ui_picture_file.h)
     const PICTURE_RAM = 20, IMAGE_RAM = 20;
 
+    // the kind and depth an imported picture takes: with soft edges (pixels partly opaque), a mask of 4 bits for one
+    // colour, drawn in the ink of the look soft_picture, and 16 bits keeping the opacity for more; else by its colours
+    function pictureKind(colors, transparent, soft) {
+        if (soft) return colors <= 1 ? { mask: true, bits: 4 } : { mask: false, bits: 16 };
+        return { mask: false, bits: pictureBits(colors, transparent) };
+    }
+
     // the depth an imported picture takes by its colours: 1 bit for two (one with holes), 4 for 16 (15), 8 for 256 (255),
     // as DGX's palettes hold them; 16, RGB565, past that
     function pictureBits(colors, transparent) {
@@ -606,7 +613,7 @@ const useDgxUiBuilder = (() => {
                 this.importCancel();
                 const pixelsOf = this.raw.pixelsOf ?? pixelsOfPng;
                 const colors = new Set();
-                let transparent = false;
+                let transparent = false, partly = false;
                 for (const file of files) {
                     let pixels;
                     try {
@@ -615,9 +622,11 @@ const useDgxUiBuilder = (() => {
                         this.say('{0}: not a picture the browser reads: {1}', [file.name, error.message ?? String(error)], true);
                         return false;
                     }
-                    for (let at = 0; at < pixels.rgba.length && colors.size <= 257; at += 4) {
-                        if (pixels.rgba[at + 3] < 128) transparent = true;
-                        else colors.add(pixels.rgba[at] << 16 | pixels.rgba[at + 1] << 8 | pixels.rgba[at + 2]);
+                    for (let at = 0; at < pixels.rgba.length; at += 4) {
+                        const alpha = pixels.rgba[at + 3];
+                        partly ||= alpha > 0 && alpha < 255;
+                        if (alpha < 128) transparent = true;
+                        else if (colors.size <= 257) colors.add(pixels.rgba[at] << 16 | pixels.rgba[at + 1] << 8 | pixels.rgba[at + 2]);
                     }
                 }
                 const taken = new Set(this.namesRows.filter((row) => row.table === 'picture').map((row) => row.words[1]));
@@ -625,8 +634,9 @@ const useDgxUiBuilder = (() => {
                 for (let k = 2; taken.has(name); ++k) name = `${pictureName(files[0].name)}_${k}`;
                 const colorsOf = this.raw.look ? valueOf(this.raw.look, 'colors') : null;
                 const paper = colorsOf ? stringOf(valueOf(colorsOf, 'paper')) : null;
-                this.importing = { files, colors: colors.size, transparent, name, bits: pictureBits(colors.size, transparent), reduce: false, dither: false,
-                                   ink: null, background: typeof paper === 'string' && /^#[0-9a-fA-F]{6}$/.test(paper) ? paper.slice(1) : '000000',
+                const kind = pictureKind(colors.size, transparent, partly);
+                this.importing = { files, colors: colors.size, transparent, partly, soft: partly, mask: kind.mask, name, bits: kind.bits, reduce: false,
+                                   dither: false, ink: null, background: typeof paper === 'string' && /^#[0-9a-fA-F]{6}$/.test(paper) ? paper.slice(1) : '000000',
                                    made: null, said: null, given: false };
                 await this.importMake();
                 return true;
@@ -636,10 +646,11 @@ const useDgxUiBuilder = (() => {
             async importMake() {
                 const one = this.importing;
                 if (!one) return;
-                const background = one.bits === 16 && one.transparent ? one.background : null;
+                const background = one.bits === 16 && one.transparent && !one.soft ? one.background : null;
                 try {
                     const made = await this.raw.host.image(one.files.map((file) => file.bytes),
-                                                           { bits: one.bits, reduce: one.reduce, dither: one.dither, ink: one.bits === 1 ? one.ink : null, background });
+                                                           { bits: one.bits, reduce: one.reduce && !one.soft, dither: one.dither, ink: one.bits === 1 ? one.ink : null,
+                                                             background, mask: one.soft && one.mask });
                     if (this.importing !== one) return;
                     one.made = Vue.markRaw(made), one.said = null;
                     const verdict = this.raw.preview.picture(one.name, made);
@@ -653,10 +664,35 @@ const useDgxUiBuilder = (() => {
             },
 
             async importSet(key, value) {
-                if (!this.importing || !['name', 'bits', 'reduce', 'dither', 'ink', 'background'].includes(key)) return;
-                if (key === 'name' && this.importing.given) this.raw.preview.picture(this.importing.name, null), this.importing.given = false;
-                this.importing[key] = value;
+                const one = this.importing;
+                if (!one || !['name', 'bits', 'reduce', 'dither', 'ink', 'background', 'soft'].includes(key)) return;
+                if (key === 'soft' && !one.partly) return;
+                if (key === 'name' && one.given) this.raw.preview.picture(one.name, null), one.given = false;
+                one[key] = value;
+                if (key === 'soft') Object.assign(one, pictureKind(one.colors, one.transparent, value)); /* the kind and depth its edges take */
+                if (key === 'bits' && one.soft && (one.mask ? value !== 4 && value !== 8 : value !== 16)) one.bits = one.mask ? 4 : 16;
                 await this.importMake();
+            },
+
+            // the widgets of the page that show the picture being imported, and those of them a look other than the
+            // soft pictures' draws: a mask and 16 bits with soft edges are drawn by soft_picture alone
+            importUsers() {
+                const one = this.importing, doc = this.raw.doc;
+                if (!one || !doc) return { all: [], other: [] };
+                const all = widgets(doc).filter(({ widget }) => stringOf(valueOf(widget, 'picture')) === one.name);
+                const other = all.filter(({ widget }) => (stringOf(valueOf(widget, 'look')) ?? kindOf(widget)) !== 'soft_picture');
+                return { all: all.map((user) => user.path), other: other.map((user) => user.path) };
+            },
+
+            // those widgets given the look soft_picture, and the names file its line when it has none
+            importDrawSoft() {
+                const paths = this.importUsers().other;
+                if (!paths.length) return false;
+                if (!this.namesRows.some((row) => row.table === 'look' && row.words[1] === 'soft_picture') && !this.addNamesLine(['look', 'soft_picture'])) return false;
+                return this.edit((doc) => {
+                    for (const path of paths) description.setKey(doc, path, 'look', 'soft_picture');
+                    return [...this.selection];
+                });
             },
 
             // the weight the picture takes: its file in flash, its tables in RAM
@@ -664,7 +700,7 @@ const useDgxUiBuilder = (() => {
                 const one = this.importing;
                 if (!one?.made) return null;
                 const count = new DataView(one.made.buffer, one.made.byteOffset).getUint16(8, true);
-                return { flash: one.made.length, ram: count * (PICTURE_RAM + (one.made[6] <= 8 ? IMAGE_RAM : 0)), count };
+                return { flash: one.made.length, ram: count * (PICTURE_RAM + (one.made[6] <= 8 || one.soft ? IMAGE_RAM : 0)), count };
             },
 
             // the import taken: the PNG files beside the file of needs, its line there, the names file's line; written at a
@@ -695,10 +731,11 @@ const useDgxUiBuilder = (() => {
                 const quote = (path) => (/\s/.test(path) ? `"${path}"` : path);
                 const pngs = one.files.map((_, k) => `images/${one.name}${one.files.length > 1 ? `_${k}` : ''}.png`);
                 const words = [one.name, 'PNG', ...pngs.map(quote), 'BITS', String(one.bits)];
-                if (one.reduce) words.push('REDUCE');
+                if (one.soft && one.mask) words.push('MASK');
+                if (one.reduce && !one.soft) words.push('REDUCE');
                 if (one.dither) words.push('DITHER');
                 if (one.bits === 1 && one.ink) words.push('INK', one.ink.toUpperCase());
-                if (one.bits === 16 && one.transparent) words.push('BACKGROUND', one.background);
+                if (one.bits === 16 && one.transparent && !one.soft) words.push('BACKGROUND', one.background);
                 if (!this.addNamesLine(['picture', one.name, '@' + one.name])) return false;
                 const before = file.missing ? '' : file.text;
                 file.text = before + (before && !before.endsWith('\n') ? '\n' : '') + words.join(' ') + '\n', file.missing = false;
@@ -1862,5 +1899,5 @@ const useDgxUiBuilder = (() => {
             },
         },
     });
-    return Object.assign(store, { SCREENS, ZOOMS, DEPTHS, LOAD_CODES, cmakeCalls, readProject, joinPath, pictureBits, pictureName });
+    return Object.assign(store, { SCREENS, ZOOMS, DEPTHS, LOAD_CODES, cmakeCalls, readProject, joinPath, pictureBits, pictureKind, pictureName });
 })();

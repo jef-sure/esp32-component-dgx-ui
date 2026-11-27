@@ -79,6 +79,7 @@ const dgx_ui_params_t dgx_ui_params_dropdown       = DGX_UI_PARAMS(dgx_ui_dropdo
 const dgx_ui_params_t dgx_ui_params_picture        = DGX_UI_PARAMS(dgx_ui_picture_look_t, 1u << DGX_UI_PICTURE | 1u << DGX_UI_ICON, picture_fields);
 const dgx_ui_params_t dgx_ui_params_rgb565         = DGX_UI_PARAMS(dgx_ui_picture_look_t, 1u << DGX_UI_PICTURE | 1u << DGX_UI_ICON, picture_fields);
 const dgx_ui_params_t dgx_ui_params_indexed        = DGX_UI_PARAMS(dgx_ui_picture_look_t, 1u << DGX_UI_PICTURE | 1u << DGX_UI_ICON, picture_fields);
+const dgx_ui_params_t dgx_ui_params_soft_picture   = DGX_UI_PARAMS(dgx_ui_picture_look_t, 1u << DGX_UI_PICTURE | 1u << DGX_UI_ICON, picture_fields);
 const dgx_ui_params_t dgx_ui_params_radio          = DGX_UI_PARAMS(dgx_ui_check_look_t, 1u << DGX_UI_RADIO, check_fields);
 const dgx_ui_params_t dgx_ui_params_checkbox       = DGX_UI_PARAMS(dgx_ui_check_look_t, 1u << DGX_UI_SWITCH, check_fields);
 const dgx_ui_params_t dgx_ui_params_level          = DGX_UI_PARAMS(dgx_ui_level_look_t, 1u << DGX_UI_OWN, level_fields);

@@ -18,11 +18,11 @@ It checks that:
   so are those of the recipe of an appearance made C: the appearance, the lines it adds to the names file and to
   the header, and the page of the first recipe made a second time on that appearance, under the prefix `sound_day`,
   which the run of the recipes then adds and holds to the appearance's looks and style;
-- the recipe of a picture from a PNG file is built as a project builds it: its `images.txt`, with a PNG of the sun
-  this checker writes in the appearance's colours, is made into files of pictures by DGX's own
-  `tools/dgx_images.py build`, with `dgx_assets.S` and `dgx_assets.h`; its page is made C by `dgx_ui_c -g` on the
-  appearance, and compiles; the run of the recipes assembles the assets and draws the page, its picture
-  `imported.png`;
+- the recipes of a picture from a PNG file and of an icon with soft edges are built as a project builds them: their
+  `images.txt`, with the PNG files this checker writes, a sun in the appearance's colours, a drop of one colour and a
+  ball of several with soft edges, is made into files of pictures by DGX's own `tools/dgx_images.py build`, with
+  `dgx_assets.S` and `dgx_assets.h`; their pages are made C by `dgx_ui_c -g` on the appearance, and compile; the run of
+  the recipes assembles the assets and draws the pages, their pictures `imported.png` and `soft-icons.png`;
 - every `dgx_ui_` and `DGX_UI_` name a page prints is in a header or in `project_include.cmake`;
 - the API pages name every public function, type and constant of the headers and every call of
   `project_include.cmake`;
@@ -37,7 +37,7 @@ It checks that:
   product, `1792 bytes<!-- sizeof dgx_ui_node_t * DGX_UI_BLOCK -->`. The mark is a comment, not seen on the page;
   the size is an `_Static_assert` of the header, which a chip's build holds to the struct. A size written with no
   mark is not checked;
-- a version a page names is the manifests': "Version 0.0.52" and `version: "0.0.52"` are dgx-ui's own, "DGX 0.12.10 or
+- a version a page names is the manifests': "Version 0.0.52" and `version: "0.0.52"` are dgx-ui's own, "DGX 0.12.11 or
   a later" the least DGX that `idf_component.yml` asks for, `` `jef-sure/dgx-di` 0.2.0 `` the least DGX-DI the
   examples ask for.
 

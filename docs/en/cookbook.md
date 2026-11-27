@@ -25,6 +25,7 @@ and the loop of the task that owns the tree, is written in [Getting started](get
 - [A button of a picture](#a-button-of-a-picture)
 - [A picture from flash](#a-picture-from-flash)
 - [A picture from a PNG file](#a-picture-from-a-png-file)
+- [An icon with soft edges](#an-icon-with-soft-edges)
 - [A frame of nine pictures](#a-frame-of-nine-pictures)
 - [A picture under the widgets](#a-picture-under-the-widgets)
 - [A text of several lines](#a-text-of-several-lines)
@@ -999,21 +1000,92 @@ static int weather_show(dgx_ui_t *ui, int parent)
 - **A transparent pixel** is the paper: what lies under the widget.
 - **The depth** is the need's `BITS`. 1 for two colours, drawn in the ink and the paper of the look `picture`; 4 for up
   to 15 colours and a transparent background, or 16 colours with none; 8 for 255 and 256; 16 for a photograph, by the
-  look `rgb565`, its transparent places painted by `BACKGROUND <rrggbb>` in the need.
+  look `rgb565`. A picture whose edges are soft, partly transparent, is a mask or a picture of 16 bits with its
+  opacity, [An icon with soft edges](#an-icon-with-soft-edges).
 - **The look of 4 and 8 bits** draws through the paint's buffer and needs `CONFIG_DGX_ENABLE_VSCREEN=y`, as in
   [A picture from flash](#a-picture-from-flash).
 - **Several PNG files in one need**, `arrows PNG art/up.png art/down.png BITS 1`, are as many pictures, the range of an
   icon: `picture arrows @arrows 2`.
 - **What it costs.** The readers of DGX and of dgx-ui, about 2.2 KB of code, once; each file's head and palette beside
-  its pixels in flash; 40 bytes of RAM a picture of 1, 4 or 8 bits (36 with DGX 0.12.10), 20 of 16. The files are read
+  its pixels in flash; 40 bytes of RAM a picture of 1, 4 or 8 bits, 20 of 16. The files are read
   at the first add: on the CYD two pictures took 0.33 ms more than the same pixels written as arrays of C, and a pass
   draws them as fast. A program that names no picture of a file carries none of it.
-- **Refused when the program is built**, in words with the line of the names file: an asset DGX made not, a picture of
-  a kind dgx-ui does not draw, 16 bits with transparency. The list is on the tool's page,
-  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.4/tools/README.md#a-picture-of-a-file).
+- **Refused when the program is built**, in words with the line of the names file: an asset DGX made not, a palette
+  that keeps the opacity of its PNG, a picture that the widget's look does not draw. The list is on the tool's page,
+  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/tools/README.md#a-picture-of-a-file).
 - **The builder of pages** imports a PNG by itself: it counts its colours, offers the depth, and writes the PNG beside
   `images.txt`, the need and the line of the names file
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.4/editor/README.md#a-picture-from-a-png-file)).
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/editor/README.md#a-picture-from-a-png-file)).
+
+## An icon with soft edges
+
+![Two icons with soft edges, a drop of one colour and a ball of several, over the fill of a frame and again over a picture of stripes, their edges mixed with what lies under them](../images/soft-icons.png)
+
+An icon drawn with soft edges, as soft letters are, comes from a PNG whose edges are partly transparent. DGX keeps
+how much of each pixel is covered, and the look `soft_picture` mixes the edges with what lies under the widget. Two
+kinds: a mask, one colour whose coverage only is kept, drawn in the ink of the look; and a picture of 16 bits of any
+colours with its opacity. Here a drop and a ball, two lines more in the files of
+[A picture from a PNG file](#a-picture-from-a-png-file):
+
+```text
+# images.txt, two lines more: a drop of one colour, a mask of 4 bits; a ball of several, 16 bits with its opacity
+drop  PNG art/drop.png MASK BITS 4
+ball  PNG art/ball.png BITS 16
+```
+
+```text
+# weather.txt, three lines more: each pixel of the icons a point
+look      soft_picture
+picture   drop       @drop       scale 1
+picture   ball       @ball       scale 1
+```
+
+```json
+{"dgx-ui": 1, "name": "icons",
+ "tree": {"kind": "box", "flags": ["row"], "gap": 12, "want": [0, 24],
+          "children": [{"kind": "picture", "picture": "drop", "look": "soft_picture"},
+                       {"kind": "picture", "picture": "ball", "look": "soft_picture"}]}}
+```
+
+```cmake
+dgx_ui_tree(icons.json NAMES weather.txt APPEARANCE day.json)   # one line more in main/CMakeLists.txt
+```
+
+```c
+#include "icons.h" /* made by dgx_ui_tree(): int icons_add(dgx_ui_t *ui, int parent) */
+
+/* the icons twice: over the fill of a frame, and over the picture under the widgets */
+static const dgx_ui_widget_t icons_frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 6, .want_h = 36};
+
+static void icons_show(dgx_ui_t *ui, int parent)
+{
+    icons_add(ui, dgx_ui_add(ui, parent, &icons_frame_w));
+    icons_add(ui, parent);
+}
+```
+
+- **A mask** is one picture for any colour: the look draws it in its ink, `"ink"` of its parameters, the light colour
+  of the appearance here. Two looks give one mask two states. DGX takes the coverage from the PNG's opacity, or, from
+  a PNG with none, from its brightness. 4 bits keep 16 steps of an edge, as soft letters do; 8 bits are smoother at
+  twice the bytes.
+- **Over a paper of a colour**, the fill of the frame here, every pixel of the widget's box is written once and the
+  edges are mixed with that colour, on any screen, a display behind a bus too.
+- **Over the picture under the widgets** ([A picture under the widgets](#a-picture-under-the-widgets)), its piece is
+  laid first and the icon is mixed with it on a screen that can be read: the strips named, a virtual screen, a DSI
+  display. A pixel is written twice there. On a display behind a bus with no strips, a pixel half covered or more
+  takes the icon whole and the rest leaves the picture.
+- **On a screen of one bit** the same half rule; a hatched paper never lies under the ink
+  ([A monochrome screen](#a-monochrome-screen)).
+- It needs no virtual screen and no buffer, and draws on 18 and 24 bits as on 16.
+- **Another look** of the library does not draw these pictures: a widget that names a mask or a picture of 16 bits
+  with its opacity with `picture`, `indexed` or `rgb565` is refused when its page is made C. A page loaded while the
+  program runs shows paper there, and the log says it once.
+- **What it costs**: about 0.75 KB of dgx-ui in a program that names the look, and DGX's drawing of pictures, about
+  5 KB, in one that draws no picture yet. RAM: 40 bytes a picture. On the CYD, over a paper, an icon of 64 by 64 takes
+  9.4 ms as a mask and 9.1 ms as a picture of 16 bits; on the 10" P4 2.1 and 1.8 ms.
+- **The builder of pages** sees soft edges in a PNG and offers a mask of 4 bits for one colour, a picture of 16 bits
+  for several, and sets the look of the widgets that show it
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/editor/README.md#a-picture-from-a-png-file)).
 
 ## A frame of nine pictures
 
@@ -2761,7 +2833,7 @@ What to know of it:
   `back` and `page` go in the file with no expression. An expression is C written with no spaces.
 - **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
   compiler finds what the program has not. The rule and the tool's own page:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.4/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,

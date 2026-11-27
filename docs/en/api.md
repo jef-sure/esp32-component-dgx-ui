@@ -22,7 +22,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | pictures of a file of DGX, made of PNG files when the program is built, read where they lie into a table of the widgets' pictures |
 | [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.4: the names and
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.5: the names and
 the signatures are fixed since 0.1.0; one that would break a program comes only with 0.2.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -233,6 +233,7 @@ typedef struct dgx_ui_picture_t {
     uint8_t            scale;
     uint8_t            solid;
     uint8_t            zero;
+    uint8_t            mask;
 } dgx_ui_picture_t;
 ```
 
@@ -241,7 +242,10 @@ A picture of DGX in `image`, drawn by `dgx_ui_look_picture` when it is of 1 bit;
 by `dgx_ui_look_indexed`: its values go through `map` to indices of the painter's table, the value 1 the entry
 `map[0]`; without a map the value is the index; a pixel 0 is the paper. With `solid` the value 0 is a colour too, the
 index `zero` of the table: a picture whose palette uses every value of its depth. The C of a picture of a file sets
-both ([dgx_ui_picture_file.h](#dgx_ui_picture_fileh)); a picture written by hand leaves them 0.
+both ([dgx_ui_picture_file.h](#dgx_ui_picture_fileh)); a picture written by hand leaves them 0. With `mask` a picture
+of 4 or 8 bits is a mask: its values say how much of the ink covers each pixel, and `dgx_ui_look_soft_picture` draws
+it, its edges soft. A picture of 16 bits with its plane of opacity is a `dgx_image_t` of DGX in `image`, drawn by that
+look too.
 
 `void dgx_ui_picture_size(const dgx_ui_picture_t *p, int *w, int *h)` gives the size of either.
 
@@ -333,7 +337,7 @@ None of these tells `on_event()`.
 | `void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)` | The value written into the widget's place, within `min..max` when `min < max`. An icon's is not bound: outside its range it shows no picture. A widget of no place: nothing. The program may as well write its variable itself. |
 | `void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)` | `DGX_UI_DISABLED` or `DGX_UI_PRESSED` set or cleared. Disabled, a widget loses the focus, and a press of the finger on it ends. |
 | `void dgx_ui_show(dgx_ui_t *ui, int i, bool shown)` | Shown or hidden; its row or column is laid again. Hidden, it loses the focus and a press of the finger. |
-| `void dgx_ui_redraw(dgx_ui_t *ui, int i)` | Drawn whole at the next pass, with everything under it. |
+| `void dgx_ui_redraw(dgx_ui_t *ui, int i)` | Drawn whole at the next pass, with everything under it. A widget is drawn within the boxes of the widgets that hold it: a child of a box laid 0 high, one with no size of its own in a column, shows when the tree is drawn whole but not when it alone is drawn again. Give such a box its size, `want` or `DGX_UI_REST`. |
 | `bool dgx_ui_hidden(const dgx_ui_t *ui, int i)` | Whether it is hidden, itself or by a widget above it. |
 
 ### The pointer
@@ -1054,6 +1058,7 @@ Their colours are indices of the table: by default 0 the paper, 1 the ink, 2 a f
 | `dgx_ui_look_nine` | a box or a frame drawn as a frame of nine pictures, its pieces given by a look of the program's; colour 2 alone without them | `dgx_ui_nine_look_t` |
 | `dgx_ui_look_scroll` | a box of `DGX_UI_COLUMN \| DGX_UI_SCROLL`: a window over its children, its bar at the right while they are taller than it; [A scrolling box](#a-scrolling-box) | `dgx_ui_scroll_look_t` |
 | `dgx_ui_look_indexed` | a picture or an icon of 4 or 8 bits, its values through its map indices of the table; one of 1 bit too. It needs `CONFIG_DGX_ENABLE_VSCREEN`, the paint's buffer of a row of the picture at least, and a 16-bit screen; without them the widget is paper | `dgx_ui_picture_look_t` |
+| `dgx_ui_look_soft_picture` | a picture or an icon with soft edges: a mask of 4 or 8 bits in the ink, or a picture of 16 bits with its opacity. Over a paper of a colour its edges are mixed with it on any screen and every pixel of the box is written once; over a drawn background they are mixed with it where the screen can be read, and where it cannot a pixel half covered or more takes the picture whole. One of 1 bit as `dgx_ui_look_picture`. No virtual screen, no buffer | `dgx_ui_picture_look_t` |
 
 A look that no widget names is not linked into the program.
 
@@ -1084,6 +1089,7 @@ have the signature of `dgx_ui_look_t::draw`, and each takes the parameters of it
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_indexed` | `dgx_ui_look_indexed` | `dgx_ui_picture_look_t` |
+| `dgx_ui_draw_soft_picture` | `dgx_ui_look_soft_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_nine` | `dgx_ui_look_nine` | `dgx_ui_nine_look_t`; its fill is the look's `fill` |
 | `dgx_ui_draw_scroll` | `dgx_ui_look_scroll` | `dgx_ui_scroll_look_t`; the look carries `.behavior = &dgx_ui_scroll_behavior` |
 
@@ -1835,6 +1841,7 @@ may be `null`, the colour under the widget (`DGX_UI_PAPER`); `bands` is a list o
 | `"picture"` | `ink`; `paper`° |
 | `"rgb565"` | `ink`; `paper`° |
 | `"indexed"` | `ink`; `paper`° |
+| `"soft_picture"` | `ink`; `paper`° |
 | `"radio"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"level"` | `fill`; `track`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
@@ -1928,7 +1935,7 @@ carry a behaviour. What a field holds: `DGX_UI_FIELD_COLOR`,
 style and a variant `DGX_UI_FIELD_FONT`, `DGX_UI_FIELD_HAND` and `DGX_UI_FIELD_VARIANTS`. The library's own: `dgx_ui_params_box`, `dgx_ui_params_frame`, `dgx_ui_params_text`,
 `dgx_ui_params_lines`, `dgx_ui_params_hand_lines`, `dgx_ui_params_button`, `dgx_ui_params_picture_button`,
 `dgx_ui_params_input`, `dgx_ui_params_switch`, `dgx_ui_params_slider`, `dgx_ui_params_list`,
-`dgx_ui_params_dropdown`, `dgx_ui_params_picture`, `dgx_ui_params_rgb565`, `dgx_ui_params_indexed`,
+`dgx_ui_params_dropdown`, `dgx_ui_params_picture`, `dgx_ui_params_rgb565`, `dgx_ui_params_indexed`, `dgx_ui_params_soft_picture`,
 `dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`, `dgx_ui_params_ring`, `dgx_ui_params_nine`, `dgx_ui_params_scroll`, and
 `dgx_ui_params_text_style` and `dgx_ui_params_font_variant` for a style and a variant of a font.
 
@@ -1965,6 +1972,7 @@ typedef struct dgx_ui_picture_file_t {
     uint8_t           scale;
     uint8_t           solid;
     uint8_t           zero;
+    uint8_t           kind;
 } dgx_ui_picture_file_t;
 ```
 
@@ -1972,9 +1980,9 @@ typedef struct dgx_ui_picture_file_t {
 | ------ | ------- |
 | `bytes`, `length` | the file, `dgx_asset_<asset>` of DGX's `dgx_assets.h`, and `&dgx_asset_<asset>_size` |
 | `name` | the asset's name, for the log |
-| `pictures`, `images` | the tables filled, `count` of each, in RAM: the widgets' pictures, and a picture of DGX each for 1, 4 and 8 bits; `images` is `NULL` for 16 |
-| `map` | 4 and 8 bits: `map[p - 1]`, the index of the painter's table of the value `p`, by the nearest colour of the appearance, or the program's own array; `NULL` for 1 and 16 |
-| `count`, `bits` | what the file held when the C was made: so many pictures of 1, 4 or 8 bits indexed, or of 16 of pixels |
+| `pictures`, `images` | the tables filled, `count` of each, in RAM: the widgets' pictures, and a picture of DGX each for 1, 4 and 8 bits, a mask, and 16 bits with transparency; `images` is `NULL` for 16 bits with none |
+| `map` | 4 and 8 bits of a palette: `map[p - 1]`, the index of the painter's table of the value `p`, by the nearest colour of the appearance, or the program's own array; `NULL` for 1 and 16 bits and for a mask |
+| `count`, `bits`, `kind` | what the file held when the C was made: so many pictures of 1, 4 or 8 bits of a palette, of 4 or 8 of a mask, or of 16 of pixels; the kind DGX's `dgx_image_file.h` names, `DGX_IMAGE_FILE_INDEXED`, `DGX_IMAGE_FILE_MASK` or `DGX_IMAGE_FILE_PIXELS` |
 | `scale`, `solid`, `zero` | of every picture, as `dgx_ui_picture_t` has them |
 
 | Call | What it does |
@@ -1984,10 +1992,13 @@ typedef struct dgx_ui_picture_file_t {
 The made C reads its files once, in its `<prefix>_add()` and in the `start` of the tables of `dgx_ui_names()` and of
 the appearance's names. A picture of 1 bit is drawn by `dgx_ui_look_picture` in the ink and the paper of its look; one
 of 4 or 8 bits by `dgx_ui_look_indexed` through its map, with `solid` when its palette uses every value; one of 16 bits
-by `dgx_ui_look_rgb565`. What `dgx_ui_c` refuses when the program is built, in words with the names file's line:
-an asset DGX's list does not name, a file of a later format of DGX or of a kind dgx-ui does not draw, a mask of soft
-edges among them, 16 bits with transparency, a palette with the opacity of its PNG, a count the file does not hold,
-and 4 or 8 bits with neither an appearance nor `map=`.
+by `dgx_ui_look_rgb565`; a mask, and a picture of 16 bits with transparency, by `dgx_ui_look_soft_picture`. What
+`dgx_ui_c` refuses when the program is built, in words with the names file's line: an asset DGX's list does not name, a
+file of a later format than DGX 0.12.11 writes, a mask of 1 bit, a palette with the opacity of its PNG, `map=` on a
+mask, a count the file does not hold, 4 or 8 bits of a palette with neither an appearance nor `map=`, and a mask or a
+picture of 16 bits with transparency that a widget draws by another look of the library than `soft_picture`. Where the
+made C cannot see it, in a description loaded while the program runs, that look draws paper and says so once in the
+log.
 
 ## project_include.cmake
 
@@ -1995,7 +2006,7 @@ Three calls for the `CMakeLists.txt` of a component, the program's `main` among 
 written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
 C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
-the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.4/tools/README.md).
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])
@@ -2055,7 +2066,8 @@ The made C keeps the pictures' table and fills it from the file where it lies ([
 it waits for DGX's files and is made again when one of them changes, whichever component's CMakeLists is read first.
 A picture of 4 or 8 bits takes, for each colour of its palette, the nearest colour of the appearance given by
 `APPEARANCE`, or the program's own array of indices, `map=<array>`. An appearance made C does not take a picture of a
-file yet.
+file yet. A mask, `MASK` in the need, and a picture of 16 bits with transparency are drawn by the look
+`soft_picture`; a widget that names such a picture with another look of the library is refused when it is made.
 
 With a names file a description names only what the file lists, as with the tables of `dgx_ui_load()`: a name the
 file has not is refused, a table it does not name is empty, and an id it has not is passed over. So what the tool

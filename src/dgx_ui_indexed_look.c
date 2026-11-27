@@ -52,7 +52,12 @@ bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_u
     if (im && im->format == DGX_IMAGE_1BPP) return dgx_ui_draw_picture(look, paint, ui, i, now_ms);
     const int           paper_index = p->paper == DGX_UI_PAPER ? paint->paper : p->paper;
     const dgx_ui_rect_t none        = dgx_ui_rect(0, 0, 0, 0);
-    if (!im || (im->format != DGX_IMAGE_4BPP && im->format != DGX_IMAGE_8BPP)) {
+    if (!im || (im->format != DGX_IMAGE_4BPP && im->format != DGX_IMAGE_8BPP) || pic->mask) {
+        static bool told; /* a mask, which dgx_ui_c refuses here when it sees it: one of a description loaded or an icon's value */
+        if (im && pic->mask && !told) {
+            ESP_LOGW(TAG, "widget %d: a mask is drawn by dgx_ui_look_soft_picture: its box is paper", i);
+            told = true;
+        }
         paper_around(paint, n, &none, p->paper); /* none */
         return false;
     }

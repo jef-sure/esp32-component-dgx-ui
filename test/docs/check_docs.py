@@ -53,10 +53,11 @@ CC = ['cc', '-std=gnu11', '-fsyntax-only', '-Wall', '-Wextra', '-Wno-unused-para
       '-include', f'{dgx}/host/stubs/esp_log.h']
 MADE_FILES = {'sound.json': r'^```json\n(\{"dgx-ui": 1, "name": "sound".*?)^```', 'vocab.txt': r'^```text\n(# table.*?)^```',
               'program.h': r'^```c\n(/\* program\.h: .*?)^```', 'day.json': r'^```json\n(\{"dgx-ui": 1, "name": "day".*?)^```',
-              'weather.json': r'^```json\n(\{"dgx-ui": 1, "name": "weather".*?)^```', 'weather.txt': r'^```text\n(# weather\.txt.*?)^```',
-              'images.txt': r'^```text\n(# images\.txt.*?)^```'}
+              'weather.json': r'^```json\n(\{"dgx-ui": 1, "name": "weather".*?)^```', 'weather.txt': r'^```text\n(# weather\.txt: .*?)^```',
+              'images.txt': r'^```text\n(# images\.txt, beside it.*?)^```', 'icons.json': r'^```json\n(\{"dgx-ui": 1, "name": "icons".*?)^```'}
 # what the recipe of an appearance adds to two of them
-MORE = {'vocab.txt': r'^```text\n(# an appearance.*?)^```', 'program.h': r'^```c\n(/\* program\.h, one line more.*?)^```'}
+MORE = {'vocab.txt': r'^```text\n(# an appearance.*?)^```', 'program.h': r'^```c\n(/\* program\.h, one line more.*?)^```',
+        'images.txt': r'^```text\n(# images\.txt, two lines more.*?)^```', 'weather.txt': r'^```text\n(# weather\.txt, three lines more.*?)^```'}
 
 
 def structs_of(text):
@@ -169,6 +170,26 @@ def sun_pixel(x, y):
     return accent if ray else hole
 
 
+def covered(inside, x, y):
+    """How much of the pixel x, y a shape covers, 0 to 255, by 4 by 4 samples."""
+    return round(255 * sum(inside(x + (i + 0.5) / 4, y + (j + 0.5) / 4) for i in range(4) for j in range(4)) / 16)
+
+
+def drop_pixel(x, y):
+    """The mask of the recipe "An icon with soft edges": a drop, 24 by 24, white, its edges partly transparent."""
+    def inside(u, v):
+        return (u - 12) ** 2 + (v - 15) ** 2 <= 49 or (2.5 <= v <= 15 and abs(u - 12) <= 6.2 * (v - 2.5) / 12.5)
+    return (255, 255, 255, covered(inside, x, y))
+
+
+def ball_pixel(x, y):
+    """The picture of 16 bits of the same recipe: a ball, 24 by 24, orange lit from the upper left, its edges soft."""
+    light = max(0.0, 1 - ((x + 0.5 - 9) ** 2 + (y + 0.5 - 9) ** 2) / 120)
+    shade = min(1.0, ((x + 0.5 - 12) ** 2 + (y + 0.5 - 12) ** 2) / 90)
+    r, g, b = 240 - 60 * shade + 15 * light, 150 - 60 * shade + 90 * light, 50 - 20 * shade + 150 * light
+    return (min(255, round(r)), min(255, round(g)), min(255, round(b)), covered(lambda u, v: (u - 12) ** 2 + (v - 12) ** 2 <= 90, x, y))
+
+
 def made_of(text, rel):
     """The files a cookbook prints for its recipe of a description made C, written into a directory of the page's
     language and made C there by the tool: sound.c and sound.h of the description, vocab.c and vocab.h of the names
@@ -189,6 +210,8 @@ def made_of(text, rel):
     # dgx_assets.S and dgx_assets.h, as a build makes them
     os.makedirs(os.path.join(where, 'art'), exist_ok=True)
     png_of(os.path.join(where, 'art', 'sun.png'), 24, 24, sun_pixel)
+    png_of(os.path.join(where, 'art', 'drop.png'), 24, 24, drop_pixel)
+    png_of(os.path.join(where, 'art', 'ball.png'), 24, 24, ball_pixel)
     pictures = subprocess.run([sys.executable, os.path.join(dgx, 'tools', 'dgx_images.py'), 'build', 'images.txt', 'out'], cwd=where, capture_output=True,
                               text=True, timeout=120)
     if pictures.returncode:
@@ -207,11 +230,12 @@ def made_of(text, rel):
         said += run.stderr.splitlines()[:4] if run.returncode else []
     # the page of the picture from a PNG file, on the appearance, as dgx_ui_tree() runs the tool with its NAMES and the
     # folder of DGX's pictures
-    run = subprocess.run([tool, '-n', 'weather.txt', '-d', '.', '-g', 'out', '-a', 'day.json', '-an', 'vocab.txt', '-af', 'day', 'weather.json'],
-                         capture_output=True, text=True, cwd=where)
-    said += run.stderr.splitlines()[:4] if run.returncode else []
+    for page in ('weather.json', 'icons.json'):
+        run = subprocess.run([tool, '-n', 'weather.txt', '-d', '.', '-g', 'out', '-a', 'day.json', '-an', 'vocab.txt', '-af', 'day', page],
+                             capture_output=True, text=True, cwd=where)
+        said += run.stderr.splitlines()[:4] if run.returncode else []
     if not said:
-        for made in ('sound.c', 'vocab.c', 'day.c', 'sound_day.c', 'weather.c'):
+        for made in ('sound.c', 'vocab.c', 'day.c', 'sound_day.c', 'weather.c', 'icons.c'):
             run = subprocess.run(CC + [f'-I{where}', f'-I{os.path.join(where, "out")}', os.path.join(where, made)], capture_output=True, text=True)
             said += [line for line in run.stderr.splitlines() if 'error' in line or 'warning' in line][:4]
     return where, said

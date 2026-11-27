@@ -148,7 +148,7 @@ typedef struct dgx_ui_params_t {
 extern const dgx_ui_params_t dgx_ui_params_box, dgx_ui_params_frame, dgx_ui_params_text, dgx_ui_params_lines, dgx_ui_params_hand_lines,
     dgx_ui_params_button, dgx_ui_params_picture_button, dgx_ui_params_input, dgx_ui_params_switch, dgx_ui_params_slider,
     dgx_ui_params_list, dgx_ui_params_dropdown, dgx_ui_params_picture, dgx_ui_params_rgb565, dgx_ui_params_indexed,
-    dgx_ui_params_radio, dgx_ui_params_checkbox, dgx_ui_params_level, dgx_ui_params_ring, dgx_ui_params_nine, dgx_ui_params_scroll;
+    dgx_ui_params_soft_picture, dgx_ui_params_radio, dgx_ui_params_checkbox, dgx_ui_params_level, dgx_ui_params_ring, dgx_ui_params_nine, dgx_ui_params_scroll;
 extern const dgx_ui_params_t dgx_ui_params_text_style, dgx_ui_params_font_variant;
 
 /** A draw by its word, and its parameters described: DGX_UI_DRAW_NAME(slider) is the library's. */

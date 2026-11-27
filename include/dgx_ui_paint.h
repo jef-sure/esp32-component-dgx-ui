@@ -568,6 +568,20 @@ extern const dgx_ui_look_t dgx_ui_look_button, dgx_ui_look_input, dgx_ui_look_sw
     dgx_ui_look_picture_button;
 
 /**
+ * The look of soft pictures, `dgx_ui_look_soft_picture`: PICTURE and ICON of a mask (dgx_ui_picture_t's `mask`, values
+ * of 4 or 8 bits, how much of the ink covers a pixel) in colour 1, or of a picture of 16 bits, a dgx_image_t with its
+ * plane of opacity or rows of RGB565, their edges mixed (DGX_IMAGE_SOFT of DGX); one of 1 bit as dgx_ui_look_picture.
+ * In the middle of the box, the rest of it paper. Over the paper of a colour every pixel of the box is written once,
+ * the edges mixed with that colour on any screen, a display behind a bus too. Over the program's drawn background the
+ * box is laid and the picture drawn over it: mixed with the background on a screen that can be read (a virtual
+ * screen, the strips, a DSI panel), the one case of a pixel written twice; on one that cannot, a pixel half covered or
+ * more takes the picture whole and the rest leaves the background. On a screen of 1 bit the same rule, the paper under
+ * the ink never hatched. A picture of 4 or 8 bits that is not a mask is paper, told once in the log. It needs neither
+ * CONFIG_DGX_ENABLE_VSCREEN nor a buffer. A program that names it not carries none of it.
+ */
+extern const dgx_ui_look_t dgx_ui_look_soft_picture;
+
+/**
  * A look of a text of several lines, named by a widget that wants it (.look = &dgx_ui_look_lines): the text laid
  * word by word into the lines its box has, an important text scrolled a line every scroll_ms, one that is not cut
  * with an ellipsis, letters appearing one by one when asked (dgx_ui_text_appear()). It asks for time while it
@@ -606,6 +620,7 @@ bool dgx_ui_draw_dropdown(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_
 bool dgx_ui_draw_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_indexed(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
+bool dgx_ui_draw_soft_picture(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_radio(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_checkbox(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);
 bool dgx_ui_draw_level(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui_t *ui, int i, uint32_t now_ms);

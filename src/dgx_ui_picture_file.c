@@ -23,7 +23,7 @@ bool dgx_ui_picture_file_read(const dgx_ui_picture_file_t *f)
         ESP_LOGE(TAG, "picture file %s: it does not read; its widgets draw paper", f->name);
         return false;
     }
-    const uint8_t kind = f->bits == 16 ? DGX_IMAGE_FILE_PIXELS : DGX_IMAGE_FILE_INDEXED;
+    const uint8_t kind = f->kind;
     if (file.count != f->count || file.bits != f->bits || file.kind != kind) {
         ESP_LOGE(TAG, "picture file %s: %u pictures of %u bits, made C of %u of %u bits; build it again", f->name, (unsigned)file.count, (unsigned)file.bits,
                  (unsigned)f->count, (unsigned)f->bits);
@@ -31,12 +31,19 @@ bool dgx_ui_picture_file_read(const dgx_ui_picture_file_t *f)
     }
     for (unsigned k = 0; k < f->count; ++k) {
         dgx_ui_picture_t *p = &f->pictures[k];
-        if (kind == DGX_IMAGE_FILE_INDEXED) {
+        dgx_image_file_picture_t pixels;
+        if (kind != DGX_IMAGE_FILE_PIXELS) {
             if (dgx_image_file_image(&file, k, &f->images[k]) != ESP_OK) return memset(f->pictures, 0, (size_t)f->count * sizeof *p), false;
-            *p = (dgx_ui_picture_t){.image = &f->images[k], .map = f->bits > 1 ? f->map : NULL, .scale = f->scale, .solid = f->solid, .zero = f->zero};
+            *p = (dgx_ui_picture_t){.image = &f->images[k], .map = f->bits > 1 ? f->map : NULL, .scale = f->scale, .solid = f->solid, .zero = f->zero,
+                                    .mask = kind == DGX_IMAGE_FILE_MASK};
+        } else if (dgx_image_file_picture(&file, k, &pixels) != ESP_OK || (pixels.alpha && !f->images)) {
+            ESP_LOGE(TAG, "picture file %s: picture %u has transparent places the made C has no room for; build it again", f->name, k);
+            return memset(f->pictures, 0, (size_t)f->count * sizeof *p), false;
+        } else if (pixels.alpha) {
+            /* its opacity a plane beside the pixels: a dgx_image_t of 16 bits, drawn by the look of soft pictures */
+            if (dgx_image_file_image(&file, k, &f->images[k]) != ESP_OK) return memset(f->pictures, 0, (size_t)f->count * sizeof *p), false;
+            *p = (dgx_ui_picture_t){.image = &f->images[k], .scale = f->scale};
         } else {
-            dgx_image_file_picture_t pixels;
-            if (dgx_image_file_picture(&file, k, &pixels) != ESP_OK || pixels.alpha) return memset(f->pictures, 0, (size_t)f->count * sizeof *p), false;
             *p = (dgx_ui_picture_t){.rgb565 = (const uint16_t *)(const void *)pixels.pixels, .width = (int16_t)pixels.width, .height = (int16_t)pixels.height,
                                     .scale = f->scale};
         }

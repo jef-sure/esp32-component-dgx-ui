@@ -54,6 +54,11 @@ bool dgx_ui_draw_rgb565(const dgx_ui_look_t *look, dgx_ui_paint_t *paint, dgx_ui
     const bool    deep = ours && paint->scr->color_bits != 16 && strips && strips->put_rgb565;
     dgx_screen_t *src  = ours && paint->scr->color_bits == 16 ? source(paint, pic) : NULL;
     const int     by   = pic ? dgx_ui_picture_scale(ui, pic) : 1; /* its pixel so many of the screen's, across and down */
+    if (pic && pic->image && pic->image->format == DGX_IMAGE_16BPP) {
+        static bool told; /* 16 bits with transparency, which dgx_ui_c refuses here when it sees it */
+        if (!told) ESP_LOGW(TAG, "widget %d: a picture of 16 bits with transparency is drawn by dgx_ui_look_soft_picture: its box is paper", i);
+        told = true;
+    }
     if (ours && paint->scr->color_bits != 16 && !deep) {
         static bool told; /* once for the program, every tree and task: two tasks at once at worst tell it twice */
         if (!told) ESP_LOGW(TAG, "widget %d: a picture of RGB565 on %d bits: name dgx_ui_strips_pictures for the paint's strips", i, paint->scr->color_bits);

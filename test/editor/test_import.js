@@ -8,6 +8,10 @@
  *    the name it misses; the weight the file's length and in RAM 40 bytes a picture of 4 bits, 20 one of 16; the options make it again;
  *  - taken: the names file's line picture <name> @<name>, the need's line in the file of needs, the PNG beside it, each
  *    written at a save, the PNG first and as bytes; refused in words: no file of needs, a name of dgx_, a name taken;
+ *  - soft edges, pixels partly opaque: of one colour a mask of 4 bits, 8 offered, 16 not; of more 16 bits keeping the
+ *    opacity, no colour for the holes; the kind of each file DGX's writer made, the RAM 40 bytes a picture, the need's
+ *    words MASK and no BACKGROUND; its widgets of another look given soft_picture, the names file its look's line; the
+ *    soft edges let go, the depth by the colours again;
  *  - a host with no writer, as a page opened from the disk: the import not offered, said why.
  */
 'use strict';
@@ -67,6 +71,7 @@ function made(pngs, options) {
     try {
         const names = pngs.map((bytes, k) => (fs.writeFileSync(path.join(work, `p${k}.png`), bytes), `p${k}.png`));
         const words = ['PNG', ...names, 'BITS', String(options.bits)];
+        if (options.mask) words.push('MASK');
         if (options.reduce) words.push('REDUCE');
         if (options.dither) words.push('DITHER');
         if (options.ink) words.push('INK', options.ink.toUpperCase());
@@ -110,6 +115,7 @@ async function storeOf(files, withWriter) {
     return { store, written, binary, run };
 }
 const given = new Map(); // the pixels of each PNG made here, as a browser would decode it
+const pictureBitsOf = (one) => (one.colors <= 2 - (one.transparent ? 1 : 0) ? 1 : one.colors <= 16 - (one.transparent ? 1 : 0) ? 4 : one.colors <= 256 - (one.transparent ? 1 : 0) ? 8 : 16);
 
 (async () => {
     /* the depth by the colours */
@@ -168,6 +174,47 @@ const given = new Map(); // the pixels of each PNG made here, as a browser would
         check(!(await store.importAccept()) && store.said.some((one) => one.wrong && one.text.includes('not of dgx_')), 'a name of dgx_ refused');
         store.importCancel();
         check(store.importing === null, 'the import let go');
+    }
+
+    /* soft edges: a mask of one colour, 16 bits of more */
+    {
+        const { run } = page();
+        const kind = (colors, holes, soft) => run(`JSON.stringify(useDgxUiBuilder.pictureKind(${colors}, ${holes}, ${soft}))`);
+        check(kind(1, true, true) === '{"mask":true,"bits":4}' && kind(3, true, true) === '{"mask":false,"bits":16}' && kind(3, true, false) === '{"mask":false,"bits":4}',
+              'the kind by colours and soft edges: ' + [kind(1, true, true), kind(3, true, true), kind(3, true, false)]);
+        const { store, written } = await storeOf(PROJECT, true);
+        const disc = png(8, 8, (x, y) => [255, 200, 0, Math.max(0, Math.min(255, 255 - Math.round(Math.hypot(x - 3.5, y - 3.5) * 60)))]);
+        given.set(disc.bytes, disc.pixels);
+        store.choose('main/page.json');
+        await store.importStart([{ name: 'logo.png', bytes: disc.bytes }]);
+        let one = store.importing;
+        check(one.partly && one.soft && one.mask && one.bits === 4 && one.made && one.made[7] === 3 && one.made[6] === 4,
+              `one colour with soft edges: a mask of 4 bits, made: ${JSON.stringify({ mask: one.mask, bits: one.bits, said: one.said, kind: one.made?.[7] })}`);
+        check(store.importWeight().ram === 40, 'a mask: 40 bytes of RAM');
+        await store.importSet('bits', 8);
+        check(store.importing.bits === 8 && store.importing.made[6] === 8 && store.importing.made[7] === 3, 'a mask of 8 bits');
+        await store.importSet('bits', 16);
+        check(store.importing.bits === 4 && store.importing.made[6] === 4, 'a mask of 16 bits not taken: 4');
+        check(store.importUsers().other.length === 1, 'its widget drawn by another look: ' + JSON.stringify(store.importUsers()));
+        check(store.importDrawSoft() && store.importUsers().other.length === 0 && store.files['main/page.json'].text.includes('"look": "soft_picture"') &&
+              store.files['main/names.txt'].text.includes('look soft_picture'), 'its widget given soft_picture, the names file its look');
+        check(store.verdicts.page.code === 0, 'the page drawn with the mask: ' + JSON.stringify(store.verdicts.page));
+        check(await store.importAccept(), 'the mask taken: ' + JSON.stringify(store.said));
+        check(store.files['main/images.txt'].text.includes('logo PNG images/logo.png BITS 4 MASK\n'), 'the need of a mask: ' + store.files['main/images.txt'].text);
+        // more colours with soft edges: 16 bits that keep their opacity
+        const glow = png(6, 6, (x, y) => [x * 40, y * 40, 200, (x + y) * 20]);
+        given.set(glow.bytes, glow.pixels);
+        await store.importStart([{ name: 'glow.png', bytes: glow.bytes }]);
+        one = store.importing;
+        check(one.soft && !one.mask && one.bits === 16 && one.made && one.made[6] === 16 && one.made[7] === 2 && store.importWeight().ram === 40,
+              `more colours with soft edges: 16 bits with their opacity: ${JSON.stringify({ bits: one.bits, said: one.said })}`);
+        await store.importSet('soft', false);
+        check(!store.importing.soft && store.importing.bits === pictureBitsOf(store.importing) && store.importWeight().ram === (store.importing.bits === 16 ? 20 : 40),
+              'soft edges let go: the depth by the colours again');
+        await store.importSet('soft', true);
+        check(await store.importAccept(), 'the picture of 16 bits taken');
+        check(/^glow PNG images\/glow\.png BITS 16$/m.test(store.files['main/images.txt'].text), 'its need with no BACKGROUND: ' + store.files['main/images.txt'].text);
+        void written;
     }
 
     /* no file of needs: refused in words */

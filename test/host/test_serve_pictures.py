@@ -86,6 +86,10 @@ try:
     # the writer of the project's copy: a file of DGX, of the depth asked; a refusal in the writer's words
     made, said = serve.make_picture(root, {"pngs": [logo, logo], "bits": 4, "reduce": False, "dither": True})
     check(made and made[:4] == b"DGXI" and made[6] == 4 and made[8] == 2, f"a picture made by the project's DGX: {said}")
+    made, said = serve.make_picture(root, {"pngs": [logo], "bits": 4, "mask": True})
+    check(made and made[6] == 4 and made[7] == 3, f"a mask made, MASK: {said}")
+    made, said = serve.make_picture(root, {"pngs": [logo], "bits": 16, "mask": True})
+    check(made is None and said == "a mask is of 4 or 8 bits", f"a mask of 16 bits refused: {said}")
     marker = work / "marker"
     (work / "evil.py").write_text(f"open({str(marker)!r}, 'w').write('run')\n")
     made, said = serve.make_picture(root, {"pngs": [logo], "bits": 1, "tool": str(work / "evil.py"), "path": str(work / "evil.py"), "dgx": str(work)})

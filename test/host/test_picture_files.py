@@ -8,8 +8,11 @@ a build makes, with dgx_assets.S and dgx_assets.h. dgx_ui_c makes C of a page th
 of the names file; test_picture_files.c, compiled with both and the assembled assets, draws the page added and the page
 loaded on those tables, and holds every pixel of every picture to the colour of its PNG: 1 bit with holes and without
 (ink and paper of the look), 4 and 8 bits with holes and with a full palette (the value 0 a colour), 16 bits, a picture
-at a scale of 2. dgx_ui_c's refusals in words: 16 bits with transparency, a count the file does not hold, an asset that
-is none, 4 bits with no appearance and no map, a picture of a depth dgx-ui does not draw, ALPHA, and no -g.
+at a scale of 2; and the soft pictures of dgx_ui_look_soft_picture, masks of 4 and 8 bits in the ink and 16 bits with
+the opacity of their PNG, one at a scale of 2, an opaque one of 16 bits, each pixel mixed with the paper by DGX's rule.
+dgx_ui_c's refusals in words: a mask or 16 bits with transparency drawn by another look of the library, map= on a mask,
+a count the file does not hold, an asset that is none, 4 bits with no appearance and no map, a picture of a depth
+dgx-ui does not draw, ALPHA in an indexed palette, a file of a later format, and no -g.
 """
 import json
 import os
@@ -50,6 +53,18 @@ def level(v, top):  # DGX's rounding of a channel to its depth
     return (v * top * 2 + 255) // 510
 
 
+def mixed(under, color, a):  # DGX's mix of two colours of 16 bits by an opacity 0..255, channel by channel
+    out = 0
+    for shift, top in ((11, 31), (5, 63), (0, 31)):
+        u, c = under >> shift & top, color >> shift & top
+        out |= (u * (255 - a) + c * a + 127) // 255 << shift
+    return out
+
+
+def soft(under, color, a):  # what DGX_IMAGE_SOFT | DGX_IMAGE_OPAQUE puts: the colour, the paper, or the two mixed
+    return color if a == 255 else under if a == 0 else mixed(under, color, a)
+
+
 # the appearance: 255 colours, all an appearance holds, black the paper (0) and white the ink (1), the rest each other
 colors = [(0, 0, 0), (255, 255, 255)]
 seen = set(colors)
@@ -75,13 +90,14 @@ EXTRA = next(c for c in ((r, g, 77) for r in range(0, 256, 3) for g in range(0, 
 pictures = []
 
 
-def picture(name, w, h, pixel, bits, look, words="", scale=0, line_words=""):
+def picture(name, w, h, pixel, bits, look, words="", scale=0, line_words="", asset=None):
     px = [pixel(x, y) for y in range(h) for x in range(w)]
     rgba = []
     for p in px:
-        rgba += [0, 0, 0, 0] if p is HOLE else [*p, 255]
-    png(name, w, h, rgba)
-    pictures.append(dict(name=name, w=w, h=h, px=px, bits=bits, look=look, words=words, scale=scale, line=line_words))
+        rgba += [0, 0, 0, 0] if p is HOLE else [*p] if len(p) == 4 else [*p, 255]
+    if asset is None:
+        png(name, w, h, rgba)
+    pictures.append(dict(name=name, w=w, h=h, px=px, bits=bits, look=look, words=words, scale=scale, line=line_words, asset=asset or name))
 
 
 picture("one_holes", 9, 6, lambda x, y: HOLE if (x + y) % 3 == 0 else colors[5], 1, "picture")
@@ -91,12 +107,21 @@ picture("four_full", 8, 4, lambda x, y: colors[20 + (x + 8 * y) % 16], 4, "index
 picture("eight_holes", 12, 10, lambda x, y: HOLE if (x * y) % 7 == 3 else colors[40 + (x + 12 * y) % 100], 8, "indexed")
 picture("eight_full", 16, 16, lambda x, y: colors[x * 16 + y] if x * 16 + y < 255 else EXTRA, 8, "indexed")
 picture("sixteen", 10, 6, lambda x, y: (x * 25, y * 40, 255 - x * 20), 16, "rgb565")
-picture("four_twice", 7, 7, lambda x, y: HOLE if (x + 2 * y) % 5 == 0 else colors[2 + (x * 3 + y) % 15], 4, "indexed", scale=2, line_words="scale 2")
+picture("four_twice", 7, 7, lambda x, y: HOLE if (x + 2 * y) % 5 == 0 else colors[2 + (x * 3 + y) % 15], 4, "indexed", scale=2, line_words="scale 2",
+        asset="four_holes")
+# soft: masks, how much of the ink covers, of the PNG's opacity; 16 bits with it; every level from none to all
+picture("mask_four", 9, 7, lambda x, y: (200, 120, 40, (x * 29 + y * 37) % 256), 4, "soft_picture", words="MASK")
+picture("mask_eight", 10, 6, lambda x, y: (90, 200, 160, (x * 41 + y * 67) % 256), 8, "soft_picture", words="MASK")
+picture("soft_sixteen", 8, 8, lambda x, y: (x * 30, y * 30, 200, 255 if x == y else (x * y * 13) % 256), 16, "soft_picture")
+picture("mask_twice", 9, 7, lambda x, y: (200, 120, 40, (x * 29 + y * 37) % 256), 4, "soft_picture", words="MASK", scale=2, line_words="scale 2",
+        asset="mask_four")
+picture("sixteen_soft", 10, 6, lambda x, y: (x * 25, y * 40, 255 - x * 20), 16, "soft_picture", asset="sixteen")
 
 png("half", 4, 4, [v for k in range(16) for v in (*colors[5 + k % 3], 128 if k % 2 else 255)])  # half opaque now and then
 with open(os.path.join(work, "images.txt"), "w") as out:
     for p in pictures:
-        out.write(f"{p['name']} PNG art/{p['name']}.png BITS {p['bits']}\n")
+        if p["asset"] == p["name"]:
+            out.write(f"{p['name']} PNG art/{p['name']}.png BITS {p['bits']} {p['words']}\n")
     out.write("hole_sixteen PNG art/one_holes.png BITS 16\n")
     out.write("twenty_four PNG art/sixteen.png BITS 24\n")
     out.write("with_alpha PNG art/half.png BITS 8 ALPHA\n")
@@ -107,10 +132,9 @@ with open(os.path.join(work, "look.json"), "w") as out:
     fixed = ["paper", "ink", "fill", "border"]
     json.dump({"dgx-ui": 1, "name": "day", "colors": {(fixed[i] if i < 4 else f"c{i}"): "#%02x%02x%02x" % c for i, c in enumerate(colors)}}, out)
 with open(os.path.join(work, "names.txt"), "w") as out:
-    out.write("look picture\nlook indexed\nlook rgb565\n")
+    out.write("look picture\nlook indexed\nlook rgb565\nlook soft_picture\n")
     for p in pictures:
-        asset = "four_holes" if p["name"] == "four_twice" else p["name"]
-        out.write(f"picture {p['name']} @{asset} {p['line']}\n")
+        out.write(f"picture {p['name']} @{p['asset']} {p['line']}\n")
 page = {"dgx-ui": 1, "name": "pf", "tree": {"kind": "box", "flags": ["column"], "gap": 2,
                                            "children": [{"kind": "picture", "picture": p["name"], "look": p["look"]} for p in pictures]}}
 with open(os.path.join(work, "page.json"), "w") as out:
@@ -139,8 +163,12 @@ with open(os.path.join(work, "pf_expected.h"), "w") as out:
         for c in p["px"]:
             if p["bits"] == 1:
                 values.append(table[1] if c is not HOLE and sum(c) > 0 else table[0])  # light or opaque: 1, the ink
+            elif p["words"] == "MASK":  # the coverage rounded to the mask's depth, of the ink over the paper
+                top = (1 << p["bits"]) - 1
+                values.append(soft(table[0], table[1], level(c[3], top) * (255 // top)))
             elif p["bits"] == 16:
-                values.append(level(c[0], 31) << 11 | level(c[1], 63) << 5 | level(c[2], 31))
+                color = level(c[0], 31) << 11 | level(c[1], 63) << 5 | level(c[2], 31)
+                values.append(soft(table[0], color, c[3]) if len(c) == 4 else color)
             else:
                 values.append(table[0] if c is HOLE else table[nearest(c)])
         out.write("static const uint16_t pf_pixels_%d[%d] = {%s};\n" % (k, len(values), ", ".join("0x%04x" % v for v in values)))
@@ -208,11 +236,13 @@ if preview_js:
 
 # the refusals, in words
 REFUSALS = [
-    ("picture p @hole_sixteen", "has transparency, which dgx-ui does not mix: BACKGROUND"),
+    ("picture p @hole_sixteen", "picture p: 16 bits with transparency, drawn by the look soft_picture; the page draws it by \"indexed\""),
+    ("picture p @mask_four", "picture p: a mask, drawn by the look soft_picture; the page draws it by \"indexed\""),
+    ("picture p @mask_four map=my_map", "@mask_four is a mask, drawn in one colour, the look's ink: map= says nothing of it"),
     ("picture p @four_holes 3", "the line says 3 pictures, @four_holes holds 1"),
     ("picture p @nothing", "no asset \"nothing\""),
-    ("picture p @twenty_four", "of 24 bits of pixels: dgx-ui draws 1, 4 and 8 bits indexed and 16 of pixels"),
-    ("picture p @with_alpha", "keeps the opacity of its PNG (ALPHA)"),
+    ("picture p @twenty_four", "of 24 bits of pixels: dgx-ui draws 1, 4 and 8 bits indexed, masks of 4 and 8 bits and 16 bits of pixels"),
+    ("picture p @with_alpha", "keeps the opacity of its PNG in its palette (ALPHA)"),
     ("picture p @four", "no asset \"four\""),
     ("picture p @four_holes scale 300", "is not a scale"),
     ("picture p @four_holes map=1x", "map= takes the name of the program's array"),
@@ -224,11 +254,11 @@ for line, words in REFUSALS:
         json.dump({"dgx-ui": 1, "name": "rf", "tree": {"kind": "picture", "picture": "p", "look": "indexed"}}, out)
     run = tool_run("-n", "refused.txt", "-g", "out", "-a", "look.json", "-ap", "day", "refused.json")
     check(run.returncode != 0 and words in run.stderr, f"{line}: refused with \"{words}\": {run.stderr.strip()}")
-# files DGX's later formats make, by hand: format 2, a kind of 3 (MASK); refused by the names file's line, not drawn
+# files DGX's later formats make, by hand: format 3, a kind of 4; refused by the names file's line, not drawn
 three = open(os.path.join(work, "out", "four_holes.dgxi"), "rb").read()
-for name, spoiled, words in (("format_two", three[:4] + bytes([2, 0]) + three[6:], ("of a later format than the DGX dgx-ui is built with reads",
-                                                                                 "is of the format 2 of a later DGX: dgx-ui reads the format 1")),
-                             ("mask", three[:7] + bytes([3]) + three[8:], ("does not read as a file of DGX's pictures", "of a mask of soft edges (MASK)"))):
+for name, spoiled, words in (("format_three", three[:4] + bytes([3, 0]) + three[6:], ("of a later format than the DGX dgx-ui is built with reads",
+                                                                                     "is of the format 3 of a later DGX: dgx-ui reads the formats 1 and 2")),
+                             ("kind_four", three[:7] + bytes([4]) + three[8:], ("does not read as a file of DGX's pictures", "of kind 4"))):
     with open(os.path.join(work, "out", name + ".dgxi"), "wb") as out:
         out.write(spoiled)
     with open(os.path.join(work, "out", "dgx_images-files.txt"), "a") as out:
@@ -238,17 +268,19 @@ for name, spoiled, words in (("format_two", three[:4] + bytes([2, 0]) + three[6:
     run = tool_run("-n", "refused.txt", "-g", "out", "-a", "look.json", "-ap", "day", "refused.json")
     check(run.returncode != 0 and "refused.txt:3: picture p: " in run.stderr and any(one in run.stderr for one in words),
           f"{name}: refused by its line, the DGX given reading it or not: {run.stderr.strip()}")
-# a file of a later format DGX's own writer makes, a mask of soft edges, where the DGX given makes one (0.12.11 and later)
-masked = subprocess.run([sys.executable, os.path.join(dgx, "tools", "dgx_images.py"), "make", "out/masked.dgxi", "PNG", "art/four_holes.png", "BITS", "4", "MASK"],
-                        cwd=work, capture_output=True, text=True)
-if masked.returncode == 0:
-    with open(os.path.join(work, "out", "dgx_images-files.txt"), "a") as out:
-        out.write("masked masked.dgxi\n")
-    with open(os.path.join(work, "refused.txt"), "w") as out:
-        out.write("look indexed\npicture p @masked\n")
-    run = tool_run("-n", "refused.txt", "-g", "out", "-a", "look.json", "-ap", "day", "refused.json")
-    check(run.returncode != 0 and "refused.txt:2: picture p: @masked is of the format 2 of a later DGX" in run.stderr,
-          "a mask of DGX's writer refused by its line: " + run.stderr.strip())
+# a mask through a widget that names no look, its kind's, the look of a picture: refused; through a look of the program's
+# own: let be, as that look may draw it
+with open(os.path.join(work, "refused.txt"), "w") as out:
+    out.write("look picture\npicture p @mask_four\n")
+with open(os.path.join(work, "unnamed.json"), "w") as out:
+    json.dump({"dgx-ui": 1, "name": "un", "tree": {"kind": "picture", "picture": "p"}}, out)
+run = tool_run("-n", "refused.txt", "-g", "out", "-a", "look.json", "-ap", "day", "unnamed.json")
+check(run.returncode != 0 and "refused.txt:2: picture p: a mask, drawn by the look soft_picture; the page draws it by \"picture\"" in run.stderr,
+      "a mask by its kind's look: " + run.stderr.strip())
+with open(os.path.join(work, "refused.txt"), "w") as out:
+    out.write("look indexed &my_look\npicture p @mask_four\n")
+run = tool_run("-n", "refused.txt", "-g", "out", "-a", "look.json", "-ap", "day", "refused.json")
+check(run.returncode == 0, "a mask by a look of the program's own: " + run.stderr.strip())
 with open(os.path.join(work, "refused.txt"), "w") as out:
     out.write("look indexed\npicture p @four_holes\n")
 run = tool_run("-n", "refused.txt", "-g", "out", "refused.json")
@@ -263,4 +295,4 @@ check(run.returncode == 0 and "my_map, 1, 4" in open(os.path.join(work, "rf.c"))
 if failures:
     print(f"test_picture_files.py: {len(failures)} of {checks} checks failed", file=sys.stderr)
     sys.exit(1)
-print(f"test_picture_files.py: {checks} checks held: {len(pictures)} pictures of files drawn as their PNGs, added and loaded, {len(REFUSALS) + 2} refusals in words")
+print(f"test_picture_files.py: {checks} checks held: {len(pictures)} pictures of files drawn as their PNGs, added and loaded, {len(REFUSALS) + 3} refusals in words")

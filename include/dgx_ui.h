@@ -282,16 +282,18 @@ struct dgx_ui_look_t {
 };
 
 /**
- * @brief A picture of a widget: a picture of DGX of 1, 4 or 8 bits, or one of RGB565.
+ * @brief A picture of a widget: a picture of DGX of 1, 4 or 8 bits, a mask, one of 16 bits with its opacity, or one of
+ * RGB565.
  */
 typedef struct dgx_ui_picture_t {
-    const dgx_image_t *image;  ///< the picture of 1, 4 or 8 bits; NULL for one of RGB565
+    const dgx_image_t *image;  ///< the picture of 1, 4 or 8 bits, or of 16 with its plane of opacity; NULL for one of RGB565
     const uint16_t    *rgb565; ///< or rows of RGB565, high byte first, as dgx_vscreen_from_array() takes them
     const uint8_t     *map;    ///< 4 or 8 bits: the colors of its values, indices of the painter's table
     int16_t            width, height; ///< the size of an RGB565 picture; of a dgx_image_t its own is taken
     uint8_t            scale;  ///< 0: a pixel of it a pixel of the screen; 1: a point, unit x unit pixels; more: so many points; 255 pixels at most
     uint8_t            solid;  ///< 4 or 8 bits: its value 0 is a colour, `zero`, not the paper: a picture whose palette has every value
     uint8_t            zero;   ///< with `solid`: the index of the painter's table its value 0 takes
+    uint8_t            mask;   ///< 4 or 8 bits: its values are how much of the ink covers a pixel, drawn by dgx_ui_look_soft_picture
 } dgx_ui_picture_t;
 
 /** @brief The size of a picture: its own for a dgx_image_t, the given one for RGB565. */

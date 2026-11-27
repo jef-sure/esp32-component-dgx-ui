@@ -353,10 +353,12 @@ def make_picture(root, asked):
             return None, f"a picture of {width}x{height}: {limits}"
     if sum(width * height for width, height in sizes) > MOST_PIXELS:
         return None, f"{len(sizes)} pictures of {sum(width * height for width, height in sizes)} pixels in all: {limits}"
-    bits, ink, background = asked.get("bits"), asked.get("ink"), asked.get("background")
+    bits, ink, background, mask = asked.get("bits"), asked.get("ink"), asked.get("background"), asked.get("mask") is True
     if bits not in PICTURE_WORDS["bits"] or (ink is not None and ink not in PICTURE_WORDS["ink"]) or \
             (background is not None and not (isinstance(background, str) and re.fullmatch(r"[0-9a-fA-F]{6}", background))):
         return None, "bits 1, 4, 8 or 16; ink dark or light; a background of six hex digits"
+    if mask and bits not in (4, 8):
+        return None, "a mask is of 4 or 8 bits"
     tool, said = dgx_writer(root)
     if not tool:
         return None, said
@@ -366,7 +368,8 @@ def make_picture(root, asked):
             names.append(f"picture{k}.png")
             with open(os.path.join(folder, names[-1]), "wb") as out:
                 out.write(data)
-        words = ["PNG", *names, "BITS", str(bits)] + (["REDUCE"] if asked.get("reduce") is True else []) + (["DITHER"] if asked.get("dither") is True else [])
+        words = ["PNG", *names, "BITS", str(bits)] + (["MASK"] if mask else []) + (["REDUCE"] if asked.get("reduce") is True else []) + \
+            (["DITHER"] if asked.get("dither") is True else [])
         words += (["INK", ink.upper()] if ink else []) + (["BACKGROUND", background] if background else [])
         env = {"PATH": os.environ.get("PATH", "")}
         if os.name == "nt" and "SYSTEMROOT" in os.environ:

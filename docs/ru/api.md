@@ -23,7 +23,7 @@
 | [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | картинки из файла DGX, который при сборке сделан из PNG, прочитанные на месте в таблицу картинок виджетов |
 | [`project_include.cmake`](#project_includecmake) | три вызова CMake: описания, файлы имён и внешний вид, переведённые на C при сборке программы |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.4:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.5:
 имена и сигнатуры зафиксированы с 0.1.0; то, что сломало бы программу, придёт только с 0.2.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -238,6 +238,7 @@ typedef struct dgx_ui_picture_t {
     uint8_t            scale;
     uint8_t            solid;
     uint8_t            zero;
+    uint8_t            mask;
 } dgx_ui_picture_t;
 ```
 
@@ -246,7 +247,10 @@ typedef struct dgx_ui_picture_t {
 рисует `dgx_ui_look_indexed`: её значения идут через `map` в номера цветов таблицы отрисовки, значение 1 — это
 `map[0]`; без карты номером служит само значение; пиксель 0 — бумага. С `solid` значение 0 — тоже цвет, номер
 `zero` в таблице: так у картинки, палитра которой занимает все значения её глубины. Оба поля ставит C картинки из
-файла ([dgx_ui_picture_file.h](#dgx_ui_picture_fileh)); у картинки, написанной вручную, они 0.
+файла ([dgx_ui_picture_file.h](#dgx_ui_picture_fileh)); у картинки, написанной вручную, они 0. С `mask` картинка в 4
+или 8 бит — маска: её значения говорят, какая доля пикселя покрыта чернилами, и рисует её `dgx_ui_look_soft_picture`
+с мягкими краями. Картинка в 16 бит со своей плоскостью непрозрачности — это `dgx_image_t` DGX в `image`; её рисует
+тот же облик.
 
 `void dgx_ui_picture_size(const dgx_ui_picture_t *p, int *w, int *h)` даёт размер и той и другой.
 
@@ -338,7 +342,7 @@ typedef struct dgx_ui_node_t {
 | `void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)` | Пишет значение в место виджета, в пределах `min..max`, если `min < max`. Значение значка не ограничивается: вне диапазона он не показывает картинку. У виджета без места ничего не делает. Программа может с тем же успехом записать свою переменную сама. |
 | `void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)` | Ставит или снимает `DGX_UI_DISABLED` или `DGX_UI_PRESSED`. Отключённый виджет теряет фокус, и нажатие пальца на нём заканчивается. |
 | `void dgx_ui_show(dgx_ui_t *ui, int i, bool shown)` | Показывает или скрывает; его строка или столбец раскладывается заново. Скрытый виджет теряет фокус и нажатие пальца. |
-| `void dgx_ui_redraw(dgx_ui_t *ui, int i)` | На следующем проходе виджет рисуется целиком, со всем, что под ним. |
+| `void dgx_ui_redraw(dgx_ui_t *ui, int i)` | На следующем проходе виджет рисуется целиком, со всем, что под ним. Виджет рисуется в пределах прямоугольников тех, в которые он вложен: вложенный в контейнер нулевой высоты — без своего размера в столбце — виден, когда дерево рисуется целиком, но не когда заново рисуется он один. Дайте такому контейнеру размер, `want` или `DGX_UI_REST`. |
 | `bool dgx_ui_hidden(const dgx_ui_t *ui, int i)` | Скрыт ли он: сам или виджетом над ним. |
 
 ### Указатель
@@ -1068,6 +1072,7 @@ typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, in
 | `dgx_ui_look_nine` | контейнер или рамка в виде рамки из девяти картинок, которые даёт облик программы; без них — только цвет 2 | `dgx_ui_nine_look_t` |
 | `dgx_ui_look_scroll` | контейнер с `DGX_UI_COLUMN \| DGX_UI_SCROLL`: окно над вложенными виджетами, справа полоса прокрутки, пока они выше окна; [Прокручиваемый контейнер](#прокручиваемый-контейнер) | `dgx_ui_scroll_look_t` |
 | `dgx_ui_look_indexed` | картинка или значок в 4 или 8 бит: её значения через карту — номера цветов таблицы; рисует и картинку в 1 бит. Нужны `CONFIG_DGX_ENABLE_VSCREEN`, буфер отрисовки не меньше строки картинки и 16-битный экран; без них на месте виджета бумага | `dgx_ui_picture_look_t` |
+| `dgx_ui_look_soft_picture` | картинка или значок с мягкими краями: маска в 4 или 8 бит чернилами или картинка в 16 бит со своей непрозрачностью. По бумаге одного цвета края смешиваются с ней на любом экране, и каждый пиксель прямоугольника пишется один раз; поверх нарисованного фона они смешиваются с ним там, где экран читается, а где не читается, пиксель, покрытый наполовину и больше, берёт картинку целиком. Картинку в 1 бит рисует как `dgx_ui_look_picture`. Ни виртуального экрана, ни буфера | `dgx_ui_picture_look_t` |
 
 Облик, который не указан ни у одного виджета, в программу не попадает.
 
@@ -1098,6 +1103,7 @@ typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, in
 | `dgx_ui_draw_picture` | `dgx_ui_look_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_rgb565` | `dgx_ui_look_rgb565` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_indexed` | `dgx_ui_look_indexed` | `dgx_ui_picture_look_t` |
+| `dgx_ui_draw_soft_picture` | `dgx_ui_look_soft_picture` | `dgx_ui_picture_look_t` |
 | `dgx_ui_draw_nine` | `dgx_ui_look_nine` | `dgx_ui_nine_look_t`; его заливка — `fill` облика |
 | `dgx_ui_draw_scroll` | `dgx_ui_look_scroll` | `dgx_ui_scroll_look_t`; в облике указано `.behavior = &dgx_ui_scroll_behavior` |
 
@@ -1857,6 +1863,7 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 | `"picture"` | `ink`; `paper`° |
 | `"rgb565"` | `ink`; `paper`° |
 | `"indexed"` | `ink`; `paper`° |
+| `"soft_picture"` | `ink`; `paper`° |
 | `"radio"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"checkbox"` | `mark`; `focused`°; `disabled`; `sign`; `inside`°; `pressed`°; `ink`; `ink_disabled`; `paper`° |
 | `"level"` | `fill`; `track`°; `from`: `"left"`, `"bottom"`, `"right"`, `"top"`; `bands_by`: `"value"`, `"place"`; `bands` |
@@ -1951,7 +1958,7 @@ static const dgx_ui_params_t dial_described = DGX_UI_PARAMS(dial_params_t, 1u <<
 `dgx_ui_params_text`, `dgx_ui_params_lines`, `dgx_ui_params_hand_lines`, `dgx_ui_params_button`,
 `dgx_ui_params_picture_button`, `dgx_ui_params_input`, `dgx_ui_params_switch`, `dgx_ui_params_slider`,
 `dgx_ui_params_list`, `dgx_ui_params_dropdown`, `dgx_ui_params_picture`, `dgx_ui_params_rgb565`,
-`dgx_ui_params_indexed`, `dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`,
+`dgx_ui_params_indexed`, `dgx_ui_params_soft_picture`, `dgx_ui_params_radio`, `dgx_ui_params_checkbox`, `dgx_ui_params_level`,
 `dgx_ui_params_ring`, `dgx_ui_params_nine`, `dgx_ui_params_scroll`, а для стиля и варианта шрифта — `dgx_ui_params_text_style` и `dgx_ui_params_font_variant`.
 
 **Чего внешний вид не может.** Он может указать только то, что перечислила программа: функции рисования, шрифты и
@@ -1989,6 +1996,7 @@ typedef struct dgx_ui_picture_file_t {
     uint8_t           scale;
     uint8_t           solid;
     uint8_t           zero;
+    uint8_t           kind;
 } dgx_ui_picture_file_t;
 ```
 
@@ -1996,9 +2004,9 @@ typedef struct dgx_ui_picture_file_t {
 | ---- | ---------- |
 | `bytes`, `length` | файл, `dgx_asset_<ассет>` из `dgx_assets.h` DGX, и `&dgx_asset_<ассет>_size` |
 | `name` | имя ассета, для журнала |
-| `pictures`, `images` | заполняемые таблицы, по `count` записей, в ОЗУ: картинки виджетов и по картинке DGX на каждую для 1, 4 и 8 бит; для 16 бит `images` — `NULL` |
-| `map` | 4 и 8 бит: `map[p - 1]` — номер цвета таблицы отрисовки для значения `p`, ближайший цвет внешнего вида или собственный массив программы; для 1 и 16 бит `NULL` |
-| `count`, `bits` | что было в файле, когда делался C: столько-то картинок в 1, 4 или 8 бит с палитрой или в 16 бит пикселями |
+| `pictures`, `images` | заполняемые таблицы, по `count` записей, в ОЗУ: картинки виджетов и по картинке DGX на каждую для 1, 4 и 8 бит, для маски и для 16 бит с прозрачностью; для 16 бит без неё `images` — `NULL` |
+| `map` | 4 и 8 бит с палитрой: `map[p - 1]` — номер цвета таблицы отрисовки для значения `p`, ближайший цвет внешнего вида или собственный массив программы; для 1 и 16 бит и для маски `NULL` |
+| `count`, `bits`, `kind` | что было в файле, когда делался C: столько-то картинок в 1, 4 или 8 бит с палитрой, в 4 или 8 бит маски или в 16 бит пикселями; вид, как его называет `dgx_image_file.h` DGX: `DGX_IMAGE_FILE_INDEXED`, `DGX_IMAGE_FILE_MASK` или `DGX_IMAGE_FILE_PIXELS` |
 | `scale`, `solid`, `zero` | у каждой картинки, как в `dgx_ui_picture_t` |
 
 | Вызов | Что делает |
@@ -2008,10 +2016,12 @@ typedef struct dgx_ui_picture_file_t {
 Сделанный C читает свои файлы один раз: в своей `<prefix>_add()` и в `start` таблиц `dgx_ui_names()` и имён внешнего
 вида. Картинку в 1 бит рисует `dgx_ui_look_picture` чернилами и бумагой своего облика, в 4 или 8 бит —
 `dgx_ui_look_indexed` через свою карту, с `solid`, если её палитра занимает все значения, в 16 бит —
-`dgx_ui_look_rgb565`. Что `dgx_ui_c` отвергает при сборке программы, словами и со строкой файла имён: ассет, которого
-нет в списке DGX; файл более позднего формата DGX или вида, который dgx-ui не рисует, в том числе маску мягких краёв;
-16 бит с прозрачностью; палитру с непрозрачностью из PNG; число картинок, которого в файле нет; 4 или 8 бит без
-внешнего вида и без `map=`.
+`dgx_ui_look_rgb565`; маску и картинку в 16 бит с прозрачностью — `dgx_ui_look_soft_picture`. Что `dgx_ui_c`
+отвергает при сборке программы, словами и со строкой файла имён: ассет, которого нет в списке DGX; файл более позднего
+формата, чем пишет DGX 0.12.11; маску в 1 бит; палитру с непрозрачностью из PNG; `map=` у маски; число картинок,
+которого в файле нет; 4 или 8 бит с палитрой без внешнего вида и без `map=`; маску или картинку в 16 бит с
+прозрачностью, которую виджет рисует другим обликом библиотеки, а не `soft_picture`. Где сделанный C этого не видит, в
+описании, загруженном во время работы программы, тот облик рисует бумагу и один раз пишет об этом в журнал.
 
 ## project_include.cmake
 
@@ -2020,7 +2030,7 @@ typedef struct dgx_ui_picture_file_t {
 на C при сборке программы — это делает `dgx_ui_c`, инструмент компонента, который работает на компьютере. Рецепт:
 [Описание, переведённое на C при сборке](cookbook.md#описание-переведённое-на-c-при-сборке);
 страница самого инструмента:
-[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.4/tools/README.md).
+[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.5/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])
@@ -2080,7 +2090,9 @@ dgx_ui_tree(weather.json NAMES vocab.txt)
 ([dgx_ui_picture_file.h](#dgx_ui_picture_fileh)); он ждёт файлов DGX и делается заново, когда какой-нибудь из них
 меняется, в каком бы порядке ни читались CMakeLists компонентов. Картинка в 4 или 8 бит берёт для каждого цвета своей
 палитры ближайший цвет внешнего вида, указанного в `APPEARANCE`, или собственный массив номеров программы,
-`map=<массив>`. Внешний вид, сделанный в C, картинку из файла пока не берёт.
+`map=<массив>`. Внешний вид, сделанный в C, картинку из файла пока не берёт. Маску, `MASK` в потребности, и картинку
+в 16 бит с прозрачностью рисует облик `soft_picture`; виджет, который называет такую картинку с другим обликом
+библиотеки, отвергается, когда страница делается в C.
 
 С файлом имён описание может указать только то, что в нём перечислено, как с таблицами `dgx_ui_load()`: имя,
 которого в файле нет, отвергается, таблица, которой в нём нет, пуста, а id, которого в нём нет, пропускается. Поэтому

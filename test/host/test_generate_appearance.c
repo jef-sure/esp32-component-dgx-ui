@@ -32,6 +32,13 @@ const dgx_ui_picture_t card_pieces[9] = {{.image = &card_images[0]}, {.image = &
                                          {.image = &card_images[3]}, {.image = &card_images[4]}, {.image = &card_images[5]},
                                          {.image = &card_images[6]}, {.image = &card_images[7]}, {.image = &card_images[8]}};
 const dgx_ui_picture_t one_piece[1] = {{.image = &card_images[4]}};
+/* the picture of every widget of a picture on the page: a mask of 8 bits, which a soft picture's look draws in its ink
+   over its paper and the others leave as paper */
+static const uint8_t          mask_values[6 * 5] = {0, 40, 90, 140, 200, 255, 30, 80, 130, 180, 230, 255, 255, 220, 160, 100, 50, 0,
+                                                    10, 60, 128, 127, 250, 5, 255, 255, 0, 0, 128, 64};
+static const dgx_image_t      mask_image         = {6, 5, 0, 0, DGX_IMAGE_8BPP, mask_values};
+static const dgx_ui_picture_t mask_piece         = {.image = &mask_image, .mask = 1};
+static int                    soft_inked; /* pixels a soft picture's look put that are not its box's paper */
 static const dgx_ui_text_look_t    mine_colours     = {.ink = 1, .paper = 0};
 const dgx_ui_look_t                mine             = {.draw = dgx_ui_draw_text, .params = &mine_colours, .fill = DGX_UI_PAPER};
 static const dgx_ui_font_variant_t plain_variant[1] = {{.font = &TerminusTTFMedium12}};
@@ -113,7 +120,7 @@ static dgx_screen_t *drawn(const dgx_ui_appearance_t *appearance, int own_looks,
         const bool valued = kind == DGX_UI_LIST || kind == DGX_UI_SWITCH || kind == DGX_UI_SLIDER || kind == DGX_UI_DROPDOWN || kind == DGX_UI_OWN || kind == DGX_UI_RADIO;
         boxes[k]          = (dgx_ui_textbox_t)DGX_UI_TEXT_CONST(kind == DGX_UI_LIST || kind == DGX_UI_DROPDOWN ? "Ab\nCd" : "Ab", kind == DGX_UI_LIST ? 2 : 1, style);
         widgets[k] = (dgx_ui_widget_t){.kind = (uint8_t)kind, .look = look, .want_h = kind == DGX_UI_LIST ? 24 : 12, .max = 100, .text = texted ? &boxes[k] : NULL,
-                                       .value = valued ? &volume : NULL};
+                                       .value = valued ? &volume : NULL, .picture = kind == DGX_UI_PICTURE ? &mask_piece : NULL};
         dgx_ui_add(&ui, root, &widgets[k]);
     }
     uint32_t       colors[256];
@@ -122,6 +129,12 @@ static dgx_screen_t *drawn(const dgx_ui_appearance_t *appearance, int own_looks,
     dgx_ui_appearance_pack(appearance, dgx_ui_pack_screen, scr, colors);
     dgx_ui_paint_t paint = {.scr = scr, .colors = colors, .color_count = appearance->color_count, .buffer = buffer, .buffer_size = sizeof buffer};
     dgx_ui_paint(&ui, &paint, 0);
+    for (int i = 1; i < ui.count; ++i) {
+        const dgx_ui_node_t *n = dgx_ui_node(&ui, i);
+        if (n->widget->look->draw != dgx_ui_draw_soft_picture) continue;
+        for (int y = n->y; y < n->y + n->h; ++y)
+            for (int x = n->x; x < n->x + n->w; ++x) soft_inked += dgx_get_pixel(scr, x, y) != dgx_get_pixel(scr, n->x, n->y);
+    }
     dgx_ui_paint_free(&paint);
     dgx_ui_free(&ui);
     return scr;
@@ -231,5 +244,6 @@ int main(void)
         CHECK(dgx_ui_widget(&made_ui, 3)->text->style == every_appearance.styles[0].style && dgx_ui_widget(&made_ui, 4)->text->style == &plain);
         dgx_ui_free(&loaded_ui), dgx_ui_free(&made_ui);
     }
+    CHECK(soft_inked > 0); /* a look of soft pictures drew its mask on a page */
     CHECK_DONE();
 }

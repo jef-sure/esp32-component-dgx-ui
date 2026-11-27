@@ -426,7 +426,7 @@ const boxOf = (store, widgetPath) => {
         check(store.current === 'main/a.json' && store.verdicts.appearance.code === 0 && store.verdicts.page.code === 0 && store.look,
               'the appearance read: ' + JSON.stringify(store.verdicts));
         check(store.lookPrefix === 'sunny' && same(store.pagesOn, ['main/a.json', 'main/b.json']), 'its prefix, the call\'s PREFIX over its name, and its two pages');
-        check(store.lookFormat.draws.length === 21 && store.lookFormat.by_rule, 'what it may say, by the rule');
+        check(store.lookFormat.draws.length === 22 && store.lookFormat.by_rule, 'what it may say, by the rule');
         check(same(store.project.appearances.map((one) => [one.path, one.from]), [['main/look.json', 'main/CMakeLists.txt:2'], ['main/night.json', null]]),
               'an appearance loaded at run time found beside the call\'s: ' + JSON.stringify(store.project.appearances));
         store.setTab('appearance');

@@ -621,16 +621,23 @@ static bool picture_of_file(tree_t *tree, const entry_t *entry, dgx_ui_picture_n
         else picture_file_map(&file, default_rgb, 4, map, &solid, &zero);
         if (entry->map) say(&notes, "%spicture %s: the program's map %s, the nearest of the colours shown here stand in\n", note_lead, entry->name, entry->map);
     }
+    bool alpha = false; /* 16 bits with transparent places: a dgx_image_t each, as dgx_ui_c gives them */
+    for (unsigned k = 0; file.kind == DGX_IMAGE_FILE_PIXELS && k < file.count; ++k) {
+        dgx_image_file_picture_t one;
+        alpha |= dgx_image_file_picture(&file, k, &one) == ESP_OK && one.alpha;
+    }
     dgx_ui_picture_t *table  = zeroed(file.count, sizeof *table);
-    dgx_image_t      *images = indexed ? zeroed(file.count, sizeof *images) : NULL;
+    dgx_image_t      *images = file.kind != DGX_IMAGE_FILE_PIXELS || alpha ? zeroed(file.count, sizeof *images) : NULL;
     const dgx_ui_picture_file_t read = {.bytes = given->bytes, .length = &given->length, .name = given->name, .pictures = table, .images = images,
-                                        .map = map, .count = file.count, .bits = file.bits, .scale = (uint8_t)entry->scale, .solid = solid, .zero = zero};
+                                        .map = map, .count = file.count, .bits = file.bits, .scale = (uint8_t)entry->scale, .solid = solid, .zero = zero,
+                                        .kind = file.kind};
     dgx_ui_picture_file_read(&read);
     tree->kept = realloc(tree->kept, (size_t)(tree->kept_count + 3) * sizeof *tree->kept);
     if (!tree->kept) names_no_memory();
     tree->kept[tree->kept_count++] = table, tree->kept[tree->kept_count++] = images, tree->kept[tree->kept_count++] = map;
     named->picture = table, named->count = file.count;
-    say(&notes, "%spicture %s: @%s, %u of %u bits, from its file\n", note_lead, entry->name, entry->asset, (unsigned)file.count, (unsigned)file.bits);
+    say(&notes, "%spicture %s: @%s, %u of %u bits%s, from its file\n", note_lead, entry->name, entry->asset, (unsigned)file.count, (unsigned)file.bits,
+        file.kind == DGX_IMAGE_FILE_MASK ? " of a mask" : alpha ? " with transparency" : "");
     return true;
 }
 

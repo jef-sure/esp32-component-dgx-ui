@@ -232,14 +232,21 @@ it takes, "Take it" and "Cancel"](../docs/images/builder-import.png)
 - **A PNG chosen or dropped**, or several, the pictures of an icon. The builder counts their colours, and whether
   some pixels are transparent, and offers the depth DGX would take them at: 1 bit for two colours (one, with a
   transparent background), 4 for 16 (15), 8 for 256 (255), 16 for more. The depth may be changed; `REDUCE` and
-  `DITHER` take a picture of more colours to fewer, `INK` says which colours of one bit are ink, and a picture of 16
-  bits with transparency takes `BACKGROUND`, the appearance's paper by default.
+  `DITHER` take a picture of more colours to fewer, and `INK` says which colours of one bit are ink.
+- **Soft edges**, pixels partly transparent, are seen too, and kept by default ("soft edges, as the PNG has them"). A
+  PNG of one colour with soft edges is offered as a mask of 4 bits, `MASK` in its need, drawn in the ink of the look
+  `soft_picture`; 8 bits give smoother edges at twice the bytes. One of several colours is offered as 16 bits that
+  keep the opacity. With the box unticked, a picture of 16 bits takes `BACKGROUND`, the appearance's paper by
+  default ([An icon with soft edges](../docs/en/cookbook.md#an-icon-with-soft-edges)).
 - **Made at once.** The server makes the file by the project's DGX, and the preview draws it in the appearance's
   colours, as the board will. What DGX refuses, a picture of 37 colours at 4 bits, is said in DGX's words.
 - **Taken, written at the save.** The PNG files into `images/` beside the file of needs, `images/<name>.png`; the
-  need at the end of that file, `<name> PNG images/<name>.png BITS <n>`; and the line of the page's names file,
-  `picture <name> @<name>`. Never a CMakeLists. The name is a name of C, not of `dgx_`, and not a need's the file
-  has.
+  need at the end of that file, `<name> PNG images/<name>.png BITS <n>`, with `MASK` for a mask; and the line of the
+  page's names file, `picture <name> @<name>`. Never a CMakeLists. The name is a name of C, not of `dgx_`, and not a
+  need's the file has.
+- **The look.** A mask and a picture of 16 bits with soft edges are drawn by `soft_picture` alone. When widgets of the
+  page show the picture by another look, the builder says how many and offers "Draw them by soft_picture": it sets
+  their look and adds `look soft_picture` to the names file, as one step.
 - **After a build** the panel draws every picture DGX made by the project's needs, from `build/dgx_images/`, or
   `build/<board>/dgx_images/` of a preset, as it draws the fonts DGX made.
 - Refused in words: a project with no file of needs, a page with no names file, a name taken, and a project whose DGX

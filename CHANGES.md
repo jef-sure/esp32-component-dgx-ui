@@ -1,5 +1,14 @@
 # Changes
 
+## 0.1.5 - 2026-11-27
+
+- Soft pictures: dgx_ui_look_soft_picture draws a mask in its ink, or a picture of 16 bits with its opacity, the edges
+  mixed with the paper, every pixel once. A picture of a file may be either: MASK in its need, or 16 bits of a PNG with
+  transparency. About 0.75 KB for a program that names the look, nothing for one that does not. DGX 0.12.11 or a
+  later 0.12.
+- The builder imports a PNG with soft edges as a mask of one colour, or as 16 bits with its opacity.
+- The recipe "An icon with soft edges".
+
 ## 0.1.4 - 2026-11-27
 
 - A picture may come from a PNG file: DGX makes it a file at build time, and a names file names it,

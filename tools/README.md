@@ -200,23 +200,26 @@ The line is `picture <name> @<asset> [<count>] [scale <n>] [map=<array>]`. The a
 file of several PNG files holds as many pictures, an icon's range. `scale` is the pictures' own,
 `dgx_ui_picture_t::scale`.
 
-What the made C holds, in RAM: the widgets' pictures, 20 bytes each on a 32-bit chip, and for 1, 4 and 8 bits a picture
-of DGX each, `dgx_image_t`, 20 bytes more (16 with DGX 0.12.10); for 4 and 8 bits a constant map from the file's values
-to the painter's table, each colour of the palette to the nearest colour of the appearance `-a` gives (the squares of
-the channels' differences weighed 2, 4 and 3), or the program's own array of `map=`. A palette that uses every value of
-its depth makes the value 0 a colour too, `solid` and `zero` of the picture. The pictures are read where they lie, at
-the first `<prefix>_add()` and at the first `start` of the tables, `dgx_ui_picture_file_read()` of
-[dgx_ui_picture_file.h](../docs/en/api.md#dgx_ui_picture_fileh): no pixel is copied.
+What the made C holds, in RAM: the widgets' pictures, 20 bytes each on a 32-bit chip, and a picture of DGX each,
+`dgx_image_t`, 20 bytes more, for 1, 4 and 8 bits, for a mask and for 16 bits with transparency; for 4 and 8 bits of a
+palette a constant map from the file's values to the painter's table, each colour of the palette to the nearest colour
+of the appearance `-a` gives (the squares of the channels' differences weighed 2, 4 and 3), or the program's own array
+of `map=`. A palette that uses every value of its depth makes the value 0 a colour too, `solid` and `zero` of the
+picture. A mask, `MASK` in the need, sets `mask`; it and a picture of 16 bits with transparency are drawn by the look
+`soft_picture`. The pictures are read where they lie, at the first `<prefix>_add()` and at the first `start` of the
+tables, `dgx_ui_picture_file_read()` of [dgx_ui_picture_file.h](../docs/en/api.md#dgx_ui_picture_fileh): no pixel is
+copied.
 
 Refused in words, with the names file's line:
 
 - `-g` not given, no `dgx_images-files.txt` there, or an asset it does not name;
-- a file of a later format than the DGX the tool is built with reads, or of a kind dgx-ui does not draw: a mask of soft
-  edges, `MASK`;
-- 16 bits with transparency (`BACKGROUND <rrggbb>` in the need, or 1, 4 or 8 bits), and a palette that keeps the
-  opacity of its PNG, `ALPHA`;
+- a file of a later format than DGX 0.12.11 writes, or a mask of 1 bit;
+- a palette that keeps the opacity of its PNG, `ALPHA`, and `map=` on a mask;
 - a count the file does not hold;
-- 4 or 8 bits with no appearance and no `map=`;
+- 4 or 8 bits of a palette with no appearance and no `map=`;
+- a mask, or a picture of 16 bits with transparency, that a widget of the page draws by another look of the library
+  than `soft_picture`, the look its kind takes when it names none and the appearance's looks by their draw among them;
+  a look of the program's own is let be;
 - in an appearance made C, a picture of a file: the program's C in its names line serves it for now.
 
 ## The loader's tables from the names file

@@ -518,11 +518,16 @@ static void out_appearance_stamp(out_t *o)
 /* what the file of an asset holds, as the made C keeps it: one a picture's entry of the page's table */
 typedef struct picture_file_t {
     uint8_t  bits, solid, zero;
+    uint8_t  kind;           /* DGX_IMAGE_FILE_INDEXED, _PIXELS or _MASK */
+    bool     alpha;          /* 16 bits with transparent places: a dgx_image_t each, its plane of opacity beside */
     uint16_t count;
     int      map_count;      /* 4 and 8 bits with no map= of the program's: map[p - 1] the index of the value p, 15 or 255 of them */
     uint8_t  map[255];
 } picture_file_t;
 static picture_file_t *picture_files; /* by the index of tables[T_PICTURE] */
+/* -a: the word of the library's draw of each of the appearance's own looks, NULL for a draw of the program's: what draws
+   a picture a page's widget names through it */
+static const char **appearance_look_draws;
 
 /* the file of an asset by DGX's list of its files, build/dgx_images/dgx_images-files.txt: "<name> <file>" a line */
 static char *asset_path(const entry_t *entry)
@@ -566,8 +571,12 @@ static void read_picture_files(void)
         char *refused = picture_file_refused(entry, &file);
         if (refused) fail_out("%s:%d: %s", names_given, entry->line, refused);
         picture_file_t *f = &picture_files[k];
-        f->bits = file.bits, f->count = file.count, entry->count = file.count;
-        if (file.bits == 4 || file.bits == 8) {
+        f->bits = file.bits, f->kind = file.kind, f->count = file.count, entry->count = file.count;
+        for (unsigned j = 0; file.kind == DGX_IMAGE_FILE_PIXELS && j < file.count; ++j) {
+            dgx_image_file_picture_t one;
+            f->alpha |= dgx_image_file_picture(&file, j, &one) == ESP_OK && one.alpha;
+        }
+        if (file.kind == DGX_IMAGE_FILE_INDEXED && (file.bits == 4 || file.bits == 8)) {
             if (entry->map) {
                 if (file.first == 0) f->solid = 0; /* the program's map holds the values from 1: its 0 is the paper */
             } else if (!appearance.color_count) {
@@ -588,6 +597,34 @@ static bool picture_of_file(int k)
     return k >= 0 && k < tables[T_PICTURE].count && tables[T_PICTURE].entries[k].asset;
 }
 
+/* the word of the library's draw a widget's look is: its look of the library, or of the appearance, or its kind's when it
+   names none; NULL for a look of the program's own, which may draw anything */
+static const char *draw_word_of(const dgx_ui_widget_t *w)
+{
+    static const char lead[] = "&dgx_ui_look_";
+    if (!w->look) return w->kind == DGX_UI_PICTURE || w->kind == DGX_UI_ICON ? "picture" : "button";
+    const entry_t *entry = &tables[T_LOOK].entries[(const dgx_ui_look_t *)w->look - look_stand];
+    if (entry->from_appearance) return appearance_look_draws ? appearance_look_draws[(const dgx_ui_look_t *)w->look - look_stand] : NULL;
+    return entry->c && strncmp(entry->c, lead, sizeof lead - 1) == 0 ? entry->c + sizeof lead - 1 : NULL;
+}
+
+/* a picture of a file a look of the library cannot draw, refused: a mask, or 16 bits with transparency, drawn by any
+   but the look of soft pictures; a look of the program's own let be */
+static void refuse_undrawn_pictures(const dgx_ui_t *ui, const int *order, int laid)
+{
+    for (int at = 0; at < laid; ++at) {
+        const dgx_ui_widget_t *w = dgx_ui_node(ui, order[at])->widget;
+        const int              k = w->picture ? (int)(w->picture - picture_stand) : -1;
+        if (!picture_of_file(k)) continue;
+        const picture_file_t *f    = &picture_files[k];
+        const char           *word = draw_word_of(w);
+        const char *what = f->kind == DGX_IMAGE_FILE_MASK ? "a mask" : f->alpha ? "16 bits with transparency" : NULL;
+        if (what && word && strcmp(word, "soft_picture") != 0)
+            fail_out("%s:%d: picture %s: %s, drawn by the look soft_picture; the page draws it by \"%s\"", names_given, tables[T_PICTURE].entries[k].line,
+                     tables[T_PICTURE].entries[k].name, what, word);
+    }
+}
+
 /* the tables of the pictures of files the made C names, the files they are read from and the start that reads them
    once: used[k] of the page's table's entry k, all with NULL. False: none, nothing written */
 static bool out_picture_files(out_t *o, const bool *used)
@@ -601,7 +638,7 @@ static bool out_picture_files(out_t *o, const bool *used)
         const entry_t *entry = &tables[T_PICTURE].entries[k];
         const picture_file_t *f = &picture_files[k];
         out(o, "static dgx_ui_picture_t %s[%u];\n", entry->c, (unsigned)f->count);
-        if (f->bits <= 8) out(o, "static dgx_image_t %s_images[%u];\n", entry->c, (unsigned)f->count);
+        if (f->bits <= 8 || f->alpha) out(o, "static dgx_image_t %s_images[%u];\n", entry->c, (unsigned)f->count);
         if (f->map_count) {
             out(o, "static const uint8_t %s_map[%d] = {", entry->c, f->map_count);
             for (int j = 0; j < f->map_count; ++j) out(o, "%s%u", j ? ", " : "", (unsigned)f->map[j]);
@@ -614,9 +651,9 @@ static bool out_picture_files(out_t *o, const bool *used)
         const entry_t *entry = &tables[T_PICTURE].entries[k];
         const picture_file_t *f = &picture_files[k];
         char *map = entry->map ? copy_of(entry->map) : f->map_count ? printed("%s_map", entry->c) : copy_of("NULL");
-        char *images = f->bits <= 8 ? printed("%s_images", entry->c) : copy_of("NULL");
-        out(o, "    {dgx_asset_%s, &dgx_asset_%s_size, \"%s\", %s, %s, %s, %u, %u, %u, %u, %u},\n", entry->asset, entry->asset, entry->asset, entry->c, images,
-            map, (unsigned)f->count, (unsigned)f->bits, entry->scale, (unsigned)f->solid, (unsigned)f->zero);
+        char *images = f->bits <= 8 || f->alpha ? printed("%s_images", entry->c) : copy_of("NULL");
+        out(o, "    {dgx_asset_%s, &dgx_asset_%s_size, \"%s\", %s, %s, %s, %u, %u, %u, %u, %u, %u},\n", entry->asset, entry->asset, entry->asset, entry->c, images,
+            map, (unsigned)f->count, (unsigned)f->bits, entry->scale, (unsigned)f->solid, (unsigned)f->zero, (unsigned)f->kind);
         free(map), free(images);
     }
     out(o, "};\n\nstatic void pictures_start(void)\n{\n    static bool read;\n    if (read) return;\n    read = true;\n");
@@ -669,6 +706,7 @@ static void write_c(const dgx_ui_t *ui, int root, const char *directory, const c
         const int              k = w->picture ? (int)(w->picture - picture_stand) : -1;
         if (picture_of_file(k)) picture_used[k] = any_file = true;
     }
+    refuse_undrawn_pictures(ui, order, laid);
     out(&c_file, "#include <stdint.h>\n#include <string.h>\n\n#include \"dgx_ui.h\"\n#include \"dgx_ui_load.h\"\n#include \"dgx_ui_paint.h\"\n#include \"dgx_ui_text.h\"\n");
     if (any_file) out(&c_file, "#include \"dgx_assets.h\"\n#include \"dgx_ui_picture_file.h\"\n");
     for (int k = 0; k < header_count; ++k) out(&c_file, "#include \"%s\"\n", headers[k]);
@@ -1245,6 +1283,11 @@ static void read_appearance_of_a(const char *names_of_appearance)
     memcpy(kept, appearance_tables, sizeof kept), memset(appearance_tables, 0, sizeof appearance_tables);
     if (names_of_appearance) appearance_names_read(names_of_appearance);
     read_appearance(names_of_appearance != NULL, false);
+    appearance_look_draws = zeroed(appearance_need.looks ? appearance_need.looks : 1, sizeof *appearance_look_draws);
+    for (int k = 0; k < appearance_need.looks; ++k) {
+        const entry_t *draw = &appearance_tables[A_DRAW].entries[(uintptr_t)appearance.looks[k].look->draw - (uintptr_t)draw_stand];
+        appearance_look_draws[k] = draw->library >= 0 ? library_draws[draw->library].word : NULL;
+    }
     appearance_names_of("-ap");
     memcpy(appearance_tables, kept, sizeof kept);
 }

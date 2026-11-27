@@ -719,8 +719,11 @@ const dgxUiBuilderMount = (() => {
             const chosen = (event) => imported([...event.target.files]).then(() => (event.target.value = ''));
             const dropped = (event) => imported([...event.dataTransfer.files].filter((file) => /\.png$/i.test(file.name)));
             const weight = computed(() => (store.importing ? store.importWeight() : null));
+            // the depths the import offers: a mask 4 or 8 bits, a picture with soft edges 16, else any
+            const depths = computed(() => (!store.importing?.soft ? [1, 4, 8, 16] : store.importing.mask ? [4, 8] : [16]));
+            const users = computed(() => (store.importing ? (store.version, store.importUsers()) : { all: [], other: [] }));
             return { ...words, path, missingFile, verdict, tables, rowsOf, unknown, unused, bare, partsOf, setPart, fresh, plan, rename,
-                     confirmRename, cancelRename, adding, add, typed, chosen, dropped, weight };
+                     confirmRename, cancelRename, adding, add, typed, chosen, dropped, weight, depths, users };
         },
         template: `
             <div class="names">
@@ -782,15 +785,21 @@ const dgxUiBuilderMount = (() => {
                     <p><label>{{ t('Its name') }} <input type="text" :value="store.importing.name"
                               @change="store.importSet('name', $event.target.value.trim())"></label>
                        <label>{{ t('Bits a pixel') }} <select :value="store.importing.bits" @change="store.importSet('bits', +$event.target.value)">
-                           <option v-for="bits in [1, 4, 8, 16]" :key="bits" :value="bits">{{ bits }}</option></select></label></p>
-                    <p><label v-if="store.importing.bits === 4 || store.importing.bits === 8"><input type="checkbox" :checked="store.importing.reduce"
+                           <option v-for="bits in depths" :key="bits" :value="bits">{{ bits }}</option></select></label></p>
+                    <p v-if="store.importing.partly"><label><input type="checkbox" :checked="store.importing.soft"
+                              @change="store.importSet('soft', $event.target.checked)"> {{ t('soft edges, as the PNG has them') }}</label></p>
+                    <p v-if="store.importing.soft && store.importing.mask" class="note">{{ t('A mask: drawn in the ink of the look soft_picture, its edges soft. 8 bits give smoother edges at twice the bytes.') }}</p>
+                    <p v-else-if="store.importing.soft" class="note">{{ t('16 bits with the opacity of every pixel: the look soft_picture draws its edges soft.') }}</p>
+                    <p v-if="store.importing.soft && users.other.length" class="note">{{ t('{0} of its widgets on this page are drawn by another look.', users.other.length) }}
+                       <button @click="store.importDrawSoft()">{{ t('Draw them by soft_picture') }}</button></p>
+                    <p><label v-if="(store.importing.bits === 4 || store.importing.bits === 8) && !store.importing.soft"><input type="checkbox" :checked="store.importing.reduce"
                               @change="store.importSet('reduce', $event.target.checked)"> {{ t('fewer colours where they do not fit') }}</label>
                        <label><input type="checkbox" :checked="store.importing.dither" @change="store.importSet('dither', $event.target.checked)">
                            {{ t('dithered') }}</label>
                        <label v-if="store.importing.bits === 1">{{ t('lit pixels') }} <select :value="store.importing.ink ?? ''"
                               @change="store.importSet('ink', $event.target.value || null)">
                            <option value="">{{ t('the light') }}</option><option value="dark">{{ t('the dark') }}</option></select></label>
-                       <label v-if="store.importing.bits === 16 && store.importing.transparent">{{ t('the holes in the colour') }} #<input type="text"
+                       <label v-if="store.importing.bits === 16 && store.importing.transparent && !store.importing.soft">{{ t('the holes in the colour') }} #<input type="text"
                               class="hex" :value="store.importing.background" @change="store.importSet('background', $event.target.value.trim())"></label></p>
                     <p v-if="store.importing.said" class="wrong">{{ store.importing.said }}</p>
                     <p v-else-if="weight" class="note">{{ t('{0} bytes of flash and {1} of RAM; the panel draws the bytes the board reads', weight.flash, weight.ram) }}</p>
