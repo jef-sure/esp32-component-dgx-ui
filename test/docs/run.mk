@@ -17,7 +17,7 @@ run-cookbook:
 		-I$(DGX_DI)/include -I$(BUILD)/docs -I$(BUILD)/docs/fonts -I$(BUILD)/docs/made_en -I$(BUILD)/docs/made_en/out -DMADE_DIR='"$(BUILD)/docs/made_en"' \
 		-o $(BUILD)/run_cookbook ../docs/run_cookbook.c $(BUILD)/docs/made_en/sound.c $(BUILD)/docs/made_en/vocab.c $(BUILD)/docs/made_en/day.c \
 		$(BUILD)/docs/made_en/sound_day.c $(BUILD)/docs/made_en/weather.c $(BUILD)/docs/made_en/icons.c $(BUILD)/docs/made_en/dgx_assets.o $(BUILD)/docs/fonts/dgx_fonts.c $(PAINT) \
-		$(ROOT)/src/dgx_ui_stats.c $(DGX_SRCS) $(DGX)/src/fonts/font0ss.c $(DGX)/src/fonts/GLCD5x7.c -lm
+		$(ROOT)/src/dgx_ui_stats.c $(ROOT)/src/dgx_ui_command.c $(DGX_SRCS) $(DGX)/src/fonts/font0ss.c $(DGX)/src/fonts/GLCD5x7.c -lm
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/run_cookbook $(OUT)
 
 # The pictures of docs/images but the ring's and the strip's, as PPM in $(OUT): make ... pictures OUT=<directory>; their

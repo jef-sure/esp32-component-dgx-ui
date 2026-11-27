@@ -19,6 +19,7 @@ file of the program's not written over, one the tool made written again, one of 
 libraries' refused. The loader's tables made of the names file by -t (some of its lines the library's words with no
 expression) are compiled into test_generate.c with the cases, and so are those of a file of two tables, whose cases are
 made and loaded on its tables alone; the made header is read by C++; the refusals of -t and of the names file's limits.
+The library's action command, by the rule and in a names file's tables.
 """
 import json
 import os
@@ -755,6 +756,19 @@ if status == 0 or 'the name "dgx_ui" begins with dgx_, as the libraries\' names 
 status, said = tool_in(own, '{"dgx-ui": 1, "name": "page", "tree": {"kind": "box"}}', "-p", "dgx_ui_text")
 if status == 0 or '-p "dgx_ui_text" begins with dgx_' not in said:
     failures.append(f"-p dgx_ui_text: {status} {said}")
+
+# the library's action command: by the rule its ctx a number cast to a pointer; by a names file "command" alone, its
+# handler's entry of a number alone (the loader refuses a context of the program's for it); test_command.c runs it
+commands = os.path.join(work, "commands")
+os.makedirs(commands, exist_ok=True)
+status, said = tool_in(commands, '{"dgx-ui": 1, "name": "cmd", "tree": {"kind": "button", "text": "Go", "on_event": "command", "ctx": 7}}')
+if status != 0 or ".on_event = dgx_ui_action_command, .ctx = (void *)(intptr_t)7" not in file_text(os.path.join(commands, "cmd.c")):
+    failures.append(f"a button of the action command by the rule: {status} {said}")
+with open(os.path.join(commands, "names.txt"), "w") as out:
+    out.write("on_event command\n")
+run = subprocess.run([tool, "-d", commands, "-n", os.path.join(commands, "names.txt"), "-t", "cmdt"], capture_output=True, text=True, timeout=30)
+if run.returncode != 0 or '{"command", dgx_ui_action_command, DGX_UI_CTX_NUMBER_ONLY}' not in file_text(os.path.join(commands, "cmdt.c")):
+    failures.append(f"the action command in a names file's tables: {run.returncode} {run.stderr.strip()}")
 
 for failure in failures:
     print("  " + failure, file=sys.stderr)

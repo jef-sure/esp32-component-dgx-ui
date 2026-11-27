@@ -1,5 +1,13 @@
 # Changes
 
+## 0.1.7 - 2026-11-27
+
+- A button in one line: DGX_UI_BUTTON(caption, style, command) and DGX_UI_LABEL(caption, style), C only. The button
+  sends its command as a message to the program's queue, named once by dgx_ui_commands_to(), so one switch serves every
+  button. About 0.3 KB for the first button, nothing for a program that names neither.
+- The action command for descriptions, `"on_event": "command"` with a number in `"ctx"`; the loader refuses a name there.
+- dgx_ui_enable_tag() turns every widget of a tag on or off, so every button of a command.
+
 ## 0.1.6 - 2026-11-27
 
 - Pictures of 4 and 8 bits (dgx_ui_look_indexed) are drawn by DGX in their colours on a screen of any depth, with no

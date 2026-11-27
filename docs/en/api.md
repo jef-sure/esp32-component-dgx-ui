@@ -22,7 +22,7 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | pictures of a file of DGX, made of PNG files when the program is built, read where they lie into a table of the widgets' pictures |
 | [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.6: the names and
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.7: the names and
 the signatures are fixed since 0.1.0; one that would break a program comes only with 0.2.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -336,6 +336,7 @@ None of these tells `on_event()`.
 | `bool dgx_ui_radio_chosen(const dgx_ui_node_t *node)` | Whether a radio button is the chosen one of its group: its place holds its `step`. An inline of the header. |
 | `void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)` | The value written into the widget's place, within `min..max` when `min < max`. An icon's is not bound: outside its range it shows no picture. A widget of no place: nothing. The program may as well write its variable itself. |
 | `void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)` | `DGX_UI_DISABLED` or `DGX_UI_PRESSED` set or cleared. Disabled, a widget loses the focus, and a press of the finger on it ends. |
+| `int dgx_ui_enable_tag(dgx_ui_t *ui, int tag, bool on)` | Every widget of the tag in the tree enabled, or disabled, as `dgx_ui_set_state()` does it: drawn again, the focus and a press lost there. The buttons of a command, as `DGX_UI_BUTTON()` makes their tag the command. A popup open over the tree is a tree of its own; the items of a dropdown's list and the board's buttons are not widgets and are not reached. Returns how many widgets it reached; a tag of 0, every untagged widget's, is refused: 0. |
 | `void dgx_ui_show(dgx_ui_t *ui, int i, bool shown)` | Shown or hidden; its row or column is laid again. Hidden, it loses the focus and a press of the finger. |
 | `void dgx_ui_redraw(dgx_ui_t *ui, int i)` | Drawn whole at the next pass, with everything under it. A widget is drawn within the boxes of the widgets that hold it: a child of a box laid 0 high, one with no size of its own in a column, shows when the tree is drawn whole but not when it alone is drawn again. Give such a box its size, `want` or `DGX_UI_REST`. |
 | `bool dgx_ui_hidden(const dgx_ui_t *ui, int i)` | Whether it is hidden, itself or by a widget above it. |
@@ -786,6 +787,7 @@ queue is full the message is lost and the call returns `false`.
 | `bool dgx_ui_post_ref(QueueHandle_t q, int what, void *data, size_t size, void (*done)(void *data, size_t size))` | A message by reference. The message owns the data until `done()` is called, in the task that owns the tree. When it is not sent, `done()` is not called and the data is still the sender's. |
 | `bool dgx_ui_post_const(QueueHandle_t q, int what, const void *data, size_t size)` | A message by reference to data that lives for ever. |
 | `bool dgx_ui_post_from_isr(QueueHandle_t q, int what, const void *data, size_t size, BaseType_t *woken)` | A message by value from an interrupt; `*woken` as `xQueueSendFromISR()` sets it. It lies in IRAM. |
+| `void dgx_ui_commands_to(QueueHandle_t q)` | The queue the commands of buttons go to, `dgx_ui_action_command()` and `DGX_UI_BUTTON()`: the queue of the task that owns the trees, which its loop takes and offers to the tree. Named once; `NULL`: none, and a command is lost, told once in the log. One for the program: a program whose trees two tasks own gives the other task's buttons an `on_event()` of their own. |
 
 `DGX_UI_MESSAGE(name, number, type)` ties a type to a number: it defines
 `bool msg_post_<name>(QueueHandle_t q, const type *value)` and the decoder `msg_decode_<name>()`. A type larger than
@@ -1032,6 +1034,36 @@ and as a look's `fill` that it leaves what lies under its children.
 
 A look takes the bits it shows from `dgx_ui_bits_shown(ui, n)` and not from `n->state.bits`: under a modal popup the
 focus is not shown. Every look of the library does.
+
+### A button and a label in one line
+
+```c
+static const dgx_ui_widget_t save_w  = DGX_UI_BUTTON("Save", &st_centre, CMD_SAVE);
+static const dgx_ui_widget_t back_w  = DGX_UI_BUTTON("Back", &st_centre, CMD_BACK, .want_w = 60);
+static const dgx_ui_widget_t title_w = DGX_UI_LABEL("Settings", &st_title, .want_h = 16);
+```
+
+| Macro or call | What it is |
+| ------------- | ---------- |
+| `DGX_UI_BUTTON(caption, caption_style, command, ...)` | The initializer of a button of a constant caption that sends a command: a widget of `DGX_UI_BUTTON` with a text box of the caption, `DGX_UI_TEXT_CONST()` of one line, drawn by `dgx_ui_look_button`, its `on_event()` `dgx_ui_action_command`, its `ctx` and its `tag` the command. More members follow the command. |
+| `DGX_UI_LABEL(caption, caption_style, ...)` | The initializer of a label of a constant caption: a widget of `DGX_UI_LABEL` with a text box of the caption, drawn by the look of its kind. More members follow the style. |
+| `void dgx_ui_action_command(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)` | The action command: at `DGX_UI_EVENT_ACTIVATED`, by the finger or the key of activation, the widget's `ctx`, a number, sent as a message of that number with no data to the queue `dgx_ui_commands_to()` named ([dgx_ui_post.h](#dgx_ui_posth)). A button drawn pressed by `dgx_ui_set_state(DGX_UI_PRESSED)` is not activated and sends nothing. The send never waits: a full queue, or none named, loses the command, told once in the log. |
+
+- **A function-like macro.** `.kind = DGX_UI_BUTTON` stays the kind: a name followed by no parenthesis is the
+  enum's.
+- **C only**: a compound literal's address. Under C++ the macros are not defined.
+- **At file scope.** A text box of RAM a widget, 28 bytes<!-- sizeof dgx_ui_textbox_t --> on a 32-bit chip, as written by hand.
+  `static const` inside a function does not compile ("initializer element is not constant"); a widget of a
+  function's own lives as long as its call, as any widget would.
+- **A member the macro sets**, `.look`, `.on_event`, `.ctx`, `.tag` or `.text`, is not given again: GCC warns
+  "initialized field overwritten" and takes the later one. A button of a handler of its own is written out.
+- **A command** is a message of the program's own: the loop offers it to the tree after the input call that
+  activated the button, so a `take()` may hide or remove widgets, and one no widget claims is the program's,
+  `dgx_ui_take()` returning `false`. It is a tag too, 1 to 32767, and none of the program's `DGX_UI_MESSAGE()`
+  numbers. `dgx_ui_enable_tag()` turns every button of a command off and on.
+- **The caption** is still reached by the text box, `save_w.text->buf`, for one pointed at another string and told
+  by `dgx_ui_text_written()`.
+- A program that names neither the action nor the macro of a button carries none of it.
 
 ### The looks of the library
 
@@ -1638,7 +1670,7 @@ it. A recipe: [A page from a description](cookbook.md#a-page-from-a-description)
 #include "dgx_ui_load.h"
 
 enum { DGX_UI_LOAD_MAX_DEPTH = 24, DGX_UI_LOAD_MAX_IDS = 256 };
-enum { DGX_UI_CTX_OWN = 0, DGX_UI_CTX_NUMBER = 1, DGX_UI_CTX_PAGE = 2 };
+enum { DGX_UI_CTX_OWN = 0, DGX_UI_CTX_NUMBER = 1, DGX_UI_CTX_PAGE = 2, DGX_UI_CTX_NUMBER_ONLY = 3 };
 
 typedef struct dgx_ui_look_name_t    { const char *name; const dgx_ui_look_t *look; } dgx_ui_look_name_t;
 typedef struct dgx_ui_value_name_t   { const char *name; int32_t *value; } dgx_ui_value_name_t;
@@ -1647,7 +1679,7 @@ typedef struct dgx_ui_style_name_t   { const char *name; const dgx_ui_text_style
 typedef struct dgx_ui_on_event_name_t {
     const char *name;
     void (*on_event)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
-    uint8_t ctx_kind; /* the context it takes: DGX_UI_CTX_OWN, _NUMBER or _PAGE */
+    uint8_t ctx_kind; /* the context it takes: DGX_UI_CTX_OWN, _NUMBER, _PAGE or _NUMBER_ONLY */
 } dgx_ui_on_event_name_t;
 typedef struct dgx_ui_take_name_t    { const char *name; bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg); } dgx_ui_take_name_t;
 typedef struct dgx_ui_context_name_t { const char *name; void *ctx; bool page; } dgx_ui_context_name_t;
@@ -1675,8 +1707,8 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 | `bool dgx_ui_load_need(const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_need_t *need, dgx_ui_load_error_t *err)` | The description checked whole, against the tables too, and what it takes: the bytes of the memory, the nodes of the tree, its depth; and the tree's name in `need->name`, empty when the description has none. `false`: an error, in `err`. |
 | `int dgx_ui_load(dgx_ui_t *ui, int parent, const char *json, size_t len, const dgx_ui_load_names_t *names, void *memory, size_t size, dgx_ui_load_error_t *err)` | The description's tree added under `parent`, -1 as the tree's root, its widgets laid in `memory` of `size` bytes, aligned as a pointer (as `malloc()` aligns). Returns the index of the widget at its top; -1 on an error, in `err`, and the tree is as it was. |
 | `DGX_UI_LOOK_NAME(word)` | A look of the library by its own word, for the looks' table: `DGX_UI_LOOK_NAME(slider)` is `{"slider", &dgx_ui_look_slider}`. |
-| `DGX_UI_ACTION_NAME(word)` | An action of a button with no code of the program's, for the handlers' table: `DGX_UI_ACTION_NAME(back)` goes back a page, `DGX_UI_ACTION_NAME(page)` opens the page that is the button's `"ctx"`, a tree of the contexts' table. A program that lists neither carries neither. |
-| `void dgx_ui_action_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)`, `void dgx_ui_action_page(...)` | The handlers of those two actions; a program names them by the macro. |
+| `DGX_UI_ACTION_NAME(word)` | An action of a button with no code of the program's, for the handlers' table: `DGX_UI_ACTION_NAME(back)` goes back a page, `DGX_UI_ACTION_NAME(page)` opens the page that is the button's `"ctx"`, a tree of the contexts' table, and `DGX_UI_ACTION_NAME(command)` sends the button's `"ctx"`, a number, as a command, `dgx_ui_action_command()`. A program carries only those it lists. |
+| `void dgx_ui_action_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)`, `void dgx_ui_action_page(...)` | The handlers of the first two actions; a program names them by the macro. |
 
 **The tables.** Each is a constant array of the program's with its count; a table may be `NULL` with the count 0.
 A picture's entry says how many pictures stand there, 0 or 1 meaning one. A handler's entry says whether it takes
@@ -1745,7 +1777,8 @@ name even when it holds a fraction.
 
 **The kinds of a context.** A handler's `ctx_kind` says what its ctx is: `DGX_UI_CTX_OWN`, a context of the
 program's own; `DGX_UI_CTX_NUMBER`, an integer, never read as a pointer; `DGX_UI_CTX_PAGE`, a page's tree, as
-the action `page` takes. A context's `page` says it is a page's tree. A page handler with no ctx is taken and does
+the action `page` takes; `DGX_UI_CTX_NUMBER_ONLY`, an integer and nothing else, as the action `command` takes: a
+named context for it is refused with `DGX_UI_LOAD_FIELD` at `"ctx"`. A context's `page` says it is a page's tree. A page handler with no ctx is taken and does
 nothing. A handler of the program's own is given whatever context of the program's own the description names: the
 loader checks only a number and a page.
 
@@ -2009,7 +2042,7 @@ Three calls for the `CMakeLists.txt` of a component, the program's `main` among 
 written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
 C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
-the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/tools/README.md).
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])

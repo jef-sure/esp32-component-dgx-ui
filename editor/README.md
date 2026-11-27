@@ -191,7 +191,8 @@ look names is refused by the loader, at that look.
 
 The Names part shows the names file a row a line, by its tables: the name, the C expression, and the word its table
 may end with, a count of pictures, `number` of a handler, `page` of a context, `handwritten` of a font, the function
-and description of a draw. A look or an action of the library's goes with no expression. The C is the program's: the
+and description of a draw. A look or an action of the library's goes with no expression: the actions `back`, `page`
+and `command`, whose `ctx` is a number, the command a button sends. The C is the program's: the
 builder writes it as given, and `dgx_ui_c` checks it when the program is built. An expression with a space or a `#`
 waits: it would split the line.
 

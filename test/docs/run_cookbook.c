@@ -90,7 +90,23 @@ static int64_t runner_clock(void) { return runner_us += 10; }
 static int64_t runner_clock_still(void) { return runner_us; } /* moved by the runner's loop alone */
 void       vTaskDelay(TickType_t t) { (void)t; }
 BaseType_t xQueueSend(QueueHandle_t q, const void *i, TickType_t w) { return pdTRUE; }
-bool dgx_ui_post(QueueHandle_t q, int what, const void *data, size_t size) { return true; }
+/* the queue the commands of the recipes' buttons go to, its handle its address: kept here and given to the tree by
+   drain(), as the loop of Getting started gives what it takes; the posts to any other queue go nowhere */
+static int          commands_queue;
+static dgx_ui_msg_t posted[64];
+static int          posted_count;
+bool                dgx_ui_post(QueueHandle_t q, int what, const void *data, size_t size)
+{
+    if (q != (QueueHandle_t)&commands_queue) return true;
+    if (posted_count == 64) return false;
+    return dgx_ui_msg_value(&posted[posted_count++], what, data, size);
+}
+/* the loop's turn on the queue of the commands: each message to the recipes' message_give() */
+static void drain(dgx_ui_t *ui)
+{
+    for (int k = 0; k < posted_count; ++k) message_give(ui, &posted[k]);
+    posted_count = 0;
+}
 bool dgx_ui_post_ref(QueueHandle_t q, int what, void *data, size_t size, void (*done)(void *, size_t)) { return true; }
 /* what came from an interrupt, the touch's ticker and the chip's line, as the recipe of the touch woken by an interrupt uses them */
 static int  isr_posted = -1, ticker_running, ticker_what, ticker_ms, line_pin = -1, line_level, line_watched;
@@ -202,6 +218,7 @@ int main(int argc, char **argv)
     for (int k = 0; k < COLORS; ++k) table[k] = dgx_screen_rgb(scr, 30 * k, 30 * k, 255 - 30 * k);
     dgx_ui_paint_t paint = {.scr = scr, .colors = table, .color_count = COLORS, .background = PAPER};
     styles_init(), city_style_init();
+    dgx_ui_commands_to((QueueHandle_t)&commands_queue); /* as the loop of Getting started names its queue */
 
     interface_test(); /* the message and the tap of the last recipe */
     printf("test recipe: the label got its text, the tap saved %d time(s)\n", saved);
@@ -879,7 +896,7 @@ int main(int argc, char **argv)
 
     /* the button, and the alarm that comes and goes */
     const int save = save_add(&ui, root);
-    dgx_ui_focus(&ui, save), dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE);
+    dgx_ui_focus(&ui, save), dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE), drain(&ui);
     alarm_set(&ui, root, "filter!");
     const int a1 = dgx_ui_find(&ui, root, TAG_ALARM), first = dgx_ui_node(&ui, root)->child;
     alarm_set(&ui, root, NULL);
@@ -916,7 +933,7 @@ int main(int argc, char **argv)
     ask_open(&ui);
     dgx_ui_paint(&ui, &paint, 300);
     const int saves0 = saves;
-    dgx_ui_key(&ui, DGX_UI_KEY_NEXT), dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE);
+    dgx_ui_key(&ui, DGX_UI_KEY_NEXT), dgx_ui_key(&ui, DGX_UI_KEY_ACTIVATE), drain(&ui);
     printf("popup: open %d before; Yes by keys saved %d more time(s), open after: %d\n", 1, saves - saves0, ui.popup != NULL);
     dgx_ui_paint(&ui, &paint, 400);
     dgx_ui_paint_free(&paint);
@@ -1560,24 +1577,24 @@ int main(int argc, char **argv)
         const int16_t        plus_x = (int16_t)(plus->x + plus->w / 2), plus_y = (int16_t)(plus->y + plus->h / 2);
         const int16_t        minus_x = (int16_t)(minus->x + minus->w / 2), minus_y = (int16_t)(minus->y + minus->h / 2);
         /* a tap on plus */
-        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .down = true, .pressed = true, .ms = 1000});
+        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .down = true, .pressed = true, .ms = 1000}), drain(&steps);
         const int at_press = (int)step_minutes;
         dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .released = true, .ms = 1050});
-        dgx_ui_time(&steps, 1050);
+        dgx_ui_time(&steps, 1050), drain(&steps);
         const int after_tap = (int)step_minutes;
         /* plus held for two seconds, the loop's step every 10 ms */
-        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .down = true, .pressed = true, .ms = 2000});
-        for (uint32_t now = 2000; now <= 4000; now += 10) dgx_ui_time(&steps, now);
+        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .down = true, .pressed = true, .ms = 2000}), drain(&steps);
+        for (uint32_t now = 2000; now <= 4000; now += 10) dgx_ui_time(&steps, now), drain(&steps);
         const int      after_hold = (int)step_minutes;
         const uint32_t wait_held  = dgx_ui_wake(NULL, &steps, 4000);
         /* held on, past the end of the range */
-        for (uint32_t now = 4010; now <= 6000; now += 10) dgx_ui_time(&steps, now);
+        for (uint32_t now = 4010; now <= 6000; now += 10) dgx_ui_time(&steps, now), drain(&steps);
         const int at_the_end = (int)step_minutes;
         dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = plus_x, .y = plus_y, .released = true, .ms = 6000});
-        dgx_ui_time(&steps, 6000);
+        dgx_ui_time(&steps, 6000), drain(&steps);
         const uint32_t wait_let_go = dgx_ui_wake(NULL, &steps, 6000);
         /* minus, without the loop's step: once at the press and no more */
-        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = minus_x, .y = minus_y, .down = true, .pressed = true, .ms = 7000});
+        dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = minus_x, .y = minus_y, .down = true, .pressed = true, .ms = 7000}), drain(&steps);
         const int without_time = (int)step_minutes;
         dgx_ui_pointer(&steps, &(dgx_ui_pointer_t){.x = minus_x, .y = minus_y, .released = true, .ms = 9000});
         dgx_ui_paint(&steps, &step_paint, 9000);

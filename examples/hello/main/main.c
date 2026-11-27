@@ -42,13 +42,12 @@ typedef struct {
 } count_t;
 DGX_UI_MESSAGE(count, MSG_COUNT, count_t) /* gives msg_post_count() and msg_decode_count() */
 
-/* the texts: a box over a string constant, and a box over the buffer the count is printed into; their styles are
-   constant. The count takes the large font, or the small one when it does not go into its field */
+/* the texts' styles, constant, and the box over the buffer the count is printed into; the title's box is its widget's
+   own (DGX_UI_LABEL below). The count takes the large font, or the small one when it does not go into its field */
 static const dgx_ui_font_variant_t vsmall[1] = {{.font = &LiberationSansRegular12}};
 static const dgx_ui_font_variant_t vlarge[2] = {{.font = &DejaVuSansBook32}, {.font = &LiberationSansRegular12}};
 static const dgx_ui_text_style_t   st_title  = {.fonts = vsmall, .count = 1, .align = DGX_FONT_ALIGN_LEFT};
 static const dgx_ui_text_style_t   st_count  = {.fonts = vlarge, .count = 2, .align = DGX_FONT_ALIGN_CENTER, .flags = DGX_UI_STYLE_MIDDLE};
-static dgx_ui_textbox_t            title_box = DGX_UI_TEXT_CONST("Hello, dgx-ui", 1, &st_title);
 static char                        count_buf[12];
 static dgx_ui_textbox_t            count_box;
 
@@ -61,10 +60,10 @@ static bool count_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 }
 
 /* the widgets, constants in flash: a column of the title and a frame, and the count in the frame. Sizes are in points;
-   how many pixels a point is, dgx_ui_init() says. The title is as high as its font's letters with what hangs under
-   the line, the hook of a g: 12 and 4 */
+   how many pixels a point is, dgx_ui_init() says. The title, a label of a constant caption in one line, is as high as
+   its font's letters with what hangs under the line, the hook of a g: 12 and 4 */
 static const dgx_ui_widget_t root_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 8, .gap = 8};
-static const dgx_ui_widget_t title_w = {.kind = DGX_UI_LABEL, .text = &title_box, .want_h = 16};
+static const dgx_ui_widget_t title_w = DGX_UI_LABEL("Hello, dgx-ui", &st_title, .want_h = 16);
 static const dgx_ui_widget_t frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 4, .want_h = 56};
 static const dgx_ui_widget_t count_w = {.kind = DGX_UI_LABEL, .text = &count_box, .want_h = 48, .take = count_take};
 

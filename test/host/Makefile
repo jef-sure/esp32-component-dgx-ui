@@ -19,7 +19,7 @@ CPPFLAGS += $(DGX_HOST_CPPFLAGS) $(DGX_UI_HOST_CPPFLAGS)
 # would shift is warned at, braces or members missing
 WARN     := -Wall -Wextra -Wmissing-braces -Wmissing-field-initializers -Wno-unused-parameter -Werror=deprecated-declarations
 
-all: run-test_rect run-test_core run-test_percent run-test_text_state run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_no_vscreen run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_lines_count run-test_hatch run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_points run-test_bounds run-test_picture_scale run-test_picture_scale18 run-test_nine run-test_nine18 run-test_scroll_box run-test_pictures_deep18 run-test_pictures_deep24 run-test_caret run-test_caret18 run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_soft_picture run-test_soft_picture18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance run-test_picture_files run-test_order run-test_preview run-test_preview_module run-test_preview_class run-test_preview_format run-test_description run-test_builder_templates run-test_builder_appearance run-test_builder_names run-test_builder_store run-test_builder_page run-test_builder_import run-test_serve run-test_serve_pictures run-test_mcp check-werror check-format-chip check-lists $(if $(DGX_DI),run-test_di) check-cxx
+all: run-test_rect run-test_core run-test_percent run-test_text_state run-test_msg run-test_paint run-test_around run-test_lines run-test_controls run-test_popup run-test_nest run-test_skip run-test_list run-test_dropdown run-test_indexed run-test_deep run-test_deep18 run-test_background run-test_canvas run-test_no_vscreen run-test_scroll run-test_dump run-test_wake run-test_own run-test_hand run-test_changed run-test_page run-test_transition run-test_hand_lines run-test_hand_lines_plain run-test_lines_count run-test_hatch run-test_two_paints run-test_tasks run-test_stats run-test_stats_ways run-test_soft run-test_points run-test_bounds run-test_picture_scale run-test_picture_scale18 run-test_nine run-test_nine18 run-test_scroll_box run-test_pictures_deep18 run-test_pictures_deep24 run-test_caret run-test_caret18 run-test_place run-test_once run-test_once18 run-test_radio run-test_radio18 run-test_random run-test_written run-test_written18 run-test_focus run-test_focus18 run-test_shown run-test_level run-test_level18 run-test_ring run-test_ring18 run-test_soft_picture run-test_soft_picture18 run-test_veil run-test_veil18 run-test_place_page run-test_place_page18 run-test_picture_button run-test_picture_button18 run-test_repeat run-test_repeat18 run-test_idle run-test_idle18 run-test_load run-test_command run-test_json run-test_stack run-test_params run-test_appearance run-test_generate run-test_generate_appearance run-test_picture_files run-test_order run-test_preview run-test_preview_module run-test_preview_class run-test_preview_format run-test_description run-test_builder_templates run-test_builder_appearance run-test_builder_names run-test_builder_store run-test_builder_page run-test_builder_import run-test_serve run-test_serve_pictures run-test_mcp check-werror check-format-chip check-lists $(if $(DGX_DI),run-test_di) check-cxx
 
 run-%: $(BUILD)/%
 	$<
@@ -381,6 +381,11 @@ $(BUILD)/test_load: test_load.c check.h $(PAINT) $(wildcard $(ROOT)/include/*.h 
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_load.c $(PAINT) $(DGX_SRCS) -lm -Wl,--wrap=calloc
 
+# the action command with FreeRTOS's queue of the cookbook's stubs, dgx_ui_post() the test's own
+$(BUILD)/test_command: test_command.c check.h $(PAINT) $(ROOT)/src/dgx_ui_command.c $(wildcard $(ROOT)/include/*.h $(ROOT)/src/*.h)
+	mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) -I../docs/stubs $(DGX_FLAGS) -o $@ test_command.c $(ROOT)/src/dgx_ui_command.c $(PAINT) $(DGX_SRCS) -lm
+
 $(BUILD)/test_shown: test_shown.c check.h $(PAINT) $(wildcard $(ROOT)/include/*.h $(ROOT)/src/*.h)
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -o $@ test_shown.c $(PAINT) $(DGX_SRCS) -lm
@@ -410,8 +415,8 @@ $(BUILD)/test_di: test_di.c check.h panel.h $(PAINT) $(wildcard $(ROOT)/include/
 	$(CC) $(CFLAGS) -std=gnu11 $(WARN) $(CPPFLAGS) $(DGX_FLAGS) -I$(DGX_DI)/include -o $@ test_di.c $(PAINT) $(DGX_DI)/src/dgx_di_touch.c $(DGX_DI)/src/dgx_di_pointer.c $(DGX_SRCS) -lm
 
 # the library's sources read with every warning an error, as a program built by host/dgx_ui_host.mk with -Werror reads
-# them: the queue's and the ticker's need FreeRTOS, which the stubs have not
-SOURCES := $(filter-out %/dgx_ui_post.c %/dgx_ui_ticker.c,$(wildcard $(ROOT)/src/*.c))
+# them: the queue's, the commands' and the ticker's need FreeRTOS, which the stubs have not
+SOURCES := $(filter-out %/dgx_ui_post.c %/dgx_ui_command.c %/dgx_ui_ticker.c,$(wildcard $(ROOT)/src/*.c))
 
 # no warning, read and compiled: some warnings come only from the optimiser (a value it cannot see given), so each
 # source is compiled at the levels a build takes, as ESP-IDF's -Werror=all would refuse it
@@ -437,9 +442,9 @@ check-format-chip:
 	echo "the sources for a chip: every log's arguments as its format says, by $(notdir $(CHIP_CC)) $$($(CHIP_CC) -dumpversion)"
 
 # every source of src/ in the component's list, and in the list of the build on a computer (host/dgx_ui_host.mk) but
-# the two of FreeRTOS's queues and esp_timer
+# the three of FreeRTOS's queues and esp_timer
 ALL_SRCS     := $(notdir $(wildcard $(ROOT)/src/*.c))
-HOST_MISSING := $(filter-out $(notdir $(DGX_UI_HOST_SRCS)) dgx_ui_post.c dgx_ui_ticker.c,$(ALL_SRCS))
+HOST_MISSING := $(filter-out $(notdir $(DGX_UI_HOST_SRCS)) dgx_ui_post.c dgx_ui_command.c dgx_ui_ticker.c,$(ALL_SRCS))
 
 check-lists:
 	@for f in $(ALL_SRCS); do grep -q "\"src/$$f\"" $(ROOT)/CMakeLists.txt || { echo "$$f: not in CMakeLists.txt"; exit 1; }; done

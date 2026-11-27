@@ -25,8 +25,8 @@
  * the table one of look, value, picture, style, on_event, take, ctx, id; a picture's count of pictures (1 when none is
  * said), "number" for a handler whose ctx is a number, "page" for a context that is a page's tree, which alone the
  * action page takes; an expression is written with no spaces. A look of the
- * library's and the actions back and page may go with no expression: "look button" is &dgx_ui_look_button, "on_event back"
- * dgx_ui_action_back. The expression of an id is an int of the program's the add function writes the widget's index
+ * library's and the actions back, page and command may go with no expression: "look button" is &dgx_ui_look_button,
+ * "on_event back" dgx_ui_action_back; command's ctx is a number. The expression of an id is an int of the program's the add function writes the widget's index
  * to; the others are constant expressions, as the widgets are constants. With a names file every table is the
  * file's, a table it does not name an empty one, as for the loader on the tables made of the file: the verdict on a
  * description is the loader's on those tables, and the tree made the one it loads. A table may have at most 65535
@@ -43,8 +43,8 @@
  *     picture  <name>, of as many pictures as the widget reads
  *     style    &<name>; a text that names none &<prefix>_style, declared by the header, where the program's table would
  *              give its own first
- *     on       back and page the library's actions, dgx_ui_action_back and _page; any other <name>, its ctx a number
- *              when the description gives one
+ *     on       back, page and command the library's actions, dgx_ui_action_back, _page and _command (its ctx a
+ *              number); any other <name>, its ctx a number when the description gives one
  *     take     <name>
  *     ctx      &<name>, a page's tree or not; an integer (void *)(intptr_t)<n>
  *     id       int <prefix>_<id>, declared by the header, written by the add function
@@ -252,7 +252,7 @@ static dgx_ui_picture_t    *picture_stand;
 static dgx_ui_text_style_t *style_stand;
 static uint8_t             *on_stand, *take_stand, *ctx_stand;
 static const dgx_ui_t      *again; /* the tree loaded a second time, the contexts on other stand-ins: a ctx that moved is one */
-static const char *const    ctx_kind_words[] = {"DGX_UI_CTX_OWN", "DGX_UI_CTX_NUMBER", "DGX_UI_CTX_PAGE"};
+static const char *const    ctx_kind_words[] = {"DGX_UI_CTX_OWN", "DGX_UI_CTX_NUMBER", "DGX_UI_CTX_PAGE", "DGX_UI_CTX_NUMBER_ONLY"};
 static int                 *id_stand;
 
 static void *zeroed(int count, size_t size)

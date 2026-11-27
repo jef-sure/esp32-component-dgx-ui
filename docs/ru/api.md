@@ -23,7 +23,7 @@
 | [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | картинки из файла DGX, который при сборке сделан из PNG, прочитанные на месте в таблицу картинок виджетов |
 | [`project_include.cmake`](#project_includecmake) | три вызова CMake: описания, файлы имён и внешний вид, переведённые на C при сборке программы |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.6:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.7:
 имена и сигнатуры зафиксированы с 0.1.0; то, что сломало бы программу, придёт только с 0.2.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -341,6 +341,7 @@ typedef struct dgx_ui_node_t {
 | `bool dgx_ui_radio_chosen(const dgx_ui_node_t *node)` | Выбрана ли радиокнопка в своей группе: в её месте лежит её `step`. Встраиваемая функция заголовка. |
 | `void dgx_ui_set_value(dgx_ui_t *ui, int i, int value)` | Пишет значение в место виджета, в пределах `min..max`, если `min < max`. Значение значка не ограничивается: вне диапазона он не показывает картинку. У виджета без места ничего не делает. Программа может с тем же успехом записать свою переменную сама. |
 | `void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)` | Ставит или снимает `DGX_UI_DISABLED` или `DGX_UI_PRESSED`. Отключённый виджет теряет фокус, и нажатие пальца на нём заканчивается. |
+| `int dgx_ui_enable_tag(dgx_ui_t *ui, int tag, bool on)` | Включает или выключает каждый виджет дерева с этой меткой, как это делает `dgx_ui_set_state()`: виджет рисуется заново, фокус и нажатие на нём теряются. Это кнопки одной команды: `DGX_UI_BUTTON()` делает их меткой команду. Открытое над деревом окно — отдельное дерево; пункты списка выпадающего меню и кнопки платы — не виджеты, до них вызов не доходит. Возвращает, до скольких виджетов дошёл; метка 0, она у всех виджетов без метки, отвергается: 0. |
 | `void dgx_ui_show(dgx_ui_t *ui, int i, bool shown)` | Показывает или скрывает; его строка или столбец раскладывается заново. Скрытый виджет теряет фокус и нажатие пальца. |
 | `void dgx_ui_redraw(dgx_ui_t *ui, int i)` | На следующем проходе виджет рисуется целиком, со всем, что под ним. Виджет рисуется в пределах прямоугольников тех, в которые он вложен: вложенный в контейнер нулевой высоты — без своего размера в столбце — виден, когда дерево рисуется целиком, но не когда заново рисуется он один. Дайте такому контейнеру размер, `want` или `DGX_UI_REST`. |
 | `bool dgx_ui_hidden(const dgx_ui_t *ui, int i)` | Скрыт ли он: сам или виджетом над ним. |
@@ -796,6 +797,7 @@ struct dgx_ui_msg_t {
 | `bool dgx_ui_post_ref(QueueHandle_t q, int what, void *data, size_t size, void (*done)(void *data, size_t size))` | Сообщение по ссылке. Данные принадлежат сообщению, пока не вызвана `done()`, в задаче, владеющей деревом. Если сообщение не отправлено, `done()` не вызывается и данные остаются у отправителя. |
 | `bool dgx_ui_post_const(QueueHandle_t q, int what, const void *data, size_t size)` | Сообщение по ссылке на данные, которые живут вечно. |
 | `bool dgx_ui_post_from_isr(QueueHandle_t q, int what, const void *data, size_t size, BaseType_t *woken)` | Сообщение по значению из прерывания; `*woken` — как его ставит `xQueueSendFromISR()`. Лежит в IRAM. |
+| `void dgx_ui_commands_to(QueueHandle_t q)` | Очередь, в которую идут команды кнопок, `dgx_ui_action_command()` и `DGX_UI_BUTTON()`: очередь задачи, которая владеет деревьями, — её берёт цикл и отдаёт дереву. Называется один раз; `NULL` — очереди нет, команда теряется, и об этом один раз пишется в журнал. Одна на программу: программа, деревьями которой владеют две задачи, даёт кнопкам второй задачи свой `on_event()`. |
 
 `DGX_UI_MESSAGE(name, number, type)` связывает тип с номером: определяет
 `bool msg_post_<name>(QueueHandle_t q, const type *value)` и декодер `msg_decode_<name>()`. Тип больше 12 байт не
@@ -1046,6 +1048,36 @@ typedef void (*dgx_ui_background_draw_t)(struct dgx_ui_paint_t *paint, int x, in
 
 Биты, которые он показывает, облик берёт из `dgx_ui_bits_shown(ui, n)`, а не из `n->state.bits`: под модальным окном
 фокус не показывается. Так делают все облики библиотеки.
+
+### Кнопка и надпись одной строкой
+
+```c
+static const dgx_ui_widget_t save_w  = DGX_UI_BUTTON("Save", &st_centre, CMD_SAVE);
+static const dgx_ui_widget_t back_w  = DGX_UI_BUTTON("Back", &st_centre, CMD_BACK, .want_w = 60);
+static const dgx_ui_widget_t title_w = DGX_UI_LABEL("Settings", &st_title, .want_h = 16);
+```
+
+| Макрос или вызов | Что это |
+| ---------------- | ------- |
+| `DGX_UI_BUTTON(caption, caption_style, command, ...)` | Инициализатор кнопки с постоянной подписью, которая шлёт команду: виджет `DGX_UI_BUTTON` с текстовым полем подписи, `DGX_UI_TEXT_CONST()` в одну строку, рисует его `dgx_ui_look_button`, его `on_event()` — `dgx_ui_action_command`, его `ctx` и `tag` — команда. После команды можно дописать другие поля. |
+| `DGX_UI_LABEL(caption, caption_style, ...)` | Инициализатор надписи с постоянной подписью: виджет `DGX_UI_LABEL` с текстовым полем подписи, рисует его облик его вида. После стиля можно дописать другие поля. |
+| `void dgx_ui_action_command(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)` | Действие command: при `DGX_UI_EVENT_ACTIVATED`, пальцем или клавишей «выбрать», шлёт `ctx` виджета, число, как сообщение с этим номером и без данных в очередь, названную `dgx_ui_commands_to()` ([dgx_ui_post.h](#dgx_ui_posth)). Кнопка, нарисованная нажатой через `dgx_ui_set_state(DGX_UI_PRESSED)`, не активируется и ничего не шлёт. Отправка никогда не ждёт: при полной очереди или если очередь не названа команда теряется, и об этом один раз пишется в журнал. |
+
+- **Функциональный макрос.** `.kind = DGX_UI_BUTTON` остаётся видом: имя, за которым нет скобки, — это значение
+  перечисления.
+- **Только C**: здесь берётся адрес составного литерала. В C++ макросы не определены.
+- **На уровне файла.** Текстовое поле в ОЗУ на виджет, 28 байт<!-- sizeof dgx_ui_textbox_t --> на 32-битном чипе, как и
+  при записи вручную. `static const` внутри функции не компилируется («initializer element is not constant»); виджет
+  самой функции живёт, пока идёт её вызов, как любой виджет.
+- **Поле, которое ставит макрос**, — `.look`, `.on_event`, `.ctx`, `.tag` или `.text` — второй раз не задают: GCC
+  предупреждает «initialized field overwritten» и берёт последнее. Кнопку со своим обработчиком пишут целиком.
+- **Команда** — сообщение самой программы: цикл отдаёт её дереву после вызова ввода, который нажал кнопку, так что
+  `take()` может прятать и убирать виджеты; ту, что не забрал ни один виджет, получает программа — `dgx_ui_take()`
+  возвращает `false`. Это и метка, от 1 до 32767, и не может совпадать ни с одним номером `DGX_UI_MESSAGE()`
+  программы. `dgx_ui_enable_tag()` выключает и включает все кнопки команды.
+- **Подпись** по-прежнему доступна через текстовое поле, `save_w.text->buf`: её можно направить на другую строку и
+  сказать об этом через `dgx_ui_text_written()`.
+- В программу, которая не называет ни действие, ни макрос кнопки, ничего из этого не попадает.
 
 ### Облики библиотеки
 
@@ -1657,7 +1689,7 @@ typedef struct dgx_ui_frame_stats_t {
 #include "dgx_ui_load.h"
 
 enum { DGX_UI_LOAD_MAX_DEPTH = 24, DGX_UI_LOAD_MAX_IDS = 256 };
-enum { DGX_UI_CTX_OWN = 0, DGX_UI_CTX_NUMBER = 1, DGX_UI_CTX_PAGE = 2 };
+enum { DGX_UI_CTX_OWN = 0, DGX_UI_CTX_NUMBER = 1, DGX_UI_CTX_PAGE = 2, DGX_UI_CTX_NUMBER_ONLY = 3 };
 
 typedef struct dgx_ui_look_name_t    { const char *name; const dgx_ui_look_t *look; } dgx_ui_look_name_t;
 typedef struct dgx_ui_value_name_t   { const char *name; int32_t *value; } dgx_ui_value_name_t;
@@ -1666,7 +1698,7 @@ typedef struct dgx_ui_style_name_t   { const char *name; const dgx_ui_text_style
 typedef struct dgx_ui_on_event_name_t {
     const char *name;
     void (*on_event)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
-    uint8_t ctx_kind; /* какой контекст принимает: DGX_UI_CTX_OWN, _NUMBER или _PAGE */
+    uint8_t ctx_kind; /* какой контекст принимает: DGX_UI_CTX_OWN, _NUMBER, _PAGE или _NUMBER_ONLY */
 } dgx_ui_on_event_name_t;
 typedef struct dgx_ui_take_name_t    { const char *name; bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg); } dgx_ui_take_name_t;
 typedef struct dgx_ui_context_name_t { const char *name; void *ctx; bool page; } dgx_ui_context_name_t;
@@ -1694,8 +1726,8 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 | `bool dgx_ui_load_need(const char *json, size_t len, const dgx_ui_load_names_t *names, dgx_ui_load_need_t *need, dgx_ui_load_error_t *err)` | Проверяет описание целиком, в том числе по таблицам, и говорит, сколько оно требует: байты памяти, узлы дерева, глубину; а в `need->name` — имя дерева, пустое, если в описании его нет. `false` — ошибка, она в `err`. |
 | `int dgx_ui_load(dgx_ui_t *ui, int parent, const char *json, size_t len, const dgx_ui_load_names_t *names, void *memory, size_t size, dgx_ui_load_error_t *err)` | Добавляет дерево описания под `parent` (-1 — корнем дерева), раскладывая виджеты в `memory` размером `size` байт; память выровнена как указатель (так выравнивает `malloc()`). Возвращает индекс верхнего виджета; -1 при ошибке, она в `err`, а дерево остаётся каким было. |
 | `DGX_UI_LOOK_NAME(word)` | Облик библиотеки под его собственным словом, для таблицы обликов: `DGX_UI_LOOK_NAME(slider)` — это `{"slider", &dgx_ui_look_slider}`. |
-| `DGX_UI_ACTION_NAME(word)` | Действие кнопки без кода программы, для таблицы обработчиков: `DGX_UI_ACTION_NAME(back)` возвращает на страницу назад, `DGX_UI_ACTION_NAME(page)` открывает страницу, которая стоит в `"ctx"` кнопки, — дерево из таблицы контекстов. В программу, которая не перечислила ни одного из них, не попадает ни одно. |
-| `void dgx_ui_action_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)`, `void dgx_ui_action_page(...)` | Обработчики этих двух действий; программа указывает их через макрос. |
+| `DGX_UI_ACTION_NAME(word)` | Действие кнопки без кода программы, для таблицы обработчиков: `DGX_UI_ACTION_NAME(back)` возвращает на страницу назад, `DGX_UI_ACTION_NAME(page)` открывает страницу, которая стоит в `"ctx"` кнопки, — дерево из таблицы контекстов, а `DGX_UI_ACTION_NAME(command)` шлёт `"ctx"` кнопки, число, как команду, `dgx_ui_action_command()`. В программу попадают только те, что она перечислила. |
+| `void dgx_ui_action_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)`, `void dgx_ui_action_page(...)` | Обработчики первых двух действий; программа указывает их через макрос. |
 
 **Таблицы.** Каждая — константный массив программы и его длина; таблицы может не быть (`NULL` и длина 0). Запись
 картинки говорит, сколько картинок стоит по этому адресу (0 или 1 — одна). Запись обработчика говорит, принимает ли
@@ -1766,7 +1798,8 @@ typedef struct dgx_ui_load_error_t { int code; int offset; char name[24]; } dgx_
 
 **Виды контекста.** `ctx_kind` обработчика говорит, что такое его ctx: `DGX_UI_CTX_OWN` — свой контекст программы;
 `DGX_UI_CTX_NUMBER` — целое число, которое никогда не читается как указатель; `DGX_UI_CTX_PAGE` — дерево
-страницы, его берёт действие `page`. `page` контекста говорит, что это дерево страницы. Обработчик страницы без ctx
+страницы, его берёт действие `page`; `DGX_UI_CTX_NUMBER_ONLY` — целое число и ничего больше, его берёт действие
+`command`: именованный контекст для него отвергается с `DGX_UI_LOAD_FIELD` у `"ctx"`. `page` контекста говорит, что это дерево страницы. Обработчик страницы без ctx
 принимается и ничего не делает. Обработчик программы получает тот её контекст, который укажет описание: загрузчик
 проверяет только число и страницу.
 
@@ -2033,7 +2066,7 @@ typedef struct dgx_ui_picture_file_t {
 на C при сборке программы — это делает `dgx_ui_c`, инструмент компонента, который работает на компьютере. Рецепт:
 [Описание, переведённое на C при сборке](cookbook.md#описание-переведённое-на-c-при-сборке);
 страница самого инструмента:
-[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/tools/README.md).
+[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])

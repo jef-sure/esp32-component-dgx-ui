@@ -543,6 +543,14 @@ static void on_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, vo
     dgx_ui_action_back(ui, i, node, what, ctx);
 }
 
+/* the action command: what it would send the program's queue, said; the preview has no queue */
+static void on_command(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+{
+    (void)node;
+    tell(ui, i, what);
+    if (what == DGX_UI_EVENT_ACTIVATED) say(&events, "command %d\n", (int)(intptr_t)ctx);
+}
+
 static bool take_nothing(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 {
     (void)ui, (void)i, (void)msg;
@@ -711,7 +719,10 @@ static void tree_names(tree_t *tree, const char *text, size_t length)
     for (int k = 0; k < tables[T_ON_EVENT].count; ++k) {
         const entry_t *entry = &tables[T_ON_EVENT].entries[k];
         const char    *c     = entry->c ? entry->c : "";
-        const on_fn    on    = strcmp(c, "dgx_ui_action_back") == 0 ? on_back : strcmp(c, "dgx_ui_action_page") == 0 ? on_page : on_told;
+        const on_fn    on    = strcmp(c, "dgx_ui_action_back") == 0      ? on_back
+                               : strcmp(c, "dgx_ui_action_page") == 0    ? on_page
+                               : strcmp(c, "dgx_ui_action_command") == 0 ? on_command
+                                                                          : on_told;
         handlers[k]          = (dgx_ui_on_event_name_t){NAME_OF(T_ON_EVENT, k), on, (uint8_t)ctx_kind_of(entry)};
     }
     dgx_ui_take_name_t *takes = zeroed((size_t)tables[T_TAKE].count, sizeof *takes);
@@ -1478,8 +1489,8 @@ const char *preview_names_format(void)
     grow(&said, " \"bare\": {\"look\": [");
     for (int k = 0; k < library_look_count; ++k) grow(&said, "%s\"%s\"", k ? ", " : "", library_looks[k]);
     grow(&said, "], \"on_event\": [");
-    static const char *const actions[] = {"back", "page"};
-    for (int k = 0, first = 1; k < 2; ++k) {
+    static const char *const actions[] = {"back", "page", "command"};
+    for (int k = 0, first = 1; k < 3; ++k) {
         char *c = library_c(T_ON_EVENT, actions[k]);
         if (c) grow(&said, "%s\"%s\"", first ? "" : ", ", actions[k]), first = 0;
         free(c);

@@ -120,6 +120,30 @@ static void styles_init(void)
 }
 ```
 
+Кнопка рецептов — одна строка, `DGX_UI_BUTTON()`, и шлёт команду: номер сообщения самой программы, которое цикл из
+[Начала работы](getting-started.md) берёт из своей очереди, как любое сообщение. Его может забрать `take()` виджета;
+то, что не забрал никто, принадлежит программе — одному `switch`. Надпись с постоянным текстом — тоже одна строка,
+`DGX_UI_LABEL()`.
+
+```c
+/* the commands of the recipes' buttons: numbers of messages of their own, from 100, apart from the recipes' others */
+enum { CMD_SAVE = 100, CMD_YES, CMD_NO, CMD_STEP_DOWN, CMD_STEP_UP };
+
+void settings_save(void); /* the program's */
+
+/* a message the loop took from its queue: given to the tree, and what no widget claims is the program's. The loop
+   names its queue for the commands once, before the first message: dgx_ui_commands_to(queue) */
+static void message_give(dgx_ui_t *ui, dgx_ui_msg_t *msg)
+{
+    if (!dgx_ui_take(ui, msg)) {
+        switch (msg->what) {
+        case CMD_SAVE: settings_save(); break;
+        }
+    }
+    dgx_ui_msg_done(msg);
+}
+```
+
 ## Строка и столбец под любой экран
 
 ![Страница: заголовок, содержимое, которое берёт остаток, и строка кнопок внизу; рамка каждого виджета пунктиром](../images/rows.png)
@@ -345,27 +369,29 @@ static bool minutes_start(QueueHandle_t queue)
 
 ![Экран настроек: ползунок, два переключателя, значок, две кнопки](../images/settings.png)
 
-У элемента управления указан свой облик. Текст кнопки — текстовое поле, как у надписи. Функции `on_event()` сообщается
-`DGX_UI_EVENT_ACTIVATED`, когда пользователь нажал кнопку пальцем или клавишей «выбрать», пока на кнопке фокус.
+Кнопка — одна строка: её подпись, стиль подписи и команда, которую кнопка шлёт, когда пользователь нажал её пальцем
+или клавишей «выбрать», пока на ней фокус. `switch` из раздела [Общее для всех рецептов](#общее-для-всех-рецептов)
+отдаёт `CMD_SAVE` функции `settings_save()`.
 
 ```c
-void settings_save(void);
-
-static dgx_ui_textbox_t save_box = DGX_UI_TEXT_CONST("Save", 1, &st_centre); /* a caption that never changes: no buffer */
-
-static void save_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
-{
-    if (what == DGX_UI_EVENT_ACTIVATED) settings_save();
-}
-
-static const dgx_ui_widget_t save_w = {
-    .kind = DGX_UI_BUTTON, .text = &save_box, .want_w = 60, .want_h = 18, .look = &dgx_ui_look_button, .on_event = save_on};
+static const dgx_ui_widget_t save_w = DGX_UI_BUTTON("Save", &st_centre, CMD_SAVE, .want_w = 60, .want_h = 18);
 
 static int save_add(dgx_ui_t *ui, int parent)
 {
     return dgx_ui_add(ui, parent, &save_w);
 }
 ```
+
+- **Что это за строка.** Виджет `DGX_UI_BUTTON` с текстовым полем подписи поверх строковой константы, рисует его
+  `dgx_ui_look_button`; его `on_event()` — действие библиотеки `dgx_ui_action_command`, которое шлёт команду в
+  очередь, названную `dgx_ui_commands_to()`, а его метка — та же команда. После команды можно дописать другие поля:
+  `.want_w`, `.flags`. Только на уровне файла: внутри функции со `static` строка не компилируется, а виджет самой
+  функции жил бы лишь до её возврата.
+- **Кнопку со своим обработчиком**, которому нужен узел или контекст программы, пишут целиком:
+  `.kind = DGX_UI_BUTTON, .text = &её_поле, .look = &dgx_ui_look_button, .on_event = её_on`, как кнопки страниц в
+  [Страницы и «назад»](#страницы-и-назад).
+- **Выключить и включить по команде.** `dgx_ui_enable_tag(ui, CMD_SAVE, false)` выключает все кнопки этой команды в
+  дереве, `true` возвращает их.
 
 - Кнопка с текстом высотой в одну строку текста и ещё по точке сверху и снизу, это место для рамки фокуса, если не
   сказано иначе: задайте `want_h`, а в строке — флаг `DGX_UI_STRETCH`, с ним кнопка высотой со строку.
@@ -471,49 +497,46 @@ static void backlight_show(int percent)
 Значение, которое выставляют мелкими шагами и точно: минуты, порог. Две кнопки и надпись над одной переменной. Кнопки
 имеют флаг `DGX_UI_REPEAT`: короткое нажатие — один шаг, а пока палец держит кнопку, шаги идут дальше.
 
-1. Пользователь нажимает «+». Кнопке сообщается `DGX_UI_EVENT_ACTIVATED`, как только палец опустился: 15 становится 20, и
-   надпись это показывает. Когда палец поднимается, ничего больше не сообщается.
+1. Пользователь нажимает «+». Кнопке сообщается `DGX_UI_EVENT_ACTIVATED`, как только палец опустился, и она шлёт
+   `CMD_STEP_UP`; надпись забирает команду: 15 становится 20, и надпись это показывает. Когда палец поднимается,
+   ничего больше не шлётся.
 2. Пользователь держит «+». Первый шаг приходит при нажатии, следующий — через полсекунды, а дальше по одному каждые
    100 мс: за две секунды это нажатие и ещё шестнадцать шагов.
-3. На 120 функция `on_event()` кнопки больше ничего не меняет, хотя ей продолжают сообщать. Пользователь отпускает кнопку.
+3. На 120 функция `take()` надписи больше ничего не меняет, хотя команды продолжают приходить. Пользователь отпускает
+   кнопку.
 
 ```c
-static int32_t step_minutes = 15; /* the value: 0 to 120 by 5 */
-
-static dgx_ui_textbox_t step_minus_box = DGX_UI_TEXT_CONST("-", 1, &st_centre), step_plus_box = DGX_UI_TEXT_CONST("+", 1, &st_centre);
+static int32_t          step_minutes = 15; /* the value: 0 to 120 by 5 */
 static char             step_buf[8];
 static dgx_ui_textbox_t step_box;
-static int              step_label = -1; /* the number of the label in its tree, kept when the stepper is built */
 
-/* a button of the stepper: its ctx is the step it makes, -5 or 5. Told at the press and at every repeat */
-static void on_step(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
+/* the label takes the commands of its two buttons, sent at the press and at every repeat: a step down or up */
+static bool step_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 {
-    if (what != DGX_UI_EVENT_ACTIVATED) return;
-    int32_t next = step_minutes + (int32_t)(intptr_t)ctx;
+    if (msg->what != CMD_STEP_DOWN && msg->what != CMD_STEP_UP) return false;
+    int32_t next = step_minutes + (msg->what == CMD_STEP_UP ? 5 : -5);
     if (next < 0) next = 0;
     if (next > 120) next = 120;
-    if (next == step_minutes) return; /* at an end of the range: held, it changes nothing */
-    step_minutes = next;
-    dgx_ui_text_printf(ui, step_label, "%d min", (int)step_minutes);
+    if (next != step_minutes) { /* at an end of the range: held, it changes nothing */
+        step_minutes = next;
+        dgx_ui_text_printf(ui, i, "%d min", (int)step_minutes);
+    }
+    return true;
 }
 
 static const dgx_ui_widget_t step_row_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 2, .want_h = 16};
-static const dgx_ui_widget_t step_minus_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_minus_box, .look = &dgx_ui_look_button, .on_event = on_step,
-    .ctx = (void *)-5};
-static const dgx_ui_widget_t step_value_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .at_y = 2, .text = &step_box};
-static const dgx_ui_widget_t step_plus_w  = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20, .text = &step_plus_box, .look = &dgx_ui_look_button, .on_event = on_step,
-    .ctx = (void *)5};
+static const dgx_ui_widget_t step_minus_w = DGX_UI_BUTTON("-", &st_centre, CMD_STEP_DOWN, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20);
+static const dgx_ui_widget_t step_value_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .at_y = 2, .text = &step_box, .take = step_take};
+static const dgx_ui_widget_t step_plus_w  = DGX_UI_BUTTON("+", &st_centre, CMD_STEP_UP, .flags = DGX_UI_REPEAT | DGX_UI_STRETCH, .want_w = 20);
 
 static void step_add(dgx_ui_t *ui, int parent)
 {
     dgx_ui_textbox_init(&step_box, step_buf, sizeof step_buf, 1, &st_centre);
     const int row = dgx_ui_add(ui, parent, &step_row_w);
     dgx_ui_add(ui, row, &step_minus_w);
-    step_label = dgx_ui_add(ui, row, &step_value_w);
+    const int label = dgx_ui_add(ui, row, &step_value_w);
     dgx_ui_add(ui, row, &step_plus_w);
-    dgx_ui_text_printf(ui, step_label, "%d min", (int)step_minutes);
+    dgx_ui_text_printf(ui, label, "%d min", (int)step_minutes);
 }
 ```
 
@@ -524,7 +547,8 @@ static void step_add(dgx_ui_t *ui, int parent)
 - **Пока держат — нажата.** Повтор идёт, куда бы ни ушёл палец: кнопка остаётся нажатой и выглядит нажатой, пока
   палец не поднят. Он кончается, когда палец поднялся, при свайпе, а также когда кнопку скрыли, отключили или
   удалили или над её деревом открылось окно.
-- **Диапазон** — дело самих кнопок: здесь их `on_event()` держит значение между 0 и 120.
+- **Диапазон** — дело надписи: её `take()` держит значение между 0 и 120. Она забирает обе команды, так что
+  `switch` программы их не видит.
 - **С клавиш** клавиша «выбрать», удерживаемая на кнопке в фокусе, повторяется так же (`dgx_ui_buttons()`).
 - **Повторяется что-то одно**, начатое последним: клавиша, нажатая, пока повторяет палец, перехватывает повтор, а
   когда её отпускают, повтор пальца заново не начинается.
@@ -1015,11 +1039,11 @@ static int weather_show(dgx_ui_t *ui, int parent)
   файла, ничего из этого не попадает.
 - **При сборке программы отвергается**, словами и со строкой файла имён: ассет, которого DGX не сделал, палитра с
   непрозрачностью из PNG, картинка, которую облик виджета не рисует. Список — на странице инструмента,
-  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/tools/README.md#a-picture-of-a-file)
+  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/tools/README.md#a-picture-of-a-file)
   (на английском).
 - **Построитель страниц** сам берёт PNG: считает его цвета, предлагает глубину и записывает PNG рядом с `images.txt`,
   потребность и строку файла имён
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/editor/README.md#a-picture-from-a-png-file),
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/editor/README.md#a-picture-from-a-png-file),
   на английском).
 
 ## Значок с мягкими краями
@@ -1088,7 +1112,7 @@ static void icons_show(dgx_ui_t *ui, int parent)
   на 64 рисуется за 9,4 мс маской и за 9,1 мс картинкой в 16 бит; на 10-дюймовой P4 — за 2,1 и 1,8 мс.
 - **Построитель страниц** видит мягкие края PNG и предлагает маску в 4 бита для одного цвета и картинку в 16 бит для
   нескольких, а виджетам, которые её показывают, ставит этот облик
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/editor/README.md#a-picture-from-a-png-file),
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/editor/README.md#a-picture-from-a-png-file),
   на английском).
 
 ## Рамка из девяти картинок
@@ -1676,33 +1700,25 @@ static void advanced_show(dgx_ui_t *ui, int box, int button, bool expert)
 прямоугольнике экрана.
 
 ```c
-/* the question and the two answers never change: boxes over string constants */
-static dgx_ui_textbox_t ask_box = DGX_UI_TEXT_CONST("Save the settings?", 1, &st_centre);
-static dgx_ui_textbox_t yes_box = DGX_UI_TEXT_CONST("Yes", 1, &st_centre), no_box = DGX_UI_TEXT_CONST("No", 1, &st_centre);
-static dgx_ui_node_t    ask_nodes[6];
-static dgx_ui_t         ask_ui;
-static dgx_ui_t        *ask_over; /* the tree it is open over */
+static dgx_ui_node_t ask_nodes[6];
+static dgx_ui_t      ask_ui;
+static dgx_ui_t     *ask_over; /* the tree it is open over */
 
-static void yes_on(dgx_ui_t *popup, int i, const dgx_ui_node_t *node, int what, void *ctx)
+/* the popup's frame takes the answers of its buttons: yes saves, and either closes it */
+static bool ask_take(dgx_ui_t *popup, int i, const dgx_ui_msg_t *msg)
 {
-    if (what != DGX_UI_EVENT_ACTIVATED) return;
-    settings_save();
+    if (msg->what != CMD_YES && msg->what != CMD_NO) return false;
+    if (msg->what == CMD_YES) settings_save();
     dgx_ui_popup_close(ask_over);
+    return true;
 }
 
-static void no_on(dgx_ui_t *popup, int i, const dgx_ui_node_t *node, int what, void *ctx)
-{
-    if (what == DGX_UI_EVENT_ACTIVATED) dgx_ui_popup_close(ask_over);
-}
-
-static const dgx_ui_widget_t ask_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 5, .gap = 5};
-static const dgx_ui_widget_t ask_w      = {.kind = DGX_UI_LABEL, .text = &ask_box, .want_h = 12};
+static const dgx_ui_widget_t ask_root_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 5, .gap = 5, .take = ask_take};
+static const dgx_ui_widget_t ask_w      = DGX_UI_LABEL("Save the settings?", &st_centre, .want_h = 12);
 static const dgx_ui_widget_t ask_row_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 18, .gap = 6};
 /* the two buttons share the row: as high as it (STRETCH), each a half of what it has (REST) */
-static const dgx_ui_widget_t yes_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &yes_box, .look = &dgx_ui_look_button, .on_event = yes_on};
-static const dgx_ui_widget_t no_w = {
-    .kind = DGX_UI_BUTTON, .flags = DGX_UI_STRETCH | DGX_UI_REST, .text = &no_box, .look = &dgx_ui_look_button, .on_event = no_on};
+static const dgx_ui_widget_t yes_w = DGX_UI_BUTTON("Yes", &st_centre, CMD_YES, .flags = DGX_UI_STRETCH | DGX_UI_REST);
+static const dgx_ui_widget_t no_w  = DGX_UI_BUTTON("No", &st_centre, CMD_NO, .flags = DGX_UI_STRETCH | DGX_UI_REST);
 
 static void ask_open(dgx_ui_t *ui)
 {
@@ -1718,7 +1734,7 @@ static void ask_open(dgx_ui_t *ui)
 ```
 
 - Программа по-прежнему вызывает `dgx_ui_take()`, `dgx_ui_pointer()`, `dgx_ui_key()` и `dgx_ui_paint()` для дерева
-  под окном; до окна они доходят сами.
+  под окном; до окна они доходят сами, команды ответов — до `take()` его рамки тоже.
 - Модальное окно забирает каждый палец и каждую клавишу. Клавишу «назад» не берёт ни один виджет, поэтому
   программа может по ней закрыть окно; окно, открытое с `DGX_UI_POPUP_BACK`, эта клавиша закрывает сама, как
   страницу.
@@ -2855,7 +2871,7 @@ static int made_page_load(const char *json, size_t len, void *memory, size_t siz
   и `page` пишутся в файле без выражения. Выражение — это C без пробелов.
 - **Без `NAMES`** имена превращаются в C по правилу, `"settings.volume"` становится `&settings.volume`, а то,
   чего у программы нет, находит компилятор. Правило и страница самого инструмента:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.6/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.7/tools/README.md).
 - **`HEADERS`** — заголовки программы, которые включает сделанный файл: те, что объявляют упомянутое в выражениях.
 - **Сколько это стоит**: только само дерево. На ESP32 программа с этой страницей, переведённой на C, на 7,5 КБ
   меньше той, что её загружает. Виджеты — константы во флеше, по 60 байт<!-- sizeof dgx_ui_widget_t -->; в ОЗУ лежат узлы, как у любого
@@ -3376,7 +3392,7 @@ static bool ppm_take(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg)
 }
 
 static char                ppm_buf[8], ring_temp_buf[12], ring_rh_buf[8];
-static dgx_ui_textbox_t    ppm_box, ppm_unit_box = DGX_UI_TEXT_CONST("ppm CO2", 1, &st_centre);
+static dgx_ui_textbox_t    ppm_box;
 static dgx_ui_text_style_t st_ring_right;
 
 /* the ring is a column: its pad keeps its children inside the circle */
@@ -3384,7 +3400,7 @@ static const dgx_ui_widget_t ring_w = {
     .kind = DGX_UI_OWN, .flags = DGX_UI_COLUMN, .pad = 46, .gap = 2, .min = 400, .max = 2000, .value = &ring_ppm,
     .look = &ring_look, .take = ring_take};
 static const dgx_ui_widget_t ppm_w       = {.kind = DGX_UI_LABEL, .text = &ppm_box, .want_h = 44, .take = ppm_take};
-static const dgx_ui_widget_t ppm_unit_w  = {.kind = DGX_UI_LABEL, .text = &ppm_unit_box};
+static const dgx_ui_widget_t ppm_unit_w  = DGX_UI_LABEL("ppm CO2", &st_centre);
 static const dgx_ui_widget_t ring_rest_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_REST};
 static const dgx_ui_widget_t ring_row_w  = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 13};
 static const dgx_ui_widget_t ring_temp_w = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &temp_box, .take = temp_take};
@@ -3522,13 +3538,12 @@ static const dgx_ui_text_style_t   mono_st_value = {.fonts = mono_value_font, .c
 static const dgx_ui_text_style_t mono_st_news = {.fonts = mono_news_font, .count = 1, .flags = DGX_UI_STYLE_IMPORTANT, .scroll_ms = 1500};
 
 static char             mono_clock_buf[8], mono_value_buf[12];
-static dgx_ui_textbox_t mono_clock_box, mono_value_box, mono_co2_box = DGX_UI_TEXT_CONST("CO2", 1, &mono_st_text);
-static dgx_ui_textbox_t mono_news_box = DGX_UI_TEXT_CONST("Window open: the air is fresh. Next reading in a minute.", 1, &mono_st_news);
+static dgx_ui_textbox_t mono_clock_box, mono_value_box;
 
 /* a pixel a point: CO2 and the clock; the ring, the value and the bar in a frame; the news in a frame */
 static const dgx_ui_widget_t mono_root_w   = {.kind = DGX_UI_BOX, .flags = DGX_UI_COLUMN, .pad = 1, .gap = 1};
 static const dgx_ui_widget_t mono_top_w    = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .want_h = 13};
-static const dgx_ui_widget_t mono_co2_w    = {.kind = DGX_UI_LABEL, .text = &mono_co2_box, .want_w = 24};
+static const dgx_ui_widget_t mono_co2_w    = DGX_UI_LABEL("CO2", &mono_st_text, .want_w = 24);
 static const dgx_ui_widget_t mono_clock_w  = {.kind = DGX_UI_LABEL, .flags = DGX_UI_REST, .text = &mono_clock_box};
 static const dgx_ui_widget_t mono_middle_w = {.kind = DGX_UI_BOX, .flags = DGX_UI_ROW, .gap = 3, .want_h = 34};
 static const dgx_ui_widget_t mono_ring_w   = {.kind = DGX_UI_OWN, .min = 400, .max = 2000, .want_w = 34, .want_h = 34, .value = &mono_ppm,
@@ -3538,7 +3553,7 @@ static const dgx_ui_widget_t mono_value_w  = {.kind = DGX_UI_LABEL, .want_h = 16
 static const dgx_ui_widget_t mono_bar_frame_w  = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 1, .want_h = 8};
 static const dgx_ui_widget_t mono_bar_w        = {.kind = DGX_UI_OWN, .max = 100, .want_h = 6, .value = &mono_filter, .look = &dgx_ui_look_level};
 static const dgx_ui_widget_t mono_news_frame_w = {.kind = DGX_UI_FRAME, .flags = DGX_UI_COLUMN, .pad = 2, .want_h = 12, .look = &mono_frame_look};
-static const dgx_ui_widget_t mono_news_w       = {.kind = DGX_UI_LABEL, .text = &mono_news_box, .look = &dgx_ui_look_lines};
+static const dgx_ui_widget_t mono_news_w       = DGX_UI_LABEL("Window open: the air is fresh. Next reading in a minute.", &mono_st_news, .look = &dgx_ui_look_lines);
 
 static dgx_ui_node_t mono_nodes[16];
 

@@ -110,10 +110,11 @@ typedef struct dgx_ui_style_name_t {
 /**
  * What a handler's ctx may be: a context of the program's own, as the program pairs them; a number, never read as a
  * pointer, given to it alone of an integer "ctx"; a page's tree, a context whose page is true, for the library's page
- * action. A handler of the program's own (DGX_UI_CTX_OWN) is given whatever context of the program's own the
- * description names; the loader checks only a number and a page.
+ * action; a number and nothing else, for the library's command action, a context of the program's refused. A handler of
+ * the program's own (DGX_UI_CTX_OWN) is given whatever context of the program's own the description names; the loader
+ * checks only a number, a page and a number alone.
  */
-enum { DGX_UI_CTX_OWN = 0, DGX_UI_CTX_NUMBER = 1, DGX_UI_CTX_PAGE = 2 };
+enum { DGX_UI_CTX_OWN = 0, DGX_UI_CTX_NUMBER = 1, DGX_UI_CTX_PAGE = 2, DGX_UI_CTX_NUMBER_ONLY = 3 };
 typedef struct dgx_ui_on_event_name_t {
     const char *name;
     void (*on_event)(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
@@ -140,10 +141,11 @@ typedef struct dgx_ui_id_name_t {
 /**
  * An action of a button with no code of the program's, listed among the handlers as any: DGX_UI_ACTION_NAME(back)
  * goes back a page (dgx_ui_page_back() of the tree's home), DGX_UI_ACTION_NAME(page) opens the page that is the
- * button's "ctx" (a tree of the contexts' table). A program that lists neither carries neither.
+ * button's "ctx" (a tree of the contexts' table), DGX_UI_ACTION_NAME(command) sends the button's "ctx", a number, as a
+ * message to the program's queue (dgx_ui_action_command(), dgx_ui_paint.h). A program carries only those it lists.
  */
 #define DGX_UI_ACTION_NAME(word) {#word, dgx_ui_action_##word, DGX_UI_ACTION_CTX_##word}
-enum { DGX_UI_ACTION_CTX_back = DGX_UI_CTX_OWN, DGX_UI_ACTION_CTX_page = DGX_UI_CTX_PAGE };
+enum { DGX_UI_ACTION_CTX_back = DGX_UI_CTX_OWN, DGX_UI_ACTION_CTX_page = DGX_UI_CTX_PAGE, DGX_UI_ACTION_CTX_command = DGX_UI_CTX_NUMBER_ONLY };
 void dgx_ui_action_back(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 void dgx_ui_action_page(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
 

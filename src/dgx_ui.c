@@ -570,6 +570,17 @@ void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on)
     if ((bits & DGX_UI_DISABLED) && on && ui->pressed >= 0 && within(ui, ui->pressed, i)) unpress(ui); /* the press ends, told nothing */
 }
 
+int dgx_ui_enable_tag(dgx_ui_t *ui, int tag, bool on)
+{
+    if (tag == 0) return 0;
+    int reached = 0;
+    for (int i = 0; i < ui->count; ++i) {
+        const dgx_ui_widget_t *w = dgx_ui_widget(ui, i);
+        if (w && w->tag == tag) dgx_ui_set_state(ui, i, DGX_UI_DISABLED, !on), ++reached;
+    }
+    return reached;
+}
+
 void dgx_ui_show(dgx_ui_t *ui, int i, bool shown)
 {
     dgx_ui_node_t *n = live(ui, i);

@@ -114,7 +114,8 @@ bool c_name(const char *name, bool members)
 
 char *library_c(int table, const char *word)
 {
-    if (table == T_ON_EVENT && (strcmp(word, "back") == 0 || strcmp(word, "page") == 0)) return printed("dgx_ui_action_%s", word);
+    if (table == T_ON_EVENT && (strcmp(word, "back") == 0 || strcmp(word, "page") == 0 || strcmp(word, "command") == 0))
+        return printed("dgx_ui_action_%s", word);
     for (int k = 0; table == T_LOOK && k < library_look_count; ++k)
         if (strcmp(library_looks[k], word) == 0) return printed("&dgx_ui_look_%s", word);
     return NULL;
@@ -123,6 +124,7 @@ char *library_c(int table, const char *word)
 int ctx_kind_of(const entry_t *handler)
 {
     if (handler->c && strcmp(handler->c, "dgx_ui_action_page") == 0) return DGX_UI_CTX_PAGE;
+    if (handler->c && strcmp(handler->c, "dgx_ui_action_command") == 0) return DGX_UI_CTX_NUMBER_ONLY;
     return handler->number ? DGX_UI_CTX_NUMBER : DGX_UI_CTX_OWN;
 }
 

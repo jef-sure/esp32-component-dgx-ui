@@ -201,10 +201,11 @@ static bool widget(load_t *L, int parent, int depth, int *self_out, size_t *chil
     w.kind = (uint8_t)kind;
     for (int k = 0; k < KEY_COUNT; ++k)
         if ((seen & 1u << k) && !(key_kinds[k] & 1u << kind)) return fail(L, DGX_UI_LOAD_FIELD, key_at[k], keys[k]);
-    /* a number for ctx only to a handler that takes one, the library's page action only a page's tree or none;
-       pictures no fewer than the kind reads */
+    /* a number for ctx only to a handler that takes one, the library's page action only a page's tree or none, its
+       command action only a number or none; pictures no fewer than the kind reads */
     const int takes = on >= 0 ? L->names->handlers[on].ctx_kind : DGX_UI_CTX_OWN;
-    if (ctx_number && takes != DGX_UI_CTX_NUMBER) return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
+    if (ctx_number && takes != DGX_UI_CTX_NUMBER && takes != DGX_UI_CTX_NUMBER_ONLY) return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
+    if (takes == DGX_UI_CTX_NUMBER_ONLY && (seen & 1u << K_CTX) && !ctx_number) return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
     if (takes == DGX_UI_CTX_PAGE && (seen & 1u << K_CTX) && (ctx_number || !L->names->contexts[context].page))
         return fail(L, DGX_UI_LOAD_FIELD, key_at[K_CTX], keys[K_CTX]);
     if (picture >= 0) {

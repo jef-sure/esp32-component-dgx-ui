@@ -52,6 +52,7 @@
 
 #include "dgx_screen.h"
 #include "dgx_ui.h"
+#include "dgx_ui_text.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -572,6 +573,59 @@ extern const dgx_ui_behavior_t dgx_ui_scroll_behavior;
 extern const dgx_ui_look_t dgx_ui_look_button, dgx_ui_look_input, dgx_ui_look_switch, dgx_ui_look_slider, dgx_ui_look_list,
     dgx_ui_look_dropdown, dgx_ui_look_picture, dgx_ui_look_rgb565, dgx_ui_look_indexed, dgx_ui_look_radio, dgx_ui_look_checkbox,
     dgx_ui_look_picture_button;
+
+/**
+ * @brief The action command, the on_event() of a button of DGX_UI_BUTTON() and of DGX_UI_ACTION_NAME(command): the widget
+ * activated (DGX_UI_EVENT_ACTIVATED, by the finger or the key of activation) sends its ctx, a number, as a message of
+ * that number with no data to the queue the program named by dgx_ui_commands_to() (dgx_ui_post.h). The program's loop
+ * offers it to the tree after the input call that activated the widget, as every message, so a take() may hide or
+ * remove widgets: a take() claims it, or the loop's own switch has it. A button drawn pressed by
+ * dgx_ui_set_state(DGX_UI_PRESSED) is not activated and sends nothing. The send never waits; a full queue, or none
+ * named, loses the command, told once in the log. One queue for the program: the trees of one task.
+ */
+void dgx_ui_action_command(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx);
+
+#ifndef __cplusplus
+/**
+ * @brief A button of a constant caption that sends a command, in one line, C only (a compound literal's address):
+ *
+ *     enum { CMD_SAVE = 100, CMD_BACK };   // the program's commands, apart from its other message numbers
+ *     static const dgx_ui_widget_t save_w = DGX_UI_BUTTON("Save", &st_centre, CMD_SAVE);
+ *     static const dgx_ui_widget_t back_w = DGX_UI_BUTTON("Back", &st_centre, CMD_BACK, .want_w = 60);
+ *     ...
+ *     dgx_ui_add(ui, parent, &save_w);
+ *
+ * and in the loop, for each message of the queue named by dgx_ui_commands_to():
+ *
+ *     if (!dgx_ui_take(&ui, &msg)) switch (msg.what) { case CMD_SAVE: settings_save(); break; ... }
+ *
+ * A function-like macro: `.kind = DGX_UI_BUTTON` stays the kind. It is a widget of DGX_UI_BUTTON with a text box of
+ * the caption, DGX_UI_TEXT_CONST() of one line (28 bytes of RAM, as written by hand), drawn by dgx_ui_look_button, its
+ * on_event() dgx_ui_action_command and its ctx the command; its tag is the command too, so that dgx_ui_find() finds the
+ * button and dgx_ui_enable_tag() turns every button of a command off and on. A command is a tag, 1 to 32767 (0 is no
+ * tag), and the number of a message of the program's, which none of its DGX_UI_MESSAGE() numbers may be. More members
+ * follow the command (.want_w, .flags, .at_x, .take ...); one the macro sets (.look, .on_event, .ctx, .tag, .text) is
+ * not given again: GCC warns "initialized field overwritten" and the later one is taken. At file scope, or static at
+ * file scope: `static const` inside a function does not compile ("initializer element is not constant"), and a widget
+ * of a function's own lives as long as its call, as any widget would. Its caption is still reached by its text box,
+ * save_w.text->buf, for a caption pointed at another string and told by dgx_ui_text_written().
+ */
+#define DGX_UI_BUTTON(caption, caption_style, command, ...)                                                              \
+    {.kind = DGX_UI_BUTTON, .text = &(dgx_ui_textbox_t)DGX_UI_TEXT_CONST(caption, 1, caption_style),                    \
+     .look = &dgx_ui_look_button, .on_event = dgx_ui_action_command, .ctx = (void *)(intptr_t)(command), .tag = (command), \
+     __VA_ARGS__}
+
+/**
+ * @brief A label of a constant caption in one line, C only, as DGX_UI_BUTTON() is: a widget of DGX_UI_LABEL with a text
+ * box of the caption, DGX_UI_TEXT_CONST() of one line, drawn by the look of its kind; more members follow the style.
+ *
+ *     static const dgx_ui_widget_t title_w = DGX_UI_LABEL("Settings", &st_title, .want_h = 16);
+ *
+ * A function-like macro: `.kind = DGX_UI_LABEL` stays the kind. At file scope, as DGX_UI_BUTTON() is.
+ */
+#define DGX_UI_LABEL(caption, caption_style, ...)                                                                         \
+    {.kind = DGX_UI_LABEL, .text = &(dgx_ui_textbox_t)DGX_UI_TEXT_CONST(caption, 1, caption_style), __VA_ARGS__}
+#endif
 
 /**
  * The look of soft pictures, `dgx_ui_look_soft_picture`: PICTURE and ICON of a mask (dgx_ui_picture_t's `mask`, values

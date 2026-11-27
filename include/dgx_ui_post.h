@@ -36,6 +36,14 @@ bool dgx_ui_post_const(QueueHandle_t q, int what, const void *data, size_t size)
 bool dgx_ui_post_from_isr(QueueHandle_t q, int what, const void *data, size_t size, BaseType_t *woken);
 
 /**
+ * @brief The queue the commands of buttons go to (dgx_ui_action_command(), DGX_UI_BUTTON()): the queue of the task that
+ * owns the trees, which its loop takes and offers to the tree. Named once; NULL: none, a command is lost and told once
+ * in the log. One for the program: a program whose trees two tasks own gives the other task's buttons an on_event() of
+ * their own.
+ */
+void dgx_ui_commands_to(QueueHandle_t q);
+
+/**
  * @brief A message of a number with data of a type, by value: msg_post_<name>(q, &value) and
  * msg_decode_<name>(msg, &out). The type is bound to the number, and one larger than a message carries does not
  * compile.

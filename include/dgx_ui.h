@@ -337,7 +337,8 @@ typedef struct dgx_ui_widget_t {
     const dgx_ui_picture_t *picture; ///< PICTURE: one; ICON: an array of min..max; drawn by dgx_ui_look_picture_button, a BUTTON's one,
                                      ///< a SWITCH's or a RADIO's two: off and on, not chosen and chosen
     dgx_ui_textbox_t       *text;    ///< LABEL, BUTTON, LIST, INPUT, DROPDOWN, RADIO, a SWITCH drawn as a checkbox: the text box, in RAM
-    const dgx_ui_look_t    *look;    ///< how it is drawn; NULL: the look of its kind
+    const dgx_ui_look_t    *look;    ///< how it is drawn; NULL: the look of its kind, which a box, a frame and a label have;
+                                     ///< any other widget with no look is not drawn, and the painter logs it once
     bool (*take)(dgx_ui_t *ui, int i, const dgx_ui_msg_t *msg); ///< a message offered; true: claimed
     /** told what the user did, DGX_UI_EVENT_ACTIVATED ...; node: the widget's node as it is now, its value set by the finger
         or a key in the widget's place, dgx_ui_value_of(node) (a slider moved, a list's row taken); valid while the widget is in the tree */
@@ -632,6 +633,15 @@ void dgx_ui_set_value(dgx_ui_t *ui, int i, int value);
  * Disabled, a widget loses the focus, and a press of the finger on it ends there, told nothing.
  */
 void dgx_ui_set_state(dgx_ui_t *ui, int i, unsigned bits, bool on);
+
+/**
+ * @brief Every widget of a tag in the tree turned on, or off (DGX_UI_DISABLED, as dgx_ui_set_state() does it: drawn
+ * again, the focus and a press of the finger lost there): the buttons of a command, whose tag DGX_UI_BUTTON() makes the
+ * command. A popup open over the tree is a tree of its own, given by a call of its own; the items of a dropdown's list
+ * and the board's buttons are no widgets, and are not reached.
+ * @return How many widgets it reached; a tag of 0, every widget's that has none, is refused: 0.
+ */
+int dgx_ui_enable_tag(dgx_ui_t *ui, int tag, bool on);
 
 /** @brief A widget shown or hidden: its row or column is laid again; hidden, it loses the focus and a press of the finger. */
 void dgx_ui_show(dgx_ui_t *ui, int i, bool shown);
