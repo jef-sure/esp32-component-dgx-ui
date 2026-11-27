@@ -17,12 +17,12 @@ explained in [How it works](how-it-works.md); the [Cookbook](cookbook.md) shows 
 | [`dgx_ui_transition.h`](#dgx_ui_transitionh) | pages that change by a slide or a crossfade |
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | the statistics of painting: a pass measured |
 | [`dgx_ui_load.h`](#dgx_ui_loadh) | a tree made from a description in JSON |
-| [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree |
+| [`dgx_ui_di.h`](#dgx_ui_dih) | the touch of DGX-DI as the pointer of a tree; its keyboard for a field |
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | colours, text styles and looks from a description in JSON, one for all the pages |
 | [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | pictures of a file of DGX, made of PNG files when the program is built, read where they lie into a table of the widgets' pictures |
 | [`project_include.cmake`](#project_includecmake) | three calls of CMake: descriptions, names files and appearances made C when the program is built |
 
-All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.8: the names and
+All public names begin with `dgx_ui_` or `DGX_UI_`. Every header has `extern "C"` for C++. Version 0.1.9: the names and
 the signatures are fixed since 0.1.0; one that would break a program comes only with 0.2.
 
 One task owns a tree. Every call below is made by that task, except those of `dgx_ui_post.h`, which any task may
@@ -2042,7 +2042,7 @@ Three calls for the `CMakeLists.txt` of a component, the program's `main` among 
 written before it, a call is `Unknown CMake command` to ESP-IDF. They make a description, a names file or an appearance
 C when the program is built, by `dgx_ui_c`, the component's tool that runs on the computer.
 A recipe: [A description made C when the program is built](cookbook.md#a-description-made-c-when-the-program-is-built);
-the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/tools/README.md).
+the tool's own page: [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])
@@ -2150,3 +2150,41 @@ The gestures of a touch that are the program's.
 
 While a widget holds the finger, `swipe` and `long_press` are not told. `edge` is told unless the widget that holds
 the finger is dragged.
+
+DGX-DI's keyboard on the display for the fields of the trees: a struct of the program's, one for all its fields. It
+opens the keyboard for a field edited, away from it, types what its keys typed into the field, and closes it on done,
+on cancel, and when the field is no longer edited. The recipe [A field and a keyboard](cookbook.md#a-field-and-a-keyboard)
+shows it whole.
+
+```c
+typedef struct dgx_ui_di_keyboard_t {
+    /* the program's: set by dgx_ui_di_keyboard_init(); font may be set after it */
+    dgx_ui_paint_t   *paint;               /* its scr the display the keys are drawn on; its cover set and cleared */
+    int               width_mm, height_mm; /* the glass, as DGX-DI sizes the keys */
+    const uint8_t    *layout;              /* a layout of DGX-DI, a blob, and its size */
+    size_t            layout_size;
+    const dgx_font_t *font;                /* the labels' font; NULL: the field's */
+    /* the program's to read */
+    bool              open;                /* the keys are on the display */
+    dgx_ui_t         *ui;                  /* the tree of the field edited, NULL none */
+    int               field;               /* the field edited, -1 none */
+    dgx_di_keyboard_t kb;                  /* DGX-DI's keyboard: its band kb.x, y, w, h while open */
+    /* the rest is the helper's */
+} dgx_ui_di_keyboard_t;
+```
+
+| Call | What it does |
+| ---- | ------------ |
+| `void dgx_ui_di_keyboard_init(dgx_ui_di_keyboard_t *k, dgx_ui_paint_t *paint, int width_mm, int height_mm, const uint8_t *layout, size_t size)` | The helper set up: the paint of the display, the glass in millimetres, a layout of DGX-DI; nothing open. |
+| `void dgx_ui_di_keyboard_edit(dgx_ui_di_keyboard_t *k, dgx_ui_t *ui, int i)` | Field `i` of tree `ui` edited: called from its `on_event()` on `DGX_UI_EVENT_EDIT`; the next pass opens the keyboard for it, or moves it there. |
+| `void dgx_ui_di_keyboard_on_event(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)` | The `on_event()` of a field with nothing else to do, its `ctx` the struct: `dgx_ui_di_keyboard_edit()` on `DGX_UI_EVENT_EDIT`. |
+| `bool dgx_ui_di_keyboard_pass(dgx_ui_di_keyboard_t *k, dgx_di_pointer_t *pointer, uint32_t now_ms)` | Once a pass, the pointer read and before `dgx_ui_di_pointer()`: the keyboard closed for a field no longer edited, opened for one edited, its fingers taken and what it typed typed into the field, closed by done and cancel; the paint's `cover` its band while it is open. True while it is open. |
+| `void dgx_ui_di_keyboard_close(dgx_ui_di_keyboard_t *k)` | The keyboard closed by the program, its cover cleared, a field asked for forgotten: before the field's tree is freed by `dgx_ui_free()`. |
+
+Done tells the field `DGX_UI_EVENT_ACTIVATED`, cancel `DGX_UI_EVENT_BACK`. Closed because the field is no longer
+edited (not its tree's focus any more, a popup or a page over its tree, its own popup or page closed), the field is
+told nothing and keeps what was typed. A keyboard that cannot open (the layout unknown or past its limits, not fitting
+the display, a display not of 16 bits) cancels the edit: U+001B typed, the field told `DGX_UI_EVENT_BACK`. It opens
+and closes only in its calls, so the cover they set is the one the next `dgx_ui_paint()` sees. Not shown together with
+a pad of DGX-DI: `open` says when the program hides its pad. RAM: DGX-DI's keyboard and 56 bytes more, 820 bytes on a
+32-bit chip.

@@ -1,5 +1,11 @@
 # Changes
 
+## 0.1.9 - 2026-11-27
+
+- DGX-DI's keyboard for a field, dgx_ui_di_keyboard_* in dgx_ui_di.h: opened when the field is edited, away from it and
+  in its font, what it types typed into the field, closed on done, on cancel and when the field is no longer edited.
+  One call a pass; about 0.6 KB for a program that calls it, nothing for one that does not.
+
 ## 0.1.8 - 2026-11-27
 
 - A picture of 4 or 8 bits over a drawn background on a display of 18 bits is drawn with no strips too.

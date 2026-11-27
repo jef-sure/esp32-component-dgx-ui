@@ -1027,10 +1027,10 @@ static int weather_show(dgx_ui_t *ui, int parent)
   draws them as fast. A program that names no picture of a file carries none of it.
 - **Refused when the program is built**, in words with the line of the names file: an asset DGX made not, a palette
   that keeps the opacity of its PNG, a picture that the widget's look does not draw. The list is on the tool's page,
-  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/tools/README.md#a-picture-of-a-file).
+  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/tools/README.md#a-picture-of-a-file).
 - **The builder of pages** imports a PNG by itself: it counts its colours, offers the depth, and writes the PNG beside
   `images.txt`, the need and the line of the names file
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/editor/README.md#a-picture-from-a-png-file)).
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/editor/README.md#a-picture-from-a-png-file)).
 
 ## An icon with soft edges
 
@@ -1100,7 +1100,7 @@ static void icons_show(dgx_ui_t *ui, int parent)
   9.4 ms as a mask and 9.1 ms as a picture of 16 bits; on the 10" P4 2.1 and 1.8 ms.
 - **The builder of pages** sees soft edges in a PNG and offers a mask of 4 bits for one colour, a picture of 16 bits
   for several, and sets the look of the widgets that show it
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/editor/README.md#a-picture-from-a-png-file)).
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/editor/README.md#a-picture-from-a-png-file)).
 
 ## A frame of nine pictures
 
@@ -2418,19 +2418,30 @@ What to know of it:
 ![A field with a password typed and its caret](../images/field.png)
 
 A field is a `DGX_UI_INPUT` with the look `dgx_ui_look_input`. What is typed goes to the field that has the focus.
+DGX-DI's keyboard on the display types into it through `dgx_ui_di_keyboard_t` of `dgx_ui_di.h`, one for all the
+fields of the program: it opens the keyboard when a field is clicked and closes it when the field is done with.
 
 ```c
-#include "dgx_di_keyboard.h"
+#include "dgx_ui_di.h"
 
 void wifi_connect(const char *password);
+
+static dgx_ui_di_keyboard_t keys; /* the keyboard of all the fields */
+
+/* at the start: the paint of the display, its glass in millimetres, a layout of DGX-DI */
+static void keys_start(dgx_ui_paint_t *paint, int mm_w, int mm_h)
+{
+    dgx_ui_di_keyboard_init(&keys, paint, mm_w, mm_h, dgx_di_keyboard_latin, dgx_di_keyboard_latin_size);
+}
 
 static char             pass_buf[33];
 static dgx_ui_textbox_t pass_box;
 
 static void pass_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_EVENT_ACTIVATED) wifi_connect(pass_buf); /* "done" was typed */
-    if (what == DGX_UI_EVENT_BACK) dgx_ui_text_set(ui, i, "");  /* "cancel" was typed */
+    if (what == DGX_UI_EVENT_EDIT) dgx_ui_di_keyboard_edit(&keys, ui, i); /* clicked: the keyboard opens */
+    if (what == DGX_UI_EVENT_ACTIVATED) wifi_connect(pass_buf);          /* "done" was typed */
+    if (what == DGX_UI_EVENT_BACK) dgx_ui_text_set(ui, i, "");           /* "cancel" was typed */
 }
 
 static const dgx_ui_widget_t pass_w = {.kind = DGX_UI_INPUT, .text = &pass_box, .want_h = 14, .look = &dgx_ui_look_input, .on_event = pass_on};
@@ -2440,30 +2451,30 @@ static int pass_add(dgx_ui_t *ui, int parent)
     dgx_ui_textbox_init(&pass_box, pass_buf, sizeof pass_buf, 1, &st_left); /* the field edits this buffer */
     return dgx_ui_add(ui, parent, &pass_w);
 }
-
-/* in the loop, after the pointer was read and before the tree gets the finger: the keyboard of DGX-DI takes its
-   fingers first and types into the focused field */
-static void keyboard_pass(dgx_ui_t *ui, dgx_di_keyboard_t *kb, dgx_di_pointer_t *pointer, uint32_t now_ms)
-{
-    uint32_t  typed[8];
-    const int n = dgx_di_keyboard_take(kb, pointer, now_ms, typed, 8);
-    if (n > 0) dgx_ui_typed(ui, typed, n);
-}
-
-/* in the loop, right before dgx_ui_paint(): the painter leaves the keyboard's band alone while it is open */
-static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
-{
-    paint->cover = kb->open ? dgx_ui_rect(kb->x, kb->y, kb->w, kb->h) : dgx_ui_rect(0, 0, 0, 0);
-}
 ```
 
+- **In the loop** it is one call, in `touch_message()` of [Touch with DGX-DI](#touch-with-dgx-di), where the
+  keyboard takes its fingers: `dgx_ui_di_keyboard_pass(&keys, pointer, now_ms);`. It opens the keyboard for the
+  field clicked, types what its keys typed, and gives its band to the painter, which leaves the band alone while the
+  keyboard is open and draws the tree there again when it closes.
+- **The keyboard opens** at the next pass after the click, away from the field: at the bottom of the display, at the
+  top when it would cover the field. Its labels are in the field's font; `keys.font` names another.
+- **"Done"** tells the field `DGX_UI_EVENT_ACTIVATED`, **"cancel"** `DGX_UI_EVENT_BACK`; either closes the keyboard.
+- **It closes by itself** when the field is no longer edited, telling the field nothing and keeping what was typed:
+  the focus moved; the field hidden, disabled or removed; a popup or a page opened over it; its own page closed.
+  Another field clicked while it is open: it moves there.
+- **A keyboard that cannot open** (the layout unknown, the display too small or not of 16 bits) cancels the edit:
+  the field is told `DGX_UI_EVENT_BACK`.
+- **A field with nothing else to do** at its edit takes the helper's own `on_event()`:
+  `.on_event = dgx_ui_di_keyboard_on_event, .ctx = &keys`.
+- **Before a tree is freed** by `dgx_ui_free()` while its field has the keyboard: `dgx_ui_di_keyboard_close(&keys)`.
+  A pad of DGX-DI is not shown with the keyboard: `keys.open` says when to hide it.
+- **The cost:** the struct is DGX-DI's keyboard and 56 bytes more, 820 bytes on a 32-bit chip; the code some 0.7 KB,
+  in a program that calls it.
 - The size of the buffer is the most the field takes; a letter that has no room is not typed.
 - Erase takes the last letter off, whole, in UTF-8.
 - `on_event()` is told `DGX_UI_EVENT_CHANGED` at every letter, `DGX_UI_EVENT_FOCUS` when the field gets the focus, and `DGX_UI_EVENT_EDIT`
-  when the field is clicked, or activated by a key while it has the focus: the place to open the keyboard.
-- The band is told to the painter right before it draws, not where the letters are taken: an `on_event()` called in
-  between may have opened or closed the keyboard, and a widget drawn in that pass would be drawn over its keys.
-- When the keyboard closes and the band is empty again, the painter draws the tree there by itself.
+  when the field is clicked, or activated by a key while it has the focus.
 - Code points from any other source go the same way: `dgx_ui_typed(ui, code_points, count)`.
 - The text stands at the top of the field; with `DGX_UI_STYLE_MIDDLE` in its style, in the middle of its height.
 - The caret blinks while the field has the focus, every 500 ms; a letter typed shows it at once. The loop wakes for
@@ -2567,11 +2578,29 @@ static char             code_buf[9], pin_buf[9];
 static dgx_ui_textbox_t code_box, pin_box;
 static const dgx_ui_widget_t code_w = {.kind = DGX_UI_INPUT, .text = &code_box, .want_h = 14, .look = &dgx_ui_look_input, .on_event = field_on};
 static const dgx_ui_widget_t pin_w  = {.kind = DGX_UI_INPUT, .text = &pin_box, .want_h = 14, .look = &look_pin, .on_event = field_on};
+
+/* in the loop, after the pointer was read and before the tree gets the finger: the keypad takes its fingers first */
+static void keyboard_pass(dgx_ui_t *ui, dgx_di_keyboard_t *kb, dgx_di_pointer_t *pointer, uint32_t now_ms)
+{
+    uint32_t  typed[8];
+    const int n = dgx_di_keyboard_take(kb, pointer, now_ms, typed, 8);
+    if (n > 0) dgx_ui_typed(ui, typed, n);
+}
+
+/* in the loop, right before dgx_ui_paint(): the painter leaves the keypad's band alone while it is open */
+static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
+{
+    paint->cover = kb->open ? dgx_ui_rect(kb->x, kb->y, kb->w, kb->h) : dgx_ui_rect(0, 0, 0, 0);
+}
 ```
 
-- **The loop** is that of the recipe above: `keyboard_pass(ui, &keypad_kb, pointer, now_ms)` before the tree gets
-  the finger, `keyboard_cover(paint, &keypad_kb)` before `dgx_ui_paint()`. The program calls them with the tree of
-  the fields; what is typed finds the strip by itself.
+- **The loop** calls `keyboard_pass(ui, &keypad_kb, pointer, now_ms)` before the tree gets the finger and
+  `keyboard_cover(paint, &keypad_kb)` before `dgx_ui_paint()`, with the tree of the fields; what is typed finds the
+  strip by itself. The band is told to the painter right before it draws, not where the letters are taken: an
+  `on_event()` called in between may have opened or closed the keypad, and a widget drawn in that pass would be
+  drawn over its keys.
+- **Not the helper of the recipe above:** the strip is as high as the room over the keypad's band, so the keypad
+  opens first, in `edit_open()`, and the strip after it, in the same call.
 - **The keypad** is a layout of the program's own, as DGX-DI's ready pad of digits leaves no room for a strip on a
   CYD. The one of `examples/controls`, `main/keypad.json`, has rows 7.5 mm high, which leaves a strip of 36 pixels
   there, and a last row of cancel, 0, erase and done.
@@ -2841,7 +2870,7 @@ What to know of it:
   `back` and `page` go in the file with no expression. An expression is C written with no spaces.
 - **With no `NAMES`** the names are taken for C by a rule, `"settings.volume"` for `&settings.volume`, and the
   compiler finds what the program has not. The rule and the tool's own page:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/tools/README.md).
 - **`HEADERS`** are the program's headers the made file includes, the ones that declare what the expressions name.
 - **What it costs**: nothing but the tree. On an ESP32 the program with this page made C is 7.5 KB smaller than the
   one that loads it. The widgets are constants in flash, 60 bytes<!-- sizeof dgx_ui_widget_t --> each; in RAM are the nodes, as for any widget,

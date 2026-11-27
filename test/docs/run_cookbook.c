@@ -53,7 +53,8 @@ void fan_set(int s) { fan_speed = s, ++fans; }
 static int air_mode_told = -1, air_calls, beep_told = -1, beep_calls;
 void       air_mode_set(int mode) { air_mode_told = mode, ++air_calls; }
 void       beep_enable(bool on) { beep_told = on, ++beep_calls; }
-void wifi_connect(const char *password) { (void)password; }
+static char wifi_password[33]; /* what the field of the keyboard's recipe connected with */
+void        wifi_connect(const char *password) { snprintf(wifi_password, sizeof wifi_password, "%s", password); }
 /* the logo of the recipe of a picture from flash: rows of RGB565, high byte first, written for a computer of the low
    byte first (0x7f4c is the bytes 4c 7f); a band of sky, one of sand and one of grass */
 const uint16_t logo_pixels[64 * 32] = {[0 ... 64 * 12 - 1] = 0x7f4c, [64 * 12 ... 64 * 22 - 1] = 0x8ef6, [64 * 22 ... 64 * 32 - 1] = 0x2445};
@@ -127,7 +128,17 @@ esp_err_t gpio_intr_disable(gpio_num_t pin) { return line_watched = 0, ESP_OK; }
 int  dgx_di_pointer_read(dgx_di_pointer_t *p, uint32_t now) { return 0; }
 bool dgx_di_pointer_first(const dgx_di_pointer_t *p, int *x, int *y) { *x = *y = 0; return false; }
 void dgx_di_touch_take(dgx_di_touch_t *t, int x, int y, bool down, uint32_t now) {}
-int  dgx_di_keyboard_take(dgx_di_keyboard_t *kb, dgx_di_pointer_t *p, uint32_t now, uint32_t *typed, int max) { return 0; }
+/* the keys of the stub keyboard: what they type at its next take */
+static uint32_t keys_typed[8];
+static int      keys_typed_count;
+int             dgx_di_keyboard_take(dgx_di_keyboard_t *kb, dgx_di_pointer_t *p, uint32_t now, uint32_t *typed, int max)
+{
+    const int count = keys_typed_count < max ? keys_typed_count : max;
+    memcpy(typed, keys_typed, (size_t)count * sizeof *typed), keys_typed_count = 0;
+    return count;
+}
+const uint8_t dgx_di_keyboard_latin[1];
+const size_t  dgx_di_keyboard_latin_size = sizeof dgx_di_keyboard_latin;
 /* the keyboard of the strip's recipe: its band the lower part of the display, from 36 pixels down, as on a CYD */
 const uint8_t keypad[1];
 const size_t  keypad_size = sizeof keypad;
@@ -1392,6 +1403,32 @@ int main(int argc, char **argv)
         keyboard_cover(&pp, &keypad_kb), dgx_ui_paint(&f, &pp, 400);
         printf("strip: the PIN's strip is secret %d; 4, 2 and done: the PIN's text box holds \"%s\"\n", secret, pin_buf);
         dgx_ui_paint_free(&pp), dgx_ui_free(&f);
+        scr->destroy(&scr);
+    }
+    /* a field and the keyboard: clicked, opened by the next pass with its band the cover; a, b and done typed */
+    {
+        static dgx_ui_node_t kn[2];
+        static dgx_ui_t      kt;
+        dgx_screen_t        *scr = dgx_vscreen_init(320, 240, 16, DgxScreenRGB);
+        dgx_ui_paint_t       pp  = {.scr = scr, .colors = table, .color_count = COLORS, .background = PAPER};
+        dgx_di_pointer_t     pointer;
+        memset(&pointer, 0, sizeof pointer);
+        keys_start(&pp, 58, 43);
+        dgx_ui_init(&kt, kn, 2, 1);
+        const int field = pass_add(&kt, dgx_ui_add(&kt, -1, &col_w));
+        dgx_ui_screen(&kt, 320, 240, 0), dgx_ui_layout(&kt);
+        const dgx_ui_node_t   *fn   = dgx_ui_node(&kt, field);
+        const dgx_ui_pointer_t down = {.x = (int16_t)(fn->x + 5), .y = (int16_t)(fn->y + 5), .down = true, .pressed = true, .ms = 10};
+        dgx_ui_pointer(&kt, &down), dgx_ui_pointer(&kt, &(dgx_ui_pointer_t){.x = down.x, .y = down.y, .released = true, .ms = 60});
+        const bool at_click = keys.open;
+        dgx_ui_di_keyboard_pass(&keys, &pointer, 100), dgx_ui_paint(&kt, &pp, 100);
+        const bool opened = keys.open && keys.field == field, covered = pp.cover.h > 0 && pp.cover.y == keys.kb.y && pp.cover.h == keys.kb.h;
+        keys_typed[0] = 'a', keys_typed[1] = 'b', keys_typed[2] = DGX_DI_KEY_DONE, keys_typed_count = 3;
+        dgx_ui_di_keyboard_pass(&keys, &pointer, 120), dgx_ui_paint(&kt, &pp, 120);
+        printf("keyboard: clicked: open at once %d, after the next pass %d with its band the cover %d; a, b and done: the field \"%s\", "
+               "connected with \"%s\", open %d, the cover cleared %d\n",
+               at_click, opened, covered, pass_buf, wifi_password, keys.open, pp.cover.w == 0 && pp.cover.h == 0);
+        dgx_ui_di_keyboard_close(&keys), dgx_ui_paint_free(&pp), dgx_ui_free(&kt);
         scr->destroy(&scr);
     }
     ring_pictures(argc > 1 ? argv[1] : NULL);

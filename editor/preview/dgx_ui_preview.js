@@ -1,9 +1,9 @@
 /*
  * dgx_ui_preview.js: the preview of a description, dgx-ui built to WebAssembly, in one file a page loads with no
  * server (editor/preview/dgx_ui_preview.h, preview_class.js). Made by editor/preview/Makefile, not to be edited:
- * dgx-ui 0.1.8, DGX 0.12.13 of the registry, 42636e4bd52d0909,
+ * dgx-ui 0.1.9, DGX 0.12.13 of the registry, 42636e4bd52d0909,
  * clang 21.1.8, wasi-libc 0.0~git20250726.3f7eb4c-4, libclang-rt-21-dev-wasm32 1:21.1.8-6ubuntu1, lld-21 1:21.1.8-6ubuntu1,
- * sources sha256 b3204d87f8484db51041626ff37e83ccf04c233c2df4867e73efe5d32a2f668a.
+ * sources sha256 0fa66d4427a381d39d69ead16d6a197384bbd377b0899910fa8200bf4f3f145f.
  * The module, 372853 bytes, is MIT as dgx-ui and DGX, with code of wasi-libc and compiler-rt and five fonts of
  * DGX under their own licences: licenses/ beside this file.
  */
@@ -3870,10 +3870,10 @@ const DGX_UI_PREVIEW_MODULE = [
     'a2luZHMiOiB7InNjcm9sbCI6IHsia2luZHMiOiBbImJveCJdLCAiZmxhZ3MiOiBbImNvbHVtbiJdfX0AJXN7Im5hbWUiOiAiJXMi',
     'LCAiY291bnQiOiAldX0ALCAia2luZF9mbGFncyI6IHsiYm94IjogWyJjb2x1bW4iLCAic2Nyb2xsIl19ACwgInBlcmNlbnQiOiB7',
     'Im1pbiI6ICVsZCwgIm1heCI6IDEyNy45OX0AdGhlIHJhbmdlcyBkbyBub3QgZW5kIGluIHswLCAwLCAwfQB7ImRneF91aSI6ICIw',
-    'LjEuOCIsICJkZ3giOiAiMC4xMi4xMyBvZiB0aGUgcmVnaXN0cnksIDQyNjM2ZTRiZDUyZDA5MDkiLCAidG9vbGNoYWluIjogImNs',
+    'LjEuOSIsICJkZ3giOiAiMC4xMi4xMyBvZiB0aGUgcmVnaXN0cnksIDQyNjM2ZTRiZDUyZDA5MDkiLCAidG9vbGNoYWluIjogImNs',
     'YW5nIDIxLjEuOCwgd2FzaS1saWJjIDAuMH5naXQyMDI1MDcyNi4zZjdlYjRjLTQsIGxpYmNsYW5nLXJ0LTIxLWRldi13YXNtMzIg',
-    'MToyMS4xLjgtNnVidW50dTEsIGxsZC0yMSAxOjIxLjEuOC02dWJ1bnR1MSIsICJzb3VyY2VzIjogInNoYTI1NiBiMzIwNGQ4N2Y4',
-    'NDg0ZGI1MTA0MTYyNmZmMzdlODNjY2YwNGMyMzNjMmRmNDg2N2U3M2VmZTVkMzJhMmY2NjhhIn0ALCAiZGVmYXVsdHMiOiB7AGJv',
+    'MToyMS4xLjgtNnVidW50dTEsIGxsZC0yMSAxOjIxLjEuOC02dWJ1bnR1MSIsICJzb3VyY2VzIjogInNoYTI1NiAwZmE2NmQ0NDI3',
+    'YTM4MWQzOWQ2OWVhZDE2ZDZhMTk3Mzg0YmJkMzc3YjA4OTk5MTBmYTgyMDBiZjRmM2YxNDVmIn0ALCAiZGVmYXVsdHMiOiB7AGJv',
     'ZHkAIHdpdGggdHJhbnNwYXJlbmN5AGJhbmRzX2J5AGN0eABhIGNoZWNrYm94AG1heABcdSUwNHgALSsgICAwWDB4AC0wWCswWCAw',
     'WC0weCsweCAweABuYXJyb3cAc2hhZG93AGRyYXcAcGljdHVyZSAlczogdGhlIGxpbmUgc2F5cyAldSBwaWN0dXJlcywgQCVzIGhv',
     'bGRzICV1AGtpbmQgJXUALCAiY291bnQiOiAldQB0ZXh0AGlucHV0AEVTUF9FUlJfSU5WQUxJRF9BUkcsIG5vdCBhIGZvbnQsIG9y',

@@ -18,12 +18,12 @@
 | [`dgx_ui_transition.h`](#dgx_ui_transitionh) | страницы, которые сменяются сдвигом или плавной сменой |
 | [`dgx_ui_stats.h`](#dgx_ui_statsh) | статистика отрисовки: измеренный проход |
 | [`dgx_ui_load.h`](#dgx_ui_loadh) | дерево из описания в JSON |
-| [`dgx_ui_di.h`](#dgx_ui_dih) | касание DGX-DI как указатель дерева |
+| [`dgx_ui_di.h`](#dgx_ui_dih) | касание DGX-DI как указатель дерева; его клавиатура для поля |
 | [`dgx_ui_appearance.h`](#dgx_ui_appearanceh) | цвета, стили текста и облики из описания в JSON, одного на все страницы |
 | [`dgx_ui_picture_file.h`](#dgx_ui_picture_fileh) | картинки из файла DGX, который при сборке сделан из PNG, прочитанные на месте в таблицу картинок виджетов |
 | [`project_include.cmake`](#project_includecmake) | три вызова CMake: описания, файлы имён и внешний вид, переведённые на C при сборке программы |
 
-Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.8:
+Все публичные имена начинаются с `dgx_ui_` или `DGX_UI_`. В каждом заголовке есть `extern "C"` для C++. Версия 0.1.9:
 имена и сигнатуры зафиксированы с 0.1.0; то, что сломало бы программу, придёт только с 0.2.
 
 Деревом владеет одна задача. Все вызовы ниже делает она, кроме вызовов `dgx_ui_post.h`, которые можно делать из
@@ -2066,7 +2066,7 @@ typedef struct dgx_ui_picture_file_t {
 на C при сборке программы — это делает `dgx_ui_c`, инструмент компонента, который работает на компьютере. Рецепт:
 [Описание, переведённое на C при сборке](cookbook.md#описание-переведённое-на-c-при-сборке);
 страница самого инструмента:
-[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/tools/README.md).
+[tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/tools/README.md).
 
 ```cmake
 dgx_ui_tree(<description> [PREFIX <prefix>] [NAMES <names file>] [APPEARANCE <appearance>] [HEADERS <header>...])
@@ -2177,3 +2177,42 @@ typedef struct dgx_ui_di_gestures_t {
 
 Пока палец держит виджет, `swipe` и `long_press` не сообщаются. `edge` сообщается, если только виджет, который держит
 палец, не тащат.
+
+Клавиатура DGX-DI на дисплее для полей деревьев: структура программы, одна на все её поля. Она открывает клавиатуру
+для поля, которое редактируют, в стороне от него, набирает в поле то, что набрали её клавиши, и закрывается по
+«готово», по «отмене» и когда поле больше не редактируют. Целиком она показана в рецепте
+[Поле ввода и клавиатура](cookbook.md#поле-ввода-и-клавиатура).
+
+```c
+typedef struct dgx_ui_di_keyboard_t {
+    /* the program's: set by dgx_ui_di_keyboard_init(); font may be set after it */
+    dgx_ui_paint_t   *paint;               /* its scr the display the keys are drawn on; its cover set and cleared */
+    int               width_mm, height_mm; /* the glass, as DGX-DI sizes the keys */
+    const uint8_t    *layout;              /* a layout of DGX-DI, a blob, and its size */
+    size_t            layout_size;
+    const dgx_font_t *font;                /* the labels' font; NULL: the field's */
+    /* the program's to read */
+    bool              open;                /* the keys are on the display */
+    dgx_ui_t         *ui;                  /* the tree of the field edited, NULL none */
+    int               field;               /* the field edited, -1 none */
+    dgx_di_keyboard_t kb;                  /* DGX-DI's keyboard: its band kb.x, y, w, h while open */
+    /* the rest is the helper's */
+} dgx_ui_di_keyboard_t;
+```
+
+| Вызов | Что делает |
+| ----- | ---------- |
+| `void dgx_ui_di_keyboard_init(dgx_ui_di_keyboard_t *k, dgx_ui_paint_t *paint, int width_mm, int height_mm, const uint8_t *layout, size_t size)` | Настраивает помощника: отрисовка дисплея, стекло в миллиметрах, раскладка DGX-DI; ничего не открыто. |
+| `void dgx_ui_di_keyboard_edit(dgx_ui_di_keyboard_t *k, dgx_ui_t *ui, int i)` | Поле `i` дерева `ui` редактируют: вызывается из его `on_event()` на `DGX_UI_EVENT_EDIT`; следующий проход открывает клавиатуру для него или переводит её к нему. |
+| `void dgx_ui_di_keyboard_on_event(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)` | `on_event()` поля, которому больше нечего делать, с `ctx` — этой структурой: на `DGX_UI_EVENT_EDIT` вызывает `dgx_ui_di_keyboard_edit()`. |
+| `bool dgx_ui_di_keyboard_pass(dgx_ui_di_keyboard_t *k, dgx_di_pointer_t *pointer, uint32_t now_ms)` | Раз за проход, после чтения указателя и до `dgx_ui_di_pointer()`: закрывает клавиатуру, если поле больше не редактируют, открывает для поля, которое редактируют, забирает её пальцы и набирает в поле то, что она набрала, закрывает по «готово» и «отмене»; пока она открыта, `cover` отрисовки — её полоса. Возвращает true, пока она открыта. |
+| `void dgx_ui_di_keyboard_close(dgx_ui_di_keyboard_t *k)` | Программа закрывает клавиатуру, её полоса снимается с отрисовки, запрошенное поле забывается: так делают перед тем, как освободить дерево поля вызовом `dgx_ui_free()`. |
+
+«Готово» сообщает полю `DGX_UI_EVENT_ACTIVATED`, «отмена» — `DGX_UI_EVENT_BACK`. Если клавиатура закрылась потому,
+что поле больше не редактируют (фокус дерева ушёл с него, поверх дерева открылось всплывающее окно или страница,
+закрылось его собственное окно или страница), полю ничего не сообщается и набранное остаётся. Клавиатура, которая не
+может открыться (раскладка неизвестна или выходит за пределы, не помещается на дисплей, дисплей не 16-битный),
+отменяет редактирование: набирается U+001B, полю сообщается `DGX_UI_EVENT_BACK`. Открывается и закрывается она
+только в своих вызовах, поэтому полоса, которую они ставят, — та, что увидит следующий `dgx_ui_paint()`. Вместе с
+падом DGX-DI её не показывают: `open` говорит, когда программе спрятать пад. Память: клавиатура DGX-DI и ещё 56 байт,
+820 байт на 32-битном чипе.

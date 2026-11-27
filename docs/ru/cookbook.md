@@ -1038,11 +1038,11 @@ static int weather_show(dgx_ui_t *ui, int parent)
   файла, ничего из этого не попадает.
 - **При сборке программы отвергается**, словами и со строкой файла имён: ассет, которого DGX не сделал, палитра с
   непрозрачностью из PNG, картинка, которую облик виджета не рисует. Список — на странице инструмента,
-  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/tools/README.md#a-picture-of-a-file)
+  [A picture of a file](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/tools/README.md#a-picture-of-a-file)
   (на английском).
 - **Построитель страниц** сам берёт PNG: считает его цвета, предлагает глубину и записывает PNG рядом с `images.txt`,
   потребность и строку файла имён
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/editor/README.md#a-picture-from-a-png-file),
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/editor/README.md#a-picture-from-a-png-file),
   на английском).
 
 ## Значок с мягкими краями
@@ -1111,7 +1111,7 @@ static void icons_show(dgx_ui_t *ui, int parent)
   на 64 рисуется за 9,4 мс маской и за 9,1 мс картинкой в 16 бит; на 10-дюймовой P4 — за 2,1 и 1,8 мс.
 - **Построитель страниц** видит мягкие края PNG и предлагает маску в 4 бита для одного цвета и картинку в 16 бит для
   нескольких, а виджетам, которые её показывают, ставит этот облик
-  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/editor/README.md#a-picture-from-a-png-file),
+  ([editor/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/editor/README.md#a-picture-from-a-png-file),
   на английском).
 
 ## Рамка из девяти картинок
@@ -2445,19 +2445,30 @@ static void touch_sleep_when_up(dgx_ui_t *ui, const dgx_di_pointer_t *pointer, c
 ![Поле с набранным паролем и курсором](../images/field.png)
 
 Поле ввода — это `DGX_UI_INPUT` с обликом `dgx_ui_look_input`. Набранное идёт в поле, на котором фокус.
+Клавиатура DGX-DI на дисплее набирает в него через `dgx_ui_di_keyboard_t` из `dgx_ui_di.h`, одну на все поля
+программы: она открывает клавиатуру, когда на поле нажали, и закрывает, когда с полем закончили.
 
 ```c
-#include "dgx_di_keyboard.h"
+#include "dgx_ui_di.h"
 
 void wifi_connect(const char *password);
+
+static dgx_ui_di_keyboard_t keys; /* the keyboard of all the fields */
+
+/* at the start: the paint of the display, its glass in millimetres, a layout of DGX-DI */
+static void keys_start(dgx_ui_paint_t *paint, int mm_w, int mm_h)
+{
+    dgx_ui_di_keyboard_init(&keys, paint, mm_w, mm_h, dgx_di_keyboard_latin, dgx_di_keyboard_latin_size);
+}
 
 static char             pass_buf[33];
 static dgx_ui_textbox_t pass_box;
 
 static void pass_on(dgx_ui_t *ui, int i, const dgx_ui_node_t *node, int what, void *ctx)
 {
-    if (what == DGX_UI_EVENT_ACTIVATED) wifi_connect(pass_buf); /* "done" was typed */
-    if (what == DGX_UI_EVENT_BACK) dgx_ui_text_set(ui, i, "");  /* "cancel" was typed */
+    if (what == DGX_UI_EVENT_EDIT) dgx_ui_di_keyboard_edit(&keys, ui, i); /* clicked: the keyboard opens */
+    if (what == DGX_UI_EVENT_ACTIVATED) wifi_connect(pass_buf);          /* "done" was typed */
+    if (what == DGX_UI_EVENT_BACK) dgx_ui_text_set(ui, i, "");           /* "cancel" was typed */
 }
 
 static const dgx_ui_widget_t pass_w = {.kind = DGX_UI_INPUT, .text = &pass_box, .want_h = 14, .look = &dgx_ui_look_input, .on_event = pass_on};
@@ -2467,30 +2478,32 @@ static int pass_add(dgx_ui_t *ui, int parent)
     dgx_ui_textbox_init(&pass_box, pass_buf, sizeof pass_buf, 1, &st_left); /* the field edits this buffer */
     return dgx_ui_add(ui, parent, &pass_w);
 }
-
-/* in the loop, after the pointer was read and before the tree gets the finger: the keyboard of DGX-DI takes its
-   fingers first and types into the focused field */
-static void keyboard_pass(dgx_ui_t *ui, dgx_di_keyboard_t *kb, dgx_di_pointer_t *pointer, uint32_t now_ms)
-{
-    uint32_t  typed[8];
-    const int n = dgx_di_keyboard_take(kb, pointer, now_ms, typed, 8);
-    if (n > 0) dgx_ui_typed(ui, typed, n);
-}
-
-/* in the loop, right before dgx_ui_paint(): the painter leaves the keyboard's band alone while it is open */
-static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
-{
-    paint->cover = kb->open ? dgx_ui_rect(kb->x, kb->y, kb->w, kb->h) : dgx_ui_rect(0, 0, 0, 0);
-}
 ```
 
+- **В цикле** это один вызов, в `touch_message()` из [Касание с DGX-DI](#касание-с-dgx-di), там, где клавиатура
+  забирает свои пальцы: `dgx_ui_di_keyboard_pass(&keys, pointer, now_ms);`. Он открывает клавиатуру для поля, на
+  которое нажали, набирает то, что набрали её клавиши, и сообщает её полосу отрисовке. Отрисовка не трогает полосу,
+  пока клавиатура открыта, и снова рисует там дерево, когда она закрывается.
+- **Клавиатура открывается** на следующем проходе после нажатия, в стороне от поля: внизу дисплея, а если там она
+  закрыла бы поле, — вверху. Подписи клавиш — шрифтом поля; другой шрифт указывают в `keys.font`.
+- **«Готово»** сообщает полю `DGX_UI_EVENT_ACTIVATED`, **«отмена»** — `DGX_UI_EVENT_BACK`; то и другое закрывает
+  клавиатуру.
+- **Сама она закрывается**, когда поле больше не редактируют, и ничего не сообщает полю, а набранное остаётся: фокус
+  ушёл; поле скрыто, выключено или удалено; поверх него открылось всплывающее окно или страница; закрылась его
+  собственная страница. Если, пока она открыта, нажали на другое поле, она переходит к нему.
+- **Клавиатура, которая не может открыться** (раскладка неизвестна, дисплей мал или не 16-битный), отменяет
+  редактирование: полю сообщается `DGX_UI_EVENT_BACK`.
+- **Полю, которому при редактировании больше нечего делать**, подходит готовый `on_event()` помощника:
+  `.on_event = dgx_ui_di_keyboard_on_event, .ctx = &keys`.
+- **Перед тем как освободить дерево** вызовом `dgx_ui_free()`, пока клавиатура открыта для его поля, вызывают
+  `dgx_ui_di_keyboard_close(&keys)`. Пад DGX-DI вместе с клавиатурой не показывают: `keys.open` говорит, когда его
+  спрятать.
+- **Цена:** структура — это клавиатура DGX-DI и ещё 56 байт, 820 байт на 32-битном чипе; кода около 0,7 КБ, и он
+  есть только в программе, которая его вызывает.
 - Размер буфера — это сколько поле вмещает; буква, которой нет места, не набирается.
 - «Стереть» убирает последнюю букву целиком, в UTF-8.
 - Функции `on_event()` сообщается `DGX_UI_EVENT_CHANGED` на каждую букву, `DGX_UI_EVENT_FOCUS`, когда поле получает фокус, и
-  `DGX_UI_EVENT_EDIT`, когда на поле нажали пальцем или клавишей, пока оно в фокусе: здесь и открывать клавиатуру.
-- Полосу клавиатуры сообщают отрисовке прямо перед рисованием, а не там, где берут буквы: между ними `on_event()` мог
-  открыть или закрыть клавиатуру, и виджет, нарисованный в этот проход, лёг бы поверх её клавиш.
-- Когда клавиатура закрывается и полоса снова свободна, отрисовка сама рисует там дерево.
+  `DGX_UI_EVENT_EDIT`, когда на поле нажали пальцем или клавишей, пока оно в фокусе.
 - Символы из любого другого источника идут тем же путём: `dgx_ui_typed(ui, code_points, count)`.
 - Текст стоит у верхнего края поля; с флагом `DGX_UI_STYLE_MIDDLE` в стиле — посередине его высоты.
 - Курсор мигает, пока поле в фокусе, раз в 500 мс; набранная буква показывает его сразу. Цикл просыпается ради него
@@ -2593,11 +2606,28 @@ static char             code_buf[9], pin_buf[9];
 static dgx_ui_textbox_t code_box, pin_box;
 static const dgx_ui_widget_t code_w = {.kind = DGX_UI_INPUT, .text = &code_box, .want_h = 14, .look = &dgx_ui_look_input, .on_event = field_on};
 static const dgx_ui_widget_t pin_w  = {.kind = DGX_UI_INPUT, .text = &pin_box, .want_h = 14, .look = &look_pin, .on_event = field_on};
+
+/* in the loop, after the pointer was read and before the tree gets the finger: the keypad takes its fingers first */
+static void keyboard_pass(dgx_ui_t *ui, dgx_di_keyboard_t *kb, dgx_di_pointer_t *pointer, uint32_t now_ms)
+{
+    uint32_t  typed[8];
+    const int n = dgx_di_keyboard_take(kb, pointer, now_ms, typed, 8);
+    if (n > 0) dgx_ui_typed(ui, typed, n);
+}
+
+/* in the loop, right before dgx_ui_paint(): the painter leaves the keypad's band alone while it is open */
+static void keyboard_cover(dgx_ui_paint_t *paint, const dgx_di_keyboard_t *kb)
+{
+    paint->cover = kb->open ? dgx_ui_rect(kb->x, kb->y, kb->w, kb->h) : dgx_ui_rect(0, 0, 0, 0);
+}
 ```
 
-- **Цикл** тот же, что в рецепте выше: `keyboard_pass(ui, &keypad_kb, pointer, now_ms)` до того, как палец отдан
-  дереву, и `keyboard_cover(paint, &keypad_kb)` перед `dgx_ui_paint()`. Программа вызывает их с деревом полей;
-  набранное само находит полосу.
+- **Цикл** вызывает `keyboard_pass(ui, &keypad_kb, pointer, now_ms)` до того, как палец отдан дереву, и
+  `keyboard_cover(paint, &keypad_kb)` перед `dgx_ui_paint()`, с деревом полей; набранное само находит полосу.
+  Полосу клавиатуры сообщают отрисовке прямо перед рисованием, а не там, где берут буквы: между ними `on_event()`
+  мог открыть или закрыть клавиатуру, и виджет, нарисованный в этот проход, лёг бы поверх её клавиш.
+- **Помощник из рецепта выше здесь не подходит:** высота полосы — это место над клавиатурой, поэтому клавиатура
+  открывается первой, в `edit_open()`, а полоса за ней, в том же вызове.
 - **Клавиатура** — своя раскладка программы: готовая цифровая клавиатура DGX-DI на CYD не оставляет места для
   полосы. В `examples/controls` это `main/keypad.json`: ряды высотой 7,5 мм, над которыми на CYD остаётся полоса в
   36 пикселей, и нижний ряд из «отмены», нуля, «стереть» и «готово».
@@ -2870,7 +2900,7 @@ static int made_page_load(const char *json, size_t len, void *memory, size_t siz
   и `page` пишутся в файле без выражения. Выражение — это C без пробелов.
 - **Без `NAMES`** имена превращаются в C по правилу, `"settings.volume"` становится `&settings.volume`, а то,
   чего у программы нет, находит компилятор. Правило и страница самого инструмента:
-  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.8/tools/README.md).
+  [tools/README.md](https://github.com/jef-sure/esp32-component-dgx-ui/blob/0.1.9/tools/README.md).
 - **`HEADERS`** — заголовки программы, которые включает сделанный файл: те, что объявляют упомянутое в выражениях.
 - **Сколько это стоит**: только само дерево. На ESP32 программа с этой страницей, переведённой на C, на 7,5 КБ
   меньше той, что её загружает. Виджеты — константы во флеше, по 60 байт<!-- sizeof dgx_ui_widget_t -->; в ОЗУ лежат узлы, как у любого
